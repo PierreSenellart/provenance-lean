@@ -8,6 +8,8 @@ public import Provenance.AggQueryStrip
 public import Provenance.QueryRewriting
 import Mathlib.Tactic.NormNum.Inv
 import Mathlib.Tactic.NormNum.Pow
+import all Provenance.AggQuery
+import all Provenance.QueryRewriting
 
 /-!
 # Correctness of the native rewriting
@@ -33,7 +35,7 @@ section PlainAgreement
 omit [DecidableEq K] in
 /-- The composite cast of a term agrees with the classical cast of its
 strip. -/
-theorem TermGIn.castComposite_evalPlain {c n : ℕ} {κ : Fin n → ColKind}
+private theorem TermGIn.castComposite_evalPlain {c n : ℕ} {κ : Fin n → ColKind}
     (hκ : ∀ k, κ k = ColKind.reg) (t : TermGIn T c κ)
     (u : Tuple (T ⊕ K) (n + 1)) :
     (t.castComposite hκ (K := K)).evalPlain u
@@ -80,7 +82,7 @@ theorem TermGIn.castComposite_evalPlain {c n : ℕ} {κ : Fin n → ColKind}
 omit [DecidableEq K] in
 /-- The composite cast of a predicate agrees with the classical cast of its
 strip – three-valuedly, both readings being Kleene's. -/
-theorem GenPredIn.castComposite_evalPlain3 {c n : ℕ}
+private theorem GenPredIn.castComposite_evalPlain3 {c n : ℕ}
     {κ : Fin n → ColKind} (hκ : ∀ k, κ k = ColKind.reg) :
     ∀ (φ : GenPredIn T c κ) (hφ : φ.hasAggAtom = false)
       (u : Tuple (T ⊕ K) (n + 1)),
@@ -111,7 +113,7 @@ theorem GenPredIn.castComposite_evalPlain3 {c n : ℕ}
 omit [DecidableEq K] in
 /-- The composite cast of a predicate agrees with the classical cast of
 its strip. -/
-theorem GenPredIn.castComposite_holdsPlain {c n : ℕ}
+private theorem GenPredIn.castComposite_holdsPlain {c n : ℕ}
     {κ : Fin n → ColKind} (hκ : ∀ k, κ k = ColKind.reg)
     (φ : GenPredIn T c κ) (hφ : φ.hasAggAtom = false)
     (u : Tuple (T ⊕ K) (n + 1)) :
@@ -123,7 +125,7 @@ theorem GenPredIn.castComposite_holdsPlain {c n : ℕ}
 omit [DecidableEq K] in
 /-- The composite cast of a projection column agrees with the classical
 cast of its strip. -/
-theorem ProjColIn.castComposite_evalPlain {c n : ℕ} {κ : Fin n → ColKind}
+private theorem ProjColIn.castComposite_evalPlain {c n : ℕ} {κ : Fin n → ColKind}
     (hκ : ∀ k, κ k = ColKind.reg) :
     ∀ (p : ProjColIn T c κ) (hp : p.kind = ColKind.reg)
       (u : Tuple (T ⊕ K) (n + 1)),
@@ -133,14 +135,14 @@ theorem ProjColIn.castComposite_evalPlain {c n : ℕ} {κ : Fin n → ColKind}
   | .token _ _, hp, _ => ColKind.noConfusion hp
   | .provTerm _, hp, _ => ColKind.noConfusion hp
 
-theorem Relation.cast_filter {T' : Type} {n m : ℕ} (hn : n = m)
+private theorem Relation.cast_filter {T' : Type} {n m : ℕ} (hn : n = m)
     (p : Tuple T' m → Prop) [DecidablePred p] (r : Relation T' n) :
     (r.cast hn).filter p
       = Relation.cast hn (r.filter (fun t => p (Tuple.cast hn t))) := by
   subst hn
   rfl
 
-theorem Tuple.cast_coord {T' : Type} {n m : ℕ} (heq : n = m)
+private theorem Tuple.cast_coord {T' : Type} {n m : ℕ} (heq : n = m)
     (t : Tuple T' n) (k : Fin m) :
     Tuple.cast heq t k = t ⟨(k : ℕ), by omega⟩ := by
   subst heq

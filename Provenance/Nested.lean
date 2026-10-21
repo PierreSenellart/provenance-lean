@@ -7,6 +7,8 @@ module
 public import Provenance.AggExpr
 import Mathlib.Algebra.BigOperators.Fin
 import Mathlib.Tactic.Bound.Init
+import all Provenance.AggExpr
+import all Provenance.AggValue
 
 /-!
 # Nested aggregate values
@@ -91,7 +93,7 @@ def trW {a b : ℕ} (W : Finset (Fin a)) : Finset (Fin b) :=
   Finset.univ.filter (fun i => ∃ j ∈ W, (j : ℕ) = i)
 
 /-- Reading a subfamily in a listing of the same length is reindexing it. -/
-theorem trW_eq_map {a b : ℕ} (h : a = b) (W : Finset (Fin a)) :
+private theorem trW_eq_map {a b : ℕ} (h : a = b) (W : Finset (Fin a)) :
     trW (b := b) W = W.map (finCongr h).toEmbedding := by
   ext i
   simp only [trW, Finset.mem_filter, Finset.mem_univ, true_and, Finset.mem_map_equiv]
@@ -103,12 +105,12 @@ theorem trW_eq_map {a b : ℕ} (h : a = b) (W : Finset (Fin a)) :
     exact ⟨(finCongr h).symm i, hi, by simp⟩
 
 /-- Nothing read in another listing is nothing. -/
-@[simp] theorem trW_empty {a b : ℕ} : trW (a := a) (b := b) ∅ = ∅ := by
+@[simp] private theorem trW_empty {a b : ℕ} : trW (a := a) (b := b) ∅ = ∅ := by
   ext i
   simp [trW]
 
 /-- Reading a reindexed subfamily is reading the subfamily. -/
-theorem trW_map_finCongr {a a' b : ℕ} (h : a = a') (W : Finset (Fin a)) :
+private theorem trW_map_finCongr {a a' b : ℕ} (h : a = a') (W : Finset (Fin a)) :
     trW (b := b) (W.map (finCongr h).toEmbedding) = trW W := by
   ext i
   simp only [trW, Finset.mem_filter, Finset.mem_univ, true_and, Finset.mem_map_equiv]
@@ -119,7 +121,7 @@ theorem trW_map_finCongr {a a' b : ℕ} (h : a = a') (W : Finset (Fin a)) :
     exact ⟨finCongr h j, by simpa using hj, by simpa using hji⟩
 
 /-- Reading a subfamily in a reindexed listing. -/
-theorem trW_trW_map {a b b' : ℕ} (h : b = b') (W : Finset (Fin a)) :
+private theorem trW_trW_map {a b b' : ℕ} (h : b = b') (W : Finset (Fin a)) :
     trW (b := b') W = (trW (b := b) W).map (finCongr h).toEmbedding := by
   ext i
   simp only [trW, Finset.mem_filter, Finset.mem_univ, true_and, Finset.mem_map_equiv]
@@ -258,20 +260,20 @@ def ofOccs (agg : Multiset T → T) {j : ℕ} (U : Multiset (NestInner T K j × 
     (scalar : Bool) (fam : FamId T) : NestedValue T K :=
   ⟨j, agg, U, scalar, fam⟩
 
-@[simp] theorem agg_ofOccs (agg : Multiset T → T) {j : ℕ} (U : Multiset (NestInner T K j × K))
+@[simp] private theorem agg_ofOccs (agg : Multiset T → T) {j : ℕ} (U : Multiset (NestInner T K j × K))
     (scalar : Bool) (fam : FamId T) : (ofOccs agg U scalar fam).agg = agg := rfl
 
-@[simp] theorem lev_ofOccs (agg : Multiset T → T) {j : ℕ} (U : Multiset (NestInner T K j × K))
+@[simp] private theorem lev_ofOccs (agg : Multiset T → T) {j : ℕ} (U : Multiset (NestInner T K j × K))
     (scalar : Bool) (fam : FamId T) : (ofOccs agg U scalar fam).lev = j := rfl
 
-@[simp] theorem occs_ofOccs (agg : Multiset T → T) {j : ℕ} (U : Multiset (NestInner T K j × K))
+@[simp] private theorem occs_ofOccs (agg : Multiset T → T) {j : ℕ} (U : Multiset (NestInner T K j × K))
     (scalar : Bool) (fam : FamId T) : (ofOccs agg U scalar fam).occs = U := rfl
 
-@[simp] theorem scalar_ofOccs (agg : Multiset T → T) {j : ℕ}
+@[simp] private theorem scalar_ofOccs (agg : Multiset T → T) {j : ℕ}
     (U : Multiset (NestInner T K j × K)) (scalar : Bool) (fam : FamId T) :
     (ofOccs agg U scalar fam).scalar = scalar := rfl
 
-@[simp] theorem fam_ofOccs (agg : Multiset T → T) {j : ℕ} (U : Multiset (NestInner T K j × K))
+@[simp] private theorem fam_ofOccs (agg : Multiset T → T) {j : ℕ} (U : Multiset (NestInner T K j × K))
     (scalar : Bool) (fam : FamId T) : (ofOccs agg U scalar fam).fam = fam := rfl
 
 variable [DecidableEq T] [DecidableEq K]
@@ -288,10 +290,10 @@ compared there. -/
 noncomputable def nodes (a : NestedValue T K) : Multiset (Σ i, NodeKey T K i) :=
   (a.occs.bind (fun o => NestInner.nodes a.lev o.1)).dedup
 
-theorem nodup_leaves (a : NestedValue T K) : a.leaves.Nodup := Multiset.nodup_dedup _
+private theorem nodup_leaves (a : NestedValue T K) : a.leaves.Nodup := Multiset.nodup_dedup _
 
 open Classical in
-theorem nodup_nodes (a : NestedValue T K) : a.nodes.Nodup := by
+private theorem nodup_nodes (a : NestedValue T K) : a.nodes.Nodup := by
   unfold nodes; exact Multiset.nodup_dedup _
 
 /-- The deterministic reading: the outer aggregate of the inner
@@ -322,7 +324,7 @@ structure NestDec (T K : Type) where
 def trS {n : ℕ} (S : Finset ℕ) : Finset (Fin n) :=
   Finset.univ.filter (fun i => (i : ℕ) ∈ S)
 
-@[simp] theorem mem_trS {n : ℕ} (S : Finset ℕ) (i : Fin n) : i ∈ (trS S : Finset (Fin n)) ↔ (i : ℕ) ∈ S := by
+@[simp] private theorem mem_trS {n : ℕ} (S : Finset ℕ) (i : Fin n) : i ∈ (trS S : Finset (Fin n)) ↔ (i : ℕ) ∈ S := by
   simp [trS]
 
 namespace NestInner
@@ -472,7 +474,7 @@ end NestedValue
 
 namespace NestedValue
 
-theorem filter_fst_eq_singleton {α β : Type} [DecidableEq α] {L : Multiset (α × β)}
+private theorem filter_fst_eq_singleton {α β : Type} [DecidableEq α] {L : Multiset (α × β)}
     (hnd : (L.map Prod.fst).Nodup) {a : α} {b : β} (h : (a, b) ∈ L) :
     L.filter (fun e => e.1 = a) = {(a, b)} := by
   obtain ⟨L', rfl⟩ := Multiset.exists_cons_of_mem h
@@ -483,7 +485,7 @@ theorem filter_fst_eq_singleton {α β : Type} [DecidableEq α] {L : Multiset (�
   rw [Multiset.filter_cons, h0]
   simp
 
-theorem leafSub_of_mem [DecidableEq T] [DecidableEq K] {L : Multiset (LeafKey T K × Finset ℕ)}
+private theorem leafSub_of_mem [DecidableEq T] [DecidableEq K] {L : Multiset (LeafKey T K × Finset ℕ)}
     (hnd : (L.map Prod.fst).Nodup) {κ : LeafKey T K} {S : Finset ℕ} (h : (κ, S) ∈ L) :
     leafSub L κ = S := by
   unfold leafSub
@@ -491,7 +493,7 @@ theorem leafSub_of_mem [DecidableEq T] [DecidableEq K] {L : Multiset (LeafKey T 
   simp
 
 open Classical in
-theorem nodeDec_cons_self (N : Multiset (Σ j, NodeKey T K j × Multiset (NestInner T K j × K × Bool)))
+private theorem nodeDec_cons_self (N : Multiset (Σ j, NodeKey T K j × Multiset (NestInner T K j × K × Bool)))
     {j : ℕ} (κ κ' : NodeKey T K j) (D : Multiset (NestInner T K j × K × Bool)) :
     nodeDec (⟨j, κ', D⟩ ::ₘ N) j κ = (if κ' = κ then D else 0) + nodeDec N j κ := by
   unfold nodeDec
@@ -499,7 +501,7 @@ theorem nodeDec_cons_self (N : Multiset (Σ j, NodeKey T K j × Multiset (NestIn
   simp
 
 open Classical in
-theorem nodeDec_eq_zero {N : Multiset (Σ j, NodeKey T K j × Multiset (NestInner T K j × K × Bool))}
+private theorem nodeDec_eq_zero {N : Multiset (Σ j, NodeKey T K j × Multiset (NestInner T K j × K × Bool))}
     {j : ℕ} {κ : NodeKey T K j}
     (h : ∀ e ∈ N, (⟨e.1, e.2.1⟩ : Σ i, NodeKey T K i) ≠ ⟨j, κ⟩) : nodeDec N j κ = 0 := by
   unfold nodeDec
@@ -514,7 +516,7 @@ theorem nodeDec_eq_zero {N : Multiset (Σ j, NodeKey T K j × Multiset (NestInne
     simp [hne]
   · simp [hij]
 
-theorem nodeDec_of_mem {N : Multiset (Σ j, NodeKey T K j × Multiset (NestInner T K j × K × Bool))}
+private theorem nodeDec_of_mem {N : Multiset (Σ j, NodeKey T K j × Multiset (NestInner T K j × K × Bool))}
     (hnd : (N.map (fun e => (⟨e.1, e.2.1⟩ : Σ i, NodeKey T K i))).Nodup) {j : ℕ}
     {κ : NodeKey T K j} {D : Multiset (NestInner T K j × K × Bool)} (h : ⟨j, κ, D⟩ ∈ N) :
     nodeDec N j κ = D := by
@@ -538,7 +540,7 @@ namespace NestInner
 /-- **Two decisions that agree on what an inner value reads read it
 alike**, the second deciding each node it reads on that node's own
 occurrences. -/
-theorem val_congr (D D' : NestDec T K) : ∀ (j : ℕ) (x : NestInner T K j),
+private theorem val_congr (D D' : NestDec T K) : ∀ (j : ℕ) (x : NestInner T K j),
     (∀ κ ∈ leaves j x, D.leaf κ = D'.leaf κ) →
     (∀ e ∈ nodes j x, D.node e.1 e.2 = D'.node e.1 e.2
       ∧ (D'.node e.1 e.2).map (fun m => (m.1, m.2.1)) = e.2.2) →
@@ -560,7 +562,7 @@ theorem val_congr (D D' : NestDec T K) : ∀ (j : ℕ) (x : NestInner T K j),
     · exact Multiset.mem_cons_of_mem (Multiset.mem_bind.mpr ⟨_, hm', he⟩)
 
 /-- **And agree on whether it is a world.** -/
-theorem ok_congr (D D' : NestDec T K) : ∀ (j : ℕ) (x : NestInner T K j),
+private theorem ok_congr (D D' : NestDec T K) : ∀ (j : ℕ) (x : NestInner T K j),
     (∀ κ ∈ leaves j x, D.leaf κ = D'.leaf κ) →
     (∀ e ∈ nodes j x, D.node e.1 e.2 = D'.node e.1 e.2
       ∧ (D'.node e.1 e.2).map (fun m => (m.1, m.2.1)) = e.2.2) →
@@ -585,13 +587,13 @@ theorem ok_congr (D D' : NestDec T K) : ∀ (j : ℕ) (x : NestInner T K j),
 def fullDec : NestDec T K :=
   ⟨fun κ => Finset.range κ.2.length, fun _ κ => κ.2.map (fun o => (o.1, o.2, true))⟩
 
-theorem trS_range (e : AggExpr T K) :
+private theorem trS_range (e : AggExpr T K) :
     (trS (Finset.range (leafKey e).2.length) : Finset (Fin e.occs.length)) = Finset.univ := by
   ext i
   simp [leafKey, AggExpr.annList, i.isLt]
 
 /-- **Everything kept reads as the collapse.** -/
-theorem val_fullDec : ∀ (j : ℕ) (x : NestInner T K j), val fullDec j x = collapse j x
+private theorem val_fullDec : ∀ (j : ℕ) (x : NestInner T K j), val fullDec j x = collapse j x
   | 0, e => by
     show AggExpr.valOn e (trS (Finset.range (leafKey e).2.length)) = AggExpr.collapse e
     rw [trS_range]
@@ -615,22 +617,22 @@ def realDec (ν : K → Bool) : NestDec T K :=
 /-- **The world-faithful reading** of an inner value under a valuation. -/
 def specialize (ν : K → Bool) (j : ℕ) (x : NestInner T K j) : T := val (realDec ν) j x
 
-theorem trS_realDec (e : AggExpr T K) (ν : K → Bool) :
+private theorem trS_realDec (e : AggExpr T K) (ν : K → Bool) :
     (trS ((realDec (T := T) ν).leaf (leafKey e)) : Finset (Fin e.occs.length))
       = e.realizedWorld ν := by
   ext i
   simp [realDec, leafKey, AggExpr.realizedWorld, AggExpr.annList, AggExpr.anns, i.isLt]
 
-theorem specialize_zero (ν : K → Bool) (e : AggExpr T K) :
+private theorem specialize_zero (ν : K → Bool) (e : AggExpr T K) :
     specialize ν 0 e = AggExpr.specialize e ν := by
   show AggExpr.valOn e _ = _
   rw [trS_realDec]
   rfl
 
-theorem specialize_inl (ν : K → Bool) {j : ℕ} (x : NestInner T K j) :
+private theorem specialize_inl (ν : K → Bool) {j : ℕ} (x : NestInner T K j) :
     specialize ν (j + 1) (Sum.inl x) = specialize ν j x := rfl
 
-theorem specialize_inr (ν : K → Bool) {j : ℕ} (N : NestNode T K (NestInner T K j)) :
+private theorem specialize_inr (ν : K → Bool) {j : ℕ} (N : NestNode T K (NestInner T K j)) :
     specialize ν (j + 1) (Sum.inr N)
       = N.agg ((N.occs.filter (fun o => ν o.2 = true)).map (fun o => specialize ν j o.1)) := by
   show N.agg _ = N.agg _
@@ -677,7 +679,7 @@ instance : LeftCommutative (addMem (X := X) (K := K)) where
 def memChoices (M : Multiset (X × K)) : Multiset (Multiset (X × K × Bool)) :=
   M.foldr addMem {0}
 
-theorem map_of_mem_memChoices {M : Multiset (X × K)} {ms : Multiset (X × K × Bool)}
+private theorem map_of_mem_memChoices {M : Multiset (X × K)} {ms : Multiset (X × K × Bool)}
     (h : ms ∈ memChoices M) : ms.map (fun m => (m.1, m.2.1)) = M := by
   induction M using Multiset.induction_on generalizing ms with
   | empty =>
@@ -689,7 +691,7 @@ theorem map_of_mem_memChoices {M : Multiset (X × K)} {ms : Multiset (X × K × 
     obtain ⟨ms', hms', rfl⟩ := Multiset.mem_map.mp hb
     rw [Multiset.map_cons, ih hms']
 
-theorem mem_memChoices_of_map : ∀ {ms : Multiset (X × K × Bool)} {M : Multiset (X × K)},
+private theorem mem_memChoices_of_map : ∀ {ms : Multiset (X × K × Bool)} {M : Multiset (X × K)},
     ms.map (fun m => (m.1, m.2.1)) = M → ms ∈ memChoices M := by
   intro ms
   induction ms using Multiset.induction_on with
@@ -706,7 +708,7 @@ theorem mem_memChoices_of_map : ∀ {ms : Multiset (X × K × Bool)} {M : Multis
     refine Multiset.mem_bind.mpr ⟨m.2.2, by cases m.2.2 <;> simp, ?_⟩
     exact Multiset.mem_map.mpr ⟨ms, ih rfl, rfl⟩
 
-theorem mem_memChoices_iff {M : Multiset (X × K)} {ms : Multiset (X × K × Bool)} :
+private theorem mem_memChoices_iff {M : Multiset (X × K)} {ms : Multiset (X × K × Bool)} :
     ms ∈ memChoices M ↔ ms.map (fun m => (m.1, m.2.1)) = M :=
   ⟨map_of_mem_memChoices, mem_memChoices_of_map⟩
 
@@ -737,7 +739,7 @@ instance : LeftCommutative (addNode (T := T) (K := K)) where
     exact Multiset.bind_congr (fun S₂ _ => Multiset.bind_congr
       (fun S₁ _ => Multiset.map_congr rfl (fun ms _ => Multiset.cons_swap _ _ _)))
 
-theorem mem_foldr_addLeaf_iff : ∀ {s : Multiset (LeafKey T K)}
+private theorem mem_foldr_addLeaf_iff : ∀ {s : Multiset (LeafKey T K)}
     {L : Multiset (LeafKey T K × Finset ℕ)},
     L ∈ s.foldr addLeaf {0} ↔ L.map Prod.fst = s ∧ ∀ e ∈ L, e.2 ⊆ Finset.range e.1.2.length := by
   intro s
@@ -771,7 +773,7 @@ theorem mem_foldr_addLeaf_iff : ∀ {s : Multiset (LeafKey T K)}
         · rw [Multiset.map_cons, hek] at h1; exact Multiset.cons_inj_right _ |>.mp h1
         · rw [← hek]
     
-theorem mem_foldr_addNode_iff : ∀ {s : Multiset (Σ j, NodeKey T K j)}
+private theorem mem_foldr_addNode_iff : ∀ {s : Multiset (Σ j, NodeKey T K j)}
     {N : Multiset (Σ j, NodeKey T K j × Multiset (NestInner T K j × K × Bool))},
     N ∈ s.foldr addNode {0} ↔ N.map (fun e => (⟨e.1, e.2.1⟩ : Σ j, NodeKey T K j)) = s
       ∧ ∀ e ∈ N, e.2.2.map (fun m => (m.1, m.2.1)) = e.2.1.2 := by
@@ -814,7 +816,7 @@ noncomputable def worlds (a : NestedValue T K) : Multiset (World T K a.lev) :=
   (memChoices a.occs).bind (fun R => (a.leaves.foldr addLeaf {0}).bind
     (fun L => (a.nodes.foldr addNode {0}).map (fun N => ⟨R, L, N⟩)))
 
-theorem mem_worlds_iff {a : NestedValue T K} {W : World T K a.lev} :
+private theorem mem_worlds_iff {a : NestedValue T K} {W : World T K a.lev} :
     W ∈ a.worlds ↔ W.IsWorldOf a := by
   unfold worlds World.IsWorldOf
   constructor
@@ -830,7 +832,7 @@ theorem mem_worlds_iff {a : NestedValue T K} {W : World T K a.lev} :
       ⟨W.leaf, mem_foldr_addLeaf_iff.mpr ⟨h2, h3⟩, Multiset.mem_map.mpr
         ⟨W.node, mem_foldr_addNode_iff.mpr ⟨h4, h5⟩, rfl⟩⟩⟩
 
-theorem isWorldOf_of_mem_worlds {a : NestedValue T K} {W : World T K a.lev}
+private theorem isWorldOf_of_mem_worlds {a : NestedValue T K} {W : World T K a.lev}
     (h : W ∈ a.worlds) : W.IsWorldOf a :=
   mem_worlds_iff.mp h
 
@@ -882,7 +884,7 @@ def World.ann {d : ℕ} (W : World T K d) : K :=
 
 /-- **The annotation of an occurrence a world keeps is a factor of what
 it keeps.** -/
-theorem decProd_eq_mul {D : Multiset (X × K × Bool)} {m : X × K × Bool} (hm : m ∈ D)
+private theorem decProd_eq_mul {D : Multiset (X × K × Bool)} {m : X × K × Bool} (hm : m ∈ D)
     (hp : m.2.2 = true) : ∃ x : K, decProd D = m.2.1 * x := by
   obtain ⟨u, rfl⟩ := Multiset.exists_cons_of_mem hm
   refine ⟨decProd u, ?_⟩
@@ -892,7 +894,7 @@ theorem decProd_eq_mul {D : Multiset (X × K × Bool)} {m : X × K × Bool} (hm 
 /-- **The annotation of an occurrence a world keeps is a factor of the
 world's annotation.** This is what lets a world swallow the `δ`-guard of
 the family it reads. -/
-theorem World.exists_ann_eq_mul {d : ℕ} {W : World T K d} {m : NestInner T K d × K × Bool}
+private theorem World.exists_ann_eq_mul {d : ℕ} {W : World T K d} {m : NestInner T K d × K × Bool}
     (hm : m ∈ W.root) (hp : m.2.2 = true) : ∃ x : K, W.ann = m.2.1 * x := by
   obtain ⟨x, hx⟩ := decProd_eq_mul hm hp
   refine ⟨x * (W.leaf.map leafProd).prod * (W.node.map (fun e => decProd e.2.2)).prod
@@ -900,7 +902,7 @@ theorem World.exists_ann_eq_mul {d : ℕ} {W : World T K d} {m : NestInner T K d
   rw [World.ann, World.presentProd, hx]
   simp only [mul_assoc]
 
-theorem World.presentProd_eq_mul {d : ℕ} {W : World T K d} {m : NestInner T K d × K × Bool}
+private theorem World.presentProd_eq_mul {d : ℕ} {W : World T K d} {m : NestInner T K d × K × Bool}
     (hm : m ∈ W.root) (hp : m.2.2 = true) : ∃ x : K, W.presentProd = m.2.1 * x := by
   obtain ⟨x, hx⟩ := decProd_eq_mul hm hp
   refine ⟨x * (W.leaf.map leafProd).prod * (W.node.map (fun e => decProd e.2.2)).prod, ?_⟩
@@ -923,17 +925,17 @@ noncomputable def World.ofDec (a : NestedValue T K) (R : Multiset (NestInner T K
     (D : NestDec T K) : World T K a.lev :=
   ⟨R, a.leaves.map (fun κ => (κ, D.leaf κ)), a.nodes.map (fun e => ⟨e.1, e.2, D.node e.1 e.2⟩)⟩
 
-theorem mem_leaves {a : NestedValue T K} {o : NestInner T K a.lev × K} (ho : o ∈ a.occs)
+private theorem mem_leaves {a : NestedValue T K} {o : NestInner T K a.lev × K} (ho : o ∈ a.occs)
     {κ : LeafKey T K} (hκ : κ ∈ NestInner.leaves a.lev o.1) : κ ∈ a.leaves :=
   Multiset.mem_dedup.mpr (Multiset.mem_bind.mpr ⟨o, ho, hκ⟩)
 
-theorem mem_nodes {a : NestedValue T K} {o : NestInner T K a.lev × K} (ho : o ∈ a.occs)
+private theorem mem_nodes {a : NestedValue T K} {o : NestInner T K a.lev × K} (ho : o ∈ a.occs)
     {e : Σ i, NodeKey T K i} (he : e ∈ NestInner.nodes a.lev o.1) : e ∈ a.nodes := by
   classical
   rw [nodes, Multiset.mem_dedup]
   exact Multiset.mem_bind.mpr ⟨o, ho, he⟩
 
-theorem leafSub_ofDec {a : NestedValue T K} (R : Multiset (NestInner T K a.lev × K × Bool))
+private theorem leafSub_ofDec {a : NestedValue T K} (R : Multiset (NestInner T K a.lev × K × Bool))
     (D : NestDec T K) {κ : LeafKey T K} (hκ : κ ∈ a.leaves) :
     (World.ofDec a R D).dec.leaf κ = D.leaf κ := by
   refine leafSub_of_mem ?_ (Multiset.mem_map_of_mem _ hκ)
@@ -941,7 +943,7 @@ theorem leafSub_ofDec {a : NestedValue T K} (R : Multiset (NestInner T K a.lev �
   rw [Multiset.map_map]
   exact (Multiset.map_id' _).symm ▸ a.nodup_leaves
 
-theorem nodeDec_ofDec {a : NestedValue T K} (R : Multiset (NestInner T K a.lev × K × Bool))
+private theorem nodeDec_ofDec {a : NestedValue T K} (R : Multiset (NestInner T K a.lev × K × Bool))
     (D : NestDec T K) {e : Σ i, NodeKey T K i} (he : e ∈ a.nodes) :
     (World.ofDec a R D).dec.node e.1 e.2 = D.node e.1 e.2 := by
   refine nodeDec_of_mem ?_ (Multiset.mem_map_of_mem
@@ -954,7 +956,7 @@ theorem nodeDec_ofDec {a : NestedValue T K} (R : Multiset (NestInner T K a.lev �
 /-- **A world built from a decision reads every occurrence of the value as
 the decision does**, when the decision decides each node on that node's
 own occurrences. -/
-theorem val_ofDec {a : NestedValue T K} (R : Multiset (NestInner T K a.lev × K × Bool))
+private theorem val_ofDec {a : NestedValue T K} (R : Multiset (NestInner T K a.lev × K × Bool))
     (D : NestDec T K)
     (hD : ∀ (j : ℕ) (κ : NodeKey T K j), (D.node j κ).map (fun m => (m.1, m.2.1)) = κ.2)
     {o : NestInner T K a.lev × K} (ho : o ∈ a.occs) :
@@ -962,7 +964,7 @@ theorem val_ofDec {a : NestedValue T K} (R : Multiset (NestInner T K a.lev × K 
   NestInner.val_congr _ _ _ _ (fun _ hκ => leafSub_ofDec R D (mem_leaves ho hκ))
     (fun e he => ⟨nodeDec_ofDec R D (mem_nodes ho he), hD e.1 e.2⟩)
 
-theorem ok_ofDec {a : NestedValue T K} (R : Multiset (NestInner T K a.lev × K × Bool))
+private theorem ok_ofDec {a : NestedValue T K} (R : Multiset (NestInner T K a.lev × K × Bool))
     (D : NestDec T K)
     (hD : ∀ (j : ℕ) (κ : NodeKey T K j), (D.node j κ).map (fun m => (m.1, m.2.1)) = κ.2)
     {o : NestInner T K a.lev × K} (ho : o ∈ a.occs) :
@@ -970,7 +972,7 @@ theorem ok_ofDec {a : NestedValue T K} (R : Multiset (NestInner T K a.lev × K �
   NestInner.ok_congr _ _ _ _ (fun _ hκ => leafSub_ofDec R D (mem_leaves ho hκ))
     (fun e he => ⟨nodeDec_ofDec R D (mem_nodes ho he), hD e.1 e.2⟩)
 
-theorem isWorldOf_ofDec (a : NestedValue T K) (R : Multiset (NestInner T K a.lev × K × Bool))
+private theorem isWorldOf_ofDec (a : NestedValue T K) (R : Multiset (NestInner T K a.lev × K × Bool))
     (D : NestDec T K) (hR : R.map (fun m => (m.1, m.2.1)) = a.occs)
     (hL : ∀ κ, D.leaf κ ⊆ Finset.range κ.2.length)
     (hD : ∀ (j : ℕ) (κ : NodeKey T K j), (D.node j κ).map (fun m => (m.1, m.2.1)) = κ.2) :
@@ -988,13 +990,13 @@ theorem isWorldOf_ofDec (a : NestedValue T K) (R : Multiset (NestInner T K a.lev
     exact hD e'.1 e'.2
 
 omit [DecidableEq T] [DecidableEq K] in
-theorem fullDec_node (j : ℕ) (κ : NodeKey T K j) :
+private theorem fullDec_node (j : ℕ) (κ : NodeKey T K j) :
     ((NestInner.fullDec (T := T) (K := K)).node j κ).map (fun m => (m.1, m.2.1)) = κ.2 := by
   show (κ.2.map _).map _ = _
   rw [Multiset.map_map]; exact Multiset.map_id' _
 
 omit [DecidableEq T] [DecidableEq K] in
-theorem realDec_node (ν : K → Bool) (j : ℕ) (κ : NodeKey T K j) :
+private theorem realDec_node (ν : K → Bool) (j : ℕ) (κ : NodeKey T K j) :
     ((NestInner.realDec (T := T) ν).node j κ).map (fun m => (m.1, m.2.1)) = κ.2 := by
   show (κ.2.map _).map _ = _
   rw [Multiset.map_map]; exact Multiset.map_id' _
@@ -1003,12 +1005,12 @@ theorem realDec_node (ν : K → Bool) (j : ℕ) (κ : NodeKey T K j) :
 noncomputable def World.full (a : NestedValue T K) : World T K a.lev :=
   World.ofDec a (a.occs.map (fun o => (o.1, o.2, true))) NestInner.fullDec
 
-theorem World.isWorldOf_full (a : NestedValue T K) : (World.full a).IsWorldOf a :=
+private theorem World.isWorldOf_full (a : NestedValue T K) : (World.full a).IsWorldOf a :=
   isWorldOf_ofDec _ _ _ (by rw [Multiset.map_map]; exact Multiset.map_id' _)
     (fun _ => subset_refl _) fullDec_node
 
 /-- **Everything present reads as the collapse.** -/
-theorem valOn_full (a : NestedValue T K) : a.valOn (World.full a) = a.collapse := by
+private theorem valOn_full (a : NestedValue T K) : a.valOn (World.full a) = a.collapse := by
   unfold valOn collapse World.kept
   refine congrArg a.agg ?_
   show ((a.occs.map (fun o => (o.1, o.2, true))).filter _).map _ = _
@@ -1026,7 +1028,7 @@ inner ones independently. -/
 noncomputable def realizedWorld (a : NestedValue T K) (ν : K → Bool) : World T K a.lev :=
   World.ofDec a (a.occs.map (fun o => (o.1, o.2, ν o.2))) (NestInner.realDec ν)
 
-theorem isWorldOf_realizedWorld (a : NestedValue T K) (ν : K → Bool) :
+private theorem isWorldOf_realizedWorld (a : NestedValue T K) (ν : K → Bool) :
     (a.realizedWorld ν).IsWorldOf a :=
   isWorldOf_ofDec _ _ _ (by rw [Multiset.map_map]; exact Multiset.map_id' _)
     (fun _ => Finset.filter_subset _ _) (realDec_node ν)
@@ -1035,7 +1037,7 @@ theorem isWorldOf_realizedWorld (a : NestedValue T K) (ν : K → Bool) :
 valuation keeps the occurrences whose annotation it makes true, and reads
 each of them in the world it cuts out of everything that occurrence
 reads. -/
-theorem kept_realizedWorld (a : NestedValue T K) (ν : K → Bool) :
+private theorem kept_realizedWorld (a : NestedValue T K) (ν : K → Bool) :
     (a.realizedWorld ν).kept
       = (a.occs.filter (fun o => ν o.2 = true)).map
           (fun o => NestInner.specialize ν a.lev o.1) := by
@@ -1051,14 +1053,14 @@ noncomputable def specialize (a : NestedValue T K) (ν : K → Bool) : T :=
   a.valOn (a.realizedWorld ν)
 
 /-- **The world-faithful reading, occurrence by occurrence.** -/
-theorem specialize_eq (a : NestedValue T K) (ν : K → Bool) :
+private theorem specialize_eq (a : NestedValue T K) (ν : K → Bool) :
     a.specialize ν
       = a.agg ((a.occs.filter (fun o => ν o.2 = true)).map
           (fun o => NestInner.specialize ν a.lev o.1)) :=
   congrArg a.agg (kept_realizedWorld a ν)
 
 omit [DecidableEq T] [DecidableEq K] in
-theorem realDec_of_forall (ν : K → Bool) (h : ∀ x : K, ν x = true) :
+private theorem realDec_of_forall (ν : K → Bool) (h : ∀ x : K, ν x = true) :
     NestInner.realDec (T := T) ν = NestInner.fullDec := by
   unfold NestInner.realDec NestInner.fullDec
   congr 1
@@ -1068,7 +1070,7 @@ theorem realDec_of_forall (ν : K → Bool) (h : ∀ x : K, ν x = true) :
     simp [h]
 
 /-- A valuation that keeps every occurrence realizes the full world. -/
-theorem realizedWorld_of_forall (a : NestedValue T K) (ν : K → Bool)
+private theorem realizedWorld_of_forall (a : NestedValue T K) (ν : K → Bool)
     (h : ∀ x : K, ν x = true) : a.realizedWorld ν = World.full a := by
   unfold realizedWorld World.full
   rw [realDec_of_forall ν h]
@@ -1077,7 +1079,7 @@ theorem realizedWorld_of_forall (a : NestedValue T K) (ν : K → Bool)
 /-- **Where every occurrence is realized the reading is the
 collapse**, so the world-faithful reading and the deterministic one
 agree on the database as it is. -/
-theorem specialize_of_forall (a : NestedValue T K) (ν : K → Bool)
+private theorem specialize_of_forall (a : NestedValue T K) (ν : K → Bool)
     (h : ∀ x : K, ν x = true) : a.specialize ν = a.collapse := by
   rw [specialize, realizedWorld_of_forall a ν h, valOn_full]
 
@@ -1115,7 +1117,7 @@ noncomputable def vals (a : NestedValue T K) : Finset T :=
 
 omit [ValueType T] [CommSemiringWithMonus K] in
 /-- A kept occurrence is one of the value's. -/
-theorem mem_occs_of_root [DecidableEq T] {a : NestedValue T K} {W : World T K a.lev}
+private theorem mem_occs_of_root [DecidableEq T] {a : NestedValue T K} {W : World T K a.lev}
     (hW : W.IsWorldOf a) {m : NestInner T K a.lev × K × Bool} (hm : m ∈ W.root) :
     (m.1, m.2.1) ∈ a.occs := by
   rw [← hW.1]; exact Multiset.mem_map_of_mem _ hm
@@ -1124,7 +1126,7 @@ omit [ValueType T] in
 /-- **A world that reads something absorbs the `δ`-guard of the outer
 family**: one of the outer annotations it keeps swallows `δ` of the
 family's sum. -/
-theorem World.presentProd_delta_absorb [DecidableEq T] {a : NestedValue T K}
+private theorem World.presentProd_delta_absorb [DecidableEq T] {a : NestedValue T K}
     {W : World T K a.lev} (hW : W.IsWorldOf a) (hk : 0 < Multiset.card W.kept) :
     W.presentProd * SemiringWithMonus.delta (a.occs.map Prod.snd).sum = W.presentProd := by
   obtain ⟨v, hv⟩ := Multiset.card_pos_iff_exists_mem.mp hk
@@ -1183,25 +1185,25 @@ def postcomp (gf : T → T) (a : NestedValue T K) : NestedValue T K :=
   ⟨a.lev, fun s => gf (a.agg s), a.occs, a.scalar, a.fam⟩
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] in
-@[simp] theorem lev_postcomp (gf : T → T) (a : NestedValue T K) :
+@[simp] private theorem lev_postcomp (gf : T → T) (a : NestedValue T K) :
     (postcomp gf a).lev = a.lev := rfl
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] in
-@[simp] theorem occs_postcomp (gf : T → T) (a : NestedValue T K) :
+@[simp] private theorem occs_postcomp (gf : T → T) (a : NestedValue T K) :
     (postcomp gf a).occs = a.occs := rfl
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] in
-@[simp] theorem scalar_postcomp (gf : T → T) (a : NestedValue T K) :
+@[simp] private theorem scalar_postcomp (gf : T → T) (a : NestedValue T K) :
     (postcomp gf a).scalar = a.scalar := rfl
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] in
-@[simp] theorem collapse_postcomp (gf : T → T) (a : NestedValue T K) :
+@[simp] private theorem collapse_postcomp (gf : T → T) (a : NestedValue T K) :
     (postcomp gf a).collapse = gf a.collapse := rfl
 
 omit [CommSemiringWithMonus K] in
 /-- The values it takes are the values of the nested value, read through
 the function. -/
-theorem vals_postcomp (gf : T → T) (a : NestedValue T K) :
+private theorem vals_postcomp (gf : T → T) (a : NestedValue T K) :
     (postcomp gf a).vals = a.vals.image gf := by
   have h : (postcomp gf a).vals
       = ((a.worlds.filter (fun W => W.IsWorld a)).map
@@ -1216,12 +1218,12 @@ theorem vals_postcomp (gf : T → T) (a : NestedValue T K) :
     exact ⟨W, hW, rfl⟩
 
 /-- And a test of `gf(a)` is the composed test of `a`. -/
-theorem predProvWith_postcomp (gf : T → T) (a : NestedValue T K)
+private theorem predProvWith_postcomp (gf : T → T) (a : NestedValue T K)
     (P : T → Kleene) :
     (postcomp gf a).predProvWith P = a.predProvWith (fun v => P (gf v)) := rfl
 
 /-- **A test no value satisfies annotates `𝟘`.** -/
-theorem predProvWith_of_never (a : NestedValue T K) {P : T → Kleene}
+private theorem predProvWith_of_never (a : NestedValue T K) {P : T → Kleene}
     (h : ∀ v : T, P v ≠ Kleene.true) : a.predProvWith P = 0 := by
   refine Multiset.sum_eq_zero (fun x hx => ?_)
   rw [Multiset.mem_map] at hx
@@ -1232,7 +1234,7 @@ end Readings
 
 /-- A world of the nested reading is one of the coherent reading's as
 soon as it keeps no inner occurrence no present occurrence reads. -/
-theorem World.isWorld_of_isWorldCoherent [DecidableEq T] [DecidableEq K] {d : ℕ}
+private theorem World.isWorld_of_isWorldCoherent [DecidableEq T] [DecidableEq K] {d : ℕ}
     {a : NestedValue T K} {W : World T K d} (h : W.IsWorldCoherent a) : W.IsWorld a :=
   ⟨h.1, h.2.1, trivial⟩
 
@@ -1258,20 +1260,20 @@ outer annotations go through `h`. -/
 def mapAnn (h : K → K') (a : NestedValue T K) : NestedValue T K' :=
   ⟨a.lev, a.agg, a.occs.map (fun o => (NestInner.mapAnn h a.lev o.1, h o.2)), a.scalar, a.fam⟩
 
-@[simp] theorem lev_mapAnn (h : K → K') (a : NestedValue T K) : (a.mapAnn h).lev = a.lev := rfl
+@[simp] private theorem lev_mapAnn (h : K → K') (a : NestedValue T K) : (a.mapAnn h).lev = a.lev := rfl
 
-@[simp] theorem agg_mapAnn (h : K → K') (a : NestedValue T K) : (a.mapAnn h).agg = a.agg := rfl
+@[simp] private theorem agg_mapAnn (h : K → K') (a : NestedValue T K) : (a.mapAnn h).agg = a.agg := rfl
 
-@[simp] theorem scalar_mapAnn (h : K → K') (a : NestedValue T K) :
+@[simp] private theorem scalar_mapAnn (h : K → K') (a : NestedValue T K) :
     (a.mapAnn h).scalar = a.scalar := rfl
 
-@[simp] theorem fam_mapAnn (h : K → K') (a : NestedValue T K) :
+@[simp] private theorem fam_mapAnn (h : K → K') (a : NestedValue T K) :
     (a.mapAnn h).fam = a.fam := rfl
 
-@[simp] theorem occs_mapAnn (h : K → K') (a : NestedValue T K) :
+@[simp] private theorem occs_mapAnn (h : K → K') (a : NestedValue T K) :
     (a.mapAnn h).occs = a.occs.map (fun o => (NestInner.mapAnn h a.lev o.1, h o.2)) := rfl
 
-theorem _root_.NestInner.collapse_mapAnn (h : K → K') :
+private theorem _root_.NestInner.collapse_mapAnn (h : K → K') :
     ∀ (j : ℕ) (x : NestInner T K j),
       NestInner.collapse j (NestInner.mapAnn h j x) = NestInner.collapse j x
   | 0, e => AggExpr.collapse_mapAnn h e
@@ -1283,7 +1285,7 @@ theorem _root_.NestInner.collapse_mapAnn (h : K → K') :
       (fun o _ => NestInner.collapse_mapAnn h j o.1))
 
 /-- The deterministic reading survives the pushforward. -/
-@[simp] theorem collapse_mapAnn (h : K → K') (a : NestedValue T K) :
+@[simp] private theorem collapse_mapAnn (h : K → K') (a : NestedValue T K) :
     (a.mapAnn h).collapse = a.collapse := by
   show a.agg _ = a.agg _
   rw [occs_mapAnn, Multiset.map_map]
@@ -1307,7 +1309,7 @@ the empty one, and it contributes no occurrence. -/
 def constInner (v : T) : AggExpr T K :=
   AggExpr.ofValue ⟨fun _ => v, [], true, FamId.none, []⟩
 
-@[simp] theorem annList_constInner (v : T) : (constInner v : AggExpr T K).annList = [] := rfl
+@[simp] private theorem annList_constInner (v : T) : (constInner v : AggExpr T K).annList = [] := rfl
 
 /-- **The nested value of an ordinary token**: nothing is nested, each
 occurrence carrying a value rather than a family. The token's aggregate
@@ -1331,7 +1333,7 @@ def worldOf [DecidableEq T] [DecidableEq K] (a : AggValue T K)
     0⟩
 
 /-- It is a world of the nested form. -/
-theorem isWorldOf_worldOf [DecidableEq T] [DecidableEq K] (a : AggValue T K)
+private theorem isWorldOf_worldOf [DecidableEq T] [DecidableEq K] (a : AggValue T K)
     (hsym : a.agg.Symmetric) (W : Finset (Fin a.occs.length)) :
     (worldOf a W).IsWorldOf (ofAggValue a hsym) := by
   classical
@@ -1365,7 +1367,7 @@ variable [CommSemiringWithMonus K]
 
 /-- **A world of an unnested value is annotated as the token's own
 family annotates it.** -/
-theorem ann_worldOf [DecidableEq T] [DecidableEq K] (a : AggValue T K)
+private theorem ann_worldOf [DecidableEq T] [DecidableEq K] (a : AggValue T K)
     (W : Finset (Fin a.occs.length)) :
     (worldOf a W).ann = Having.worldAnn a.anns W := by
   have hpres : decProd (((List.finRange a.occs.length).map (fun i =>
@@ -1477,25 +1479,25 @@ def setFam (φ : FamId T) (ids : Option (List (OccId T)) := none) :
   | .nest a => .nest { a with fam := φ }
   | .expr a => .expr { a with fam := φ, oids := ids.getD a.oids }
 
-@[simp] theorem fam_setFam (φ : FamId T) {ids : Option (List (OccId T))} (a : AggTok T K) :
+@[simp] private theorem fam_setFam (φ : FamId T) {ids : Option (List (OccId T))} (a : AggTok T K) :
     (a.setFam φ ids).fam = φ := by
   cases a <;> rfl
 
-theorem setFam_tok (φ : FamId T) (a : AggValue T K) :
+private theorem setFam_tok (φ : FamId T) (a : AggValue T K) :
     (AggTok.tok a).setFam φ = .tok { a with fam := φ } := rfl
 
-theorem setFam_nest (φ : FamId T) {ids : Option (List (OccId T))} (a : NestedValue T K) :
+private theorem setFam_nest (φ : FamId T) {ids : Option (List (OccId T))} (a : NestedValue T K) :
     (AggTok.nest a).setFam φ ids = .nest { a with fam := φ } := rfl
 
-theorem setFam_expr (φ : FamId T) (a : AggExpr T K) :
+private theorem setFam_expr (φ : FamId T) (a : AggExpr T K) :
     (AggTok.expr a).setFam φ = .expr { a with fam := φ } := rfl
 
 /-- An expression stamped with the identities of its occurrences. -/
-theorem setFam_expr_some (φ : FamId T) (ids : List (OccId T)) (a : AggExpr T K) :
+private theorem setFam_expr_some (φ : FamId T) (ids : List (OccId T)) (a : AggExpr T K) :
     (AggTok.expr a).setFam φ (some ids) = .expr { a with fam := φ, oids := ids } := rfl
 
 /-- An ordinary token stamped with the identities of its occurrences. -/
-theorem setFam_tok_some (φ : FamId T) (ids : List (OccId T)) (a : AggValue T K) :
+private theorem setFam_tok_some (φ : FamId T) (ids : List (OccId T)) (a : AggValue T K) :
     (AggTok.tok a).setFam φ (some ids) = .tok { a with fam := φ, oids := ids } := rfl
 
 /-- The deterministic reading. -/
@@ -1544,54 +1546,54 @@ def isTok : AggTok T K → Bool
   | .nest _ => false
   | .expr _ => false
 
-@[simp] theorem collapse_tok (a : AggValue T K) :
+@[simp] private theorem collapse_tok (a : AggValue T K) :
     (AggTok.tok a).collapse = a.collapse := rfl
 
-@[simp] theorem scalar_tok (a : AggValue T K) :
+@[simp] private theorem scalar_tok (a : AggValue T K) :
     (AggTok.tok a).scalar = a.scalar := rfl
 
-@[simp] theorem annList_tok [AddCommMonoid K] (a : AggValue T K) :
+@[simp] private theorem annList_tok [AddCommMonoid K] (a : AggValue T K) :
     (AggTok.tok a).annList = a.occs.map Prod.snd := rfl
 
-@[simp] theorem isNested_tok (a : AggValue T K) :
+@[simp] private theorem isNested_tok (a : AggValue T K) :
     (AggTok.tok a).isNested = false := rfl
 
-@[simp] theorem isNested_nest (a : NestedValue T K) :
+@[simp] private theorem isNested_nest (a : NestedValue T K) :
     (AggTok.nest a).isNested = true := rfl
 
-@[simp] theorem collapse_nest (a : NestedValue T K) :
+@[simp] private theorem collapse_nest (a : NestedValue T K) :
     (AggTok.nest a).collapse = a.collapse := rfl
 
-@[simp] theorem scalar_nest (a : NestedValue T K) :
+@[simp] private theorem scalar_nest (a : NestedValue T K) :
     (AggTok.nest a).scalar = a.scalar := rfl
 
-@[simp] theorem collapse_expr (a : AggExpr T K) :
+@[simp] private theorem collapse_expr (a : AggExpr T K) :
     (AggTok.expr a).collapse = a.collapse := rfl
 
-@[simp] theorem scalar_expr (a : AggExpr T K) :
+@[simp] private theorem scalar_expr (a : AggExpr T K) :
     (AggTok.expr a).scalar = a.isScalar := rfl
 
-@[simp] theorem annList_expr [AddCommMonoid K] (a : AggExpr T K) :
+@[simp] private theorem annList_expr [AddCommMonoid K] (a : AggExpr T K) :
     (AggTok.expr a).annList = a.annList := rfl
 
-@[simp] theorem annList_nest [AddCommMonoid K] (a : NestedValue T K) :
+@[simp] private theorem annList_nest [AddCommMonoid K] (a : NestedValue T K) :
     (AggTok.nest a).annList = [(a.occs.map Prod.snd).sum] := rfl
 
-@[simp] theorem isNested_expr (a : AggExpr T K) :
+@[simp] private theorem isNested_expr (a : AggExpr T K) :
     (AggTok.expr a).isNested = false := rfl
 
-@[simp] theorem isTok_tok (a : AggValue T K) :
+@[simp] private theorem isTok_tok (a : AggValue T K) :
     (AggTok.tok a).isTok = true := rfl
 
-@[simp] theorem isTok_nest (a : NestedValue T K) :
+@[simp] private theorem isTok_nest (a : NestedValue T K) :
     (AggTok.nest a).isTok = false := rfl
 
-@[simp] theorem isTok_expr (a : AggExpr T K) :
+@[simp] private theorem isTok_expr (a : AggExpr T K) :
     (AggTok.expr a).isTok = false := rfl
 
 /-- A token that is not nested is an ordinary one or an expression –
 the two kinds whose readings the metatheory covers. -/
-theorem eq_tok_or_expr_of_not_nested {x : AggTok T K} (h : x.isNested = false) :
+private theorem eq_tok_or_expr_of_not_nested {x : AggTok T K} (h : x.isNested = false) :
     (∃ a : AggValue T K, x = AggTok.tok a)
       ∨ (∃ e : AggExpr T K, x = AggTok.expr e) := by
   cases x with
@@ -1600,7 +1602,7 @@ theorem eq_tok_or_expr_of_not_nested {x : AggTok T K} (h : x.isNested = false) :
   | expr e => exact Or.inr ⟨e, rfl⟩
 
 /-- An ordinary token is an aggregate value. -/
-theorem eq_tok_of_isTok {x : AggTok T K} (h : x.isTok = true) :
+private theorem eq_tok_of_isTok {x : AggTok T K} (h : x.isTok = true) :
     ∃ a : AggValue T K, x = AggTok.tok a := by
   cases x with
   | tok a => exact ⟨a, rfl⟩
@@ -1655,12 +1657,12 @@ def postcomp (gf : T → T) : AggTok T K → AggTok T K
   | .expr a => .expr (a.postcomp gf)
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] in
-@[simp] theorem isNested_postcomp (gf : T → T) (x : AggTok T K) :
+@[simp] private theorem isNested_postcomp (gf : T → T) (x : AggTok T K) :
     (x.postcomp gf).isNested = x.isNested := by
   cases x <;> rfl
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] in
-@[simp] theorem isTok_postcomp (gf : T → T) (x : AggTok T K) :
+@[simp] private theorem isTok_postcomp (gf : T → T) (x : AggTok T K) :
     (x.postcomp gf).isTok = x.isTok := by
   cases x <;> rfl
 
@@ -1677,7 +1679,7 @@ noncomputable def specialize (ν : K → Bool) : AggTok T K → T
   | .expr a => a.specialize ν
 
 omit [CommSemiringWithMonus K] in
-@[simp] theorem specialize_tok (a : AggValue T K) (ν : K → Bool) :
+@[simp] private theorem specialize_tok (a : AggValue T K) (ν : K → Bool) :
     (AggTok.tok a).specialize ν = a.specialize ν := rfl
 
 /-- The values the token takes over its worlds, for a key reading – the
@@ -1691,20 +1693,20 @@ noncomputable def vals : AggTok T K → Finset T
 noncomputable def altProv (x : AggTok T K) (v : T) : K :=
   x.predProvOfWith (fun y => CompOp.syneq.eval3 y v)
 
-@[simp] theorem predProvOfWith_tok (a : AggValue T K) (P : T → Kleene) :
+@[simp] private theorem predProvOfWith_tok (a : AggValue T K) (P : T → Kleene) :
     (AggTok.tok a).predProvOfWith P = a.predProvOfWith P := rfl
 
-@[simp] theorem predProvOfWith_expr (a : AggExpr T K) (P : T → Kleene) :
+@[simp] private theorem predProvOfWith_expr (a : AggExpr T K) (P : T → Kleene) :
     (AggTok.expr a).predProvOfWith P = a.predProvWith P := rfl
 
-@[simp] theorem predProvOf_tok (a : AggValue T K) (op : CompOp) (c : T) :
+@[simp] private theorem predProvOf_tok (a : AggValue T K) (op : CompOp) (c : T) :
     (AggTok.tok a).predProvOf op c = a.predProvOf op c := rfl
 
 omit [CommSemiringWithMonus K] in
-@[simp] theorem vals_tok (a : AggValue T K) :
+@[simp] private theorem vals_tok (a : AggValue T K) :
     (AggTok.tok a).vals = a.vals := rfl
 
-@[simp] theorem altProv_tok (a : AggValue T K) (v : T) :
+@[simp] private theorem altProv_tok (a : AggValue T K) (v : T) :
     (AggTok.tok a).altProv v = a.altProv v := rfl
 
 /-! ### The pushforward, token by token
@@ -1716,15 +1718,15 @@ away from a nested token, whose values are the one reading still
 unproved. -/
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] in
-@[simp] theorem isNested_mapAnn {K' : Type} (f : K → K') (x : AggTok T K) :
+@[simp] private theorem isNested_mapAnn {K' : Type} (f : K → K') (x : AggTok T K) :
     (x.mapAnn f).isNested = x.isNested := by cases x <;> rfl
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] in
-@[simp] theorem isTok_mapAnn {K' : Type} (f : K → K') (x : AggTok T K) :
+@[simp] private theorem isTok_mapAnn {K' : Type} (f : K → K') (x : AggTok T K) :
     (x.mapAnn f).isTok = x.isTok := by cases x <;> rfl
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] in
-@[simp] theorem scalar_mapAnn {K' : Type} (f : K → K') (x : AggTok T K) :
+@[simp] private theorem scalar_mapAnn {K' : Type} (f : K → K') (x : AggTok T K) :
     (x.mapAnn f).scalar = x.scalar := by cases x <;> rfl
 
 omit [CommSemiringWithMonus K] in
@@ -1740,7 +1742,7 @@ theorem vals_mapAnn {K' : Type} [CommSemiringWithMonus K'] [DecidableEq K']
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] in
 /-- Reading a column through a function and pushing its annotations
 forward commute. -/
-theorem mapAnn_postcomp {K' : Type} (f : K → K') (gf : T → T)
+private theorem mapAnn_postcomp {K' : Type} (f : K → K') (gf : T → T)
     (x : AggTok T K) :
     (x.postcomp gf).mapAnn f = (x.mapAnn f).postcomp gf := by
   cases x <;> rfl
@@ -1751,63 +1753,63 @@ No reading of a value looks at its family: stamping one changes which
 values a predicate reads together, and nothing about any one of them. -/
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] in
-@[simp] theorem collapse_setFam (φ : FamId T) {ids : Option (List (OccId T))} (x : AggTok T K) :
+@[simp] private theorem collapse_setFam (φ : FamId T) {ids : Option (List (OccId T))} (x : AggTok T K) :
     (x.setFam φ ids).collapse = x.collapse := by cases x <;> rfl
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] in
-@[simp] theorem scalar_setFam (φ : FamId T) {ids : Option (List (OccId T))} (x : AggTok T K) :
+@[simp] private theorem scalar_setFam (φ : FamId T) {ids : Option (List (OccId T))} (x : AggTok T K) :
     (x.setFam φ ids).scalar = x.scalar := by cases x <;> rfl
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] in
-@[simp] theorem annList_setFam [AddCommMonoid K] (φ : FamId T)
+@[simp] private theorem annList_setFam [AddCommMonoid K] (φ : FamId T)
     {ids : Option (List (OccId T))} (x : AggTok T K) :
     (x.setFam φ ids).annList = x.annList := by cases x <;> rfl
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] in
-@[simp] theorem isNested_setFam (φ : FamId T) {ids : Option (List (OccId T))} (x : AggTok T K) :
+@[simp] private theorem isNested_setFam (φ : FamId T) {ids : Option (List (OccId T))} (x : AggTok T K) :
     (x.setFam φ ids).isNested = x.isNested := by cases x <;> rfl
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] in
-@[simp] theorem isTok_setFam (φ : FamId T) {ids : Option (List (OccId T))} (x : AggTok T K) :
+@[simp] private theorem isTok_setFam (φ : FamId T) {ids : Option (List (OccId T))} (x : AggTok T K) :
     (x.setFam φ ids).isTok = x.isTok := by cases x <;> rfl
 
-@[simp] theorem predProvOfWith_setFam (φ : FamId T)
+@[simp] private theorem predProvOfWith_setFam (φ : FamId T)
     {ids : Option (List (OccId T))} (P : T → Kleene) (x : AggTok T K) :
     (x.setFam φ ids).predProvOfWith P = x.predProvOfWith P := by cases x <;> rfl
 
-@[simp] theorem predProvOf_setFam (φ : FamId T)
+@[simp] private theorem predProvOf_setFam (φ : FamId T)
     {ids : Option (List (OccId T))} (op : CompOp) (c : T) (x : AggTok T K) :
     (x.setFam φ ids).predProvOf op c = x.predProvOf op c := by cases x <;> rfl
 
 omit [CommSemiringWithMonus K] in
-@[simp] theorem specialize_setFam (φ : FamId T)
+@[simp] private theorem specialize_setFam (φ : FamId T)
     {ids : Option (List (OccId T))} (ν : K → Bool) (x : AggTok T K) :
     (x.setFam φ ids).specialize ν = x.specialize ν := by cases x <;> rfl
 
 omit [CommSemiringWithMonus K] in
-@[simp] theorem vals_setFam (φ : FamId T) {ids : Option (List (OccId T))} (x : AggTok T K) :
+@[simp] private theorem vals_setFam (φ : FamId T) {ids : Option (List (OccId T))} (x : AggTok T K) :
     (x.setFam φ ids).vals = x.vals := by cases x <;> rfl
 
-@[simp] theorem altProv_setFam (φ : FamId T)
+@[simp] private theorem altProv_setFam (φ : FamId T)
     {ids : Option (List (OccId T))} (x : AggTok T K) (v : T) :
     (x.setFam φ ids).altProv v = x.altProv v := by cases x <;> rfl
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] in
-@[simp] theorem mapAnn_setFam {K' : Type} (f : K → K') (φ : FamId T)
+@[simp] private theorem mapAnn_setFam {K' : Type} (f : K → K') (φ : FamId T)
     {ids : Option (List (OccId T))} (x : AggTok T K) :
     (x.setFam φ ids).mapAnn f = (x.mapAnn f).setFam φ ids := by cases x <;> rfl
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] in
-@[simp] theorem postcomp_setFam (gf : T → T) (φ : FamId T)
+@[simp] private theorem postcomp_setFam (gf : T → T) (φ : FamId T)
     {ids : Option (List (OccId T))} (x : AggTok T K) :
     (x.setFam φ ids).postcomp gf = (x.postcomp gf).setFam φ ids := by cases x <;> rfl
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] in
-@[simp] theorem setFam_setFam (φ ψ : FamId T) {ids : Option (List (OccId T))} (x : AggTok T K) :
+@[simp] private theorem setFam_setFam (φ ψ : FamId T) {ids : Option (List (OccId T))} (x : AggTok T K) :
     (x.setFam φ ids).setFam ψ = x.setFam ψ ids := by cases x <;> rfl
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] in
-@[simp] theorem setFam_fam (x : AggTok T K) : x.setFam x.fam = x := by cases x <;> rfl
+@[simp] private theorem setFam_fam (x : AggTok T K) : x.setFam x.fam = x := by cases x <;> rfl
 
 end AggTok
 
@@ -1819,7 +1821,7 @@ def collapseSum : T ⊕ AggTok T K → T :=
   Sum.elim id AggTok.collapse
 
 omit [ValueType T] in
-@[simp] theorem collapseSum_inr_setFam (φ : FamId T)
+@[simp] private theorem collapseSum_inr_setFam (φ : FamId T)
     {ids : Option (List (OccId T))} (x : AggTok T K) :
     collapseSum (Sum.inr (x.setFam φ ids)) = collapseSum (Sum.inr x) := by
   cases x <;> rfl
@@ -1831,11 +1833,11 @@ def eraseFamSum : T ⊕ AggTok T K → T ⊕ AggTok T K :=
   Sum.map id (fun a => AggTok.setFam FamId.none (some []) a)
 
 omit [ValueType T] in
-@[simp] theorem eraseFamSum_inl (v : T) :
+@[simp] private theorem eraseFamSum_inl (v : T) :
     eraseFamSum (Sum.inl v : T ⊕ AggTok T K) = Sum.inl v := rfl
 
 omit [ValueType T] in
-@[simp] theorem eraseFamSum_inr_setFam (φ : FamId T)
+@[simp] private theorem eraseFamSum_inr_setFam (φ : FamId T)
     {ids : Option (List (OccId T))} (x : AggTok T K) :
     eraseFamSum (Sum.inr (x.setFam φ ids)) = eraseFamSum (Sum.inr x) := by
   cases x <;> rfl
@@ -1846,11 +1848,11 @@ def mapAnnSum {K' : Type} (h : K → K') : T ⊕ AggTok T K → T ⊕ AggTok T K
   Sum.map id (AggTok.mapAnn h)
 
 omit [ValueType T] in
-@[simp] theorem collapseSum_inl (v : T) :
+@[simp] private theorem collapseSum_inl (v : T) :
     collapseSum (Sum.inl v : T ⊕ AggTok T K) = v := rfl
 
 omit [ValueType T] in
-@[simp] theorem collapseSum_tok (a : AggValue T K) :
+@[simp] private theorem collapseSum_tok (a : AggValue T K) :
     collapseSum (Sum.inr (AggTok.tok a) : T ⊕ AggTok T K) = a.collapse := rfl
 
 omit [ValueType T] in
@@ -1858,7 +1860,7 @@ omit [ValueType T] in
 unchanged by a pushforward – on an ordinary token, on a nested one whose
 inner collapses are unchanged for the same reason, and on an expression,
 whose leaves read the same sequences. -/
-@[simp] theorem collapseSum_mapAnnSum {K' : Type} (h : K → K')
+@[simp] private theorem collapseSum_mapAnnSum {K' : Type} (h : K → K')
     (x : T ⊕ AggTok T K) : collapseSum (mapAnnSum h x) = collapseSum x := by
   cases x with
   | inl v => rfl

@@ -7,6 +7,8 @@ module
 public import Provenance.AggValueCongr
 import Mathlib.Algebra.BigOperators.Group.Finset.Basic
 import Mathlib.Tactic.Bound.Init
+import all Provenance.AggExpr
+import all Provenance.HavingSemantics
 
 /-!
 # The subfamilies of a listing, as a bag
@@ -58,34 +60,34 @@ variable {n : ℕ}
 def succEmb (n : ℕ) : Fin n ↪ Fin (n + 1) :=
   ⟨Fin.succ, Fin.succ_injective n⟩
 
-theorem filter_succ_insert (W' : Finset (Fin n)) :
+private theorem filter_succ_insert (W' : Finset (Fin n)) :
     Finset.univ.filter
         (fun i : Fin n => i.succ ∈ insert (0 : Fin (n+1)) (W'.map (succEmb n)))
       = W' := by
   ext i
   simp [succEmb, Fin.succ_ne_zero]
 
-theorem filter_succ_map (W' : Finset (Fin n)) :
+private theorem filter_succ_map (W' : Finset (Fin n)) :
     Finset.univ.filter (fun i : Fin n => i.succ ∈ W'.map (succEmb n)) = W' := by
   ext i
   simp [succEmb]
 
-theorem notMem_map_succ (W' : Finset (Fin n)) :
+private theorem notMem_map_succ (W' : Finset (Fin n)) :
     (0 : Fin (n+1)) ∉ W'.map (succEmb n) := by
   simp [succEmb, Fin.succ_ne_zero]
 
-theorem compl_map (W' : Finset (Fin n)) :
+private theorem compl_map (W' : Finset (Fin n)) :
     (W'.map (succEmb n))ᶜ = insert (0 : Fin (n+1)) (W'ᶜ.map (succEmb n)) := by
   ext i
   cases i using Fin.cases with
   | zero => simp [succEmb, Fin.succ_ne_zero]
   | succ j => simp [succEmb, Fin.succ_ne_zero]
 
-theorem compl_insert_map (W' : Finset (Fin n)) :
+private theorem compl_insert_map (W' : Finset (Fin n)) :
     (insert (0 : Fin (n+1)) (W'.map (succEmb n)))ᶜ = W'ᶜ.map (succEmb n) := by
   rw [Finset.compl_insert, compl_map, Finset.erase_insert (notMem_map_succ _)]
 
-theorem insert_filter {W : Finset (Fin (n+1))} (h0 : (0 : Fin (n+1)) ∈ W) :
+private theorem insert_filter {W : Finset (Fin (n+1))} (h0 : (0 : Fin (n+1)) ∈ W) :
     insert (0 : Fin (n+1))
         ((Finset.univ.filter (fun i : Fin n => i.succ ∈ W)).map (succEmb n))
       = W := by
@@ -94,7 +96,7 @@ theorem insert_filter {W : Finset (Fin (n+1))} (h0 : (0 : Fin (n+1)) ∈ W) :
   | zero => simp [h0]
   | succ j => simp [succEmb, Fin.succ_ne_zero]
 
-theorem map_filter {W : Finset (Fin (n+1))} (h0 : (0 : Fin (n+1)) ∉ W) :
+private theorem map_filter {W : Finset (Fin (n+1))} (h0 : (0 : Fin (n+1)) ∉ W) :
     (Finset.univ.filter (fun i : Fin n => i.succ ∈ W)).map (succEmb n) = W := by
   ext i
   cases i using Fin.cases with
@@ -102,7 +104,7 @@ theorem map_filter {W : Finset (Fin (n+1))} (h0 : (0 : Fin (n+1)) ∉ W) :
   | succ j => simp [succEmb]
 
 /-- The subsets of `Fin (n + 1)`, split by whether they hold `0`. -/
-theorem univ_val_split :
+private theorem univ_val_split :
     (Finset.univ : Finset (Finset (Fin (n + 1)))).val
       = (Finset.univ : Finset (Finset (Fin n))).val.map
           (fun W' => insert (0 : Fin (n+1)) (W'.map (succEmb n)))
@@ -187,7 +189,7 @@ theorem univ_map_eq_subWorlds (ann : β → K) : ∀ L : List β,
 
 /-- The subfamilies of `a :: L`, read through `rd`: those of `L`, with `a`
 kept or left out. -/
-theorem subWorlds_cons_map {γ : Type} (ann : β → K) (rd : β → γ) (a : β) (L : List β) :
+private theorem subWorlds_cons_map {γ : Type} (ann : β → K) (rd : β → γ) (a : β) (L : List β) :
     (subWorlds ann (a :: L)).map (fun w => (w.1, w.2.1, w.2.2.map rd))
       = ((subWorlds ann L).map (fun w => (w.1, w.2.1, w.2.2.map rd))).map
           (fun w => (ann a * w.1, w.2.1, rd a :: w.2.2))
@@ -272,7 +274,7 @@ theorem isWorld_iff_okSeq (e : AggExpr T K) (W : Finset (Fin e.occs.length)) :
   simp only [List.mem_filter]
 
 /-- **So is its value.** -/
-theorem valOn_eq_valSeq (e : AggExpr T K) (W : Finset (Fin e.occs.length)) :
+private theorem valOn_eq_valSeq (e : AggExpr T K) (W : Finset (Fin e.occs.length)) :
     e.valOn W = e.valSeq (Having.seqOf e.occs W) := by
   unfold valOn valSeq leafVal
   simp only [leafSeq_eq_filter]

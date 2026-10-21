@@ -64,7 +64,7 @@ the accumulator and the suffix list, the output enumerates exactly the
 sets of the form `W ∪ T` with `T` a subset of `occs.toFinset` of size
 `x`. `Nodup occs` is needed so that the disjointness is preserved on
 recursion (the head `u` must not appear later in the list). -/
-theorem combinations_mem :
+private theorem combinations_mem :
     ∀ (occs : List α), occs.Nodup →
     ∀ (x : ℕ) (W : Finset α), Disjoint W occs.toFinset →
     ∀ (S : Finset α),
@@ -156,7 +156,7 @@ theorem combinations_mem :
 
 /-- Membership characterization of `addExact`: the output enumerates
 the non-empty subsets of `occs` of cardinality exactly `x`. -/
-theorem addExact_mem (occs : List α) (hnodup : occs.Nodup) (x : ℕ) (S : Finset α) :
+private theorem addExact_mem (occs : List α) (hnodup : occs.Nodup) (x : ℕ) (S : Finset α) :
     S ∈ addExact occs x ↔ S ⊆ occs.toFinset ∧ S.card = x ∧ S ≠ ∅ := by
   unfold addExact
   split_ifs with hx
@@ -183,7 +183,7 @@ theorem addExact_mem (occs : List α) (hnodup : occs.Nodup) (x : ℕ) (S : Finse
 `combinations_mem`, the disjointness of the accumulator and the suffix list
 is preserved through the recursion; the two recursive calls produce sets
 that differ on membership of the head `u`. -/
-theorem combinations_nodup :
+private theorem combinations_nodup :
     ∀ (occs : List α), occs.Nodup →
     ∀ (x : ℕ) (W : Finset α), Disjoint W occs.toFinset →
       (combinations occs x W).Nodup := by
@@ -230,7 +230,7 @@ theorem combinations_nodup :
         hu₁ (heq ▸ Finset.mem_union.mpr (Or.inl (Finset.mem_insert_self u W)))
 
 /-- The enumeration `addExact` contains no duplicate subset. -/
-theorem addExact_nodup (occs : List α) (hnodup : occs.Nodup) (x : ℕ) :
+private theorem addExact_nodup (occs : List α) (hnodup : occs.Nodup) (x : ℕ) :
     (addExact occs x).Nodup := by
   unfold addExact
   split_ifs with hx
@@ -243,7 +243,7 @@ subset in bucket `x` has cardinality exactly `x`. This is not cosmetic: the
 provenance attached to the enumeration is the `⊕`-sum of the world
 annotations over the returned list, and in a non-idempotent m-semiring a
 duplicated world would change the value. -/
-theorem countEnum_nodup (occs : List α) (hnodup : occs.Nodup) (C : ℕ)
+private theorem countEnum_nodup (occs : List α) (hnodup : occs.Nodup) (C : ℕ)
     (op : CompOp) : (countEnum occs C op).Nodup := by
   unfold countEnum
   rw [List.nodup_flatMap]

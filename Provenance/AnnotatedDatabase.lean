@@ -83,7 +83,7 @@ def AnnotatedDatabase.assign (s : String) {k : ℕ} (X : AnnotatedRelation T K k
     (d : AnnotatedDatabase T K) : AnnotatedDatabase T K := (s, ⟨k, X⟩) :: d
 
 omit [ValueType T] [Zero K] in
-@[simp] theorem AnnotatedDatabase.find_assign (s : String) {k : ℕ}
+@[simp] private theorem AnnotatedDatabase.find_assign (s : String) {k : ℕ}
     (X : AnnotatedRelation T K k) (d : AnnotatedDatabase T K) :
     (d.assign s X).find k s = some X := by
   show (if h : k = k ∧ s = s then _ else _) = _
@@ -91,7 +91,7 @@ omit [ValueType T] [Zero K] in
   rfl
 
 omit [ValueType T] [Zero K] in
-theorem AnnotatedDatabase.find_assign_of_ne (s s' : String) {k k' : ℕ}
+private theorem AnnotatedDatabase.find_assign_of_ne (s s' : String) {k k' : ℕ}
     (X : AnnotatedRelation T K k) (d : AnnotatedDatabase T K)
     (h : ¬(k' = k ∧ s' = s)) :
     (d.assign s X).find k' s' = d.find k' s' := by
@@ -113,14 +113,14 @@ def AnnotatedRelation.toComposite (ar: AnnotatedRelation T K n):
   ar.map λ p ↦ p.toComposite
 
 @[simp]
-theorem AnnotatedRelation.toComposite_add {T: Type} {K: Type} (ar₁ ar₂: AnnotatedRelation T K n):
+private theorem AnnotatedRelation.toComposite_add {T: Type} {K: Type} (ar₁ ar₂: AnnotatedRelation T K n):
    (ar₁ + ar₂).toComposite = ar₁.toComposite + ar₂.toComposite :=
   Multiset.map_add _ ar₁ ar₂
 
 def AnnotatedDatabase.toComposite (d: AnnotatedDatabase T K): Database (T⊕K) :=
   d.map λ (s, ⟨n',r⟩) ↦ (s, ⟨n'+1,r.toComposite⟩)
 
-theorem AnnotatedDatabase.find_toComposite_none {T: Type} {K: Type} (n: ℕ) (s: String) (d: AnnotatedDatabase T K):
+private theorem AnnotatedDatabase.find_toComposite_none {T: Type} {K: Type} (n: ℕ) (s: String) (d: AnnotatedDatabase T K):
   d.find n s = none ↔ d.toComposite.find (n+1) s = none := by
     induction d with
     | nil =>
@@ -133,7 +133,7 @@ theorem AnnotatedDatabase.find_toComposite_none {T: Type} {K: Type} (n: ℕ) (s:
       . simp[find.f, Database.find.f, hhd]
         exact ih
 
-theorem AnnotatedDatabase.find_toComposite_some {T: Type} {K: Type} (n: ℕ) (s: String) (d: AnnotatedDatabase T K):
+private theorem AnnotatedDatabase.find_toComposite_some {T: Type} {K: Type} (n: ℕ) (s: String) (d: AnnotatedDatabase T K):
   ∀ r: AnnotatedRelation T K n, d.find n s = some r ↔ d.toComposite.find (n+1) s = some r.toComposite := by
     induction d with
     | nil =>
@@ -176,7 +176,7 @@ theorem AnnotatedDatabase.find_toComposite_some {T: Type} {K: Type} (n: ℕ) (s:
       . simp[find.f, Database.find.f, hhd]
         exact ih
 
-lemma AnnotatedTuple.toComposite_join {K: Type} {T: Type}
+private lemma AnnotatedTuple.toComposite_join {K: Type} {T: Type}
   [ValueType T] [HasAltLinearOrder K] [SemiringWithMonus K]
     (ta₁: AnnotatedTuple T K n₁)
     (ta₂: AnnotatedTuple T K n₂):
@@ -207,7 +207,7 @@ lemma AnnotatedTuple.toComposite_join {K: Type} {T: Type}
       simp[this]
       simp[(·*·),Mul.mul]
 
-theorem AnnotatedRelation.toComposite_map_product {K: Type} {T: Type}
+private theorem AnnotatedRelation.toComposite_map_product {K: Type} {T: Type}
   [ValueType T] [HasAltLinearOrder K] [SemiringWithMonus K]
   (ar₁: AnnotatedRelation T K n₁) (ar₂: AnnotatedRelation T K n₂) :
   AnnotatedRelation.toComposite (
@@ -235,7 +235,7 @@ theorem AnnotatedRelation.toComposite_map_product {K: Type} {T: Type}
       simp only [Function.comp]
       exact AnnotatedTuple.toComposite_join p q
 
-theorem AnnotatedRelation.cast_toComposite {T: Type} {K: Type}
+private theorem AnnotatedRelation.cast_toComposite {T: Type} {K: Type}
   (ar: AnnotatedRelation T K n) (h': n+1=m+1) (h: n = m) :
   ar.toComposite.cast h' = (ar.cast h).toComposite := by
   subst h

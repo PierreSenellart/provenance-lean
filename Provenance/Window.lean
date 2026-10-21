@@ -7,6 +7,8 @@ module
 public import Provenance.Frame
 public import Provenance.AggQuery
 import Mathlib.Tactic.Bound.Init
+import all Provenance.Frame
+import all Provenance.Occurrence
 
 /-!
 # The window operator's token
@@ -55,7 +57,7 @@ omit [HasAltLinearOrder K] in
 /-- Membership in a frame is carried along a re-indexing: it reads the rows
 and whether two occurrences are the same, both of which a bijection
 preserves. -/
-theorem mem_congr {α : Type} (V : α → Tuple T n) (P : Tuple (Fin n) m)
+private theorem mem_congr {α : Type} (V : α → Tuple T n) (P : Tuple (Fin n) m)
     (O : Tuple (Fin n) p) (w : ValueFrame T p) {r r' : OccFam α}
     (e : Fin r.size ≃ Fin r'.size) (he : ∀ i, r'.row (e i) = r.row i)
     (i j : Fin r.size) :
@@ -69,7 +71,7 @@ theorem mem_congr {α : Type} (V : α → Tuple T n) (P : Tuple (Fin n) m)
 
 omit [HasAltLinearOrder K] in
 /-- A re-indexing carries a frame to the image of the frame. -/
-theorem frame_congr {α : Type} (V : α → Tuple T n) (P : Tuple (Fin n) m)
+private theorem frame_congr {α : Type} (V : α → Tuple T n) (P : Tuple (Fin n) m)
     (O : Tuple (Fin n) p) (w : ValueFrame T p) {r r' : OccFam α}
     (e : Fin r.size ≃ Fin r'.size) (he : ∀ i, r'.row (e i) = r.row i)
     (i : Fin r.size) :
@@ -83,7 +85,7 @@ theorem frame_congr {α : Type} (V : α → Tuple T n) (P : Tuple (Fin n) m)
 /-- A re-indexing carries a frame's occurrence sequence unchanged: the frame
 maps across, and the sequence is built by sorting the rows, which the
 bijection does not move. -/
-theorem frameSeq_congr (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
+private theorem frameSeq_congr (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
     (w : ValueFrame T p) {r r' : OccFam (AnnotatedTuple T K n)}
     (e : Fin r.size ≃ Fin r'.size) (he : ∀ i, r'.row (e i) = r.row i)
     (i : Fin r.size) :
@@ -101,7 +103,7 @@ theorem frameSeq_congr (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
 inputs give congruent outputs, by the same bijection: an occurrence's row,
 its annotation and its frame are all carried across, so nothing the operator
 produces depends on which indexing was chosen. -/
-theorem frameSeqOn_congr (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
+private theorem frameSeqOn_congr (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
     (o : OrderSpec p) (w : ValueFrame T p)
     {r r' : OccFam (AnnotatedTuple T K n)}
     (e : Fin r.size ≃ Fin r'.size) (he : ∀ i, r'.row (e i) = r.row i)
@@ -115,7 +117,7 @@ theorem frameSeqOn_congr (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
 inputs give congruent outputs, by the same bijection: an occurrence's row,
 its annotation and its frame are all carried across, so nothing the operator
 produces depends on which indexing was chosen. -/
-theorem window_congr (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
+private theorem window_congr (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
     (o : OrderSpec p) (w : ValueFrame T p) (t : Term T n) (f : SeqAggFunc T)
     {r r' : OccFam (AnnotatedTuple T K n)} (h : OccFam.Congr r r') :
     OccFam.Congr (window P O o w t f r) (window P O o w t f r') := by
@@ -146,7 +148,7 @@ Two occurrences carrying equal rows may still receive different tokens, which
 is what `EXCLUDE CURRENT ROW` requires; what this says is that *which* of
 them receives which is not observable, because exchanging them exchanges
 their answers. -/
-theorem window_toMultiset_congr (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
+private theorem window_toMultiset_congr (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
     (o : OrderSpec p) (w : ValueFrame T p) (t : Term T n) (f : SeqAggFunc T)
     {r r' : OccFam (AnnotatedTuple T K n)}
     (h : r.toMultiset = r'.toMultiset) :
@@ -156,7 +158,7 @@ theorem window_toMultiset_congr (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
 
 /-- Reading a relation as a family and forgetting the index again is the
 window of that relation, for any reading. -/
-theorem windowRel_eq (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
+private theorem windowRel_eq (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
     (o : OrderSpec p) (w : ValueFrame T p) (t : Term T n) (f : SeqAggFunc T)
     (r : OccFam (AnnotatedTuple T K n)) :
     windowRel P O o w t f r.toMultiset = (window P O o w t f r).toMultiset :=
@@ -181,7 +183,7 @@ factors and gains the token the relation gives it. The token is a
 function of the relation and of that row alone, which is what makes the
 answer independent of any indexing of the occurrences
 (`ValueFrame.window_toMultiset_congr`). -/
-theorem AggQueryIn.evaluate_Win {lab : ℕ} {rd} {n m p : ℕ} {κ : Fin n → ColKind}
+private theorem AggQueryIn.evaluate_Win {lab : ℕ} {rd} {n m p : ℕ} {κ : Fin n → ColKind}
     (P : Tuple (Fin n) m)
     (O : Tuple (Fin n) p) (o : OrderSpec p) (w : ValueFrame T p) {hsql : w.IsSQL o} (t : Term T n)
     (f : SeqAggFunc T) (q : AggQueryIn T 0 n κ) (hrr : WinReadsReg κ P O t)
@@ -193,7 +195,7 @@ theorem AggQueryIn.evaluate_Win {lab : ℕ} {rd} {n m p : ℕ} {κ : Fin n → C
 
 /-- A window keeps its input's rows one for one: it removes none, merges
 none, and adds one column to each. -/
-@[simp] theorem AggQueryIn.card_evaluate_Win {lab : ℕ} {rd} {n m p : ℕ}
+@[simp] private theorem AggQueryIn.card_evaluate_Win {lab : ℕ} {rd} {n m p : ℕ}
     {κ : Fin n → ColKind} (P : Tuple (Fin n) m)
     (O : Tuple (Fin n) p) (o : OrderSpec p) (w : ValueFrame T p) {hsql : w.IsSQL o} (t : Term T n)
     (f : SeqAggFunc T) (q : AggQueryIn T 0 n κ) (hrr : WinReadsReg κ P O t)
@@ -209,7 +211,7 @@ input, each determined by the input relation and that row alone. The family
 reading is what justifies this – two occurrences of an equal row may have
 different frames, and this says they nonetheless receive tokens the relation
 determines – and it is the form every theorem about the operator uses. -/
-theorem ValueFrame.window_toMultiset_eq {n m p : ℕ} (P : Tuple (Fin n) m)
+private theorem ValueFrame.window_toMultiset_eq {n m p : ℕ} (P : Tuple (Fin n) m)
     (O : Tuple (Fin n) p) (o : OrderSpec p) (w : ValueFrame T p) (t : Term T n)
     (f : SeqAggFunc T) (r : OccFam (AnnotatedTuple T K n)) :
     (ValueFrame.window P O o w t f r).toMultiset

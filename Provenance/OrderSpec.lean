@@ -7,6 +7,8 @@ module
 public import Provenance.AggValueCongr
 public import Provenance.Util.ValueTypeNull
 import Mathlib.Tactic.Bound.Init
+import all Provenance.AggValueCongr
+import all Provenance.Util.ListSort
 
 /-!
 # Order specifications: what a window's `ORDER BY` orders by
@@ -93,35 +95,35 @@ the nulls go with it, as `ASC`/`DESC` do: the reverse of `OrderCol.ASC` is
 def reverse (c : OrderCol) : OrderCol :=
   { desc := !c.desc, nullsFirst := !c.nullsFirst }
 
-@[simp] theorem reverse_ASC : OrderCol.ASC.reverse = OrderCol.DESC := rfl
+@[simp] private theorem reverse_ASC : OrderCol.ASC.reverse = OrderCol.DESC := rfl
 
-@[simp] theorem reverse_DESC : OrderCol.DESC.reverse = OrderCol.ASC := rfl
+@[simp] private theorem reverse_DESC : OrderCol.DESC.reverse = OrderCol.ASC := rfl
 
-@[simp] theorem reverse_reverse (c : OrderCol) : c.reverse.reverse = c := by
+@[simp] private theorem reverse_reverse (c : OrderCol) : c.reverse.reverse = c := by
   cases c; simp [reverse]
 
-@[simp] theorem le_reverse (c : OrderCol) (a b : T) :
+@[simp] private theorem le_reverse (c : OrderCol) (a b : T) :
     c.reverse.le a b = c.le b a := by
   unfold le reverse
   cases ha : ValueType.isNull a <;> cases hb : ValueType.isNull b <;>
     cases hd : c.desc <;> cases hn : c.nullsFirst <;> simp
 
-@[simp] theorem peer_reverse (c : OrderCol) (a b : T) :
+@[simp] private theorem peer_reverse (c : OrderCol) (a b : T) :
     c.reverse.peer a b = c.peer a b := by
   unfold peer
   rw [le_reverse, le_reverse, Bool.and_comm]
 
-@[simp] theorem le_rfl (c : OrderCol) (a : T) : c.le a a = true := by
+@[simp] private theorem le_rfl (c : OrderCol) (a : T) : c.le a a = true := by
   unfold le
   by_cases ha : ValueType.isNull a = true <;> simp [ha]
 
-theorem le_total (c : OrderCol) (a b : T) :
+private theorem le_total (c : OrderCol) (a b : T) :
     c.le a b = true ∨ c.le b a = true := by
   unfold le
   cases ha : ValueType.isNull a <;> cases hb : ValueType.isNull b <;> simp
   cases hd : c.desc <;> simp <;> exact _root_.le_total _ _
 
-theorem le_trans (c : OrderCol) {a b d : T}
+private theorem le_trans (c : OrderCol) {a b d : T}
     (h₁ : c.le a b = true) (h₂ : c.le b d = true) : c.le a d = true := by
   unfold le at h₁ h₂ ⊢
   cases ha : ValueType.isNull a <;> cases hb : ValueType.isNull b <;>
@@ -131,13 +133,13 @@ theorem le_trans (c : OrderCol) {a b d : T}
       | exact _root_.le_trans h₂ h₁
       | exact _root_.le_trans h₁ h₂
 
-@[simp] theorem peer_rfl (c : OrderCol) (a : T) : c.peer a a = true := by
+@[simp] private theorem peer_rfl (c : OrderCol) (a : T) : c.peer a a = true := by
   simp [peer]
 
-theorem peer_comm (c : OrderCol) (a b : T) : c.peer a b = c.peer b a := by
+private theorem peer_comm (c : OrderCol) (a b : T) : c.peer a b = c.peer b a := by
   simp [peer, Bool.and_comm]
 
-theorem peer_trans (c : OrderCol) {a b d : T} (h₁ : c.peer a b = true)
+private theorem peer_trans (c : OrderCol) {a b d : T} (h₁ : c.peer a b = true)
     (h₂ : c.peer b d = true) : c.peer a d = true := by
   simp only [peer, Bool.and_eq_true] at h₁ h₂ ⊢
   exact ⟨c.le_trans h₁.1 h₂.1, c.le_trans h₂.2 h₁.2⟩
@@ -145,13 +147,13 @@ theorem peer_trans (c : OrderCol) {a b d : T} (h₁ : c.peer a b = true)
 /-- **Peers are interchangeable**: replacing a value by a peer of it changes
 no comparison. This is what makes the lexicographic reading below well
 behaved, and it holds because the column is a total preorder. -/
-theorem le_congr_left (c : OrderCol) {a b : T} (h : c.peer a b = true)
+private theorem le_congr_left (c : OrderCol) {a b : T} (h : c.peer a b = true)
     (d : T) : c.le a d = c.le b d := by
   simp only [peer, Bool.and_eq_true] at h
   rw [Bool.eq_iff_iff]
   exact ⟨fun hd => c.le_trans h.2 hd, fun hd => c.le_trans h.1 hd⟩
 
-theorem le_congr_right (c : OrderCol) {a b : T} (h : c.peer a b = true)
+private theorem le_congr_right (c : OrderCol) {a b : T} (h : c.peer a b = true)
     (d : T) : c.le d a = c.le d b := by
   simp only [peer, Bool.and_eq_true] at h
   rw [Bool.eq_iff_iff]
@@ -161,25 +163,25 @@ theorem le_congr_right (c : OrderCol) {a b : T} (h : c.peer a b = true)
 
 /-- **Two nulls are peers**, whatever the clause says: an `ORDER BY` places
 the nulls as a block, it does not order them among themselves. -/
-theorem peer_of_isNull (c : OrderCol) {a b : T}
+private theorem peer_of_isNull (c : OrderCol) {a b : T}
     (ha : ValueType.isNull a = true) (hb : ValueType.isNull b = true) :
     c.peer a b = true := by
   simp [peer, le, ha, hb]
 
 /-- **A null and a value of the domain are never peers**: the clause places
 every null strictly on one side of every value. -/
-theorem not_peer_isNull (c : OrderCol) {a b : T}
+private theorem not_peer_isNull (c : OrderCol) {a b : T}
     (ha : ValueType.isNull a = true) (hb : ValueType.isNull b = false) :
     c.peer a b = false := by
   cases hn : c.nullsFirst <;> simp [peer, le, ha, hb, hn]
 
 /-- `NULLS FIRST`: every null sorts before everything. -/
-theorem le_of_nullsFirst (c : OrderCol) (hc : c.nullsFirst = true) {a : T}
+private theorem le_of_nullsFirst (c : OrderCol) (hc : c.nullsFirst = true) {a : T}
     (ha : ValueType.isNull a = true) (b : T) : c.le a b = true := by
   cases hb : ValueType.isNull b <;> simp [le, ha, hb, hc]
 
 /-- `NULLS LAST`: everything sorts before every null. -/
-theorem le_of_nullsLast (c : OrderCol) (hc : c.nullsFirst = false) {b : T}
+private theorem le_of_nullsLast (c : OrderCol) (hc : c.nullsFirst = false) {b : T}
     (hb : ValueType.isNull b = true) (a : T) : c.le a b = true := by
   cases ha : ValueType.isNull a <;> simp [le, ha, hb, hc]
 
@@ -187,12 +189,12 @@ theorem le_of_nullsLast (c : OrderCol) (hc : c.nullsFirst = false) {b : T}
 /-! ### Where nothing is null -/
 
 /-- Where nothing is null, `ASC` is the domain's order. -/
-@[simp] theorem ASC_le [NoNulls T] (a b : T) :
+@[simp] private theorem ASC_le [NoNulls T] (a b : T) :
     (ASC.le a b) = decide (a ≤ b) := by
   simp [le, ASC, isNull_eq_false]
 
 /-- Where nothing is null, `DESC` is the domain's order reversed. -/
-@[simp] theorem DESC_le [NoNulls T] (a b : T) :
+@[simp] private theorem DESC_le [NoNulls T] (a b : T) :
     (DESC.le a b) = decide (b ≤ a) := by
   simp [le, DESC, isNull_eq_false]
 
@@ -243,10 +245,10 @@ def lt (o : OrderSpec p) (x y : Tuple T p) : Bool := !o.le y x
 reads its frame in where `first_value` reads it forwards. -/
 def reverse (o : OrderSpec p) : OrderSpec p := fun k => (o k).reverse
 
-@[simp] theorem reverse_reverse (o : OrderSpec p) : o.reverse.reverse = o :=
+@[simp] private theorem reverse_reverse (o : OrderSpec p) : o.reverse.reverse = o :=
   funext fun k => OrderCol.reverse_reverse (o k)
 
-@[simp] theorem leOn_reverse (o : OrderSpec p) (l : List (Fin p))
+@[simp] private theorem leOn_reverse (o : OrderSpec p) (l : List (Fin p))
     (x y : Tuple T p) : o.reverse.leOn l x y = o.leOn l y x := by
   induction l with
   | nil => rfl
@@ -263,25 +265,25 @@ def reverse (o : OrderSpec p) : OrderSpec p := fun k => (o k).reverse
 @[simp] theorem le_reverse (o : OrderSpec p) (x y : Tuple T p) :
     o.reverse.le x y = o.le y x := leOn_reverse o _ x y
 
-@[simp] theorem peer_reverse (o : OrderSpec p) (x y : Tuple T p) :
+@[simp] private theorem peer_reverse (o : OrderSpec p) (x y : Tuple T p) :
     o.reverse.peer x y = o.peer x y := by
   unfold peer
   rw [le_reverse, le_reverse, Bool.and_comm]
 
-@[simp] theorem lt_reverse (o : OrderSpec p) (x y : Tuple T p) :
+@[simp] private theorem lt_reverse (o : OrderSpec p) (x y : Tuple T p) :
     o.reverse.lt x y = o.lt y x := by
   unfold lt
   rw [le_reverse]
 
 /-! ### The clause is a total preorder -/
 
-@[simp] theorem leOn_rfl (o : OrderSpec p) (l : List (Fin p))
+@[simp] private theorem leOn_rfl (o : OrderSpec p) (l : List (Fin p))
     (x : Tuple T p) : o.leOn l x x = true := by
   induction l with
   | nil => rfl
   | cons k ks ih => simp [leOn, ih]
 
-theorem leOn_total (o : OrderSpec p) (l : List (Fin p)) (x y : Tuple T p) :
+private theorem leOn_total (o : OrderSpec p) (l : List (Fin p)) (x y : Tuple T p) :
     o.leOn l x y = true ∨ o.leOn l y x = true := by
   induction l with
   | nil => exact Or.inl rfl
@@ -293,7 +295,7 @@ theorem leOn_total (o : OrderSpec p) (l : List (Fin p)) (x y : Tuple T p) :
     · rw [ite_eq_right h, ite_eq_right (by rw [OrderCol.peer_comm]; exact h)]
       exact (o k).le_total (x k) (y k)
 
-theorem leOn_trans (o : OrderSpec p) (l : List (Fin p)) {x y z : Tuple T p}
+private theorem leOn_trans (o : OrderSpec p) (l : List (Fin p)) {x y z : Tuple T p}
     (h₁ : o.leOn l x y = true) (h₂ : o.leOn l y z = true) :
     o.leOn l x z = true := by
   induction l with
@@ -338,26 +340,26 @@ theorem le_trans (o : OrderSpec p) {x y z : Tuple T p}
     (h₁ : o.le x y = true) (h₂ : o.le y z = true) : o.le x z = true :=
   leOn_trans o _ h₁ h₂
 
-@[simp] theorem peer_rfl (o : OrderSpec p) (x : Tuple T p) :
+@[simp] private theorem peer_rfl (o : OrderSpec p) (x : Tuple T p) :
     o.peer x x = true := by simp [peer]
 
-theorem peer_comm (o : OrderSpec p) (x y : Tuple T p) :
+private theorem peer_comm (o : OrderSpec p) (x y : Tuple T p) :
     o.peer x y = o.peer y x := by simp [peer, Bool.and_comm]
 
-theorem peer_trans (o : OrderSpec p) {x y z : Tuple T p}
+private theorem peer_trans (o : OrderSpec p) {x y z : Tuple T p}
     (h₁ : o.peer x y = true) (h₂ : o.peer y z = true) : o.peer x z = true := by
   simp only [peer, Bool.and_eq_true] at h₁ h₂ ⊢
   exact ⟨o.le_trans h₁.1 h₂.1, o.le_trans h₂.2 h₁.2⟩
 
 /-- **Peers are interchangeable**: replacing an order value by a peer of it
 changes no comparison. -/
-theorem le_congr_left (o : OrderSpec p) {x y : Tuple T p}
+private theorem le_congr_left (o : OrderSpec p) {x y : Tuple T p}
     (h : o.peer x y = true) (z : Tuple T p) : o.le x z = o.le y z := by
   simp only [peer, Bool.and_eq_true] at h
   rw [Bool.eq_iff_iff]
   exact ⟨fun hz => o.le_trans h.2 hz, fun hz => o.le_trans h.1 hz⟩
 
-theorem le_congr_right (o : OrderSpec p) {x y : Tuple T p}
+private theorem le_congr_right (o : OrderSpec p) {x y : Tuple T p}
     (h : o.peer x y = true) (z : Tuple T p) : o.le z x = o.le z y := by
   simp only [peer, Bool.and_eq_true] at h
   rw [Bool.eq_iff_iff]
@@ -366,23 +368,23 @@ theorem le_congr_right (o : OrderSpec p) {x y : Tuple T p}
 /-- **A clause with no order columns separates nothing.** A window with no
 `ORDER BY` has every pair of order values as peers, and reads its frame as a
 group is read. -/
-@[simp] theorem peer_of_zero (o : OrderSpec 0) (x y : Tuple T 0) :
+@[simp] private theorem peer_of_zero (o : OrderSpec 0) (x y : Tuple T 0) :
     o.peer x y = true := by
   simp [peer, le, leOn]
 
 /-- Equal order values are peers – the converse fails, which is the whole
 point of a peer group. -/
-theorem peer_of_eq (o : OrderSpec p) {x y : Tuple T p} (h : x = y) :
+private theorem peer_of_eq (o : OrderSpec p) {x y : Tuple T p} (h : x = y) :
     o.peer x y = true := by subst h; simp
 
-@[simp] theorem lt_irrefl (o : OrderSpec p) (x : Tuple T p) :
+@[simp] private theorem lt_irrefl (o : OrderSpec p) (x : Tuple T p) :
     o.lt x x = false := by simp [lt]
 
-theorem lt_iff (o : OrderSpec p) (x y : Tuple T p) :
+private theorem lt_iff (o : OrderSpec p) (x y : Tuple T p) :
     o.lt x y = true ↔ o.le y x = false := by simp [lt]
 
 /-- Sorting strictly before implies sorting before. -/
-theorem le_of_lt (o : OrderSpec p) {x y : Tuple T p} (h : o.lt x y = true) :
+private theorem le_of_lt (o : OrderSpec p) {x y : Tuple T p} (h : o.lt x y = true) :
     o.le x y = true := by
   rw [lt_iff] at h
   rcases o.le_total x y with h' | h'
@@ -391,7 +393,7 @@ theorem le_of_lt (o : OrderSpec p) {x y : Tuple T p} (h : o.lt x y = true) :
 
 /-- **Before, peer, after**: the three cases the clause allows, and no
 fourth. -/
-theorem le_iff_lt_or_peer (o : OrderSpec p) (x y : Tuple T p) :
+private theorem le_iff_lt_or_peer (o : OrderSpec p) (x y : Tuple T p) :
     o.le x y = true ↔ (o.lt x y = true ∨ o.peer x y = true) := by
   simp only [lt, peer, Bool.and_eq_true, Bool.not_eq_true']
   constructor
@@ -415,14 +417,14 @@ the ones stated against that order. -/
 /-- The tuple without its first column. -/
 def Tuple.tail (x : Tuple T (p+1)) : Tuple T p := fun k => x k.succ
 
-@[simp] theorem Tuple.tail_apply (x : Tuple T (p+1)) (k : Fin p) :
+@[simp] private theorem Tuple.tail_apply (x : Tuple T (p+1)) (k : Fin p) :
     Tuple.tail x k = x k.succ := rfl
 
 variable [ValueType T]
 
 /-- **The tuple order, read one column at a time**: the first column decides
 unless it ties. -/
-theorem Tuple.lt_succ_iff (x y : Tuple T (p+1)) :
+private theorem Tuple.lt_succ_iff (x y : Tuple T (p+1)) :
     (x < y) ↔ ((x 0 < y 0) ∨ (x 0 = y 0 ∧ (Tuple.tail x < Tuple.tail y))) := by
   constructor
   · rintro ⟨i, hlt, hi⟩
@@ -439,7 +441,7 @@ theorem Tuple.lt_succ_iff (x y : Tuple T (p+1)) :
       · exact hlt j (Fin.succ_lt_succ_iff.mp hk)
 
 /-- The same, for `≤`. -/
-theorem Tuple.le_succ_iff (x y : Tuple T (p+1)) :
+private theorem Tuple.le_succ_iff (x y : Tuple T (p+1)) :
     (x ≤ y) ↔ ((x 0 < y 0) ∨ (x 0 = y 0 ∧ Tuple.tail x ≤ Tuple.tail y)) := by
   have hle : ∀ {q : ℕ} (a b : Tuple T q), (a ≤ b) ↔ ((a < b) ∨ (a = b)) :=
     fun _ _ => Iff.rfl
@@ -458,7 +460,7 @@ namespace OrderSpec
 
 /-- Dropping the first column of the clause together with the first column
 of the tuples. -/
-theorem leOn_map_succ (o : OrderSpec (p+1)) (l : List (Fin p))
+private theorem leOn_map_succ (o : OrderSpec (p+1)) (l : List (Fin p))
     (x y : Tuple T (p+1)) :
     o.leOn (l.map Fin.succ) x y
       = OrderSpec.leOn (fun k : Fin p => o k.succ) l
@@ -467,7 +469,7 @@ theorem leOn_map_succ (o : OrderSpec (p+1)) (l : List (Fin p))
   | nil => rfl
   | cons k ks ih => simp only [List.map_cons, leOn, ih, Tuple.tail_apply]
 
-theorem asc_succ (p : ℕ) :
+private theorem asc_succ (p : ℕ) :
     (fun k : Fin p => OrderSpec.asc (p+1) k.succ) = OrderSpec.asc p := rfl
 
 /-- **Every column `ASC`, on a domain where nothing is null, is the domain's
@@ -523,15 +525,15 @@ def readLe (key : β → Tuple T p) (val : α → β) (o : OrderSpec p)
 
 variable {key : β → Tuple T p} {val : α → β} {o : OrderSpec p}
 
-@[simp] theorem readLe_rfl (x : α) : readLe key val o x x = true := by
+@[simp] private theorem readLe_rfl (x : α) : readLe key val o x x = true := by
   simp [readLe]
 
 /-- Occurrences carrying the same row are read in either order. -/
-theorem readLe_of_val_eq {x y : α} (h : val x = val y) :
+private theorem readLe_of_val_eq {x y : α} (h : val x = val y) :
     readLe key val o x y = true := by
   simp [readLe, h]
 
-theorem readLe_total (x y : α) :
+private theorem readLe_total (x y : α) :
     readLe key val o x y = true ∨ readLe key val o y x = true := by
   unfold readLe
   by_cases hp : o.peer (key (val x)) (key (val y)) = true
@@ -540,7 +542,7 @@ theorem readLe_total (x y : α) :
   · rw [ite_eq_right hp, ite_eq_right (by rw [OrderSpec.peer_comm]; exact hp)]
     exact o.le_total _ _
 
-theorem readLe_trans {x y z : α} (h₁ : readLe key val o x y = true)
+private theorem readLe_trans {x y z : α} (h₁ : readLe key val o x y = true)
     (h₂ : readLe key val o y z = true) : readLe key val o x z = true := by
   unfold readLe at h₁ h₂ ⊢
   by_cases hxy : o.peer (key (val x)) (key (val y)) = true
@@ -574,7 +576,7 @@ theorem readLe_trans {x y z : α} (h₁ : readLe key val o x y = true)
 /-- **Two occurrences are tied exactly when they carry the same row.** The
 clause alone does not separate peers; the canonical tie-break does, down to
 the row. -/
-theorem val_eq_of_readLe {x y : α} (h₁ : readLe key val o x y = true)
+private theorem val_eq_of_readLe {x y : α} (h₁ : readLe key val o x y = true)
     (h₂ : readLe key val o y x = true) : val x = val y := by
   unfold readLe at h₁ h₂
   by_cases hp : o.peer (key (val x)) (key (val y)) = true
@@ -600,14 +602,14 @@ instance isTrans_readLe : IsTrans α (fun x y => readLe key val o x y = true) :=
 
 /-- The sort is Mathlib's insertion sort, which the lemmas about it are
 stated for. -/
-theorem sortSeq_eq_insertionSort (L : List α) :
+private theorem sortSeq_eq_insertionSort (L : List α) :
     sortSeq key val o L = L.insertionSort (fun x y => readLe key val o x y = true) :=
   List.insSort_eq _ L
 
-theorem sortSeq_perm (L : List α) : (sortSeq key val o L).Perm L := by
+private theorem sortSeq_perm (L : List α) : (sortSeq key val o L).Perm L := by
   rw [sortSeq_eq_insertionSort]; exact List.perm_insertionSort _ L
 
-theorem sortSeq_sorted (L : List α) :
+private theorem sortSeq_sorted (L : List α) :
     (sortSeq key val o L).Pairwise (fun x y => readLe key val o x y = true) := by
   rw [sortSeq_eq_insertionSort]; exact List.pairwise_insertionSort _ L
 
@@ -626,7 +628,7 @@ theorem map_eq_of_sorted [DecidableEq α] {γ : Type} (g : β → γ)
 
 /-- Two listings of one frame give the same sequence of values once sorted
 by the clause. -/
-theorem sortSeq_map_eq [DecidableEq α] {γ : Type} (g : β → γ)
+private theorem sortSeq_map_eq [DecidableEq α] {γ : Type} (g : β → γ)
     {L L' : List α} (h : L.Perm L') :
     (sortSeq key val o L).map (fun x => g (val x))
       = (sortSeq key val o L').map (fun x => g (val x)) :=
@@ -636,7 +638,7 @@ theorem sortSeq_map_eq [DecidableEq α] {γ : Type} (g : β → γ)
 /-- **Cutting a frame down and sorting commute, on the values read off.**
 Selecting occurrences from a sorted reading and sorting the selection give
 the same sequence of values. -/
-theorem filter_sortSeq_map_eq [DecidableEq α] {γ : Type} (g : β → γ)
+private theorem filter_sortSeq_map_eq [DecidableEq α] {γ : Type} (g : β → γ)
     (q : α → Bool) (L : List α) :
     ((sortSeq key val o L).filter q).map (fun x => g (val x))
       = (sortSeq key val o (L.filter q)).map (fun x => g (val x)) :=
@@ -648,7 +650,7 @@ theorem filter_sortSeq_map_eq [DecidableEq α] {γ : Type} (g : β → γ)
 listings of the same frame come out tie-permuted, the blocks being the
 occurrences that carry one row – which is exactly the freedom the readings
 of a token are invariant under. -/
-theorem sortSeq_tiePerm [DecidableEq α] {L L' : List α} (h : L.Perm L') :
+private theorem sortSeq_tiePerm [DecidableEq α] {L L' : List α} (h : L.Perm L') :
     TiePerm (fun x y => val x = val y)
       (sortSeq key val o L) (sortSeq key val o L') :=
   tiePerm_of_perm_of_sorted_by (fun x y => readLe key val o x y = true) val

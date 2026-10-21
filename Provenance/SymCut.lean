@@ -4,6 +4,17 @@ public import Provenance.SymEnvBuild
 import Mathlib.Algebra.Order.Ring.Nat
 import Mathlib.Tactic.NormNum.Inv
 import Mathlib.Tactic.NormNum.Pow
+import all Provenance.AllRegular
+import all Provenance.MuUnion
+import all Provenance.PlainBasis
+import all Provenance.RecursionBasisPass
+import all Provenance.SumByMu
+import all Provenance.SumByProd
+import all Provenance.SymCorrect
+import all Provenance.SymEnvBuild
+import all Provenance.SymGamma
+import all Provenance.SymOrder
+import all Provenance.SymWin
 
 /-!
 # The cut a query's symbolic evaluation is taken relative to
@@ -37,14 +48,14 @@ def unionFin (f : ℕ → String) : (n : ℕ) → (Fin n → AggQueryIn T c 1 (C
   | n + 1, F => AggQueryIn.sumByMuX (f 0) (f 1) (F 0) (unionFin (fun i => f (i + 2)) n
       (fun i => F i.succ))
 
-theorem noMention_unionFin (f : ℕ → String) {s : String} :
+private theorem noMention_unionFin (f : ℕ → String) {s : String} :
     ∀ (n : ℕ) (F : Fin n → AggQueryIn T c 1 (ColKind.allReg 1)), (∀ i, (F i).noMention s) →
       (unionFin f n F).noMention s
   | 0, _, _ => AggQueryIn.noMention_emptyRel 1 s
   | n + 1, _, h => AggQueryIn.noMention_sumByMuX _ _ _ _ (h 0)
       (noMention_unionFin _ n _ (fun i => h i.succ))
 
-theorem mem_unionFin (f : ℕ → String) (D : Database T) (γ : Fin c → T) :
+private theorem mem_unionFin (f : ℕ → String) (D : Database T) (γ : Fin c → T) :
     ∀ (n : ℕ) (F : Fin n → AggQueryIn T c 1 (ColKind.allReg 1)),
       (∀ i j, (F i).noMention (f j)) → ∀ x,
       Multiset.Mem ((unionFin f n F).evaluatePlain D γ) x ↔ ∃ i, Multiset.Mem ((F i).evaluatePlain
@@ -70,11 +81,11 @@ def u2 (f : ℕ → String) (a b : AggQueryIn T c 1 (ColKind.allReg 1)) :
     AggQueryIn T c 1 (ColKind.allReg 1) :=
   AggQueryIn.sumByMuX (f 0) (f 1) a b
 
-theorem noMention_u2 (f : ℕ → String) {a b : AggQueryIn T c 1 (ColKind.allReg 1)} {s : String}
+private theorem noMention_u2 (f : ℕ → String) {a b : AggQueryIn T c 1 (ColKind.allReg 1)} {s : String}
     (ha : a.noMention s) (hb : b.noMention s) : (u2 f a b).noMention s :=
   AggQueryIn.noMention_sumByMuX _ _ _ _ ha hb
 
-theorem valsU_u2 (f : ℕ → String) (a b : AggQueryIn T c 1 (ColKind.allReg 1))
+private theorem valsU_u2 (f : ℕ → String) (a b : AggQueryIn T c 1 (ColKind.allReg 1))
     (ha : a.noMention (f 0)) (hb : b.noMention (f 1)) (D : Database T) (γ : Fin c → T) :
     valsU ((u2 f a b).evaluatePlain D γ)
       = Union.union (valsU (a.evaluatePlain D γ)) (valsU (b.evaluatePlain D γ)) := by
@@ -87,11 +98,11 @@ def valsOf (f : ℕ → String) {n : ℕ} (q : AggQueryIn T c n (ColKind.allReg 
     AggQueryIn T c 1 (ColKind.allReg 1) :=
   unionFin f n (fun i => projQ (fun _ => SA.col i) q)
 
-theorem noMention_valsOf (f : ℕ → String) {n : ℕ} (q : AggQueryIn T c n (ColKind.allReg n))
+private theorem noMention_valsOf (f : ℕ → String) {n : ℕ} (q : AggQueryIn T c n (ColKind.allReg n))
     {s : String} (h : q.noMention s) : (valsOf f q).noMention s :=
   noMention_unionFin _ n _ (fun _ => noMention_projQ _ _ h)
 
-theorem mem_valsU_valsOf (f : ℕ → String) {n : ℕ} (q : AggQueryIn T c n (ColKind.allReg n))
+private theorem mem_valsU_valsOf (f : ℕ → String) {n : ℕ} (q : AggQueryIn T c n (ColKind.allReg n))
     (hf : ∀ i, q.noMention (f i)) (D : Database T) (γ : Fin c → T) (a : T) :
     a ∈ valsU ((valsOf f q).evaluatePlain D γ) ↔
       ∃ y, Multiset.Mem (q.evaluatePlain D γ) y ∧ ∃ i, y i = a := by
@@ -112,7 +123,7 @@ theorem mem_valsU_valsOf (f : ℕ → String) {n : ℕ} (q : AggQueryIn T c n (C
 def ambQ (f : ℕ → String) (c : ℕ) : AggQueryIn T c 1 (ColKind.allReg 1) :=
   unionFin f c (fun j => projQ (fun _ => SA.amb j) AggQueryIn.unitC)
 
-theorem mem_valsU_ambQ (f : ℕ → String) (D : Database T) (γ : Fin c → T) (j : Fin c) :
+private theorem mem_valsU_ambQ (f : ℕ → String) (D : Database T) (γ : Fin c → T) (j : Fin c) :
     γ j ∈ valsU ((ambQ f c).evaluatePlain D γ) := by
   refine mem_valsU.mpr ⟨fun _ => γ j, (mem_unionFin f D γ c _
     (fun _ _ => noMention_projQ _ _ (AggQueryIn.noMention_unitC _)) _).mpr ⟨j, ?_⟩, rfl⟩
@@ -120,7 +131,7 @@ theorem mem_valsU_ambQ (f : ℕ → String) (D : Database T) (γ : Fin c → T) 
   erw [AggQueryIn.evaluatePlain_unitC D γ Fin.elim0]
   exact Multiset.mem_map.mpr ⟨Fin.elim0, Multiset.mem_singleton_self _, rfl⟩
 
-theorem noMention_ambQ (f : ℕ → String) (s : String) : (ambQ (T := T) f c).noMention s :=
+private theorem noMention_ambQ (f : ℕ → String) (s : String) : (ambQ (T := T) f c).noMention s :=
   noMention_unionFin _ c _ (fun _ => noMention_projQ _ _ (AggQueryIn.noMention_unitC _))
 
 /-- **The null, if the domain has one.** -/
@@ -129,7 +140,7 @@ def nullQ : AggQueryIn T c 1 (ColKind.allReg 1) :=
   | some ν => constQ ν
   | none => AggQueryIn.emptyRel 1
 
-theorem mem_valsU_nullQ (D : Database T) (γ : Fin c → T) (a : T)
+private theorem mem_valsU_nullQ (D : Database T) (γ : Fin c → T) (a : T)
     (ha : ValueType.isNull a = true) : a ∈ valsU ((nullQ (c := c)).evaluatePlain D γ) := by
   have hν := (ValueType.isNull_iff_nullVal a).mp ha
   unfold nullQ
@@ -142,7 +153,7 @@ theorem mem_valsU_nullQ (D : Database T) (γ : Fin c → T) (a : T)
     rw [hν] at h
     cases h
 
-theorem noMention_nullQ (s : String) : (nullQ (T := T) (c := c)).noMention s := by
+private theorem noMention_nullQ (s : String) : (nullQ (T := T) (c := c)).noMention s := by
   unfold nullQ
   split
   · exact noMention_constQ _ s
@@ -152,7 +163,7 @@ theorem noMention_nullQ (s : String) : (nullQ (T := T) (c := c)).noMention s := 
 noncomputable def constsQ (f : ℕ → String) (S : Finset T) : AggQueryIn T c 1 (ColKind.allReg 1) :=
   unionFin f S.toList.length (fun i => constQ (S.toList.get i))
 
-theorem mem_valsU_constsQ (f : ℕ → String) (S : Finset T) (D : Database T) (γ : Fin c → T) (a : T)
+private theorem mem_valsU_constsQ (f : ℕ → String) (S : Finset T) (D : Database T) (γ : Fin c → T) (a : T)
     (ha : a ∈ S) : a ∈ valsU ((constsQ f S).evaluatePlain D γ) := by
   obtain ⟨i, hi⟩ := List.mem_iff_get.mp (Finset.mem_toList.mpr ha)
   refine mem_valsU.mpr ⟨fun _ => a, (mem_unionFin f D γ _ _
@@ -160,7 +171,7 @@ theorem mem_valsU_constsQ (f : ℕ → String) (S : Finset T) (D : Database T) (
   rw [evaluatePlain_constQ, hi]
   exact Multiset.mem_singleton_self _
 
-theorem noMention_constsQ (f : ℕ → String) (S : Finset T) (s : String) :
+private theorem noMention_constsQ (f : ℕ → String) (S : Finset T) (s : String) :
     (constsQ (c := c) f S).noMention s :=
   noMention_unionFin _ _ _ (fun _ => noMention_constQ _ _)
 
@@ -182,7 +193,7 @@ noncomputable def gammaRaw {m n₁ n₂ : ℕ} (is : Tuple (Fin m) n₁)
     (fun j => termV (ts j)) fs (sym env f q)
     (fun j => (keep j).map (fun φ => (transSel 0 φ).toSel)) .unord)
 
-theorem sym_Gamma {m n₁ n₂ : ℕ} {lab : ℕ} {rd : Fin (k + c) → Bool} (is : Tuple (Fin m) n₁)
+private theorem sym_Gamma {m n₁ n₂ : ℕ} {lab : ℕ} {rd : Fin (k + c) → Bool} (is : Tuple (Fin m) n₁)
     (ts : Tuple (TermIn T (k + c) m) n₂) (fs : Tuple (SeqAggFunc T) n₂)
     (q : AggQueryIn T (k + c) m (ColKind.allReg m)) (keep : Fin n₂ → Option (Selection T m))
     (ord : GroupOrder T m) :
@@ -190,7 +201,7 @@ theorem sym_Gamma {m n₁ n₂ : ℕ} {lab : ℕ} {rd : Fin (k + c) → Bool} (i
       = projQ (gOutSA _ _) (gammaRaw env f is ts fs q keep) := by
   rw [sym]; rfl
 
-theorem evaluatePlain_gammaRaw {m n₁ n₂ : ℕ} (is : Tuple (Fin m) n₁)
+private theorem evaluatePlain_gammaRaw {m n₁ n₂ : ℕ} (is : Tuple (Fin m) n₁)
     (ts : Tuple (TermIn T (k + c) m) n₂) (fs : Tuple (SeqAggFunc T) n₂)
     (q : AggQueryIn T (k + c) m (ColKind.allReg m)) (keep : Fin n₂ → Option (Selection T m))
     (D : Database T) (γ : Fin c → T) :
@@ -207,14 +218,14 @@ noncomputable def nestRaw {m n₁ : ℕ} {κ : Fin m → ColKind} (is : Tuple (F
   AggQueryIn.allRegOf (AggQueryIn.GammaNest (lab := 0) (rd := fun _ => false) (gKeyIdx is)
     (fun _ h => by cases h) (projV p) g (sym env f q))
 
-theorem sym_GammaNest {m n₁ : ℕ} {κ : Fin m → ColKind} {lab : ℕ} {rd : Fin (k + c) → Bool}
+private theorem sym_GammaNest {m n₁ : ℕ} {κ : Fin m → ColKind} {lab : ℕ} {rd : Fin (k + c) → Bool}
     (is : Tuple (Fin m) n₁) (his : ∀ k', κ (is k') ≠ ColKind.agg) (p : ProjColIn T (k + c) κ)
     (g : Multiset T → T) (q : AggQueryIn T (k + c) m κ) :
     sym env f (AggQueryIn.GammaNest (lab := lab) (rd := rd) is his p g q)
       = projQ (gOutSA _ 1) (nestRaw env f is p g q) := by
   rw [sym]; rfl
 
-theorem evaluatePlain_nestRaw {m n₁ : ℕ} {κ : Fin m → ColKind} (is : Tuple (Fin m) n₁)
+private theorem evaluatePlain_nestRaw {m n₁ : ℕ} {κ : Fin m → ColKind} (is : Tuple (Fin m) n₁)
     (p : ProjColIn T (k + c) κ) (g : Multiset T → T) (q : AggQueryIn T (k + c) m κ)
     (D : Database T) (γ : Fin c → T) :
     ((nestRaw env f is p g q).evaluatePlain D γ : Multiset _)
@@ -235,14 +246,14 @@ noncomputable def scalarRaw {m n₂ : ℕ} (ts : Tuple (TermIn T (k + c) m) n₂
         (projSA_kind _)))
     (fun _ => some tagSel) .unord)
 
-theorem sym_GammaScalar {m n₂ : ℕ} {lab : ℕ} {rd : Fin (k + c) → Bool}
+private theorem sym_GammaScalar {m n₂ : ℕ} {lab : ℕ} {rd : Fin (k + c) → Bool}
     (ts : Tuple (TermIn T (k + c) m) n₂) (fs : Tuple (SeqAggFunc T) n₂)
     (q : AggQueryIn T (k + c) m (ColKind.allReg m)) (ord : GroupOrder T m) :
     sym env f (AggQueryIn.GammaScalar (lab := lab) (rd := rd) ts fs q ord)
       = projQ (sOutSA n₂) (scalarRaw env f ts fs q) := by
   rw [sym]; rfl
 
-theorem evaluatePlain_scalarRaw {m n₂ : ℕ} (ts : Tuple (TermIn T (k + c) m) n₂)
+private theorem evaluatePlain_scalarRaw {m n₂ : ℕ} (ts : Tuple (TermIn T (k + c) m) n₂)
     (fs : Tuple (SeqAggFunc T) n₂) {κ : Fin m → ColKind} (q : AggQueryIn T (k + c) m κ)
     (h₀ : env.Desc.noMention (AggQueryIn.tri f 0 0))
     (h₁ : (sym env (AggQueryIn.tri f 1) q).noMention (AggQueryIn.tri f 0 1))
@@ -285,7 +296,7 @@ noncomputable def winRaw {n m p : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) 
     (winOIdx O) (expandSpec o) (expandFrame (k := k) w) (termV t) g (sym env f q)
     (winReadsReg_allReg _ _ _) dist (keep.map (fun φ => (transSel 0 φ).toSel)))
 
-theorem sym_Win {n m p : ℕ} {κ' : Fin n → ColKind} {lab : ℕ} {rd : Fin (k + c) → Bool}
+private theorem sym_Win {n m p : ℕ} {κ' : Fin n → ColKind} {lab : ℕ} {rd : Fin (k + c) → Bool}
     (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p) (w : ValueFrame T p) {hsql :
       w.IsSQL o}
     (t : TermIn T (k + c) n) (g : SeqAggFunc T) (q : AggQueryIn T (k + c) n κ')
@@ -295,7 +306,7 @@ theorem sym_Win {n m p : ℕ} {κ' : Fin n → ColKind} {lab : ℕ} {rd : Fin (k
       = projQ (wOutSA n) (winRaw (hsql := sql_frame%) env f P O o w t g q dist keep) := by
   rw [sym]; rfl
 
-theorem evaluatePlain_winRaw {n m p : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
+private theorem evaluatePlain_winRaw {n m p : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
     (o : OrderSpec p) (w : ValueFrame T p) {hsql : w.IsSQL o} (t : TermIn T (k + c) n) (g :
       SeqAggFunc T)
     {κ : Fin n → ColKind} (q : AggQueryIn T (k + c) n κ) (dist : Bool)
@@ -386,23 +397,23 @@ noncomputable def cutQ (cnt : SeqAggFunc T) (f : ℕ → String) {n : ℕ} {κ :
 
 /-! ## What the cut names -/
 
-theorem noMention_colsQ {c N p : ℕ} (f : ℕ → String) (q : AggQueryIn T c N (ColKind.allReg N))
+private theorem noMention_colsQ {c N p : ℕ} (f : ℕ → String) (q : AggQueryIn T c N (ColKind.allReg N))
     (idx : Fin p → Fin N) {s : String} (h : q.noMention s) : (colsQ f q idx).noMention s :=
   noMention_unionFin _ p _ (fun _ => noMention_projQ _ _ h)
 
-theorem noMention_cutOf {c : ℕ} (f : ℕ → String) (S : Finset T)
+private theorem noMention_cutOf {c : ℕ} (f : ℕ → String) (S : Finset T)
     {core : AggQueryIn T c 1 (ColKind.allReg 1)} {s : String} (h : core.noMention s) :
     (cutOf f S core).noMention s :=
   noMention_u2 _ (noMention_u2 _ (noMention_nullQ s) (noMention_ambQ _ s))
     (noMention_u2 _ (noMention_constsQ _ S s) h)
 
-theorem noMention_sym {k c : ℕ} (env : SymEnv T k c) {s : String} (henv : EnvNoMention env s)
+private theorem noMention_sym {k c : ℕ} (env : SymEnv T k c) {s : String} (henv : EnvNoMention env s)
     (f : ℕ → String) {n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)}
     (q : AggQueryIn T (k + c) n κ l) (hq : q.noMention s) : (sym env f q).noMention s :=
   (noMention_sym_aux env henv _ f q le_rfl hq).1
 
 /-- **The cut names only what the query names.** -/
-theorem noMention_cutCore (cnt : SeqAggFunc T) {s : String} :
+private theorem noMention_cutCore (cnt : SeqAggFunc T) {s : String} :
     ∀ (N : ℕ) (f : ℕ → String) {n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)}
       (q : AggQueryIn T (k + c) n κ l), sizeOf q ≤ N → q.noMention s →
       (cutCore cnt f q).noMention s := by
@@ -477,7 +488,7 @@ theorem noMention_cutCore (cnt : SeqAggFunc T) {s : String} :
 
 /-- **A cut holds the null, the context's values, its constants and the
 values of its core.** -/
-theorem mem_cutOf {c : ℕ} (f : ℕ → String) (S : Finset T) (core : AggQueryIn T c 1 (ColKind.allReg
+private theorem mem_cutOf {c : ℕ} (f : ℕ → String) (S : Finset T) (core : AggQueryIn T c 1 (ColKind.allReg
     1))
     (hcore : ∀ i, core.noMention (f i)) (D : Database T) (γ : Fin c → T) :
     (∀ a : T, ValueType.isNull a = true → a ∈ valsU ((cutOf f S core).evaluatePlain D γ))
@@ -499,7 +510,7 @@ theorem mem_cutOf {c : ℕ} (f : ℕ → String) (S : Finset T) (core : AggQuery
   · exact Finset.mem_union_right _ (Finset.mem_union_left _ (mem_valsU_constsQ _ S D γ a ha))
   · exact Finset.mem_union_right _ (Finset.mem_union_right _ ha)
 
-theorem valsU_colsQ {c N p : ℕ} (f : ℕ → String) (q : AggQueryIn T c N (ColKind.allReg N))
+private theorem valsU_colsQ {c N p : ℕ} (f : ℕ → String) (q : AggQueryIn T c N (ColKind.allReg N))
     (idx : Fin p → Fin N) (hf : ∀ i, q.noMention (f i)) (D : Database T) (γ : Fin c → T) (a : T) :
     a ∈ valsU ((colsQ f q idx).evaluatePlain D γ) ↔
       ∃ y, Multiset.Mem (q.evaluatePlain D γ) y ∧ ∃ j, y (idx j) = a := by
@@ -534,7 +545,7 @@ def CutOK {c' n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (cnt 
 
 /-- The symbolic evaluation relative to a node's cut names only what the
 query names. -/
-theorem noMention_symCut (cnt : SeqAggFunc T) (f : ℕ → String) (S : Finset T) {m : ℕ}
+private theorem noMention_symCut (cnt : SeqAggFunc T) (f : ℕ → String) (S : Finset T) {m : ℕ}
     {κ' : Fin m → ColKind} (q : AggQueryIn T (k + c) m κ') {s : String} (hs : q.noMention s) :
     (sym (envOf (part f 3) cnt k (cutOf (part f 4) S (cutCore cnt (part f 1) q))) (part f 5)
       q).noMention s :=
@@ -543,7 +554,7 @@ theorem noMention_symCut (cnt : SeqAggFunc T) (f : ℕ → String) (S : Finset T
 
 /-- **The cut makes the evaluation good**, in both modes: a closed query at
 every parameter row where it settles, a recursive term at every round. -/
-theorem good_cutCore (Θ : Set (SeqAggFunc T)) {cnt : SeqAggFunc T} (hc : SeqAggFunc.Counts cnt) :
+private theorem good_cutCore (Θ : Set (SeqAggFunc T)) {cnt : SeqAggFunc T} (hc : SeqAggFunc.Counts cnt) :
     ∀ (N : ℕ) (f : ℕ → String) {n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)}
       (q : AggQueryIn T (k + c) n κ l), sizeOf q ≤ N → q.usesOnly basisProdOps → SymSrc Θ q →
       (∀ i, q.noMention (f i)) →
@@ -941,17 +952,17 @@ noncomputable def tabQ (cnt : SeqAggFunc T) (f : ℕ → String) {n : ℕ} {κ :
     (q : AggQueryIn T (k + c) n κ) : AggQueryIn T c ((k + n) * (7 + k)) (ColKind.allReg _) :=
   sym (tabEnv cnt f q) (part f 2) q
 
-theorem noMention_cutQ (cnt : SeqAggFunc T) (f : ℕ → String) {n : ℕ} {κ : Fin n → ColKind}
+private theorem noMention_cutQ (cnt : SeqAggFunc T) (f : ℕ → String) {n : ℕ} {κ : Fin n → ColKind}
     (q : AggQueryIn T (k + c) n κ) {s : String} (hs : q.noMention s) :
     (cutQ cnt f q).noMention s :=
   noMention_cutOf _ _ (noMention_cutCore cnt _ _ q le_rfl hs)
 
-theorem envNoMention_tabEnv (cnt : SeqAggFunc T) (f : ℕ → String) {n : ℕ} {κ : Fin n → ColKind}
+private theorem envNoMention_tabEnv (cnt : SeqAggFunc T) (f : ℕ → String) {n : ℕ} {κ : Fin n → ColKind}
     (q : AggQueryIn T (k + c) n κ) {s : String} (hs : q.noMention s) :
     EnvNoMention (tabEnv cnt f q) s :=
   envNoMention_envOf _ cnt k _ (noMention_cutQ cnt _ q hs)
 
-theorem noMention_tabQ (cnt : SeqAggFunc T) (f : ℕ → String) {n : ℕ} {κ : Fin n → ColKind}
+private theorem noMention_tabQ (cnt : SeqAggFunc T) (f : ℕ → String) {n : ℕ} {κ : Fin n → ColKind}
     (q : AggQueryIn T (k + c) n κ) {s : String} (hs : q.noMention s) : (tabQ cnt f q).noMention s :=
   noMention_sym _ (envNoMention_tabEnv cnt f q hs) _ q hs
 

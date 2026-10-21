@@ -3,6 +3,8 @@ module
 public import Provenance.AggExpr
 import Mathlib.Algebra.BigOperators.Fin
 import Mathlib.Tactic.Bound.Init
+import all Provenance.AggExpr
+import all Provenance.AggValue
 
 /-!
 # Congruence of predicate provenance under tie-block permutations
@@ -55,11 +57,11 @@ namespace TiePerm
 
 variable {α β : Type} {eqv : α → α → Prop}
 
-theorem refl (eqv : α → α → Prop) : ∀ l : List α, TiePerm eqv l l
+private theorem refl (eqv : α → α → Prop) : ∀ l : List α, TiePerm eqv l l
   | [] => .nil
   | a :: t => .cons a (refl eqv t)
 
-theorem symm (hsymm : ∀ {a b : α}, eqv a b → eqv b a) :
+private theorem symm (hsymm : ∀ {a b : α}, eqv a b → eqv b a) :
     ∀ {l₁ l₂ : List α}, TiePerm eqv l₁ l₂ → TiePerm eqv l₂ l₁ := by
   intro l₁ l₂ h
   induction h with
@@ -71,7 +73,7 @@ theorem symm (hsymm : ∀ {a b : α}, eqv a b → eqv b a) :
 /-- **A reading that cannot tell two tied entries apart is unchanged by a
 tie-block permutation.** `map_fst_eq` is the case of the first
 component. -/
-theorem map_eq_of_eqv {γ : Type} {φ : α → γ}
+private theorem map_eq_of_eqv {γ : Type} {φ : α → γ}
     (hφ : ∀ {a b : α}, eqv a b → φ a = φ b) :
     ∀ {l₁ l₂ : List α}, TiePerm eqv l₁ l₂ → l₁.map φ = l₂.map φ := by
   intro l₁ l₂ h
@@ -86,7 +88,7 @@ theorem map_eq_of_eqv {γ : Type} {φ : α → γ}
 /-- **Selecting by a test that cannot tell two tied entries apart** leaves
 a tie-block permutation one: a swap either keeps both entries or drops
 both. -/
-theorem filter {p : α → Bool} (hp : ∀ {a b : α}, eqv a b → p a = p b) :
+private theorem filter {p : α → Bool} (hp : ∀ {a b : α}, eqv a b → p a = p b) :
     ∀ {l₁ l₂ : List α}, TiePerm eqv l₁ l₂ →
       TiePerm eqv (l₁.filter p) (l₂.filter p) := by
   intro l₁ l₂ h
@@ -106,7 +108,7 @@ theorem filter {p : α → Bool} (hp : ∀ {a b : α}, eqv a b → p a = p b) :
   | trans _ _ ih₁ ih₂ => exact ih₁.trans ih₂
 
 /-- Appending a fixed tail. -/
-theorem append_right {l₁ l₂ : List α} (h : TiePerm eqv l₁ l₂) (r : List α) :
+private theorem append_right {l₁ l₂ : List α} (h : TiePerm eqv l₁ l₂) (r : List α) :
     TiePerm eqv (l₁ ++ r) (l₂ ++ r) := by
   induction h with
   | nil => exact refl eqv r
@@ -115,7 +117,7 @@ theorem append_right {l₁ l₂ : List α} (h : TiePerm eqv l₁ l₂) (r : List
   | trans _ _ ih₁ ih₂ => exact .trans ih₁ ih₂
 
 /-- Prefixing a fixed head. -/
-theorem append_left (l : List α) {r₁ r₂ : List α} (h : TiePerm eqv r₁ r₂) :
+private theorem append_left (l : List α) {r₁ r₂ : List α} (h : TiePerm eqv r₁ r₂) :
     TiePerm eqv (l ++ r₁) (l ++ r₂) := by
   induction l with
   | nil => exact h
@@ -124,12 +126,12 @@ theorem append_left (l : List α) {r₁ r₂ : List α} (h : TiePerm eqv r₁ r�
 /-- **Two tie-block permutations append**: a family built in two segments
 – the merged occurrences a clause keeps and the rejected ones it leaves –
 is carried segment by segment. -/
-theorem append {l₁ l₂ r₁ r₂ : List α} (h : TiePerm eqv l₁ l₂)
+private theorem append {l₁ l₂ r₁ r₂ : List α} (h : TiePerm eqv l₁ l₂)
     (hr : TiePerm eqv r₁ r₂) : TiePerm eqv (l₁ ++ r₁) (l₂ ++ r₂) :=
   .trans (append_right h r₁) (append_left l₂ hr)
 
 /-- A tie-block permutation is in particular a permutation. -/
-theorem perm {l₁ l₂ : List α} (h : TiePerm eqv l₁ l₂) : l₁.Perm l₂ := by
+private theorem perm {l₁ l₂ : List α} (h : TiePerm eqv l₁ l₂) : l₁.Perm l₂ := by
   induction h with
   | nil => exact List.Perm.nil
   | cons a _ ih => exact ih.cons a
@@ -137,7 +139,7 @@ theorem perm {l₁ l₂ : List α} (h : TiePerm eqv l₁ l₂) : l₁.Perm l₂ 
   | trans _ _ ih₁ ih₂ => exact ih₁.trans ih₂
 
 /-- Tie-block permutations transport along maps that preserve the guard. -/
-theorem map {eqv' : β → β → Prop} (g : α → β)
+private theorem map {eqv' : β → β → Prop} (g : α → β)
     (hg : ∀ {a b : α}, eqv a b → eqv' (g a) (g b)) :
     ∀ {l₁ l₂ : List α}, TiePerm eqv l₁ l₂ →
       TiePerm eqv' (l₁.map g) (l₂.map g) := by
@@ -151,7 +153,7 @@ theorem map {eqv' : β → β → Prop} (g : α → β)
 /-- **A tie-block permutation leaves unchanged the sequence of anything the
 guard determines** (whereas an unrestricted permutation would only preserve
 it as a multiset). -/
-theorem map_eq {γ : Type} {g : α → γ} (hg : ∀ {a b : α}, eqv a b → g a = g b) :
+private theorem map_eq {γ : Type} {g : α → γ} (hg : ∀ {a b : α}, eqv a b → g a = g b) :
     ∀ {l₁ l₂ : List α}, TiePerm eqv l₁ l₂ → l₁.map g = l₂.map g := by
   intro l₁ l₂ h
   induction h with
@@ -164,7 +166,7 @@ theorem map_eq {γ : Type} {g : α → γ} (hg : ∀ {a b : α}, eqv a b → g a
 /-- On lists of pairs with equal first components as guard, a tie-block
 permutation leaves the sequence of first components unchanged (whereas an
 unrestricted permutation would only preserve it as a multiset). -/
-theorem map_fst_eq {γ δ : Type} {l₁ l₂ : List (γ × δ)}
+private theorem map_fst_eq {γ δ : Type} {l₁ l₂ : List (γ × δ)}
     (h : TiePerm (fun p q => p.1 = q.1) l₁ l₂) :
     l₁.map Prod.fst = l₂.map Prod.fst := by
   induction h with
@@ -193,7 +195,7 @@ variable {R : α → α → Prop} {key : α → κ}
 
 /-- Bubbling a least element of a sorted list to the front only ever
 transposes adjacent elements of equal key. -/
-theorem tiePerm_cons_erase_by (R : α → α → Prop) (key : α → κ)
+private theorem tiePerm_cons_erase_by (R : α → α → Prop) (key : α → κ)
     (hanti : ∀ {x y : α}, R x y → R y x → key x = key y) :
     ∀ {l : List α} {p : α}, p ∈ l →
       l.Pairwise R → (∀ q ∈ l, R p q) →
@@ -219,7 +221,7 @@ theorem tiePerm_cons_erase_by (R : α → α → Prop) (key : α → κ)
 /-- **Two lists that are permutations of each other and both sorted by `R`
 differ only by a tie-block permutation on key equality**: the sort order
 determines everything except the arrangement inside blocks of equal key. -/
-theorem tiePerm_of_perm_of_sorted_by (R : α → α → Prop) (key : α → κ)
+private theorem tiePerm_of_perm_of_sorted_by (R : α → α → Prop) (key : α → κ)
     (hanti : ∀ {x y : α}, R x y → R y x → key x = key y)
     (hkey : ∀ {x y : α}, key x = key y → R x y) :
     ∀ {l₁ l₂ : List α}, l₁.Perm l₂ →
@@ -245,7 +247,7 @@ variable [LinearOrder κ]
 
 /-- Bubbling a minimal element of a sorted list to the front only ever
 transposes adjacent elements of equal key. -/
-theorem tiePerm_cons_erase (key : α → κ) {l : List α} {p : α} (hp : p ∈ l)
+private theorem tiePerm_cons_erase (key : α → κ) {l : List α} {p : α} (hp : p ∈ l)
     (hsort : l.Pairwise (fun x y => key x ≤ key y))
     (hmin : ∀ q ∈ l, key p ≤ key q) :
     TiePerm (fun x y => key x = key y) l (p :: l.erase p) :=
@@ -354,7 +356,7 @@ def predProvAux (f : SeqAggFunc T) (P : T → Kleene) :
 omit [ValueType T] [DecidableEq K] in
 /-- The world-sum defining the predicate provenance, generalized by the three
 accumulators, equals the recursion form. -/
-theorem sum_worlds_eq_predProvAux (f : SeqAggFunc T) (P : T → Kleene) :
+private theorem sum_worlds_eq_predProvAux (f : SeqAggFunc T) (P : T → Kleene) :
     ∀ (l : List (T × K)) (acc : List T) (ex : K) (started : Bool),
       ∑ W ∈ Finset.univ.filter
           (fun W : Finset (Fin l.length) => started = true ∨ W.Nonempty),
@@ -513,7 +515,7 @@ omit [ValueType T] [DecidableEq K] in
 /-- The recursion form is invariant under tie-block permutations of the
 payload: exchanging two adjacent occurrences with equal values redistributes
 the same annotations over the same world readings. -/
-theorem predProvAux_congr (f : SeqAggFunc T) (P : T → Kleene)
+private theorem predProvAux_congr (f : SeqAggFunc T) (P : T → Kleene)
     {l₁ l₂ : List (T × K)} (h : TiePerm (fun p q => p.1 = q.1) l₁ l₂) :
     ∀ (acc : List T) (ex : K) (started : Bool),
       predProvAux f P acc ex started l₁
@@ -544,7 +546,7 @@ theorem predProvAux_congr (f : SeqAggFunc T) (P : T → Kleene)
 whose payloads differ by a tie-block permutation on equal values have the
 same predicate provenance, for every comparison. This is what makes the
 annotation tie-break of the group sort semantically invisible. -/
-theorem predProvWith_congr {a b : AggValue T K} (hagg : a.agg = b.agg)
+private theorem predProvWith_congr {a b : AggValue T K} (hagg : a.agg = b.agg)
     (h : TiePerm (fun p q => p.1 = q.1) a.occs b.occs) (P : T → Kleene) :
     a.predProvWith P = b.predProvWith P := by
   rw [predProvWith_eq_predProvAux, predProvWith_eq_predProvAux, hagg,
@@ -562,7 +564,7 @@ omit [DecidableEq K] in
 reads the classes and their sums, and exchanging two adjacent
 occurrences of equal value changes neither. This is what lets the merged
 token inherit every congruence the unmerged one has. -/
-theorem mergeOccs_congr {l l' : List (T × K)}
+private theorem mergeOccs_congr {l l' : List (T × K)}
     (h : TiePerm (fun p q : T × K => p.1 = q.1) l l') :
     mergeOccs l = mergeOccs l' := by
   unfold mergeOccs
@@ -571,7 +573,7 @@ theorem mergeOccs_congr {l l' : List (T × K)}
 
 omit [DecidableEq K] in
 /-- The same on a token, whose aggregate and convention are its own. -/
-theorem mergeByValue_congr {a b : AggValue T K} (hagg : a.agg = b.agg)
+private theorem mergeByValue_congr {a b : AggValue T K} (hagg : a.agg = b.agg)
     (hsc : a.scalar = b.scalar) (hfam : a.fam = b.fam)
     (h : TiePerm (fun p q : T × K => p.1 = q.1) a.occs b.occs) :
     mergeByValue a = mergeByValue b := by
@@ -582,7 +584,7 @@ theorem mergeByValue_congr {a b : AggValue T K} (hagg : a.agg = b.agg)
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] in
 /-- The deterministic reading of a token only depends on the value sequence,
 which a tie-block permutation preserves. -/
-theorem collapse_congr {a b : AggValue T K} (hagg : a.agg = b.agg)
+private theorem collapse_congr {a b : AggValue T K} (hagg : a.agg = b.agg)
     (h : TiePerm (fun p q => p.1 = q.1) a.occs b.occs) :
     a.collapse = b.collapse := by
   rw [AggValue.collapse, AggValue.collapse, hagg, h.map_fst_eq]
@@ -590,7 +592,7 @@ theorem collapse_congr {a b : AggValue T K} (hagg : a.agg = b.agg)
 omit [ValueType T] [DecidableEq K] in
 /-- The sum of the occurrence annotations of a token is invariant under any
 permutation of the payload, in particular a tie-block one. -/
-theorem annSum_congr {a b : AggValue T K}
+private theorem annSum_congr {a b : AggValue T K}
     (h : TiePerm (fun p q => p.1 = q.1) a.occs b.occs) :
     (a.occs.map Prod.snd).sum = (b.occs.map Prod.snd).sum :=
   (h.perm.map Prod.snd).sum_eq
@@ -598,7 +600,7 @@ theorem annSum_congr {a b : AggValue T K}
 omit [ValueType T] [DecidableEq K] in
 /-- The empty world's annotation depends only on the sum of the occurrence
 annotations, which a tie-block permutation preserves. -/
-theorem worldAnn_empty_congr {a b : AggValue T K}
+private theorem worldAnn_empty_congr {a b : AggValue T K}
     (h : TiePerm (fun p q : T × K => p.1 = q.1) a.occs b.occs) :
     Having.worldAnn a.anns ∅ = Having.worldAnn b.anns ∅ := by
   unfold Having.worldAnn
@@ -617,7 +619,7 @@ theorem worldAnn_empty_congr {a b : AggValue T K}
 `predProv` is: the empty world it adds reads the aggregate of the empty
 sequence and the sum of all the annotations, neither of which the
 permutation moves. -/
-theorem predProvScalarWith_congr {a b : AggValue T K} (hagg : a.agg = b.agg)
+private theorem predProvScalarWith_congr {a b : AggValue T K} (hagg : a.agg = b.agg)
     (h : TiePerm (fun p q => p.1 = q.1) a.occs b.occs) (P : T → Kleene) :
     a.predProvScalarWith P = b.predProvScalarWith P := by
   rw [AggValue.predProvScalarWith_eq_predProvWith_add,
@@ -625,7 +627,7 @@ theorem predProvScalarWith_congr {a b : AggValue T K} (hagg : a.agg = b.agg)
     worldAnn_empty_congr h, hagg]
 
 /-- The comparison case. -/
-theorem predProvScalar_congr {a b : AggValue T K} (hagg : a.agg = b.agg)
+private theorem predProvScalar_congr {a b : AggValue T K} (hagg : a.agg = b.agg)
     (h : TiePerm (fun p q => p.1 = q.1) a.occs b.occs)
     (op : CompOp) (c : T) :
     a.predProvScalar op c = b.predProvScalar op c :=
@@ -633,7 +635,7 @@ theorem predProvScalar_congr {a b : AggValue T K} (hagg : a.agg = b.agg)
 
 /-- A token is read in its own convention, invariantly under a tie-block
 permutation of its payload. -/
-theorem predProvOfWith_congr {a b : AggValue T K} (hagg : a.agg = b.agg)
+private theorem predProvOfWith_congr {a b : AggValue T K} (hagg : a.agg = b.agg)
     (hsc : a.scalar = b.scalar)
     (h : TiePerm (fun p q => p.1 = q.1) a.occs b.occs) (P : T → Kleene) :
     a.predProvOfWith P = b.predProvOfWith P := by
@@ -655,7 +657,7 @@ theorem vals_congr {a b : AggValue T K} (hagg : a.agg = b.agg)
     h.map_fst_eq]
 
 /-- The comparison case. -/
-theorem predProvOf_congr {a b : AggValue T K} (hagg : a.agg = b.agg)
+private theorem predProvOf_congr {a b : AggValue T K} (hagg : a.agg = b.agg)
     (hsc : a.scalar = b.scalar)
     (h : TiePerm (fun p q => p.1 = q.1) a.occs b.occs)
     (op : CompOp) (c : T) :
@@ -706,7 +708,7 @@ omit [ValueType T] [DecidableEq K] in
 /-- **The world sum is the recursion**, several leaves at a time. The
 world condition asks each grouped leaf to have kept an occurrence of the
 part it reads, which is what `AggExpr.IsWorld` asks of `W ∩ reads l`. -/
-theorem sum_worlds_eq_exprProvAux (aggs : Fin q → SeqAggFunc T)
+private theorem sum_worlds_eq_exprProvAux (aggs : Fin q → SeqAggFunc T)
     (sc : Fin q → Bool) (g : (Fin q → T) → T) (P : T → Kleene) :
     ∀ (L : List ((Fin q → T) × K × (Fin q → Bool) × (Fin q → Bool))) (acc : Fin q → List T)
       (ex : K) (started : Fin q → Bool),
@@ -933,7 +935,7 @@ family: two occurrences that carry the same value vector *and* are read
 by the same leaves may be swapped. Both halves are needed – swapping
 occurrences that different leaves read would hand a leaf a value it does
 not read. -/
-theorem exprProvAux_congr (aggs : Fin q → SeqAggFunc T) (sc : Fin q → Bool)
+private theorem exprProvAux_congr (aggs : Fin q → SeqAggFunc T) (sc : Fin q → Bool)
     (g : (Fin q → T) → T) (P : T → Kleene)
     {L₁ L₂ : List ((Fin q → T) × K × (Fin q → Bool) × (Fin q → Bool))}
     (h : TiePerm (fun z z' => z.fst = z'.fst ∧ z.snd.snd = z'.snd.snd) L₁ L₂) :
@@ -972,7 +974,7 @@ accumulators: the world sum over the shared family is the walk over it.
 This is `AggValue.predProvWith_eq_predProvAux` for several leaves, and
 it is immediate because the leaf flags travel in the occurrences –
 `AggExpr.leafSeq_eq_filter` is exactly the shape the walk reads. -/
-theorem predProvWith_eq_exprProvAux (e : AggExpr T K) (P : T → Kleene) :
+private theorem predProvWith_eq_exprProvAux (e : AggExpr T K) (P : T → Kleene) :
     e.predProvWith P
       = exprProvAux e.aggs e.scalar e.g P (fun _ => []) 0 (fun _ => false)
           e.occs := by
@@ -1012,7 +1014,7 @@ semantically invisible, as `AggValue.predProvWith_congr` does for one
 token. The two halves of the equivalence are both needed: swapping
 occurrences that different leaves read would hand a leaf a value it does
 not read. -/
-theorem predProvWith_congr {φ₁ φ₂ : FamId T} {os₁ os₂ : List (OccId T)}
+private theorem predProvWith_congr {φ₁ φ₂ : FamId T} {os₁ os₂ : List (OccId T)}
     {occs₁ occs₂ : List ((Fin q → T) × K × (Fin q → Bool) × (Fin q → Bool))}
     (aggs : Fin q → SeqAggFunc T) (sc : Fin q → Bool) (g : (Fin q → T) → T)
     (h : TiePerm (fun z z' => z.fst = z'.fst ∧ z.snd.snd = z'.snd.snd)
@@ -1029,7 +1031,7 @@ expression alone.** The collapse and the values read the stripped family
 and the predicate provenance is `predProvWith_congr`. These four are what
 an aggregate column owes, so this is the bundle a simulation of two
 expression columns asks for. -/
-theorem readings_congr {φ₁ φ₂ : FamId T} {os₁ os₂ : List (OccId T)}
+private theorem readings_congr {φ₁ φ₂ : FamId T} {os₁ os₂ : List (OccId T)}
     {occs₁ occs₂ : List ((Fin q → T) × K × (Fin q → Bool) × (Fin q → Bool))}
     (aggs : Fin q → SeqAggFunc T) (sc : Fin q → Bool) (g : (Fin q → T) → T)
     (h : TiePerm (fun z z' => z.fst = z'.fst ∧ z.snd.snd = z'.snd.snd)
@@ -1056,7 +1058,7 @@ off the family step by step is one entry per subfamily – the product of
 the annotations it keeps, the sum of those it leaves out, and the
 occurrences it selects, stripped – because a subfamily either keeps the
 first occurrence or leaves it out, which is the recursion's two halves. -/
-theorem subStats_eq_univ {q : ℕ} :
+private theorem subStats_eq_univ {q : ℕ} :
     ∀ L : List ((Fin q → T) × K × (Fin q → Bool) × (Fin q → Bool)),
       AggExpr.subStats L
         = (Finset.univ : Finset (Finset (Fin L.length))).val.map
@@ -1187,7 +1189,7 @@ not the other, and those carry the same product, the same sum and – the
 occurrences being stripped of their annotations – the same selection. So
 everything a *nested* value reads of an occurrence survives the
 permutation its column may differ by. -/
-theorem subStats_congr {q : ℕ}
+private theorem subStats_congr {q : ℕ}
     {occs₁ occs₂ : List ((Fin q → T) × K × (Fin q → Bool) × (Fin q → Bool))}
     (h : TiePerm (fun z z' => z.fst = z'.fst ∧ z.snd.snd = z'.snd.snd)
       occs₁ occs₂) :
@@ -1220,7 +1222,7 @@ omit [ValueType T] [DecidableEq K] in
 /-- **The statistics, read through the recursion over the family.** This
 is what carries them across a tie-block permutation
 (`AggExpr.worldStats_congr`). -/
-theorem worldStats_eq_subStats (e : AggExpr T K) :
+private theorem worldStats_eq_subStats (e : AggExpr T K) :
     e.worldStats = (subStats e.occs).map (fun z =>
       (z.fst, z.snd.fst, e.valOfSel z.snd.snd, e.isWorldOfSel z.snd.snd)) := by
   rw [AggExpr.subStats_eq_univ e.occs, Multiset.map_map]
@@ -1235,7 +1237,7 @@ permutation of the family**: they are the recursion's
 (`AggExpr.worldStats_eq_subStats`), and the recursion is
 (`AggExpr.subStats_congr`). This is what an aggregate column owes a
 nested value that reads it, beside the four readings. -/
-theorem worldStats_congr {q : ℕ} {φ₁ φ₂ : FamId T} {os₁ os₂ : List (OccId T)}
+private theorem worldStats_congr {q : ℕ} {φ₁ φ₂ : FamId T} {os₁ os₂ : List (OccId T)}
     {occs₁ occs₂ : List ((Fin q → T) × K × (Fin q → Bool) × (Fin q → Bool))}
     (aggs : Fin q → SeqAggFunc T) (sc : Fin q → Bool) (g : (Fin q → T) → T)
     (h : TiePerm (fun z z' => z.fst = z'.fst ∧ z.snd.snd = z'.snd.snd)
@@ -1251,7 +1253,7 @@ omit [DecidableEq K] [CommSemiringWithMonus K] in
 /-- **The family of an unmerged filtered aggregate is permuted with its
 sequence**: each occurrence carries its own value, annotation and flags,
 all three read off its row. -/
-theorem ofSeqWhen_tiePerm_occs {m : ℕ} (f : SeqAggFunc T) {c : ℕ}
+private theorem ofSeqWhen_tiePerm_occs {m : ℕ} (f : SeqAggFunc T) {c : ℕ}
     (t : TermIn T c m) (keep : Tuple T m → Bool) (sc : Bool) (γ : Fin c → T)
     {U U' : List (AnnotatedTuple T K m)}
     (hU : TiePerm (fun a b : AnnotatedTuple T K m => a.fst = b.fst) U U') :
@@ -1271,7 +1273,7 @@ omit [DecidableEq K] in
 The merged part does not see the order at all – it reads the classes and
 their sums (`AggValue.mergeOccs_congr`) – and the rejected part is
 permuted with the sequence. -/
-theorem ofSeqDistWhen_tiePerm_occs {m : ℕ}
+private theorem ofSeqDistWhen_tiePerm_occs {m : ℕ}
     (f : SeqAggFunc T) {c : ℕ} (t : TermIn T c m) (keep : Tuple T m → Bool)
     (sc : Bool) (γ : Fin c → T) {U U' : List (AnnotatedTuple T K m)}
     (hU : TiePerm (fun a b : AnnotatedTuple T K m => a.fst = b.fst) U U') :
@@ -1300,7 +1302,7 @@ product, a monus or the indicator of a test on *values*, and a
 values, which the pushforward leaves alone. Proving it on the recursion
 rather than on the world sum is the whole point of having the recursion:
 the induction is one line per constructor. -/
-theorem exprProvAux_mapAnn {K' : Type} [CommSemiringWithMonus K']
+private theorem exprProvAux_mapAnn {K' : Type} [CommSemiringWithMonus K']
     (h : SemiringWithMonusHom K K') (aggs : Fin q → SeqAggFunc T)
     (sc : Fin q → Bool) (g : (Fin q → T) → T) (P : T → Kleene) :
     ∀ (L : List ((Fin q → T) × K × (Fin q → Bool) × (Fin q → Bool))) (acc : Fin q → List T)
@@ -1331,7 +1333,7 @@ theorem exprProvAux_mapAnn {K' : Type} [CommSemiringWithMonus K']
 /-- **Predicate provenance commutes with a homomorphism**, for an
 aggregate expression as for a token: the pushforward moves the
 annotations and no reading. -/
-theorem predProvWith_mapAnn {K' : Type} [CommSemiringWithMonus K']
+private theorem predProvWith_mapAnn {K' : Type} [CommSemiringWithMonus K']
     [DecidableEq K'] (h : SemiringWithMonusHom K K') (e : AggExpr T K)
     (P : T → Kleene) :
     h.toRingHom (e.predProvWith P) = (e.mapAnn ⇑h.toRingHom).predProvWith P := by
@@ -1345,7 +1347,7 @@ own family**, provided some leaf is grouped – which is what forces every
 world to be non-empty, so that one occurrence annotation is there to
 swallow `δ` of the whole family's sum. Where every leaf is scalar the
 empty world is a world and there is nothing to absorb with. -/
-theorem predProvWith_delta_absorb (e : AggExpr T K)
+private theorem predProvWith_delta_absorb (e : AggExpr T K)
     (hgr : ∃ l, e.scalar l = false) (P : T → Kleene) :
     e.predProvWith P * SemiringWithMonus.delta e.annList.sum
       = e.predProvWith P := by

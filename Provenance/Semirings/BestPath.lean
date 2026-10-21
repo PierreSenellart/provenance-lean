@@ -78,13 +78,13 @@ instance : LinearOrder (BestPathVal C Λ) :=
   LinearOrder.lift' (fun p => OrderDual.toDual (key p))
     (fun _ _ h => key_injective (OrderDual.toDual.injective h))
 
-theorem le_iff_key (p q : BestPathVal C Λ) : p ≤ q ↔ key q ≤ key p := Iff.rfl
-theorem lt_iff_key (p q : BestPathVal C Λ) : p < q ↔ key q < key p := Iff.rfl
+private theorem le_iff_key (p q : BestPathVal C Λ) : p ≤ q ↔ key q ≤ key p := Iff.rfl
+private theorem lt_iff_key (p q : BestPathVal C Λ) : p < q ↔ key q < key p := Iff.rfl
 
 omit [LinearOrder C] [LinearOrder Λ] in
 /-- A lexicographic comparison of two words of equal length survives
 appending the same word to both. -/
-theorem lex_append_right_of_length_eq {r : Λ → Λ → Prop} :
+private theorem lex_append_right_of_length_eq {r : Λ → Λ → Prop} :
     ∀ {s₁ s₂ : List Λ}, List.Lex r s₁ s₂ → s₁.length = s₂.length →
       ∀ t, List.Lex r (s₁ ++ t) (s₂ ++ t)
   | _, _, .nil, h, _ => absurd h (by simp)
@@ -92,12 +92,12 @@ theorem lex_append_right_of_length_eq {r : Λ → Λ → Prop} :
   | _, _, .rel h, _, _ => .rel h
 
 omit [LinearOrder C] in
-theorem append_lt_append_right {s₁ s₂ : List Λ} (h : s₁ < s₂)
+private theorem append_lt_append_right {s₁ s₂ : List Λ} (h : s₁ < s₂)
     (hl : s₁.length = s₂.length) (t : List Λ) : s₁ ++ t < s₂ ++ t :=
   lex_append_right_of_length_eq h hl t
 
 omit [LinearOrder C] in
-theorem append_lt_append_left {s₁ s₂ : List Λ} (h : s₁ < s₂) (t : List Λ) :
+private theorem append_lt_append_left {s₁ s₂ : List Λ} (h : s₁ < s₂) (t : List Λ) :
     t ++ s₁ < t ++ s₂ :=
   List.Lex.append_left _ h t
 
@@ -112,7 +112,7 @@ def mul (p q : BestPathVal C Λ) : BestPathVal C Λ :=
 def one : BestPathVal C Λ := ⟨0, []⟩
 
 /-- The key is strictly monotone under concatenation on the right. -/
-theorem key_mul_lt_mul_right {p q : BestPathVal C Λ} (h : key p < key q)
+private theorem key_mul_lt_mul_right {p q : BestPathVal C Λ} (h : key p < key q)
     (r : BestPathVal C Λ) : key (mul p r) < key (mul q r) := by
   simp only [key, mul, Prod.Lex.toLex_lt_toLex] at h ⊢
   rcases h with h | ⟨h1, h⟩
@@ -124,7 +124,7 @@ theorem key_mul_lt_mul_right {p q : BestPathVal C Λ} (h : key p < key q)
         append_lt_append_right h h2 _⟩
 
 /-- And on the left. -/
-theorem key_mul_lt_mul_left {p q : BestPathVal C Λ} (h : key p < key q)
+private theorem key_mul_lt_mul_left {p q : BestPathVal C Λ} (h : key p < key q)
     (r : BestPathVal C Λ) : key (mul r p) < key (mul r q) := by
   simp only [key, mul, Prod.Lex.toLex_lt_toLex] at h ⊢
   rcases h with h | ⟨h1, h⟩
@@ -135,41 +135,41 @@ theorem key_mul_lt_mul_left {p q : BestPathVal C Λ} (h : key p < key q)
     · exact Or.inr ⟨by simp only [List.length_append, h2],
         append_lt_append_left h _⟩
 
-theorem key_mul_le_mul_right {p q : BestPathVal C Λ} (h : key p ≤ key q)
+private theorem key_mul_le_mul_right {p q : BestPathVal C Λ} (h : key p ≤ key q)
     (r : BestPathVal C Λ) : key (mul p r) ≤ key (mul q r) := by
   rcases lt_or_eq_of_le h with h | h
   · exact le_of_lt (key_mul_lt_mul_right h r)
   · rw [key_injective h]
 
-theorem key_mul_le_mul_left {p q : BestPathVal C Λ} (h : key p ≤ key q)
+private theorem key_mul_le_mul_left {p q : BestPathVal C Λ} (h : key p ≤ key q)
     (r : BestPathVal C Λ) : key (mul r p) ≤ key (mul r q) := by
   rcases lt_or_eq_of_le h with h | h
   · exact le_of_lt (key_mul_lt_mul_left h r)
   · rw [key_injective h]
 
 /-- In the chain's order (better is greater), `⊗ r` is monotone. -/
-theorem mul_le_mul_right' {p q : BestPathVal C Λ} (h : p ≤ q) (r : BestPathVal C Λ) :
+private theorem mul_le_mul_right' {p q : BestPathVal C Λ} (h : p ≤ q) (r : BestPathVal C Λ) :
     mul p r ≤ mul q r :=
   key_mul_le_mul_right h r
 
-theorem mul_le_mul_left' {p q : BestPathVal C Λ} (h : p ≤ q) (r : BestPathVal C Λ) :
+private theorem mul_le_mul_left' {p q : BestPathVal C Λ} (h : p ≤ q) (r : BestPathVal C Λ) :
     mul r p ≤ mul r q :=
   key_mul_le_mul_left h r
 
-theorem mul_lt_mul_right' {p q : BestPathVal C Λ} (h : p < q) (r : BestPathVal C Λ) :
+private theorem mul_lt_mul_right' {p q : BestPathVal C Λ} (h : p < q) (r : BestPathVal C Λ) :
     mul p r < mul q r :=
   key_mul_lt_mul_right h r
 
-theorem mul_lt_mul_left' {p q : BestPathVal C Λ} (h : p < q) (r : BestPathVal C Λ) :
+private theorem mul_lt_mul_left' {p q : BestPathVal C Λ} (h : p < q) (r : BestPathVal C Λ) :
     mul r p < mul r q :=
   key_mul_lt_mul_left h r
 
-theorem mul_le_mul_right_iff (p q r : BestPathVal C Λ) :
+private theorem mul_le_mul_right_iff (p q r : BestPathVal C Λ) :
     mul p r ≤ mul q r ↔ p ≤ q :=
   ⟨fun h => le_of_not_gt fun h' => not_lt_of_ge h (mul_lt_mul_right' h' r),
     fun h => mul_le_mul_right' h r⟩
 
-theorem mul_le_mul_left_iff (p q r : BestPathVal C Λ) :
+private theorem mul_le_mul_left_iff (p q r : BestPathVal C Λ) :
     mul r p ≤ mul r q ↔ p ≤ q :=
   ⟨fun h => le_of_not_gt fun h' => not_lt_of_ge h (mul_lt_mul_left' h' r),
     fun h => mul_le_mul_left' h r⟩
@@ -216,9 +216,9 @@ theorem keyW_injective : Function.Injective (keyW : BestPath C Λ → _) := by
 
 instance : LinearOrder (BestPath C Λ) := LinearOrder.lift' keyW keyW_injective
 
-theorem le_iff_keyW (a b : BestPath C Λ) : a ≤ b ↔ keyW a ≤ keyW b := Iff.rfl
+private theorem le_iff_keyW (a b : BestPath C Λ) : a ≤ b ↔ keyW a ≤ keyW b := Iff.rfl
 
-theorem some_le_some (p q : BestPathVal C Λ) :
+private theorem some_le_some (p q : BestPathVal C Λ) :
     (⟨some p⟩ : BestPath C Λ) ≤ ⟨some q⟩ ↔ p ≤ q := by
   rw [le_iff_keyW]
   show WithBot.some (OrderDual.toDual (BestPathVal.key p))
@@ -226,11 +226,11 @@ theorem some_le_some (p q : BestPathVal C Λ) :
   rw [WithBot.coe_le_coe]
   exact Iff.rfl
 
-theorem none_le (a : BestPath C Λ) : (⟨none⟩ : BestPath C Λ) ≤ a := by
+private theorem none_le (a : BestPath C Λ) : (⟨none⟩ : BestPath C Λ) ≤ a := by
   rw [le_iff_keyW]
   exact bot_le
 
-theorem not_some_le_none (p : BestPathVal C Λ) :
+private theorem not_some_le_none (p : BestPathVal C Λ) :
     ¬ (⟨some p⟩ : BestPath C Λ) ≤ ⟨none⟩ := by
   rw [le_iff_keyW]
   exact not_le.mpr (WithBot.bot_lt_coe _)
@@ -238,12 +238,12 @@ theorem not_some_le_none (p : BestPathVal C Λ) :
 /-- `⊕` is the better of two values: the maximum of the chain. -/
 instance : Add (BestPath C Λ) := ⟨fun a b => max a b⟩
 
-theorem add_def (a b : BestPath C Λ) : a + b = max a b := rfl
+private theorem add_def (a b : BestPath C Λ) : a + b = max a b := rfl
 
 instance : Zero (BestPath C Λ) := ⟨⟨none⟩⟩
 
 omit [LinearOrder C] [LinearOrder Λ] in
-theorem zero_def : (0 : BestPath C Λ) = ⟨none⟩ := rfl
+private theorem zero_def : (0 : BestPath C Λ) = ⟨none⟩ := rfl
 
 theorem zero_le' (a : BestPath C Λ) : (0 : BestPath C Λ) ≤ a := none_le a
 
@@ -397,22 +397,22 @@ noncomputable instance : SemiringWithMonus (BestPath C Λ) where
     exact deltaInd_isIndicator.nonzero 1 one_ne_zero'
   delta_absorb := delta_absorb_indicator deltaInd_isIndicator
 
-theorem sub_def (a b : BestPath C Λ) : a - b = if a ≤ b then 0 else a := rfl
+private theorem sub_def (a b : BestPath C Λ) : a - b = if a ≤ b then 0 else a := rfl
 
 omit [AddCommMonoid C] [IsOrderedCancelAddMonoid C] in
 /-- `⊕` keeps one of its arguments. -/
-theorem selective_of (a b : BestPath C Λ) : a + b = a ∨ a + b = b := by
+private theorem selective_of (a b : BestPath C Λ) : a + b = a ∨ a + b = b := by
   rw [add_def]
   rcases le_total a b with h | h
   · exact Or.inr (max_eq_right h)
   · exact Or.inl (max_eq_left h)
 
-theorem idempotent_add : idempotent (BestPath C Λ) := fun a => max_self a
+private theorem idempotent_add : idempotent (BestPath C Λ) := fun a => max_self a
 
 omit [LinearOrder C] [LinearOrder Λ] [IsOrderedCancelAddMonoid C] in
 /-- **Concatenation does not commute**: two distinct labels in either
 order are two distinct words. -/
-theorem not_commutative {a b : Λ} (hab : a ≠ b) (c : C) :
+private theorem not_commutative {a b : Λ} (hab : a ≠ b) (c : C) :
     (⟨some ⟨c, [a]⟩⟩ : BestPath C Λ) * ⟨some ⟨c, [b]⟩⟩
       ≠ (⟨some ⟨c, [b]⟩⟩ : BestPath C Λ) * ⟨some ⟨c, [a]⟩⟩ := by
   rw [some_mul_some, some_mul_some]
@@ -425,7 +425,7 @@ theorem not_commutative {a b : Λ} (hab : a ≠ b) (c : C) :
 then the best value, so `𝟙 ⊕ a = 𝟙` – and absorptivity on the other side
 of a product is the same statement in a semiring where `⊕` is a
 maximum. -/
-theorem absorptive_of (h0 : ∀ c : C, 0 ≤ c) : absorptive (BestPath C Λ) := by
+private theorem absorptive_of (h0 : ∀ c : C, 0 ≤ c) : absorptive (BestPath C Λ) := by
   intro a
   rw [add_def]
   refine max_eq_left ?_
@@ -446,7 +446,7 @@ theorem absorptive_of (h0 : ∀ c : C, 0 ≤ c) : absorptive (BestPath C Λ) := 
 
 /-- **`⊗` distributes over the monus on the left**: `⊗` by a value is an
 order embedding of the chain, so it carries “strictly better” along. -/
-theorem mul_sub_left_distributive_of : mul_sub_left_distributive (BestPath C Λ) := by
+private theorem mul_sub_left_distributive_of : mul_sub_left_distributive (BestPath C Λ) := by
   intro a b c
   rw [sub_def, sub_def]
   obtain ⟨a⟩ := a
@@ -474,7 +474,7 @@ theorem mul_sub_left_distributive_of : mul_sub_left_distributive (BestPath C Λ)
               ((some_le_some _ _).mp h))), some_mul_some]
 
 /-- And on the right. -/
-theorem mul_sub_right_distributive_of (a b c : BestPath C Λ) :
+private theorem mul_sub_right_distributive_of (a b c : BestPath C Λ) :
     (b - c) * a = b * a - c * a := by
   rw [sub_def, sub_def]
   obtain ⟨a⟩ := a
@@ -503,7 +503,7 @@ theorem mul_sub_right_distributive_of (a b c : BestPath C Λ) :
 
 /-- **Complemented**: `𝟙 ⊖ (a ⊕ b) = (𝟙 ⊖ a) ⊗ (𝟙 ⊖ b)`, both sides `𝟘`
 exactly when one of `a`, `b` is at least `𝟙`. -/
-theorem complemented_of : complemented (BestPath C Λ) := by
+private theorem complemented_of : complemented (BestPath C Λ) := by
   intro a b
   rw [sub_def, sub_def, sub_def, add_def]
   by_cases ha : (1 : BestPath C Λ) ≤ a

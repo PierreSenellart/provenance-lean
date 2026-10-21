@@ -14,6 +14,9 @@ import Mathlib.Tactic.Linarith.Frontend
 import Mathlib.Tactic.NormNum.Abs
 import Mathlib.Tactic.NormNum.DivMod
 import Mathlib.Tactic.NormNum.OfScientific
+import all Provenance.HavingMinMax
+import all Provenance.SemiringWithMonus
+import all Provenance.Semirings.BoolFunc
 
 /-!
 # Tropical m-semiring
@@ -243,13 +246,13 @@ theorem MinTropical.absorptive [LinearOrderedAddCommMonoidWithTop α] [Canonical
   congr
   simp[untrop_one]
 
-theorem MinTropicalN.absorptive : absorptive (MinTropical (WithTop ℕ)) := by
+private theorem MinTropicalN.absorptive : absorptive (MinTropical (WithTop ℕ)) := by
   exact MinTropical.absorptive
 
 /-- The tropical semiring over `WithTop ℕ` is not exclusive: absorptive and
 totally ordered, with `trop 1` neither `𝟘 = trop ⊤` nor `𝟙 = trop 0`, so
 `𝟙 ⊖ trop 1 = 𝟙` and `trop 1 ⊗ 𝟙 = trop 1`. -/
-theorem MinTropicalN.not_exclusive : ¬ exclusive (MinTropical (WithTop ℕ)) :=
+private theorem MinTropicalN.not_exclusive : ¬ exclusive (MinTropical (WithTop ℕ)) :=
   not_exclusive_of_absorptive_of_total MinTropicalN.absorptive
     (fun a b => le_total (MinTropical.untrop b) (MinTropical.untrop a))
     (a := MinTropical.trop ((1 : ℕ) : WithTop ℕ))
@@ -261,7 +264,7 @@ even though this semiring *is* absorptive (`MinTropicalN.absorptive`): what
 `a + min(a, b) = a` in `ℕ`, and at `a = b = trop 1` it reads `trop 2 ≠ trop 1`.
 This is why the instance takes the support indicator (ProvSQL's
 `Tropical::delta`). -/
-theorem MinTropicalN.not_isDelta_id :
+private theorem MinTropicalN.not_isDelta_id :
     ¬ IsDelta (id : MinTropical (WithTop ℕ) → MinTropical (WithTop ℕ)) := by
   refine not_isDelta_id_of_absorb_ne
     (a := MinTropical.trop ((1 : ℕ) : WithTop ℕ))
@@ -272,7 +275,7 @@ theorem MinTropicalN.not_isDelta_id :
 
 /-- Times distributes over monus on tropical semirings made of an order
   strictly compatible with addition, with an additional top element. -/
-theorem MinTropical.mul_sub_left_distributive
+private theorem MinTropical.mul_sub_left_distributive
   [LinearOrder α] [AddCancelCommMonoid α] [IsOrderedAddMonoid α] [AddLeftStrictMono α]:
   mul_sub_left_distributive (MinTropical (WithTop α)) := by
     intro a b c
@@ -296,15 +299,15 @@ theorem MinTropical.mul_sub_left_distributive
         simp at contradiction
     . rfl
 
-theorem MinTropicalN.mul_sub_left_distributive : mul_sub_left_distributive (MinTropical (WithTop ℕ)) := by
+private theorem MinTropicalN.mul_sub_left_distributive : mul_sub_left_distributive (MinTropical (WithTop ℕ)) := by
   exact MinTropical.mul_sub_left_distributive
-theorem MinTropicalQ.mul_sub_left_distributive : mul_sub_left_distributive (MinTropical (WithTop ℚ)) := by
+private theorem MinTropicalQ.mul_sub_left_distributive : mul_sub_left_distributive (MinTropical (WithTop ℚ)) := by
   exact MinTropical.mul_sub_left_distributive
-theorem MinTropicalR.mul_sub_left_distributive : mul_sub_left_distributive (MinTropical (WithTop ℝ)) := by
+private theorem MinTropicalR.mul_sub_left_distributive : mul_sub_left_distributive (MinTropical (WithTop ℝ)) := by
   exact MinTropical.mul_sub_left_distributive
 
 /-- The tropical semiring is idempotent --/
-theorem MinTropical.idempotent [LinearOrderedAddCommMonoidWithTop α] : idempotent (MinTropical α) := by
+private theorem MinTropical.idempotent [LinearOrderedAddCommMonoidWithTop α] : idempotent (MinTropical α) := by
   intro a
   simp[(· + ·), Add.add]
 
@@ -322,7 +325,7 @@ noncomputable instance MinTropicalR.instCharPZero : CharP (MinTropical (WithTop 
 `MinTropical.trop 1 * MinTropical.trop 1 = MinTropical.trop 2 ≠ MinTropical.trop 1`. (MinTropical
 multiplication is the original additive monoid operation, which is not idempotent
 on `ℕ`.) -/
-theorem MinTropicalN.not_mul_idempotent :
+private theorem MinTropicalN.not_mul_idempotent :
     ¬ ∀ a : MinTropical (WithTop ℕ), a * a = a := by
   push Not
   refine ⟨MinTropical.trop (1 : WithTop ℕ), ?_⟩
@@ -334,7 +337,7 @@ theorem MinTropicalN.not_mul_idempotent :
 /-- There is no semiring homomorphism from `BoolFunc Y` to the tropical semiring
 over `ℕ ∪ {∞}` sending the variables to arbitrary values: tropical multiplication
 is not idempotent, contradicting `var i * var i = var i` in `BoolFunc Y`. -/
-theorem MinTropicalN.no_hom_from_BoolFunc {Y : Type} [Inhabited Y] :
+private theorem MinTropicalN.no_hom_from_BoolFunc {Y : Type} [Inhabited Y] :
     ∃ ν : Y → MinTropical (WithTop ℕ),
       ¬ ∃ φ : BoolFunc Y →+* MinTropical (WithTop ℕ),
         ∀ i : Y, φ (BoolFunc.var i) = ν i :=
@@ -356,7 +359,7 @@ have `S_1(U) = trop (-1)` but `F_1(U) = trop (-2)`. -/
 /-- `MinTropical (WithTop ℝ)` is **not** absorptive: `1 + trop (-1) = trop (-1) ≠ 1`.
 The proof goes through `tropical_order_ge`: `a + 1 = 1` would force
 `untrop a ≥ untrop 1 = 0`, but with `a = trop (-1)` we have `untrop a = -1`. -/
-theorem MinTropicalR.not_absorptive : ¬ absorptive (MinTropical (WithTop ℝ)) := by
+private theorem MinTropicalR.not_absorptive : ¬ absorptive (MinTropical (WithTop ℝ)) := by
   intro h
   have h1 := h (MinTropical.trop ((-1 : ℝ) : WithTop ℝ))
   rw [add_comm] at h1
@@ -492,7 +495,7 @@ fails in `MinTropical (WithTop ℝ)`: with `U = Finset.univ : Finset Bool`,
 absorptivity hypothesis (cf. `MinTropicalR.not_absorptive`): the weaker
 “idempotent + `mul_sub_left_distributive`” combination satisfied by
 `MinTropical (WithTop ℝ)` (and likewise by `MinTropical (WithTop ℚ)`) is insufficient. -/
-theorem MinTropicalR.F_ne_S :
+private theorem MinTropicalR.F_ne_S :
     Having.F MinTropicalR.α_ce (Finset.univ : Finset Bool) 1 ≠
       Having.S MinTropicalR.α_ce (Finset.univ : Finset Bool) 1 := by
   rw [MinTropicalR.F_ce_univ_one, MinTropicalR.S_ce_univ_one]
@@ -564,7 +567,7 @@ end MinTropicalR
 the semiring's – and `𝟙` elsewhere. Addition is the minimum of the
 weights and multiplication their sum, so both sides are `𝟘` exactly when
 one of the two summands has weight at most `𝟙`'s. -/
-theorem MinTropical.complemented [LinearOrderedAddCommMonoidWithTop α] :
+private theorem MinTropical.complemented [LinearOrderedAddCommMonoidWithTop α] :
     _root_.complemented (MinTropical α) := by
   intro a b
   have hsub : ∀ x : MinTropical α, (1 : MinTropical α) - x

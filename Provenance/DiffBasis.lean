@@ -5,6 +5,16 @@ public import Provenance.MuUnion
 import Mathlib.Analysis.SpecialFunctions.Pow.NNReal
 import Provenance.RecursionBasisTheorem
 import Provenance.SymPass
+import all Provenance.AggQuery
+import all Provenance.Database
+import all Provenance.Decorrelate
+import all Provenance.Frame
+import all Provenance.MuUnion
+import all Provenance.OrderSpec
+import all Provenance.PlainBasis
+import all Provenance.RecursionBasis
+import all Provenance.SumByMu
+import all Provenance.SymPass
 
 /-!
 # The difference in place of the selection
@@ -44,10 +54,10 @@ holds, and nothing elsewhere. -/
 def boolRel (b : Bool) : Multiset (Tuple T 0) := if b then {fun k => k.elim0} else 0
 
 omit [ValueType T] in
-theorem tuple0_eq (u v : Tuple T 0) : u = v := funext fun k => k.elim0
+private theorem tuple0_eq (u v : Tuple T 0) : u = v := funext fun k => k.elim0
 
 omit [ValueType T] in
-theorem mem_boolRel {b : Bool} {u : Tuple T 0} : u ∈ boolRel b ↔ b = true := by
+private theorem mem_boolRel {b : Bool} {u : Tuple T 0} : u ∈ boolRel b ↔ b = true := by
   cases b
   · simp [boolRel]
   · simp only [boolRel, ite_true, Multiset.mem_singleton, iff_true]
@@ -57,7 +67,7 @@ theorem mem_boolRel {b : Bool} {u : Tuple T 0} : u ∈ boolRel b ↔ b = true :=
 def param1 {C : ℕ} (e : T ⊕ Fin C) : AggQueryIn T C 1 (ColKind.allReg 1) :=
   AggQueryIn.Param (fun _ => e) (ColKind.allReg 1)
 
-theorem evaluatePlain_param1 {C : ℕ} (e : T ⊕ Fin C) (D : Database T) (γ : Fin C → T) :
+private theorem evaluatePlain_param1 {C : ℕ} (e : T ⊕ Fin C) (D : Database T) (γ : Fin C → T) :
     (param1 e).evaluatePlain D γ = ({fun _ => val γ e} : Multiset (Tuple T 1)) := rfl
 
 /-- Every row projected onto no column. -/
@@ -65,7 +75,7 @@ def proj0 {C k : ℕ} (q : AggQueryIn T C k (ColKind.allReg k)) :
     AggQueryIn T C 0 (ColKind.allReg 0) :=
   (AggQueryIn.Proj (fun j : Fin 0 => j.elim0) q).castKind (funext fun j => j.elim0)
 
-theorem evaluatePlain_proj0 {C k : ℕ} (q : AggQueryIn T C k (ColKind.allReg k))
+private theorem evaluatePlain_proj0 {C k : ℕ} (q : AggQueryIn T C k (ColKind.allReg k))
     (D : Database T) (γ : Fin C → T) :
     (proj0 q).evaluatePlain D γ
       = (q.evaluatePlain D γ : Multiset (Tuple T k)).map (fun _ => fun j => j.elim0) := by
@@ -73,7 +83,7 @@ theorem evaluatePlain_proj0 {C k : ℕ} (q : AggQueryIn T C k (ColKind.allReg k)
   simp only [AggQueryIn.evaluatePlain]
   exact Multiset.map_congr rfl fun _ _ => funext fun j => j.elim0
 
-theorem evaluatePlain_diff {C k : ℕ} (X Y : AggQueryIn T C k (ColKind.allReg k))
+private theorem evaluatePlain_diff {C k : ℕ} (X Y : AggQueryIn T C k (ColKind.allReg k))
     (D : Database T) (γ : Fin C → T) :
     (AggQueryIn.Diff X Y).evaluatePlain D γ
       = (X.evaluatePlain D γ : Multiset (Tuple T k)).filter
@@ -87,7 +97,7 @@ def inter {C k : ℕ} (X Y : AggQueryIn T C k (ColKind.allReg k)) :
     AggQueryIn T C k (ColKind.allReg k) :=
   AggQueryIn.Diff X (AggQueryIn.Diff X Y)
 
-theorem evaluatePlain_inter {C k : ℕ} (X Y : AggQueryIn T C k (ColKind.allReg k))
+private theorem evaluatePlain_inter {C k : ℕ} (X Y : AggQueryIn T C k (ColKind.allReg k))
     (D : Database T) (γ : Fin C → T) :
     (inter X Y).evaluatePlain D γ
       = (X.evaluatePlain D γ : Multiset (Tuple T k)).filter
@@ -112,7 +122,7 @@ def orT {C : ℕ} (A B : AggQueryIn T C 0 (ColKind.allReg 0)) :
 
 variable {C : ℕ} {D : Database T} {γ : Fin C → T}
 
-theorem evaluatePlain_notT {A : AggQueryIn T C 0 (ColKind.allReg 0)} {a : Bool}
+private theorem evaluatePlain_notT {A : AggQueryIn T C 0 (ColKind.allReg 0)} {a : Bool}
     (hA : A.evaluatePlain D γ = boolRel a) : (notT A).evaluatePlain D γ = boolRel (!a) := by
   rw [notT, evaluatePlain_diff, hA, AggQueryIn.evaluatePlain_unitC D γ (fun k => k.elim0)]
   cases a
@@ -121,7 +131,7 @@ theorem evaluatePlain_notT {A : AggQueryIn T C 0 (ColKind.allReg 0)} {a : Bool}
     rw [Multiset.filter_singleton, ite_eq_right (by simp)]
     rfl
 
-theorem evaluatePlain_andT {A B : AggQueryIn T C 0 (ColKind.allReg 0)} {a b : Bool}
+private theorem evaluatePlain_andT {A B : AggQueryIn T C 0 (ColKind.allReg 0)} {a b : Bool}
     (hA : A.evaluatePlain D γ = boolRel a) (hB : B.evaluatePlain D γ = boolRel b) :
     (andT A B).evaluatePlain D γ = boolRel (a && b) := by
   rw [andT, evaluatePlain_inter, hA, hB]
@@ -133,7 +143,7 @@ theorem evaluatePlain_andT {A B : AggQueryIn T C 0 (ColKind.allReg 0)} {a b : Bo
     · simp
     · simp
 
-theorem evaluatePlain_orT {A B : AggQueryIn T C 0 (ColKind.allReg 0)} {a b : Bool}
+private theorem evaluatePlain_orT {A B : AggQueryIn T C 0 (ColKind.allReg 0)} {a b : Bool}
     (hA : A.evaluatePlain D γ = boolRel a) (hB : B.evaluatePlain D γ = boolRel b) :
     (orT A B).evaluatePlain D γ = boolRel (a || b) := by
   rw [orT, evaluatePlain_notT (evaluatePlain_andT (evaluatePlain_notT hA)
@@ -146,7 +156,7 @@ theorem evaluatePlain_orT {A B : AggQueryIn T C 0 (ColKind.allReg 0)} {a b : Boo
 def eqT (a b : T ⊕ Fin C) : AggQueryIn T C 0 (ColKind.allReg 0) :=
   proj0 (inter (param1 a) (param1 b))
 
-theorem evaluatePlain_eqT (a b : T ⊕ Fin C) :
+private theorem evaluatePlain_eqT (a b : T ⊕ Fin C) :
     (eqT a b).evaluatePlain D γ = boolRel (decide (val γ a = val γ b)) := by
   rw [eqT, evaluatePlain_proj0, evaluatePlain_inter, evaluatePlain_param1,
     evaluatePlain_param1, Multiset.filter_singleton]
@@ -162,7 +172,7 @@ def nnT (a : T ⊕ Fin C) : AggQueryIn T C 0 (ColKind.allReg 0) :=
   | none => AggQueryIn.unitC
   | some ν => notT (eqT a (_root_.Sum.inl ν))
 
-theorem evaluatePlain_nnT (a : T ⊕ Fin C) :
+private theorem evaluatePlain_nnT (a : T ⊕ Fin C) :
     (nnT a).evaluatePlain D γ = boolRel (!ValueType.isNull (val γ a)) := by
   unfold nnT
   split
@@ -197,7 +207,7 @@ apply's left side. -/
 def liftE (e : T ⊕ Fin C) : T ⊕ Fin (1 + C) := _root_.Sum.map id (Fin.natAdd 1) e
 
 omit [ValueType T] in
-theorem val_liftE (e : T ⊕ Fin C) (u : Tuple T 1) :
+private theorem val_liftE (e : T ⊕ Fin C) (u : Tuple T 1) :
     val (Fin.append u γ) (liftE e) = val γ e := by
   cases e with
   | inl a => rfl
@@ -213,7 +223,7 @@ def stepBody (s : String) (b : T ⊕ Fin C) : AggQueryIn T C 1 (ColKind.allReg 1
       (AggQueryIn.Diff (param1 (liftE b))
         (param1 (_root_.Sum.inr (Fin.castAdd C 0)))))).castKind (funext fun _ => rfl)
 
-theorem evaluatePlain_stepBody (s : String) (b : T ⊕ Fin C) (X : Relation T 1) :
+private theorem evaluatePlain_stepBody (s : String) (b : T ⊕ Fin C) (X : Relation T 1) :
     (stepBody s b).evaluatePlain (D.assign s X) γ
       = (rows X).bind (fun u => if u 0 = val γ b then 0
           else ({fun _ => val γ b} : Multiset (Tuple T 1))) := by
@@ -241,12 +251,12 @@ one round from `a`. -/
 def pairZ (s : String) (a b : T ⊕ Fin C) : AggQueryIn T C 1 (ColKind.allReg 1) :=
   AggQueryIn.Mu s (param1 a) (stepBody s b)
 
-theorem settlesAt_stepBody (s : String) (b : T ⊕ Fin C) (D : Database T) (γ : Fin C → T) :
+private theorem settlesAt_stepBody (s : String) (b : T ⊕ Fin C) (D : Database T) (γ : Fin C → T) :
     (stepBody s b).SettlesAt D γ := by
   rw [stepBody, AggQueryIn.settlesAt_castKind]
   exact ⟨trivial, fun _ _ => ⟨trivial, trivial⟩⟩
 
-theorem pairZ_spec (s : String) (a b : T ⊕ Fin C) :
+private theorem pairZ_spec (s : String) (a b : T ⊕ Fin C) :
     (pairZ s a b).SettlesAt D γ ∧ (pairZ s a b).evaluatePlain D γ
       = if val γ a = val γ b then ({r1 (val γ a)} : Multiset (Tuple T 1))
         else r1 (val γ a) ::ₘ {r1 (val γ b)} := by
@@ -295,7 +305,7 @@ def PairSpec (pr : PairQ T) : Prop :=
 /-- `{a, b}` by a bag recursion of one round. -/
 def prZ (s : String) : PairQ T := fun a b => pairZ s a b
 
-theorem pairSpec_prZ (s : String) : PairSpec (prZ (T := T) s) :=
+private theorem pairSpec_prZ (s : String) : PairSpec (prZ (T := T) s) :=
   fun a b D γ => pairZ_spec (D := D) (γ := γ) s a b
 
 /-- **The frame of the rows strictly before the current one**, its peers
@@ -311,14 +321,14 @@ def O0 : Tuple (Fin 1) 1 := fun _ => 0
 /-- Whether `a` sorts strictly before `b`, ascending. -/
 def ltO (a b : T) : Bool := (OrderSpec.asc 1).lt (fun _ => a) (fun _ => b)
 
-theorem frameOf_beforeW (Z : Multiset (Tuple T 1)) (x : Tuple T 1) :
+private theorem frameOf_beforeW (Z : Multiset (Tuple T 1)) (x : Tuple T 1) :
     ValueFrame.frameOf id P0 O0 beforeW Z x
       = (Z.filter (fun y => ltO (y 0) (x 0) = true)).erase x := by
   unfold ValueFrame.frameOf
   rw [ite_eq_right (by simp [beforeW]), Multiset.erase_instEq _ instDecidableEqTuple]
   congr 1
 
-theorem windowValue_beforeW {cnt : SeqAggFunc T} {g : ℕ → T}
+private theorem windowValue_beforeW {cnt : SeqAggFunc T} {g : ℕ → T}
     (hg : ∀ L : List T, cnt L = g (L.countP (fun x => !ValueType.isNull x)))
     (Z : Multiset (Tuple T 1)) (x : Tuple T 1) :
     ValueFrame.windowValue P0 O0
@@ -350,7 +360,7 @@ def winZ (cnt : SeqAggFunc T) (Z : AggQueryIn T C 1 (ColKind.allReg 1)) :
       (fun _ : Fin 1 => (0 : Fin 1)) (OrderSpec.asc 1) beforeW (TermIn.index 0) cnt
       Z (winReadsReg_allReg _ _ _))).castKind kinds_explode
 
-theorem evaluatePlain_winZ (cnt : SeqAggFunc T) (Z : AggQueryIn T C 1 (ColKind.allReg 1)) :
+private theorem evaluatePlain_winZ (cnt : SeqAggFunc T) (Z : AggQueryIn T C 1 (ColKind.allReg 1)) :
     (winZ cnt Z).evaluatePlain D γ
       = (rows (Z.evaluatePlain D γ)).map (fun x : Tuple T 1 => (Fin.snoc x
           (ValueFrame.windowValue P0 O0
@@ -367,7 +377,7 @@ def termOf {k : ℕ} {κ : Fin k → ColKind} (e : T ⊕ Fin C) : TermGIn T C κ
   | .inl a => .const a
   | .inr j => .outer j
 
-theorem evalPlain_termOf {k : ℕ} {κ : Fin k → ColKind} (e : T ⊕ Fin C) (w : Tuple T k) :
+private theorem evalPlain_termOf {k : ℕ} {κ : Fin k → ColKind} (e : T ⊕ Fin C) (w : Tuple T k) :
     (termOf e : TermGIn T C κ).evalPlain w γ = val γ e := by
   cases e <;> rfl
 
@@ -382,7 +392,7 @@ def projB (b : T ⊕ Fin C) (W : AggQueryIn T C 2 (ColKind.allReg 2)) :
     · rw [Fin.snoc_last]; rfl
     · rw [Fin.snoc_castSucc]; rfl)
 
-theorem evaluatePlain_projB (b : T ⊕ Fin C) (W : AggQueryIn T C 2 (ColKind.allReg 2)) :
+private theorem evaluatePlain_projB (b : T ⊕ Fin C) (W : AggQueryIn T C 2 (ColKind.allReg 2)) :
     (projB b W).evaluatePlain D γ
       = (rows (W.evaluatePlain D γ)).map (fun w => (Fin.snoc (r1 (val γ b)) (w (Fin.last 1))
           : Tuple T 2)) := by
@@ -404,10 +414,10 @@ def ltT (cnt : SeqAggFunc T) (pr : PairQ T) (a b : T ⊕ Fin C) :
       (_root_.Sum.inl 0)) (ColKind.allReg 2)))
 
 omit [ValueType T] in
-theorem r1_inj {a b : T} : r1 a = r1 b ↔ a = b :=
+private theorem r1_inj {a b : T} : r1 a = r1 b ↔ a = b :=
   ⟨fun h => congrFun h 0, fun h => h ▸ rfl⟩
 
-theorem ltO_self (a : T) : ltO a a = false := OrderSpec.lt_irrefl _ _
+private theorem ltO_self (a : T) : ltO a a = false := OrderSpec.lt_irrefl _ _
 
 theorem evaluatePlain_ltT {cnt : SeqAggFunc T} (hcnt : cnt.IsCount)
     {pr : PairQ T} (hpr : PairSpec pr)
@@ -481,7 +491,7 @@ theorem evaluatePlain_ltT {cnt : SeqAggFunc T} (hcnt : cnt.IsCount)
       rfl
 
 /-- On two values of the domain, the ascending order is the domain's. -/
-theorem ltO_eq {a b : T} (ha : ValueType.isNull a = false) (hb : ValueType.isNull b = false) :
+private theorem ltO_eq {a b : T} (ha : ValueType.isNull a = false) (hb : ValueType.isNull b = false) :
     ltO a b = decide (a < b) := by
   unfold ltO OrderSpec.lt OrderSpec.le
   simp only [List.finRange_succ, List.finRange_zero, List.map_nil,
@@ -491,7 +501,7 @@ theorem ltO_eq {a b : T} (ha : ValueType.isNull a = false) (hb : ValueType.isNul
   · simp [h, not_lt.mpr h]
   · simp [h, lt_of_not_ge h]
 
-theorem evaluatePlain_ltT_of {cnt : SeqAggFunc T} (hcnt : cnt.IsCount)
+private theorem evaluatePlain_ltT_of {cnt : SeqAggFunc T} (hcnt : cnt.IsCount)
     {pr : PairQ T} (hpr : PairSpec pr)
     (a b : T ⊕ Fin C) (ha : ValueType.isNull (val γ a) = false)
     (hb : ValueType.isNull (val γ b) = false) :
@@ -515,7 +525,7 @@ def opE (cnt : SeqAggFunc T) (pr : PairQ T) (op : CompOp) (a b : T ⊕ Fin C) :
   | .le => notT (ltT cnt pr b a)
   | .ge => notT (ltT cnt pr a b)
 
-theorem evaluatePlain_opE {cnt : SeqAggFunc T} (hcnt : cnt.IsCount)
+private theorem evaluatePlain_opE {cnt : SeqAggFunc T} (hcnt : cnt.IsCount)
     {pr : PairQ T} (hpr : PairSpec pr) (op : CompOp)
     (a b : T ⊕ Fin C) (ha : ValueType.isNull (val γ a) = false)
     (hb : ValueType.isNull (val γ b) = false) :
@@ -553,10 +563,10 @@ def cmpTF (cnt : SeqAggFunc T) (pr : PairQ T) (op : CompOp) (a b : T ⊕ Fin C) 
       andT (nnT a) (andT (nnT b) (notT (opE cnt pr op a b))))
 
 omit [ValueType T] in
-theorem boolRel_inj {a b : Bool} (h : (boolRel a : Multiset (Tuple T 0)) = boolRel b) : a = b := by
+private theorem boolRel_inj {a b : Bool} (h : (boolRel a : Multiset (Tuple T 0)) = boolRel b) : a = b := by
   cases a <;> cases b <;> simp_all [boolRel]
 
-theorem exists_evaluatePlain_opE {cnt : SeqAggFunc T} (hcnt : cnt.IsCount)
+private theorem exists_evaluatePlain_opE {cnt : SeqAggFunc T} (hcnt : cnt.IsCount)
     {pr : PairQ T} (hpr : PairSpec pr)
     (op : CompOp) (a b : T ⊕ Fin C) :
     ∃ e, (opE cnt pr op a b).evaluatePlain D γ = boolRel e := by
@@ -570,7 +580,7 @@ theorem exists_evaluatePlain_opE {cnt : SeqAggFunc T} (hcnt : cnt.IsCount)
   · exact ⟨_, evaluatePlain_eqT a b⟩
   · exact ⟨_, evaluatePlain_notT (evaluatePlain_eqT a b)⟩
 
-theorem cmpTF_spec {cnt : SeqAggFunc T} (hcnt : cnt.IsCount)
+private theorem cmpTF_spec {cnt : SeqAggFunc T} (hcnt : cnt.IsCount)
     {pr : PairQ T} (hpr : PairSpec pr) (op : CompOp)
     (a b : T ⊕ Fin C) :
     (cmpTF cnt pr op a b).1.evaluatePlain D γ
@@ -619,7 +629,7 @@ def termE {c n : ℕ} {κ : Fin n → ColKind} : TermGIn T c κ → T ⊕ Fin (n
   | .provIndex k _ => .inr (Fin.castAdd c k)
   | _ => .inl 0
 
-theorem val_termE {c n : ℕ} {κ : Fin n → ColKind} (t : TermGIn T c κ) (ht : t.noFun = true)
+private theorem val_termE {c n : ℕ} {κ : Fin n → ColKind} (t : TermGIn T c κ) (ht : t.noFun = true)
     (u : Tuple T n) (γ : Fin c → T) :
     val (Fin.append u γ) (termE t) = t.evalPlain u γ := by
   cases t with
@@ -648,31 +658,31 @@ def predTF (cnt : SeqAggFunc T) (pr : PairQ T) {c n : ℕ} {κ : Fin n → ColKi
       andT (predTF cnt pr φ).2 (predTF cnt pr ψ).2)
   | .not φ => ((predTF cnt pr φ).2, (predTF cnt pr φ).1)
 
-theorem kleene_and_true (x y : Kleene) :
+private theorem kleene_and_true (x y : Kleene) :
     decide (x.and y = Kleene.true) = (decide (x = Kleene.true) && decide (y = Kleene.true)) := by
   cases x <;> cases y <;> rfl
 
-theorem kleene_and_false (x y : Kleene) :
+private theorem kleene_and_false (x y : Kleene) :
     decide (x.and y = Kleene.false) = (decide (x = Kleene.false) || decide (y = Kleene.false)) := by
   cases x <;> cases y <;> rfl
 
-theorem kleene_or_true (x y : Kleene) :
+private theorem kleene_or_true (x y : Kleene) :
     decide (x.or y = Kleene.true) = (decide (x = Kleene.true) || decide (y = Kleene.true)) := by
   cases x <;> cases y <;> rfl
 
-theorem kleene_or_false (x y : Kleene) :
+private theorem kleene_or_false (x y : Kleene) :
     decide (x.or y = Kleene.false) = (decide (x = Kleene.false) && decide (y = Kleene.false)) := by
   cases x <;> cases y <;> rfl
 
-theorem kleene_not_true (x : Kleene) :
+private theorem kleene_not_true (x : Kleene) :
     decide (x.not = Kleene.true) = decide (x = Kleene.false) := by
   cases x <;> rfl
 
-theorem kleene_not_false (x : Kleene) :
+private theorem kleene_not_false (x : Kleene) :
     decide (x.not = Kleene.false) = decide (x = Kleene.true) := by
   cases x <;> rfl
 
-theorem predTF_spec {cnt : SeqAggFunc T} (hcnt : cnt.IsCount)
+private theorem predTF_spec {cnt : SeqAggFunc T} (hcnt : cnt.IsCount)
     {pr : PairQ T} (hpr : PairSpec pr) {c n : ℕ}
     {κ : Fin n → ColKind} (φ : GenPredIn T c κ) (hφ : φ.noFun = true) (D : Database T)
     (u : Tuple T n) (γ : Fin c → T) :
@@ -744,7 +754,7 @@ structure TestOK (S : Set OpKind) (Θ : Set (SeqAggFunc T)) (Q : Schema → Prop
 
 variable {S : Set OpKind} {Θ : Set (SeqAggFunc T)} {Q : Schema → Prop}
 
-theorem TestOK.castKind {k : ℕ} {κ κ' : Fin k → ColKind} {q : AggQueryIn T C k κ}
+private theorem TestOK.castKind {k : ℕ} {κ κ' : Fin k → ColKind} {q : AggQueryIn T C k κ}
     (h : κ = κ') (hq : TestOK S Θ Q q) : TestOK S Θ Q (q.castKind h) where
   uses := (AggQueryIn.usesOnly_castKind h q _).mpr hq.uses
   sig := (AggQueryIn.inSig_castKind h q Θ).mpr hq.sig
@@ -753,7 +763,7 @@ theorem TestOK.castKind {k : ℕ} {κ κ' : Fin k → ColKind} {q : AggQueryIn T
   settles D γ := (AggQueryIn.settlesAt_castKind h q D γ).mpr (hq.settles D γ)
   preg := (AggQueryIn.paramsReg_castKind h q).mpr hq.preg
 
-theorem testOK_param (hS : selTestOps ⊆ S) {k : ℕ} (pv : Fin k → T ⊕ Fin C) :
+private theorem testOK_param (hS : selTestOps ⊆ S) {k : ℕ} (pv : Fin k → T ⊕ Fin C) :
     TestOK S Θ Q (AggQueryIn.Param pv (ColKind.allReg k)) where
   uses := ⟨hS (by simp [selTestOps]), hS (by simp [selTestOps]), hS (by simp [selTestOps])⟩
   sig := trivial
@@ -762,10 +772,10 @@ theorem testOK_param (hS : selTestOps ⊆ S) {k : ℕ} (pv : Fin k → T ⊕ Fin
   settles _ _ := trivial
   preg _ := rfl
 
-theorem testOK_param1 (hS : selTestOps ⊆ S) (e : T ⊕ Fin C) : TestOK S Θ Q (param1 e) :=
+private theorem testOK_param1 (hS : selTestOps ⊆ S) (e : T ⊕ Fin C) : TestOK S Θ Q (param1 e) :=
   testOK_param hS _
 
-theorem testOK_diff (hS : selTestOps ⊆ S) {k : ℕ} {X Y : AggQueryIn T C k (ColKind.allReg k)}
+private theorem testOK_diff (hS : selTestOps ⊆ S) {k : ℕ} {X Y : AggQueryIn T C k (ColKind.allReg k)}
     (hX : TestOK S Θ Q X) (hY : TestOK S Θ Q Y) : TestOK S Θ Q (AggQueryIn.Diff X Y) where
   uses := ⟨hS (by simp [selTestOps]), hX.uses, hY.uses⟩
   sig := ⟨hX.sig, hY.sig⟩
@@ -774,7 +784,7 @@ theorem testOK_diff (hS : selTestOps ⊆ S) {k : ℕ} {X Y : AggQueryIn T C k (C
   settles D γ := ⟨hX.settles D γ, hY.settles D γ⟩
   preg := ⟨hX.preg, hY.preg⟩
 
-theorem testOK_unitC (hS : selTestOps ⊆ S) :
+private theorem testOK_unitC (hS : selTestOps ⊆ S) :
     TestOK S Θ Q (AggQueryIn.unitC : AggQueryIn T C 0 _) where
   uses := by
     rw [AggQueryIn.unitC, AggQueryIn.usesOnly_castKind]
@@ -785,7 +795,7 @@ theorem testOK_unitC (hS : selTestOps ⊆ S) :
   settles D γ := AggQueryIn.settlesAt_unitC D γ
   preg := by rw [AggQueryIn.unitC, AggQueryIn.paramsReg_castKind]; trivial
 
-theorem testOK_proj0 (hS : selTestOps ⊆ S) {k : ℕ} {q : AggQueryIn T C k (ColKind.allReg k)}
+private theorem testOK_proj0 (hS : selTestOps ⊆ S) {k : ℕ} {q : AggQueryIn T C k (ColKind.allReg k)}
     (hq : TestOK S Θ Q q) : TestOK S Θ Q (proj0 q) :=
   TestOK.castKind _ {
     uses := ⟨⟨hS (by simp [selTestOps]), fun j => j.elim0⟩, hq.uses⟩
@@ -795,25 +805,25 @@ theorem testOK_proj0 (hS : selTestOps ⊆ S) {k : ℕ} {q : AggQueryIn T C k (Co
     settles := fun D γ => hq.settles D γ
     preg := hq.preg }
 
-theorem testOK_inter (hS : selTestOps ⊆ S) {k : ℕ} {X Y : AggQueryIn T C k (ColKind.allReg k)}
+private theorem testOK_inter (hS : selTestOps ⊆ S) {k : ℕ} {X Y : AggQueryIn T C k (ColKind.allReg k)}
     (hX : TestOK S Θ Q X) (hY : TestOK S Θ Q Y) : TestOK S Θ Q (inter X Y) :=
   testOK_diff hS hX (testOK_diff hS hX hY)
 
-theorem testOK_notT (hS : selTestOps ⊆ S) {A : AggQueryIn T C 0 (ColKind.allReg 0)}
+private theorem testOK_notT (hS : selTestOps ⊆ S) {A : AggQueryIn T C 0 (ColKind.allReg 0)}
     (hA : TestOK S Θ Q A) : TestOK S Θ Q (notT A) := testOK_diff hS (testOK_unitC hS) hA
 
-theorem testOK_andT (hS : selTestOps ⊆ S) {A B : AggQueryIn T C 0 (ColKind.allReg 0)}
+private theorem testOK_andT (hS : selTestOps ⊆ S) {A B : AggQueryIn T C 0 (ColKind.allReg 0)}
     (hA : TestOK S Θ Q A) (hB : TestOK S Θ Q B) : TestOK S Θ Q (andT A B) :=
   testOK_inter hS hA hB
 
-theorem testOK_orT (hS : selTestOps ⊆ S) {A B : AggQueryIn T C 0 (ColKind.allReg 0)}
+private theorem testOK_orT (hS : selTestOps ⊆ S) {A B : AggQueryIn T C 0 (ColKind.allReg 0)}
     (hA : TestOK S Θ Q A) (hB : TestOK S Θ Q B) : TestOK S Θ Q (orT A B) :=
   testOK_notT hS (testOK_andT hS (testOK_notT hS hA) (testOK_notT hS hB))
 
-theorem testOK_eqT (hS : selTestOps ⊆ S) (a b : T ⊕ Fin C) : TestOK S Θ Q (eqT a b) :=
+private theorem testOK_eqT (hS : selTestOps ⊆ S) (a b : T ⊕ Fin C) : TestOK S Θ Q (eqT a b) :=
   testOK_proj0 hS (testOK_inter hS (testOK_param1 hS a) (testOK_param1 hS b))
 
-theorem testOK_nnT (hS : selTestOps ⊆ S) (a : T ⊕ Fin C) : TestOK S Θ Q (nnT a) := by
+private theorem testOK_nnT (hS : selTestOps ⊆ S) (a : T ⊕ Fin C) : TestOK S Θ Q (nnT a) := by
   unfold nnT
   split
   · exact testOK_unitC hS
@@ -821,7 +831,7 @@ theorem testOK_nnT (hS : selTestOps ⊆ S) (a : T ⊕ Fin C) : TestOK S Θ Q (nn
 
 /-- **The pair by a bag recursion** is in the fragment over a schema not
 declaring its name. -/
-theorem testOK_pairZ (hS : selTestOps ⊆ S) (hmu : OpKind.muBag ∈ S) (hap : OpKind.apply ∈ S)
+private theorem testOK_pairZ (hS : selTestOps ⊆ S) (hmu : OpKind.muBag ∈ S) (hap : OpKind.apply ∈ S)
     (s₀ : String) (a b : T ⊕ Fin C) :
     TestOK S Θ (fun sch => sch s₀ = none) (pairZ s₀ a b) where
   uses := ⟨hmu, (testOK_param1 (Θ := Θ) (Q := fun _ => True) hS a).uses, by
@@ -845,7 +855,7 @@ theorem testOK_pairZ (hS : selTestOps ⊆ S) (hmu : OpKind.muBag ∈ S) (hap : O
     rw [stepBody, AggQueryIn.paramsReg_castKind]
     exact ⟨trivial, fun _ => rfl, fun _ => rfl⟩⟩
 
-theorem testOK_winZ (hS : selTestOps ⊆ S) {cnt : SeqAggFunc T} (hc : cnt ∈ Θ)
+private theorem testOK_winZ (hS : selTestOps ⊆ S) {cnt : SeqAggFunc T} (hc : cnt ∈ Θ)
     {Z : AggQueryIn T C 1 (ColKind.allReg 1)} (hZ : TestOK S Θ Q Z) :
     TestOK S Θ Q (winZ cnt Z) :=
   TestOK.castKind _ {
@@ -857,11 +867,11 @@ theorem testOK_winZ (hS : selTestOps ⊆ S) {cnt : SeqAggFunc T} (hc : cnt ∈ �
     preg := hZ.preg }
 
 omit [ValueType T] in
-theorem noFun_termOf {k : ℕ} {κ : Fin k → ColKind} (e : T ⊕ Fin C) :
+private theorem noFun_termOf {k : ℕ} {κ : Fin k → ColKind} (e : T ⊕ Fin C) :
     (termOf e : TermGIn T C κ).noFun = true := by
   cases e <;> rfl
 
-theorem testOK_projB (hS : selTestOps ⊆ S) (b : T ⊕ Fin C)
+private theorem testOK_projB (hS : selTestOps ⊆ S) (b : T ⊕ Fin C)
     {W : AggQueryIn T C 2 (ColKind.allReg 2)} (hW : TestOK S Θ Q W) :
     TestOK S Θ Q (projB b W) :=
   TestOK.castKind _ {
@@ -883,18 +893,18 @@ def PairOK (S : Set OpKind) (Θ : Set (SeqAggFunc T)) (Q : Schema → Prop) (pr 
     Prop :=
   ∀ {C : ℕ} (a b : T ⊕ Fin C), TestOK S Θ Q (pr a b)
 
-theorem pairOK_prZ (hS : selTestOps ⊆ S) (hmu : OpKind.muBag ∈ S) (hap : OpKind.apply ∈ S)
+private theorem pairOK_prZ (hS : selTestOps ⊆ S) (hmu : OpKind.muBag ∈ S) (hap : OpKind.apply ∈ S)
     (s₀ : String) : PairOK S Θ (fun sch => sch s₀ = none) (prZ (T := T) s₀) :=
   fun a b => testOK_pairZ hS hmu hap s₀ a b
 
 variable {pr : PairQ T}
 
-theorem testOK_ltT (hS : selTestOps ⊆ S) {cnt : SeqAggFunc T} (hc : cnt ∈ Θ)
+private theorem testOK_ltT (hS : selTestOps ⊆ S) {cnt : SeqAggFunc T} (hc : cnt ∈ Θ)
     (hpr : PairOK S Θ Q pr) (a b : T ⊕ Fin C) : TestOK S Θ Q (ltT cnt pr a b) :=
   testOK_proj0 hS (testOK_diff hS (testOK_inter hS (testOK_winZ hS hc (hpr a b))
     (testOK_projB hS b (testOK_winZ hS hc (hpr a b)))) (testOK_param hS _))
 
-theorem testOK_opE (hS : selTestOps ⊆ S) {cnt : SeqAggFunc T} (hc : cnt ∈ Θ)
+private theorem testOK_opE (hS : selTestOps ⊆ S) {cnt : SeqAggFunc T} (hc : cnt ∈ Θ)
     (hpr : PairOK S Θ Q pr) (op : CompOp) (a b : T ⊕ Fin C) :
     TestOK S Θ Q (opE cnt pr op a b) := by
   cases op
@@ -907,7 +917,7 @@ theorem testOK_opE (hS : selTestOps ⊆ S) {cnt : SeqAggFunc T} (hc : cnt ∈ Θ
   · exact testOK_eqT hS a b
   · exact testOK_notT hS (testOK_eqT hS a b)
 
-theorem testOK_cmpTF (hS : selTestOps ⊆ S) {cnt : SeqAggFunc T} (hc : cnt ∈ Θ)
+private theorem testOK_cmpTF (hS : selTestOps ⊆ S) {cnt : SeqAggFunc T} (hc : cnt ∈ Θ)
     (hpr : PairOK S Θ Q pr) (op : CompOp) (a b : T ⊕ Fin C) :
     TestOK S Θ Q (cmpTF cnt pr op a b).1 ∧ TestOK S Θ Q (cmpTF cnt pr op a b).2 := by
   have hg : ∀ op' : CompOp,
@@ -923,7 +933,7 @@ theorem testOK_cmpTF (hS : selTestOps ⊆ S) {cnt : SeqAggFunc T} (hc : cnt ∈ 
     | exact ⟨testOK_eqT hS a b, testOK_notT hS (testOK_eqT hS a b)⟩
     | exact ⟨testOK_notT hS (testOK_eqT hS a b), testOK_eqT hS a b⟩
 
-theorem testOK_predTF (hS : selTestOps ⊆ S) {cnt : SeqAggFunc T} (hc : cnt ∈ Θ)
+private theorem testOK_predTF (hS : selTestOps ⊆ S) {cnt : SeqAggFunc T} (hc : cnt ∈ Θ)
     (hpr : PairOK S Θ Q pr) {c n : ℕ} {κ : Fin n → ColKind} (φ : GenPredIn T c κ) :
     TestOK S Θ Q (predTF cnt pr φ).1 ∧ TestOK S Θ Q (predTF cnt pr φ).2 := by
   induction φ with
@@ -952,7 +962,7 @@ def selX (cnt : SeqAggFunc T) (pr : PairQ T) {c n : ℕ} {κ : Fin n → ColKind
   (AggQueryIn.Apply q (predTF cnt pr φ).1).castKind (kinds_append0 κ)
 
 omit [ValueType T] in
-theorem bind_ite_singleton {α : Type} (X : Multiset α) (p : α → Prop) [DecidablePred p] :
+private theorem bind_ite_singleton {α : Type} (X : Multiset α) (p : α → Prop) [DecidablePred p] :
     X.bind (fun u => if p u then {u} else 0) = X.filter p := by
   induction X using Multiset.induction_on with
   | empty => rfl
@@ -982,7 +992,7 @@ theorem evaluatePlain_selX {cnt : SeqAggFunc T} (hcnt : cnt.IsCount)
     funext k
     exact Fin.append_left u (fun j : Fin 0 => j.elim0) k
 
-theorem settlesAt_selX (hS : selTestOps ⊆ S) {cnt : SeqAggFunc T} (hc : cnt ∈ Θ)
+private theorem settlesAt_selX (hS : selTestOps ⊆ S) {cnt : SeqAggFunc T} (hc : cnt ∈ Θ)
     (hpr : PairOK S Θ Q pr) {c n : ℕ}
     {κ : Fin n → ColKind} {l : List (String × ℕ)} (φ : GenPredIn T c κ)
     (q : AggQueryIn T c n κ l) (D : Database T) (γ : Fin c → T) (hq : q.SettlesAt D γ) :
@@ -998,7 +1008,7 @@ but `σ`, the apply and the tests' classes, building `{a, b}` with `pr`; in
 the signature, well formed over every schema the source is over satisfying
 `Q`, and defined and equal wherever the source is. `Q` must survive the
 binding of any name but `s₀`, which the source does not use. -/
-theorem exists_selPass_of {Src Tgt : Set OpKind}
+private theorem exists_selPass_of {Src Tgt : Set OpKind}
     (hsub : ∀ k ∈ Src, k ≠ OpKind.sel → k ∈ Tgt) (hap : OpKind.apply ∈ Tgt)
     (hS : selTestOps ⊆ Tgt) (hms : OpKind.muSet ∉ Src) {cnt : SeqAggFunc T} (hc : cnt ∈ Θ)
     (hcnt : cnt.IsCount) (hpr : PairSpec pr) (hprOK : PairOK Tgt Θ Q pr) (s₀ : String)
@@ -1151,7 +1161,7 @@ theorem exists_selPass_of {Src Tgt : Set OpKind}
     simp only [AggQueryIn.evaluatePlain, (he' D γ h).2]
   | WinExpr P O o ws ts fs g q keeps ih => exact fun _ hi => hi.elim
 
-theorem mem_diffOps {k : OpKind} (hk : k ∈ basisRecOps) (hne : k ≠ OpKind.sel) :
+private theorem mem_diffOps {k : OpKind} (hk : k ∈ basisRecOps) (hne : k ≠ OpKind.sel) :
     k ∈ basisRecDiffOps := by
   simp only [basisRecOps, AggQueryIn.sumMuOps, Set.mem_insert_iff, Set.mem_singleton_iff] at hk
   simp only [basisRecDiffOps, Set.mem_insert_iff, Set.mem_singleton_iff]
@@ -1160,7 +1170,7 @@ theorem mem_diffOps {k : OpKind} (hk : k ∈ basisRecOps) (hne : k ≠ OpKind.se
 /-- **The pass for the whole algebra**: over `{∅, Π, −, apply, γ, win, μ^⊎}`,
 `{a, b}` built by a bag recursion named `s₀`, over every schema the source
 is over that does not declare `s₀`. -/
-theorem exists_selPass {cnt : SeqAggFunc T} (hc : cnt ∈ Θ) (hcnt : cnt.IsCount)
+private theorem exists_selPass {cnt : SeqAggFunc T} (hc : cnt ∈ Θ) (hcnt : cnt.IsCount)
     (s₀ : String) :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l),
       q.usesOnly basisRecOps → q.inSig Θ → s₀ ∉ q.names →
@@ -1207,7 +1217,7 @@ theorem basisRecDiffOps_generatesOnRec (sch : Schema) (cnt : SeqAggFunc T)
 the minimal universe over `ℕ`. The rows of `required_mem_of_generatesOnRec`
 force each class: `−` because `σ` is not in the set, and the apply because
 `×` is not. -/
-theorem basisRecDiffOps_minimal {S : Set OpKind} (hS : S ⊂ basisRecDiffOps) :
+private theorem basisRecDiffOps_minimal {S : Set OpKind} (hS : S ⊂ basisRecDiffOps) :
     ¬ ∀ sch : Schema, GeneratesOnRec ℕ sch SeqAggFunc.count S := by
   intro hgen
   obtain ⟨he, hp, hg, hm, hwin, hs, ha⟩ := required_mem_of_generatesOnRec hgen

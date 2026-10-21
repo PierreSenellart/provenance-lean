@@ -8,6 +8,10 @@ public import Mathlib.Data.Finset.Sort
 
 public import Provenance.AggQuery
 import Mathlib.Tactic.Bound.Init
+import all Provenance.AggQuery
+import all Provenance.Query
+import all Provenance.Util.Kleene
+import all Provenance.Util.ValueTypeNull
 
 /-!
 # Derived operators
@@ -97,7 +101,7 @@ def padLeft (l : ℕ)
 
 /-- **What padding computes**: the rows of `q`, each read through `π` –
 the column `π` names, or the null where it names none. -/
-theorem evaluatePlain_pad (π : Fin m → Option (Fin n))
+private theorem evaluatePlain_pad (π : Fin m → Option (Fin n))
     (q : AggQuery T n (ColKind.allReg n)) (d : Database T) :
     (pad π q).evaluatePlain d
       = (q.evaluatePlain d).map (fun u => (fun j =>
@@ -111,7 +115,7 @@ theorem evaluatePlain_pad (π : Fin m → Option (Fin n))
   cases π j <;> rfl
 
 /-- Padding on the right keeps every column of `q` and appends nulls. -/
-theorem evaluatePlain_padRight (l : ℕ)
+private theorem evaluatePlain_padRight (l : ℕ)
     (q : AggQuery T n (ColKind.allReg n)) (d : Database T) :
     (padRight l q).evaluatePlain d
       = (q.evaluatePlain d).map (fun u =>
@@ -130,7 +134,7 @@ theorem evaluatePlain_padRight (l : ℕ)
     rw [Fin.addCases_right]
 
 /-- Padding on the left prepends nulls. -/
-theorem evaluatePlain_padLeft (l : ℕ)
+private theorem evaluatePlain_padLeft (l : ℕ)
     (q : AggQuery T n (ColKind.allReg n)) (d : Database T) :
     (padLeft l q).evaluatePlain d
       = (q.evaluatePlain d).map (fun u =>
@@ -164,7 +168,7 @@ def interCond (k : ℕ) :
   keyJoinCond (fun i : Fin k => Fin.castAdd k i) (fun i : Fin k => Fin.natAdd k i)
     (fun _ => rfl) (fun _ => rfl)
 
-@[simp] theorem interCond_hasAggAtom (k : ℕ) :
+@[simp] private theorem interCond_hasAggAtom (k : ℕ) :
     (interCond (T := T) k).hasAggAtom = false :=
   keyJoinCond_hasAggAtom _ _ _ _
 
@@ -202,7 +206,7 @@ theorem append_allReg (a b : ℕ) :
 
 /-- A product filtered to its diagonal, where the right side has no
 duplicate: the left rows that occur on the right, once each. -/
-theorem filter_product_diag {α : Type} [DecidableEq α]
+private theorem filter_product_diag {α : Type} [DecidableEq α]
     (A B : Multiset α) (hB : B.Nodup)
     (P' : α × α → Prop) (inst : DecidablePred P')
     (hP : ∀ a b : α, P' (a, b) ↔ a = b) :
@@ -246,7 +250,7 @@ def inter (q₁ q₂ : AggQuery T n (ColKind.allReg n)) :
 
 /-- The join condition of `inter` holds on a pair exactly when the two
 blocks are the same tuple. -/
-theorem interCond_holdsPlain (u v : Tuple T n) :
+private theorem interCond_holdsPlain (u v : Tuple T n) :
     (interCond (T := T) n).holdsPlain (Fin.append u v) ↔ u = v := by
   rw [interCond, keyJoinCond_holdsPlain]
   constructor
@@ -259,7 +263,7 @@ theorem interCond_holdsPlain (u v : Tuple T n) :
 
 /-- **What intersection computes**: one copy of each tuple the two arms
 share, matched syntactically. -/
-theorem evaluatePlain_inter (q₁ q₂ : AggQuery T n (ColKind.allReg n))
+private theorem evaluatePlain_inter (q₁ q₂ : AggQuery T n (ColKind.allReg n))
     (d : Database T) :
     (inter q₁ q₂).evaluatePlain d
       = Multiset.filter
@@ -361,7 +365,7 @@ noncomputable def matchedLeft (φ : GenPred T (ColKind.allReg (n₁ + n₂)))
 
 /-- **A row of the left arm is matched exactly when some row of the right
 arm satisfies the join predicate with it.** -/
-theorem mem_matchedLeft (φ : GenPred T (ColKind.allReg (n₁ + n₂)))
+private theorem mem_matchedLeft (φ : GenPred T (ColKind.allReg (n₁ + n₂)))
     (q₁ : AggQuery T n₁ (ColKind.allReg n₁))
     (q₂ : AggQuery T n₂ (ColKind.allReg n₂)) (d : Database T)
     (u : Tuple T n₁) :
@@ -396,7 +400,7 @@ theorem mem_matchedLeft (φ : GenPred T (ColKind.allReg (n₁ + n₂)))
 
 /-- **What a left outer join computes**: the matching pairs, and the rows
 of the left arm with no match, padded on the right with nulls. -/
-theorem evaluatePlain_leftOuter (φ : GenPred T (ColKind.allReg (n₁ + n₂)))
+private theorem evaluatePlain_leftOuter (φ : GenPred T (ColKind.allReg (n₁ + n₂)))
     (q₁ : AggQuery T n₁ (ColKind.allReg n₁))
     (q₂ : AggQuery T n₂ (ColKind.allReg n₂)) (d : Database T) :
     (leftOuter φ q₁ q₂).evaluatePlain d
@@ -432,7 +436,7 @@ noncomputable def matchedRight (φ : GenPred T (ColKind.allReg (n₁ + n₂)))
 
 /-- **A row of the right arm is matched exactly when some row of the left
 arm satisfies the join predicate with it.** -/
-theorem mem_matchedRight (φ : GenPred T (ColKind.allReg (n₁ + n₂)))
+private theorem mem_matchedRight (φ : GenPred T (ColKind.allReg (n₁ + n₂)))
     (q₁ : AggQuery T n₁ (ColKind.allReg n₁))
     (q₂ : AggQuery T n₂ (ColKind.allReg n₂)) (d : Database T)
     (v : Tuple T n₂) :
@@ -465,7 +469,7 @@ theorem mem_matchedRight (φ : GenPred T (ColKind.allReg (n₁ + n₂)))
 
 /-- **What a right outer join computes**: the matching pairs, and the rows
 of the right arm with no match, padded on the left with nulls. -/
-theorem evaluatePlain_rightOuter (φ : GenPred T (ColKind.allReg (n₁ + n₂)))
+private theorem evaluatePlain_rightOuter (φ : GenPred T (ColKind.allReg (n₁ + n₂)))
     (q₁ : AggQuery T n₁ (ColKind.allReg n₁))
     (q₂ : AggQuery T n₂ (ColKind.allReg n₂)) (d : Database T) :
     (rightOuter φ q₁ q₂).evaluatePlain d
@@ -491,7 +495,7 @@ theorem evaluatePlain_rightOuter (φ : GenPred T (ColKind.allReg (n₁ + n₂)))
 
 /-- **What a full outer join computes**: the left outer join, and the rows
 of the right arm with no match, padded on the left. -/
-theorem evaluatePlain_fullOuter (φ : GenPred T (ColKind.allReg (n₁ + n₂)))
+private theorem evaluatePlain_fullOuter (φ : GenPred T (ColKind.allReg (n₁ + n₂)))
     (q₁ : AggQuery T n₁ (ColKind.allReg n₁))
     (q₂ : AggQuery T n₂ (ColKind.allReg n₂)) (d : Database T) :
     (fullOuter φ q₁ q₂).evaluatePlain d
@@ -659,14 +663,14 @@ def leadAt (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
     AggQuery T (n + 1) (Fin.snoc (ColKind.allReg n) ColKind.agg) :=
   nthValue (hsql := sql_frame%) P O o (ValueFrame.rangeAfter o) i t q
 
-theorem lagAt_zero (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
+private theorem lagAt_zero (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
     (o : OrderSpec p) (t : Term T n)
     (q : AggQuery T n (ColKind.allReg n)) :
     lagAt P O o 0 t q = lag P O o t q := by
   unfold lagAt nthValue lag lastValue
   rw [SeqAggFunc.pickNth_zero]
 
-theorem leadAt_zero (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
+private theorem leadAt_zero (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
     (o : OrderSpec p) (t : Term T n)
     (q : AggQuery T n (ColKind.allReg n)) :
     leadAt P O o 0 t q = lead P O o t q := by
@@ -700,7 +704,7 @@ def carryCol {n : ℕ} (κ : Fin n → ColKind) (k : Fin n) : ProjCol T κ :=
   | ColKind.prov => .provTerm (TermGIn.provIndex k h)
 
 omit [ValueType T] in
-@[simp] theorem carryCol_kind {n : ℕ} (κ : Fin n → ColKind) (k : Fin n) :
+@[simp] private theorem carryCol_kind {n : ℕ} (κ : Fin n → ColKind) (k : Fin n) :
     (carryCol (T := T) κ k).kind = κ k := by
   unfold carryCol
   split
@@ -709,7 +713,7 @@ omit [ValueType T] in
   · next h => exact h.symm
 
 /-- Carrying a column through reads its value, whichever kind it has. -/
-@[simp] theorem evalPlain_carryCol {n : ℕ} (κ : Fin n → ColKind) (k : Fin n)
+@[simp] private theorem evalPlain_carryCol {n : ℕ} (κ : Fin n → ColKind) (k : Fin n)
     (u : Tuple T n) (γ : Fin 0 → T) :
     (carryCol κ k).evalPlain u γ = u k := by
   unfold carryCol
@@ -749,7 +753,7 @@ def rank [One T] (cnt : SeqAggFunc T) (P : Tuple (Fin n) m)
 /-- **What a rank computes over plain relations**: each row of the input,
 extended by one plus the count over the rows the clause sorts strictly
 before its peers. -/
-theorem evaluatePlain_rank [One T] (cnt : SeqAggFunc T)
+private theorem evaluatePlain_rank [One T] (cnt : SeqAggFunc T)
     (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
     {κ : Fin n → ColKind} (q : AggQuery T n κ)
     (hrr : WinReadsReg κ P O (TermIn.const (c := 0) 1)) (D : Database T) :
@@ -790,7 +794,7 @@ def denseRank [One T] (cnt : SeqAggFunc T) (P : Tuple (Fin n) m)
 /-- **What a dense rank computes over plain relations**: one plus the
 distinct count of the order column over the rows sorted strictly before
 the current row's peers. -/
-theorem evaluatePlain_denseRank [One T] (cnt : SeqAggFunc T)
+private theorem evaluatePlain_denseRank [One T] (cnt : SeqAggFunc T)
     (P : Tuple (Fin n) m) (O : Tuple (Fin n) 1) (o : OrderSpec 1)
     {κ : Fin n → ColKind} (q : AggQuery T n κ)
     (hrr : WinReadsReg κ P O (TermIn.index (T := T) (c := 0) (O 0)))
@@ -868,7 +872,7 @@ def ntile [One T] (cnt : SeqAggFunc T) (bucket : T → T → T)
 
 /-- **What a `percent_rank` computes over plain relations**: each row of
 the input, extended by `(r-1)/(N-1)` read off the two frames. -/
-theorem evaluatePlain_percentRank [One T] (cnt : SeqAggFunc T)
+private theorem evaluatePlain_percentRank [One T] (cnt : SeqAggFunc T)
     (divide : T → T → T) (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
     (o : OrderSpec p) (q : AggQuery T n (ColKind.allReg n)) (D : Database T) :
     (percentRank cnt divide P O o q).evaluatePlain D
@@ -888,7 +892,7 @@ theorem evaluatePlain_percentRank [One T] (cnt : SeqAggFunc T)
   rfl
 
 /-- **What a `cume_dist` computes over plain relations.** -/
-theorem evaluatePlain_cumeDist [One T] (cnt : SeqAggFunc T) (divide : T → T → T)
+private theorem evaluatePlain_cumeDist [One T] (cnt : SeqAggFunc T) (divide : T → T → T)
     (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
     (q : AggQuery T n (ColKind.allReg n)) (D : Database T) :
     (cumeDist cnt divide P O o q).evaluatePlain D
@@ -906,7 +910,7 @@ theorem evaluatePlain_cumeDist [One T] (cnt : SeqAggFunc T) (divide : T → T �
 
 /-- **What an `ntile` computes over plain relations**: the bucket of the
 rank among the partition's rows. -/
-theorem evaluatePlain_ntile [One T] (cnt : SeqAggFunc T)
+private theorem evaluatePlain_ntile [One T] (cnt : SeqAggFunc T)
     (bucket : T → T → T) (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
     (o : OrderSpec p) (q : AggQuery T n (ColKind.allReg n)) (D : Database T) :
     (ntile cnt bucket P O o q).evaluatePlain D
@@ -960,7 +964,7 @@ provenance is the single `⊕`-sum over the worlds where the rank is in
 range, with no hypothesis on the m-semiring. Written as a conjunction of two atoms it
 would instead be the product of two sums, which is that sum only where
 `AggValue.predProvOf_mul_predProvOf` applies. -/
-theorem predsem_rankRange {K : Type} [CommSemiringWithMonus K]
+private theorem predsem_rankRange {K : Type} [CommSemiringWithMonus K]
     [DecidableEq K] [HasAltLinearOrder K] {n : ℕ} (κ : Fin n → ColKind)
     (lo hi : T)
     (u : Tuple (GenValue T K) (n + 1)) (a : AggValue T K)
@@ -984,7 +988,7 @@ def truncate [One T] (cnt : SeqAggFunc T) (P : Tuple (Fin n) m)
     (Sel (rankRange κ lo hi) (rank cnt P O o q hrr))).castKind
       (funext (dropRank_kind κ))
 
-theorem evaluatePlain_truncate [One T] (cnt : SeqAggFunc T)
+private theorem evaluatePlain_truncate [One T] (cnt : SeqAggFunc T)
     (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p) (lo hi : T)
     {κ : Fin n → ColKind} (q : AggQuery T n κ)
     (hrr : WinReadsReg κ P O (TermIn.const (T := T) (c := 0) 1))
@@ -1005,7 +1009,7 @@ theorem evaluatePlain_truncate [One T] (cnt : SeqAggFunc T)
   show ProjColIn.evalPlain (dropRank κ j) _ = _
   rw [dropRank, evalPlain_carryCol, Fin.snoc_castSucc]
 
-theorem holdsPlain_rankRange [NoNulls T] {n : ℕ} (κ : Fin n → ColKind)
+private theorem holdsPlain_rankRange [NoNulls T] {n : ℕ} (κ : Fin n → ColKind)
     (lo hi : T) (u : Tuple T (n + 1)) :
     (rankRange κ lo hi).holdsPlain u
       ↔ (lo < u (Fin.last n)) ∧ (u (Fin.last n) ≤ hi) := by
@@ -1017,7 +1021,7 @@ theorem holdsPlain_rankRange [NoNulls T] {n : ℕ} (κ : Fin n → ColKind)
 
 /-- **What a truncation keeps over plain relations**: the rows with at
 least `lo` and at most `hi` rows ranked strictly before their peers. -/
-theorem evaluatePlain_truncate_noNulls [NoNulls T] [One T] (cnt : SeqAggFunc T)
+private theorem evaluatePlain_truncate_noNulls [NoNulls T] [One T] (cnt : SeqAggFunc T)
     (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p) (lo hi : T)
     {κ : Fin n → ColKind} (q : AggQuery T n κ)
     (hrr : WinReadsReg κ P O (TermIn.const (T := T) (c := 0) 1))
@@ -1063,7 +1067,7 @@ def truncateFrom [One T] (cnt : SeqAggFunc T) (P : Tuple (Fin n) m)
     (Sel (rankFrom κ lo) (rank cnt P O o q hrr))).castKind
       (funext (dropRank_kind κ))
 
-theorem evaluatePlain_truncateFrom [One T] (cnt : SeqAggFunc T)
+private theorem evaluatePlain_truncateFrom [One T] (cnt : SeqAggFunc T)
     (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p) (lo : T)
     {κ : Fin n → ColKind} (q : AggQuery T n κ)
     (hrr : WinReadsReg κ P O (TermIn.const (T := T) (c := 0) 1))
@@ -1084,7 +1088,7 @@ theorem evaluatePlain_truncateFrom [One T] (cnt : SeqAggFunc T)
   show ProjColIn.evalPlain (dropRank κ j) _ = _
   rw [dropRank, evalPlain_carryCol, Fin.snoc_castSucc]
 
-theorem holdsPlain_rankFrom [NoNulls T] {n : ℕ} (κ : Fin n → ColKind)
+private theorem holdsPlain_rankFrom [NoNulls T] {n : ℕ} (κ : Fin n → ColKind)
     (lo : T)
     (u : Tuple T (n + 1)) :
     (rankFrom κ lo).holdsPlain u ↔ (lo < u (Fin.last n)) := by
@@ -1093,7 +1097,7 @@ theorem holdsPlain_rankFrom [NoNulls T] {n : ℕ} (κ : Fin n → ColKind)
   exact Iff.rfl
 
 /-- **What an offset with no limit keeps over plain relations.** -/
-theorem evaluatePlain_truncateFrom_noNulls [NoNulls T] [One T]
+private theorem evaluatePlain_truncateFrom_noNulls [NoNulls T] [One T]
     (cnt : SeqAggFunc T) (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
     (o : OrderSpec p) (lo : T) {κ : Fin n → ColKind} (q : AggQuery T n κ)
     (hrr : WinReadsReg κ P O (TermIn.const (T := T) (c := 0) 1))
@@ -1187,7 +1191,7 @@ def gsRow (S : Finset (Fin m)) (na : ℕ) (v : Tuple T (S.card + na)) :
 
 /-- **What one grouping set computes over plain relations**: the rows of
 the aggregation on the indices it keeps, padded. -/
-theorem evaluatePlain_gammaSet {lab : ℕ} {rd} (is : Tuple (Fin k) m)
+private theorem evaluatePlain_gammaSet {lab : ℕ} {rd} (is : Tuple (Fin k) m)
     (ts : Tuple (TermIn T c k) na) (fs : Tuple (SeqAggFunc T) na)
     (S : Finset (Fin m)) (q : AggQueryIn T c k (ColKind.allReg k))
     (D : Database T) {γ : Fin c → T} :
@@ -1205,7 +1209,7 @@ theorem evaluatePlain_gammaSet {lab : ℕ} {rd} (is : Tuple (Fin k) m)
 
 /-- **What grouping sets compute over plain relations**: the union of
 what each set of the family computes. -/
-theorem evaluatePlain_gammaSets (is : Tuple (Fin k) m)
+private theorem evaluatePlain_gammaSets (is : Tuple (Fin k) m)
     (ts : Tuple (TermIn T c k) na) (fs : Tuple (SeqAggFunc T) na)
     (S₀ : Finset (Fin m)) (𝒮 : List (Finset (Fin m)))
     (q : AggQueryIn T c k (ColKind.allReg k)) (D : Database T)
@@ -1259,7 +1263,7 @@ def distinctRow (is : Tuple (Fin m) n₁) (t : TermIn T c m)
     (γ : Fin c → T := fun _ => 0) (u : Tuple T m) : Tuple T (n₁ + 1) :=
   Fin.snoc (fun k => u (is k)) (t.eval u γ)
 
-theorem evaluatePlain_distinctProj (is : Tuple (Fin m) n₁) (t : TermIn T c m)
+private theorem evaluatePlain_distinctProj (is : Tuple (Fin m) n₁) (t : TermIn T c m)
     (q : AggQueryIn T c m (ColKind.allReg m)) (D : Database T)
     {γ : Fin c → T} :
     ((Proj (distinctCols is t) q).castKind
@@ -1276,7 +1280,7 @@ theorem evaluatePlain_distinctProj (is : Tuple (Fin m) n₁) (t : TermIn T c m)
 
 /-- **Deduplicating the projection does not change the groups**: a key is
 one of the deduplicated projection exactly when it is one of the input. -/
-theorem keys_distinctRow (is : Tuple (Fin m) n₁) (t : TermIn T c m)
+private theorem keys_distinctRow (is : Tuple (Fin m) n₁) (t : TermIn T c m)
     (r : Multiset (Tuple T m)) {γ : Fin c → T} :
     (((r.map (distinctRow is t γ)).dedup).map
         (fun v => (fun k => v k.castSucc : Tuple T n₁))).dedup
@@ -1293,7 +1297,7 @@ theorem keys_distinctRow (is : Tuple (Fin m) n₁) (t : TermIn T c m)
 
 /-- **What the deduplicated projection leaves a group to aggregate**: the
 distinct values of the term over that group, in some order. -/
-theorem groupSeq_distinctRow_perm (is : Tuple (Fin m) n₁) (t : TermIn T c m)
+private theorem groupSeq_distinctRow_perm (is : Tuple (Fin m) n₁) (t : TermIn T c m)
     (r : Multiset (Tuple T m)) (g : Tuple T n₁) {γ : Fin c → T} :
     ((Relation.groupSeq (fun k : Fin n₁ => k.castSucc)
         ((r.map (distinctRow is t γ)).dedup) g).map
@@ -1345,7 +1349,7 @@ def gammaDistinct (is : Tuple (Fin m) n₁) (t : TermIn T c m)
 aggregate, read through `SeqAggFunc.distinct`, of the term over each
 group. The aggregate has to be symmetric, the two readings sequencing the
 distinct values of a group differently. -/
-theorem evaluatePlain_gammaDistinct {lab : ℕ} {rd} (is : Tuple (Fin m) n₁) (t : TermIn T c m)
+private theorem evaluatePlain_gammaDistinct {lab : ℕ} {rd} (is : Tuple (Fin m) n₁) (t : TermIn T c m)
     {f : SeqAggFunc T} (hf : f.Symmetric)
     (q : AggQueryIn T c m (ColKind.allReg m)) (D : Database T)
     {γ : Fin c → T} :
@@ -1373,7 +1377,7 @@ def gammaScalarDistinct (t : TermIn T c m) (f : SeqAggFunc T)
 /-- **What a `DISTINCT` aggregate without grouping computes over plain
 relations**: the aggregate of the distinct values of the term over the
 whole input. -/
-theorem evaluatePlain_gammaScalarDistinct {lab : ℕ} {rd} (t : TermIn T c m)
+private theorem evaluatePlain_gammaScalarDistinct {lab : ℕ} {rd} (t : TermIn T c m)
     {f : SeqAggFunc T} (hf : f.Symmetric)
     (q : AggQueryIn T c m (ColKind.allReg m)) (D : Database T)
     {γ : Fin c → T} :
@@ -1424,12 +1428,12 @@ def filterHolds (op : CompOp) (t₁ t₂ : TermIn T c n)
     (γ : Fin c → T := fun _ => 0) (u : Tuple T n) : Bool :=
   decide (op.eval3 (t₁.eval u γ) (t₂.eval u γ) = Kleene.true)
 
-theorem notNull_eq (a : T) :
+private theorem notNull_eq (a : T) :
     decide (a ≠ ValueTypeNull.null) = !ValueType.isNull a := by
   rw [ValueTypeNull.isNull_iff]
   simp
 
-theorem eval_filterTerm (op : CompOp) (t₁ t₂ t : TermIn T c n)
+private theorem eval_filterTerm (op : CompOp) (t₁ t₂ t : TermIn T c n)
     (u : Tuple T n) (γ : Fin c → T) :
     (filterTerm op t₁ t₂ t).eval u γ
       = if filterHolds op t₁ t₂ γ u then t.eval u γ
@@ -1438,7 +1442,7 @@ theorem eval_filterTerm (op : CompOp) (t₁ t₂ t : TermIn T c n)
   simp only [decide_eq_true_eq]
   rfl
 
-theorem filter_map_filterTerm (op : CompOp) (t₁ t₂ t : TermIn T c n)
+private theorem filter_map_filterTerm (op : CompOp) (t₁ t₂ t : TermIn T c n)
     (γ : Fin c → T) (L : List (Tuple T n)) :
     (L.map (fun u => (filterTerm op t₁ t₂ t).eval u γ)).filter
         (fun a => !ValueType.isNull a)
@@ -1454,7 +1458,7 @@ theorem filter_map_filterTerm (op : CompOp) (t₁ t₂ t : TermIn T c n)
 /-- **What a `FILTER` clause makes a null-skipping aggregate read**: the
 values of the occurrences the clause keeps. Nulling out the others and
 skipping them is the same as leaving them out of the sequence. -/
-theorem sqlOf_map_filterTerm (f : SeqAggFunc T) (op : CompOp)
+private theorem sqlOf_map_filterTerm (f : SeqAggFunc T) (op : CompOp)
     (t₁ t₂ t : TermIn T c n) (γ : Fin c → T) (L : List (Tuple T n)) :
     f.sqlOf (L.map (fun u => (filterTerm op t₁ t₂ t).eval u γ))
       = f.sqlOf ((L.filter (filterHolds op t₁ t₂ γ)).map
@@ -1463,7 +1467,7 @@ theorem sqlOf_map_filterTerm (f : SeqAggFunc T) (op : CompOp)
   simp only [notNull_eq, filter_map_filterTerm]
 
 /-- **What a `FILTER` clause makes a count read**: the same. -/
-theorem counting_map_filterTerm (f : SeqAggFunc T) (op : CompOp)
+private theorem counting_map_filterTerm (f : SeqAggFunc T) (op : CompOp)
     (t₁ t₂ t : TermIn T c n) (γ : Fin c → T) (L : List (Tuple T n)) :
     f.counting (L.map (fun u => (filterTerm op t₁ t₂ t).eval u γ))
       = f.counting ((L.filter (filterHolds op t₁ t₂ γ)).map
@@ -1496,7 +1500,7 @@ def winFilter {n mp p : ℕ} (P : Tuple (Fin n) mp) (O : Tuple (Fin n) p)
 relations**: each group's aggregate reads the occurrences of the group
 the clause keeps. The group itself is unchanged – a filtered-out
 occurrence still witnesses it. -/
-theorem evaluatePlain_gammaFilter_sqlOf {m n₁ : ℕ} (is : Tuple (Fin m) n₁)
+private theorem evaluatePlain_gammaFilter_sqlOf {m n₁ : ℕ} (is : Tuple (Fin m) n₁)
     (op : CompOp) (t₁ t₂ t : TermIn T c m) (f : SeqAggFunc T)
     (q : AggQueryIn T c m (ColKind.allReg m)) (D : Database T)
     {γ : Fin c → T} :
@@ -1515,7 +1519,7 @@ theorem evaluatePlain_gammaFilter_sqlOf {m n₁ : ℕ} (is : Tuple (Fin m) n₁)
 
 /-- **What a filtered count computes over plain relations**: the same,
 the counting policy dropping the occurrences the clause nulls out. -/
-theorem evaluatePlain_gammaFilter_counting {m n₁ : ℕ} (is : Tuple (Fin m) n₁)
+private theorem evaluatePlain_gammaFilter_counting {m n₁ : ℕ} (is : Tuple (Fin m) n₁)
     (op : CompOp) (t₁ t₂ t : TermIn T c m) (f : SeqAggFunc T)
     (q : AggQueryIn T c m (ColKind.allReg m)) (D : Database T)
     {γ : Fin c → T} :
@@ -1534,7 +1538,7 @@ theorem evaluatePlain_gammaFilter_counting {m n₁ : ℕ} (is : Tuple (Fin m) n�
 
 /-- **What a filtered window aggregate reads**: the rows of the frame the
 clause keeps. -/
-theorem windowValue_filterTerm_sqlOf {n mp p : ℕ} (P : Tuple (Fin n) mp)
+private theorem windowValue_filterTerm_sqlOf {n mp p : ℕ} (P : Tuple (Fin n) mp)
     (O : Tuple (Fin n) p) (o : OrderSpec p) (w : ValueFrame T p)
     (op : CompOp) (t₁ t₂ t : TermIn T c n) (f : SeqAggFunc T)
     (R : Relation T n) (u : Tuple T n) (γ : Fin c → T) :
@@ -1544,7 +1548,7 @@ theorem windowValue_filterTerm_sqlOf {n mp p : ℕ} (P : Tuple (Fin n) mp)
   sqlOf_map_filterTerm f op t₁ t₂ t γ _
 
 /-- **What a filtered window count reads**: the same. -/
-theorem windowValue_filterTerm_counting {n mp p : ℕ} (P : Tuple (Fin n) mp)
+private theorem windowValue_filterTerm_counting {n mp p : ℕ} (P : Tuple (Fin n) mp)
     (O : Tuple (Fin n) p) (o : OrderSpec p) (w : ValueFrame T p)
     (op : CompOp) (t₁ t₂ t : TermIn T c n) (f : SeqAggFunc T)
     (R : Relation T n) (u : Tuple T n) (γ : Fin c → T) :
@@ -1580,7 +1584,7 @@ def gammaWhere (is : Tuple (Fin m) n₁) (φ : Selection T m)
 group's aggregate reads the rows of the group the clause keeps. No
 hypothesis on the aggregate: the rejected rows leave the sequence, so a
 null-keeping aggregate never sees them. -/
-theorem evaluatePlain_gammaWhere (is : Tuple (Fin m) n₁) (φ : Selection T m)
+private theorem evaluatePlain_gammaWhere (is : Tuple (Fin m) n₁) (φ : Selection T m)
     (t : TermIn T c m) (f : SeqAggFunc T)
     (q : AggQueryIn T c m (ColKind.allReg m)) (D : Database T)
     {γ : Fin c → T} :
@@ -1612,7 +1616,7 @@ def winWhere {n mp p : ℕ} (P : Tuple (Fin n) mp) (O : Tuple (Fin n) p)
 /-- **What a filtered window aggregate computes over plain relations**:
 each row's aggregate reads the rows of its frame the clause keeps. No
 hypothesis on the aggregate. -/
-theorem evaluatePlain_winWhere {n mp p : ℕ} (P : Tuple (Fin n) mp)
+private theorem evaluatePlain_winWhere {n mp p : ℕ} (P : Tuple (Fin n) mp)
     (O : Tuple (Fin n) p) (o : OrderSpec p) (w : ValueFrame T p) {hsql : w.IsSQL o}
     (φ : Selection T n) (t : TermIn T c n) (f : SeqAggFunc T)
     (q : AggQueryIn T c n (ColKind.allReg n)) (dist : Bool) (D : Database T)
@@ -1673,7 +1677,7 @@ def values (us : List (Tuple T k)) (h : us ≠ []) :
 
 /-- **The unit has one row, and it is the empty tuple.** Stated against
 any arity-`0` tuple, every one of them being that tuple. -/
-@[simp] theorem evaluatePlain_unit (D : Database T) (γ : Fin 0 → T)
+@[simp] private theorem evaluatePlain_unit (D : Database T) (γ : Fin 0 → T)
     (u : Tuple T 0) : (unit : AggQuery T 0 _).evaluatePlain D γ
       = ({u} : Multiset (Tuple T 0)) := by
   show ((AggQueryIn.GammaScalar (fun j : Fin 0 => j.elim0)
@@ -1687,7 +1691,7 @@ any arity-`0` tuple, every one of them being that tuple. -/
     (funext fun j => j.elim0)
 
 /-- **A row of constants is that row.** -/
-@[simp] theorem evaluatePlain_rowOf (u : Tuple T k) (D : Database T)
+@[simp] private theorem evaluatePlain_rowOf (u : Tuple T k) (D : Database T)
     (γ : Fin 0 → T) : (rowOf u).evaluatePlain D γ
       = ({u} : Multiset (Tuple T k)) := by
   show ((AggQueryIn.Proj (fun j => ProjColIn.term (TermGIn.const (u j)))
@@ -1699,7 +1703,7 @@ any arity-`0` tuple, every one of them being that tuple. -/
   rfl
 
 /-- The rows a union of constant rows adds to what it starts from. -/
-theorem evaluatePlain_foldl_rowOf (l : List (Tuple T k))
+private theorem evaluatePlain_foldl_rowOf (l : List (Tuple T k))
     (q : AggQuery T k (ColKind.allReg k)) (D : Database T) (γ : Fin 0 → T)
     (r : Multiset (Tuple T k)) (hq : q.evaluatePlain D γ = r) :
     (l.foldl (fun (q' : AggQuery T k (ColKind.allReg k)) v => AggQueryIn.Sum q' (rowOf v))
@@ -1720,7 +1724,7 @@ theorem evaluatePlain_foldl_rowOf (l : List (Tuple T k))
 
 /-- **What `VALUES` holds**: its tuples, with their duplicates, on every
 instance. -/
-theorem evaluatePlain_values (us : List (Tuple T k)) (h : us ≠ [])
+private theorem evaluatePlain_values (us : List (Tuple T k)) (h : us ≠ [])
     (D : Database T) (γ : Fin 0 → T) :
     (values us h).evaluatePlain D γ = Multiset.ofList us := by
   match us, h with

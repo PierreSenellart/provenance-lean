@@ -8,6 +8,10 @@ public import Provenance.AggQuery
 import Mathlib.Tactic.NormNum.Inv
 import Mathlib.Tactic.NormNum.Pow
 import Provenance.AggQueryAdequacy
+import all Provenance.AggQuery
+import all Provenance.AggQueryAdequacy
+import all Provenance.Frame
+import all Provenance.Nested
 
 /-!
 # A window over a whole partition is a join with its grouping
@@ -37,7 +41,7 @@ omit [CommSemiringWithMonus K] [DecidableEq K] in
 /-- **The whole partition is the group.** With the whole-partition frame, an
 occurrence's frame is its partition, and its token is the token its
 partition's group would carry. -/
-theorem tokenOf_whole (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
+private theorem tokenOf_whole (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
     (o : OrderSpec p) (ho : ∀ y z : Tuple T p, o.peer y z = true)
     (t : Term T n) (f : SeqAggFunc T)
     (X : Multiset (AnnotatedTuple T K n)) {x : AnnotatedTuple T K n}
@@ -63,7 +67,7 @@ end ValueFrame
 omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 /-- The group sequence of a key is the sorted list of the rows carrying
 it. -/
-theorem groupSeq_eq_sortList (P : Tuple (Fin n) m) (r : Relation T n)
+private theorem groupSeq_eq_sortList (P : Tuple (Fin n) m) (r : Relation T n)
     (g : Tuple T m) :
     Relation.groupSeq P r g
       = sortList (r.filter (fun u => ∀ k : Fin m, u (P k) = g k)) := rfl
@@ -167,7 +171,7 @@ def winByJoin (P : Tuple (Fin n) m) (t : Term T n) (f : SeqAggFunc T)
 omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 /-- The key columns of the join read the partition key on the left and the
 group key on the right. -/
-theorem keyJoinCond_append (P : Tuple (Fin n) m) (u : Tuple T n)
+private theorem keyJoinCond_append (P : Tuple (Fin n) m) (u : Tuple T n)
     (y : Tuple T (m + 1)) :
     (keyJoinCond (T' := T) (fun k : Fin m => winLeftPos m (P k)) (winKeyPos n)
         (fun k => winLeftPos_kind (P k)) winKeyPos_kind).holdsPlain
@@ -184,7 +188,7 @@ partition, and keeps that group's aggregate.
 The join is written with `IS NOT DISTINCT FROM` on the partition key, which
 is the syntactic equality a window partitions by: two rows with a null key
 are one partition, and land in one group. -/
-theorem evaluatePlain_winByJoin {lab : ℕ} {rd} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
+private theorem evaluatePlain_winByJoin {lab : ℕ} {rd} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
     (o : OrderSpec p) (ho : ∀ y z : Tuple T p, o.peer y z = true)
     (t : Term T n) (f : SeqAggFunc T) (q : AggQuery T n (ColKind.allReg n))
     (d : Database T) :
@@ -252,7 +256,7 @@ theorem evaluatePlain_winByJoin {lab : ℕ} {rd} (P : Tuple (Fin n) m) (O : Tupl
 omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 /-- On a lifted tuple the join condition reads the partition key on the left
 and the group key on the right. -/
-theorem keyJoinCond_holds_append (P : Tuple (Fin n) m)
+private theorem keyJoinCond_holds_append (P : Tuple (Fin n) m)
     (u : Tuple (GenValue T K) n) (y : Tuple (GenValue T K) (m + 1)) :
     (keyJoinCond (T' := T) (fun k : Fin m => winLeftPos m (P k)) (winKeyPos n)
         (fun k => winLeftPos_kind (P k)) winKeyPos_kind).holds (Fin.append u y)
@@ -270,7 +274,7 @@ window never produces, and the two agree only because the group of a row
 *contains that row* – so the factor reads `α ⊗ δ(α ⊕ β')`, which is `α` by
 δ-absorption. A frame excluding the current row would have no such identity,
 and no such rewriting. -/
-theorem evaluate_winByJoin {lab : ℕ} {rd} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
+private theorem evaluate_winByJoin {lab : ℕ} {rd} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
     (o : OrderSpec p) (ho : ∀ y z : Tuple T p, o.peer y z = true)
     (t : Term T n) (f : SeqAggFunc T) (q : AggQuery T n (ColKind.allReg n))
     (d : AnnotatedDatabase T K) :

@@ -9,6 +9,7 @@ public import Provenance.SemiringWithMonus
 public import Mathlib.Algebra.BigOperators.Group.Finset.Defs
 import Mathlib.Algebra.BigOperators.Ring.Finset
 import Mathlib.Algebra.Order.BigOperators.Group.Finset
+import all Provenance.SemiringWithMonus
 
 /-!
 # Algebraic identities behind HAVING (count) provenance
@@ -115,7 +116,7 @@ theorem SC_recurrence (α : ι → K) {U : Finset ι} {u : ι} (hu : u ∈ U) (C
 /-- In an idempotent `CommSemiringWithMonus`, if every summand of a `Finset.sum`
 is bounded above by `a`, then so is the sum. The empty sum is `0 ≤ a` by canonical
 ordering; the inductive step uses `a + a = a`. -/
-theorem sum_le_of_forall_le (h_idem : idempotent K)
+private theorem sum_le_of_forall_le (h_idem : idempotent K)
     {s : Finset ι} {f : ι → K} {a : K} (hle : ∀ x ∈ s, f x ≤ a) :
     ∑ x ∈ s, f x ≤ a := by
   induction s using Finset.induction with
@@ -430,7 +431,7 @@ inclusion, the canonical such `M` is the set of minimal elements of `F`.
 /-- Multiplication on the left is monotone in any `SemiringWithMonus` (the
 `CanonicallyOrderedAdd` structure makes the additive witness of `≤`
 multiply through). -/
-theorem mul_le_mul_left_canonical (a : K) {b c : K} (h : b ≤ c) :
+private theorem mul_le_mul_left_canonical (a : K) {b c : K} (h : b ≤ c) :
     a * b ≤ a * c := by
   obtain ⟨d, rfl⟩ := exists_add_of_le h
   rw [mul_add]
@@ -438,7 +439,7 @@ theorem mul_le_mul_left_canonical (a : K) {b c : K} (h : b ≤ c) :
 
 /-- In an absorptive `CommSemiringWithMonus`, any finite product of
 annotations is bounded above by `𝟙`. -/
-theorem prod_le_one_absorptive (h_abs : absorptive K) (α : ι → K) :
+private theorem prod_le_one_absorptive (h_abs : absorptive K) (α : ι → K) :
     ∀ S : Finset ι, ∏ x ∈ S, α x ≤ 1 := by
   have h_idem : idempotent K := idempotent_of_absorptive h_abs
   have hα_le_one : ∀ x, α x ≤ 1 := fun x => by
@@ -456,7 +457,7 @@ theorem prod_le_one_absorptive (h_abs : absorptive K) (α : ι → K) :
 /-- In an absorptive `CommSemiringWithMonus`, the monomial `A` is monotone
 *decreasing* under inclusion: enlarging a subset can only decrease its
 annotation, since each additional factor is bounded by `𝟙`. -/
-theorem A_le_of_subset_absorptive (h_abs : absorptive K) (α : ι → K)
+private theorem A_le_of_subset_absorptive (h_abs : absorptive K) (α : ι → K)
     {W W' : Finset ι} (hW'W : W' ⊆ W) :
     A α W ≤ A α W' := by
   have hdisj : Disjoint W' (W \ W') := Finset.disjoint_sdiff
@@ -475,7 +476,7 @@ some element of `M`. Taking `M` = the minimal elements of `F` (when `F` is
 upward-closed) is the canonical application: the provenance of an
 upward-closed family of worlds collapses to the provenance of its minimal
 worlds. -/
-theorem absorbing_subfamily (α : ι → K) (h_abs : absorptive K)
+private theorem absorbing_subfamily (α : ι → K) (h_abs : absorptive K)
     {F M : Finset (Finset ι)} (hM_sub : M ⊆ F)
     (hcover : ∀ W ∈ F, ∃ W' ∈ M, W' ⊆ W) :
     ∑ W ∈ F, A α W = ∑ W ∈ M, A α W := by
@@ -670,7 +671,7 @@ def G (α : ι → K) (U : Finset ι) (C : ℕ) : K :=
 
 /-- Monus distributes over a finite sum with a fixed subtrahend: the `Finset`
 form of `add_monus_of_idempotent`. -/
-theorem sum_monus {ι' : Type} [DecidableEq ι'] (h_idem : idempotent K)
+private theorem sum_monus {ι' : Type} [DecidableEq ι'] (h_idem : idempotent K)
     (s : Finset ι') (f : ι' → K) (c : K) :
     (∑ x ∈ s, f x) - c = ∑ x ∈ s, (f x - c) := by
   induction s using Finset.induction with
@@ -817,7 +818,7 @@ omit [DecidableEq ι] in
 /-- Every world satisfying `P` contains a world satisfying `P` that is
 minimal among **all** worlds (not merely among its own subsets). Strong
 induction on the cardinality. -/
-theorem exists_minimal_subset {P : Finset ι → Prop} :
+private theorem exists_minimal_subset {P : Finset ι → Prop} :
     ∀ {W : Finset ι}, P W → ∃ V, V ⊆ W ∧ P V ∧ ∀ V' ⊂ V, ¬ P V' := by
   suffices h : ∀ n : ℕ, ∀ W : Finset ι, W.card ≤ n → P W →
       ∃ V, V ⊆ W ∧ P V ∧ ∀ V' ⊂ V, ¬ P V' from
@@ -847,7 +848,7 @@ supersets, the `T`-weighted possible-world provenance of the valid worlds
 inside `U` collapses to the `⊕`-sum of the monomials of the minimal valid
 worlds. This is the workhorse behind the tractable `COUNT ≥` and bounded-
 ratio `SUM ≥ / >` cases. -/
-theorem collapse_to_minimal (α : ι → K) (h_abs : absorptive K)
+private theorem collapse_to_minimal (α : ι → K) (h_abs : absorptive K)
     (U : Finset ι) {P : Finset ι → Prop} [DecidablePred P]
     (hmono : ∀ ⦃W W'⦄, W ⊆ W' → P W → P W') :
     ∑ W ∈ U.powerset.filter P, T α U W
@@ -1030,7 +1031,7 @@ def ann (α : ι → K) (U W : Finset ι) : K :=
 
 /-- The one-step extensions of `W` inside `U` sum to `A_W ⊗ E_W`, by
 distributivity of `⊗` over finite sums. -/
-theorem sum_A_insert (α : ι → K) (U W : Finset ι) :
+private theorem sum_A_insert (α : ι → K) (U W : Finset ι) :
     ∑ x ∈ U \ W, A α (insert x W) = A α W * ∑ x ∈ U \ W, α x := by
   rw [Finset.mul_sum]
   refine Finset.sum_congr rfl fun x hx => ?_
@@ -1039,14 +1040,14 @@ theorem sum_A_insert (α : ι → K) (U W : Finset ι) :
 /-- `T_U(W) ≤ ann_U(W)` in any commutative m-semiring. By residuation it
 suffices that `A_W ≤ A_W ⊗ E_W ⊕ A_W ⊗ (𝟙 ⊖ E_W) = A_W ⊗ (E_W ⊕ (𝟙 ⊖ E_W))`,
 which follows from `𝟙 ≤ E_W ⊕ (𝟙 ⊖ E_W)` and monotonicity of `⊗`. -/
-theorem T_le_ann (α : ι → K) (U W : Finset ι) : T α U W ≤ ann α U W := by
+private theorem T_le_ann (α : ι → K) (U W : Finset ι) : T α U W ≤ ann α U W := by
   rw [T, sum_A_insert, SemiringWithMonus.monus_spec, ann, ← mul_add]
   calc A α W = A α W * 1 := (mul_one _).symm
     _ ≤ A α W * (∑ x ∈ U \ W, α x + (1 - ∑ x ∈ U \ W, α x)) :=
       mul_le_mul_left_canonical _ (le_plus_monus 1 _)
 
 /-- `ann_U(W) ≤ A_W`: the second factor is at most `𝟙`. -/
-theorem ann_le_A (α : ι → K) (U W : Finset ι) : ann α U W ≤ A α W :=
+private theorem ann_le_A (α : ι → K) (U W : Finset ι) : ann α U W ≤ A α W :=
   calc ann α U W ≤ A α W * 1 := mul_le_mul_left_canonical _ (monus_le 1 _)
     _ = A α W := mul_one _
 
@@ -1060,7 +1061,7 @@ theorem monus_factor_le (α : ι → K) (U W : Finset ι) :
 bounded by the `T`-sum in an idempotent m-semiring: each `A_W` is below the
 `T`-sum over its supersets (`upward_expansion`), which all lie in `V`, and
 idempotence collapses the repeated summands (`sum_le_of_forall_le`). -/
-theorem sum_A_le_sum_T (h_idem : idempotent K) (α : ι → K)
+private theorem sum_A_le_sum_T (h_idem : idempotent K) (α : ι → K)
     {U : Finset ι} {V : Finset (Finset ι)}
     (hVU : ∀ W ∈ V, W ⊆ U)
     (hV_up : ∀ W ∈ V, ∀ W' : Finset ι, W ⊆ W' → W' ⊆ U → W' ∈ V) :
@@ -1125,7 +1126,7 @@ def Fann (α : ι → K) (U : Finset ι) (C : ℕ) : K :=
 
 omit [DecidableEq ι] in
 /-- The worlds of `U` of cardinality `≥ C` form an upward-closed family. -/
-theorem card_ge_upward_closed (U : Finset ι) (C : ℕ) :
+private theorem card_ge_upward_closed (U : Finset ι) (C : ℕ) :
     ∀ W ∈ U.powerset.filter (fun W => C ≤ W.card),
       ∀ W' : Finset ι, W ⊆ W' → W' ⊆ U → W' ∈ U.powerset.filter (fun W => C ≤ W.card) :=
   fun _ hW _ hWW' hW'U => Finset.mem_filter.mpr ⟨Finset.mem_powerset.mpr hW'U,
@@ -1136,7 +1137,7 @@ theorem card_ge_upward_closed (U : Finset ι) (C : ℕ) :
 any distributivity hypothesis: both are the monomial sum over the
 upward-closed family of worlds of size `≥ C` (`witness_identity`,
 `sum_T_eq_sum_A`). -/
-theorem Fann_eq_F (h_idem : idempotent K) (α : ι → K) (U : Finset ι) (C : ℕ) :
+private theorem Fann_eq_F (h_idem : idempotent K) (α : ι → K) (U : Finset ι) (C : ℕ) :
     Fann α U C = F α U C := by
   have hVU : ∀ W ∈ U.powerset.filter (fun W => C ≤ W.card), W ⊆ U :=
     fun W hW => Finset.mem_powerset.mp (Finset.mem_filter.mp hW).1
@@ -1164,7 +1165,7 @@ turns the possible-world sum of the factored annotations into the plain
 m-semiring. -/
 
 /-- The worlds of `U` meeting `H` form an upward-closed family inside `U`. -/
-theorem meet_upward_closed (U H : Finset ι) :
+private theorem meet_upward_closed (U H : Finset ι) :
     ∀ W ∈ U.powerset.filter (fun W => (W ∩ H).Nonempty),
       ∀ W' : Finset ι, W ⊆ W' → W' ⊆ U →
         W' ∈ U.powerset.filter (fun W => (W ∩ H).Nonempty) :=

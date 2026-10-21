@@ -4,6 +4,19 @@ public import Provenance.SymApply
 import Mathlib.Algebra.Order.Ring.Nat
 import Mathlib.Tactic.NormNum.Inv
 import Mathlib.Tactic.NormNum.Pow
+import all Provenance.AllRegular
+import all Provenance.Decorrelate
+import all Provenance.MuUnion
+import all Provenance.PlainBasis
+import all Provenance.RecursionBasisPass
+import all Provenance.SumByMu
+import all Provenance.SumByProd
+import all Provenance.SymCorrect
+import all Provenance.SymCut
+import all Provenance.SymEnvBuild
+import all Provenance.SymOrder
+import all Provenance.SymWin
+import all Provenance.WinKept
 
 /-!
 # What the apply written with products is made of
@@ -26,19 +39,19 @@ def Fine {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (Θ : S
     (q : AggQueryIn T c n κ l) : Prop :=
   q.usesOnly basisProdOps ∧ q.inSig Θ ∧ winAllReg q ∧ q.hygienic
 
-theorem sumProdOps_sub : AggQueryIn.sumProdOps ⊆ basisProdOps := by
+private theorem sumProdOps_sub : AggQueryIn.sumProdOps ⊆ basisProdOps := by
   intro x hx
   simp only [AggQueryIn.sumProdOps, Set.mem_insert_iff, Set.mem_singleton_iff] at hx
   simp only [basisProdOps, Set.mem_insert_iff, Set.mem_singleton_iff]
   tauto
 
-theorem mem_proj : OpKind.proj ∈ basisProdOps := by simp [basisProdOps]
-theorem mem_sel : OpKind.sel ∈ basisProdOps := by simp [basisProdOps]
-theorem mem_prod : OpKind.prod ∈ basisProdOps := by simp [basisProdOps]
-theorem mem_gamma : OpKind.gamma ∈ basisProdOps := by simp [basisProdOps]
-theorem mem_win : OpKind.win ∈ basisProdOps := by simp [basisProdOps]
-theorem mem_muBag : OpKind.muBag ∈ basisProdOps := by simp [basisProdOps]
-theorem mem_empty : OpKind.empty ∈ basisProdOps := by simp [basisProdOps]
+private theorem mem_proj : OpKind.proj ∈ basisProdOps := by simp [basisProdOps]
+private theorem mem_sel : OpKind.sel ∈ basisProdOps := by simp [basisProdOps]
+private theorem mem_prod : OpKind.prod ∈ basisProdOps := by simp [basisProdOps]
+private theorem mem_gamma : OpKind.gamma ∈ basisProdOps := by simp [basisProdOps]
+private theorem mem_win : OpKind.win ∈ basisProdOps := by simp [basisProdOps]
+private theorem mem_muBag : OpKind.muBag ∈ basisProdOps := by simp [basisProdOps]
+private theorem mem_empty : OpKind.empty ∈ basisProdOps := by simp [basisProdOps]
 
 /-! ## Terms and predicates of comparisons -/
 
@@ -47,14 +60,14 @@ section Terms
 variable {c N : ℕ}
 
 omit [ValueType T] in
-theorem SA.noFun_toG (a : SA T c N) : a.toG.noFun = true := by
+private theorem SA.noFun_toG (a : SA T c N) : a.toG.noFun = true := by
   cases a <;> rfl
 
 omit [ValueType T] in
-theorem noFun_projSA {M : ℕ} (F : Fin M → SA T c N) (x : Fin M) :
+private theorem noFun_projSA {M : ℕ} (F : Fin M → SA T c N) (x : Fin M) :
     (projSA F x).noFun = true := SA.noFun_toG _
 
-theorem SP.noFun_toGen (p : SP T c N) : p.toGen.noFun = true := by
+private theorem SP.noFun_toGen (p : SP T c N) : p.toGen.noFun = true := by
   induction p with
   | atom op a b => show (a.toG.noFun && b.toG.noFun) = true; rw [SA.noFun_toG, SA.noFun_toG]; rfl
   | and p q ihp ihq => show (p.toGen.noFun && q.toGen.noFun) = true; rw [ihp, ihq]; rfl
@@ -64,19 +77,19 @@ theorem SP.noFun_toGen (p : SP T c N) : p.toGen.noFun = true := by
   | fls => rfl
 
 omit [ValueType T] in
-theorem SA.noFun_toT (a : SA T 0 N) : a.toT.noFun = true := by
+private theorem SA.noFun_toT (a : SA T 0 N) : a.toT.noFun = true := by
   cases a with
   | const a => rfl
   | col i => rfl
   | amb j => exact j.elim0
 
 omit [ValueType T] in
-theorem noFun_boolOf (op : CompOp) (t₁ t₂ : Term T N) (h₁ : t₁.noFun = true)
+private theorem noFun_boolOf (op : CompOp) (t₁ t₂ : Term T N) (h₁ : t₁.noFun = true)
     (h₂ : t₂.noFun = true) : (boolOf op t₁ t₂).noFun = true := by
   cases op <;> exact (by simp [boolOf, BoolTerm.noFun, BoolTerm.args, h₁, h₂])
 
 omit [ValueType T] in
-theorem SP.noFun_toSel (p : SP T 0 N) : p.toSel.noFun = true := by
+private theorem SP.noFun_toSel (p : SP T 0 N) : p.toSel.noFun = true := by
   induction p with
   | atom op a b => exact noFun_boolOf op _ _ (SA.noFun_toT a) (SA.noFun_toT b)
   | and p q ihp ihq => show (p.toSel.noFun && q.toSel.noFun) = true; rw [ihp, ihq]; rfl
@@ -94,12 +107,12 @@ section Prim
 variable {c : ℕ} {Θ : Set (SeqAggFunc T)}
 
 omit [ValueType T] in
-@[simp] theorem winAllReg_castKind {c n : ℕ} {κ κ' : Fin n → ColKind} {l : List (String × ℕ)}
+@[simp] private theorem winAllReg_castKind {c n : ℕ} {κ κ' : Fin n → ColKind} {l : List (String × ℕ)}
     (h : κ = κ') (q : AggQueryIn T c n κ l) : winAllReg (q.castKind h) ↔ winAllReg q := by
   cases h; exact Iff.rfl
 
 omit [ValueType T] in
-@[simp] theorem winAllReg_explodeBelow {c n : ℕ} :
+@[simp] private theorem winAllReg_explodeBelow {c n : ℕ} :
     ∀ (m : ℕ) {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l),
       winAllReg (q.explodeBelow m) ↔ winAllReg q := by
   intro m
@@ -126,18 +139,18 @@ omit [ValueType T] in
       exact ih q
 
 omit [ValueType T] in
-@[simp] theorem winAllReg_allRegOf {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)}
+@[simp] private theorem winAllReg_allRegOf {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)}
     (q : AggQueryIn T c n κ l) : winAllReg q.allRegOf ↔ winAllReg q := by
   rw [AggQueryIn.allRegOf, winAllReg_castKind, winAllReg_explodeBelow]
 
-theorem fine_projQ {N M : ℕ} {l : List (String × ℕ)} (F : Fin M → SA T c N)
+private theorem fine_projQ {N M : ℕ} {l : List (String × ℕ)} (F : Fin M → SA T c N)
     {q : AggQueryIn T c N (ColKind.allReg N) l} (h : Fine Θ q) : Fine Θ (projQ F q) := by
   unfold Fine projQ
   rw [AggQueryIn.usesOnly_castKind, AggQueryIn.inSig_castKind, winAllReg_castKind,
     AggQueryIn.hygienic_castKind]
   exact ⟨⟨⟨mem_proj, fun _ => rfl⟩, h.1⟩, ⟨fun _ => SA.noFun_toG _, h.2.1⟩, h.2.2.1, h.2.2.2⟩
 
-theorem fine_prodR {a b : ℕ} {l₁ l₂ : List (String × ℕ)}
+private theorem fine_prodR {a b : ℕ} {l₁ l₂ : List (String × ℕ)}
     {q₁ : AggQueryIn T c a (ColKind.allReg a) l₁} {q₂ : AggQueryIn T c b (ColKind.allReg b) l₂}
     (h₁ : Fine Θ q₁) (h₂ : Fine Θ q₂) : Fine Θ (prodR q₁ q₂) := by
   unfold Fine prodR
@@ -145,41 +158,41 @@ theorem fine_prodR {a b : ℕ} {l₁ l₂ : List (String × ℕ)}
     AggQueryIn.hygienic_castKind]
   exact ⟨⟨mem_prod, h₁.1, h₂.1⟩, ⟨h₁.2.1, h₂.2.1⟩, ⟨h₁.2.2.1, h₂.2.2.1⟩, ⟨h₁.2.2.2, h₂.2.2.2⟩⟩
 
-theorem fine_selSP {N : ℕ} {l : List (String × ℕ)} (p : SP T c N)
+private theorem fine_selSP {N : ℕ} {l : List (String × ℕ)} (p : SP T c N)
     {q : AggQueryIn T c N (ColKind.allReg N) l} (hφ : SelOK l p.toGen) (h : Fine Θ q) :
     Fine Θ (AggQueryIn.Sel p.toGen q hφ) :=
   ⟨⟨mem_sel, h.1⟩, ⟨SP.noFun_toGen p, h.2.1⟩, h.2.2.1, h.2.2.2⟩
 
-theorem fine_rel (n : ℕ) (s : String) : Fine Θ (AggQueryIn.Rel (T := T) (c := c) n s) :=
+private theorem fine_rel (n : ℕ) (s : String) : Fine Θ (AggQueryIn.Rel (T := T) (c := c) n s) :=
   ⟨trivial, trivial, trivial, trivial⟩
 
-theorem fine_hole (n : ℕ) (s : String) :
+private theorem fine_hole (n : ℕ) (s : String) :
     Fine Θ (AggQueryIn.Hole (T := T) (c := c) n s (ColKind.allReg n)) :=
   ⟨trivial, trivial, trivial, trivial⟩
 
-theorem fine_param {m : ℕ} (pv : Fin m → T ⊕ Fin c) :
+private theorem fine_param {m : ℕ} (pv : Fin m → T ⊕ Fin c) :
     Fine Θ (AggQueryIn.Param pv (ColKind.allReg m)) :=
   ⟨⟨mem_empty, mem_proj, mem_gamma⟩, trivial, trivial, trivial⟩
 
-theorem fine_constQ (a : T) : Fine Θ (constQ (c := c) a) := fine_param _
+private theorem fine_constQ (a : T) : Fine Θ (constQ (c := c) a) := fine_param _
 
-theorem fine_emptyRel (n : ℕ) : Fine Θ (AggQueryIn.emptyRel (T := T) (c := c) n) := by
+private theorem fine_emptyRel (n : ℕ) : Fine Θ (AggQueryIn.emptyRel (T := T) (c := c) n) := by
   unfold Fine AggQueryIn.emptyRel
   rw [AggQueryIn.usesOnly_castKind, AggQueryIn.inSig_castKind, winAllReg_castKind,
     AggQueryIn.hygienic_castKind]
   exact ⟨⟨⟨mem_proj, fun _ => rfl⟩, mem_empty⟩, ⟨fun _ => rfl, trivial⟩, trivial, trivial⟩
 
-theorem fine_unitC : Fine Θ (AggQueryIn.unitC (T := T) (c := c)) :=
+private theorem fine_unitC : Fine Θ (AggQueryIn.unitC (T := T) (c := c)) :=
   ⟨AggQueryIn.usesOnly_unitCX sumProdOps_sub, AggQueryIn.inSig_unitC Θ,
     by unfold AggQueryIn.unitC; rw [winAllReg_castKind]; trivial, AggQueryIn.hygienic_unitC⟩
 
-theorem fine_dedupG {n : ℕ} {q : AggQueryIn T c n (ColKind.allReg n)} (h : Fine Θ q) :
+private theorem fine_dedupG {n : ℕ} {q : AggQueryIn T c n (ColKind.allReg n)} (h : Fine Θ q) :
     Fine Θ (AggQueryIn.dedupG q) := by
   refine ⟨AggQueryIn.usesOnly_dedupG (q := q) mem_gamma h.1, AggQueryIn.inSig_dedupG (q := q) h.2.1,
     ?_, AggQueryIn.hygienic_dedupG (q := q) h.2.2.2⟩
   unfold AggQueryIn.dedupG; rw [winAllReg_castKind]; exact h.2.2.1
 
-theorem fine_sumByMuX {n : ℕ} (s₁ s₂ : String) {q₁ q₂ : AggQueryIn T c n (ColKind.allReg n)}
+private theorem fine_sumByMuX {n : ℕ} (s₁ s₂ : String) {q₁ q₂ : AggQueryIn T c n (ColKind.allReg n)}
     (h₁ : Fine Θ q₁) (h₂ : Fine Θ q₂) (hm₁ : q₁.noMention s₁) (hm₂₁ : q₁.noMention s₂)
     (hm₂₂ : q₂.noMention s₂) : Fine Θ (AggQueryIn.sumByMuX s₁ s₂ q₁ q₂) := by
   refine ⟨AggQueryIn.usesOnly_sumByMuX sumProdOps_sub s₁ s₂ q₁ q₂ h₁.1 h₂.1,
@@ -197,7 +210,7 @@ section Env
 
 variable {c : ℕ} {Θ : Set (SeqAggFunc T)} {cnt : SeqAggFunc T}
 
-theorem fine_proj {N M : ℕ} {κ : Fin N → ColKind} {l : List (String × ℕ)}
+private theorem fine_proj {N M : ℕ} {κ : Fin N → ColKind} {l : List (String × ℕ)}
     (ps : Fin M → ProjColIn T c κ) (hps : ∀ j, (ps j).sourceCol = true)
     (hnf : ∀ j, (ps j).noFun = true) {q : AggQueryIn T c N κ l} (h : Fine Θ q) :
     Fine Θ (AggQueryIn.Proj ps q) := by
@@ -205,7 +218,7 @@ theorem fine_proj {N M : ℕ} {κ : Fin N → ColKind} {l : List (String × ℕ)
   simp only [AggQueryIn.usesOnly, AggQueryIn.inSig, winAllReg, AggQueryIn.hygienic]
   exact ⟨⟨⟨mem_proj, hps⟩, h.1⟩, ⟨hnf, h.2.1⟩, h.2.2.1, h.2.2.2⟩
 
-theorem fine_notInDiffX {k : ℕ} (s₁ s₂ : String) (hc : cnt ∈ Θ)
+private theorem fine_notInDiffX {k : ℕ} (s₁ s₂ : String) (hc : cnt ∈ Θ)
     {q₁ q₂ : AggQueryIn T c k (ColKind.allReg k)} (h₁ : Fine Θ q₁) (h₂ : Fine Θ q₂)
     (hm₁ : q₁.noMention s₁) (hm₂₁ : q₁.noMention s₂) (hm₂₂ : q₂.noMention s₂) :
     Fine Θ (AggQueryIn.notInDiffX s₁ s₂ cnt q₁ q₂) := by
@@ -220,57 +233,57 @@ theorem fine_notInDiffX {k : ℕ} (s₁ s₂ : String) (hc : cnt ∈ Θ)
     AggQueryIn.inSig_notInDiffX s₁ s₂ hc h₁.2.1 h₂.2.1, ⟨h₁.2.2.1, hs.2.2.1⟩,
     AggQueryIn.hygienic_notInDiffX s₁ s₂ cnt hm₁ hm₂₁ hm₂₂ h₁.2.2.2 h₂.2.2.2⟩
 
-theorem fine_selG {N : ℕ} (φ : GenPredIn T c (ColKind.allReg N)) (hφ : φ.noFun = true)
+private theorem fine_selG {N : ℕ} (φ : GenPredIn T c (ColKind.allReg N)) (hφ : φ.noFun = true)
     {q : AggQueryIn T c N (ColKind.allReg N)} (h : Fine Θ q) :
     Fine Θ (AggQueryIn.Sel φ q trivial) :=
   ⟨⟨mem_sel, h.1⟩, ⟨hφ, h.2.1⟩, h.2.2.1, h.2.2.2⟩
 
-theorem fine_ltQ {p : ℕ} {R : AggQueryIn T c p (ColKind.allReg p)} (h : Fine Θ R) :
+private theorem fine_ltQ {p : ℕ} {R : AggQueryIn T c p (ColKind.allReg p)} (h : Fine Θ R) :
     Fine Θ (ltQ R) := fine_selG _ (noFun_ltOn _ _) (fine_prodR h h)
 
-theorem fine_midQ {p : ℕ} {R : AggQueryIn T c p (ColKind.allReg p)} (h : Fine Θ R) :
+private theorem fine_midQ {p : ℕ} {R : AggQueryIn T c p (ColKind.allReg p)} (h : Fine Θ R) :
     Fine Θ (midQ R) := by
   unfold midQ
   refine fine_projQ _ (fine_selG _ ?_ (fine_prodR (fine_prodR h h) h))
   show ((ltOn _ _).noFun && (ltOn _ _).noFun) = true
   rw [noFun_ltOn, noFun_ltOn]; rfl
 
-theorem fine_succQ (s₁ s₂ : String) (hc : cnt ∈ Θ) {p : ℕ} {R : AggQueryIn T c p (ColKind.allReg p)}
+private theorem fine_succQ (s₁ s₂ : String) (hc : cnt ∈ Θ) {p : ℕ} {R : AggQueryIn T c p (ColKind.allReg p)}
     (h : Fine Θ R) (h₁ : R.noMention s₁) (h₂ : R.noMention s₂) : Fine Θ (succQ s₁ s₂ cnt R) :=
   fine_notInDiffX s₁ s₂ hc (fine_ltQ h) (fine_midQ h) (noMention_ltQ' h₁) (noMention_ltQ' h₂)
     (noMention_midQ' h₂)
 
-theorem fine_leastQ (s₁ s₂ : String) (hc : cnt ∈ Θ) {p : ℕ}
+private theorem fine_leastQ (s₁ s₂ : String) (hc : cnt ∈ Θ) {p : ℕ}
     {R : AggQueryIn T c p (ColKind.allReg p)} (h : Fine Θ R) (h₁ : R.noMention s₁)
     (h₂ : R.noMention s₂) : Fine Θ (leastQ s₁ s₂ cnt R) :=
   fine_notInDiffX s₁ s₂ hc h (fine_projQ _ (fine_ltQ h)) h₁ h₂ (noMention_aboveQ' h₂)
 
-theorem fine_greatestQ (s₁ s₂ : String) (hc : cnt ∈ Θ) {p : ℕ}
+private theorem fine_greatestQ (s₁ s₂ : String) (hc : cnt ∈ Θ) {p : ℕ}
     {R : AggQueryIn T c p (ColKind.allReg p)} (h : Fine Θ R) (h₁ : R.noMention s₁)
     (h₂ : R.noMention s₂) : Fine Θ (greatestQ s₁ s₂ cnt R) :=
   fine_notInDiffX s₁ s₂ hc h (fine_projQ _ (fine_ltQ h)) h₁ h₂ (noMention_belowQ' h₂)
 
-theorem fine_nnQ {CQ : AggQueryIn T c 1 (ColKind.allReg 1)} (h : Fine Θ CQ) : Fine Θ (nnQ CQ) :=
+private theorem fine_nnQ {CQ : AggQueryIn T c 1 (ColKind.allReg 1)} (h : Fine Θ CQ) : Fine Θ (nnQ CQ) :=
   fine_selG _ rfl h
 
-theorem fine_alphaQ (f : ℕ → String) {CQ : AggQueryIn T c 1 (ColKind.allReg 1)} (h : Fine Θ CQ)
+private theorem fine_alphaQ (f : ℕ → String) {CQ : AggQueryIn T c 1 (ColKind.allReg 1)} (h : Fine Θ CQ)
     (hf : FreshFor f CQ) : Fine Θ (alphaQ f CQ) :=
   fine_dedupG (fine_sumByMuX _ _ (fine_nnQ h)
     (fine_sumByMuX _ _ (fine_constQ 0) (fine_constQ _) (noMention_constQ _ _) (noMention_constQ _ _)
       (noMention_constQ _ _)) (noMention_nnQ CQ (hf 0)) (noMention_nnQ CQ (hf 1))
     (AggQueryIn.noMention_sumByMuX _ _ _ _ (noMention_constQ _ _) (noMention_constQ _ _)))
 
-theorem fine_powU {EQ : AggQueryIn T c 1 (ColKind.allReg 1)} (h : Fine Θ EQ) :
+private theorem fine_powU {EQ : AggQueryIn T c 1 (ColKind.allReg 1)} (h : Fine Θ EQ) :
     ∀ K, Fine Θ (powU EQ K)
   | 0 => by rw [powU]; exact fine_unitC
   | K + 1 => by rw [powU]; exact fine_prodR (fine_powU h K) h
 
-theorem fine_powX {m : ℕ} {R : AggQueryIn T c m (ColKind.allReg m)} (h : Fine Θ R) :
+private theorem fine_powX {m : ℕ} {R : AggQueryIn T c m (ColKind.allReg m)} (h : Fine Θ R) :
     ∀ K, Fine Θ (powX R K)
   | 0 => by rw [powX]; exact fine_unitC
   | K + 1 => by rw [powX]; exact fine_prodR (fine_powX h K) h
 
-theorem fine_thQ (f : ℕ → String) (k : ℕ) : ∀ r, Fine Θ (thQ (c := c) f k r)
+private theorem fine_thQ (f : ℕ → String) (k : ℕ) : ∀ r, Fine Θ (thQ (c := c) f k r)
   | 0 => fine_param _
   | r + 1 => fine_sumByMuX _ _ (fine_thQ f k r) (fine_param _) (noMention_thQ f k _ r)
       (noMention_thQ f k _ r) (noMention_thRowQ _ _ _)
@@ -282,7 +295,7 @@ structure EnvFine {k : ℕ} (Θ : Set (SeqAggFunc T)) (env : SymEnv T k c) : Pro
   lq : ∀ n, Fine Θ (env.Lq n)
   sq : ∀ n, Fine Θ (env.Sq n)
 
-theorem envFine_envOf (f : ℕ → String) (hc : cnt ∈ Θ) (k : ℕ)
+private theorem envFine_envOf (f : ℕ → String) (hc : cnt ∈ Θ) (k : ℕ)
     {CQ : AggQueryIn T c 1 (ColKind.allReg 1)} (h : Fine Θ CQ) (hf : FreshFor f CQ) :
     EnvFine Θ (envOf f cnt k CQ) := by
   have hf0 : FreshFor (fun i => f (2 * i)) CQ := fun i => hf _
@@ -333,7 +346,7 @@ section SymFine
 
 variable {Θ : Set (SeqAggFunc T)}
 
-theorem noFun_termV {k c m : ℕ} (t : TermIn T (k + c) m) : (termV (k := k) t).noFun = true := by
+private theorem noFun_termV {k c m : ℕ} (t : TermIn T (k + c) m) : (termV (k := k) t).noFun = true := by
   cases t with
   | const a => rfl
   | outer o =>
@@ -347,13 +360,13 @@ theorem noFun_termV {k c m : ℕ} (t : TermIn T (k + c) m) : (termV (k := k) t).
   | caseWhen => rfl
   | coalesce => rfl
 
-theorem noFun_transSelOpt {k n : ℕ} (keep : Option (Selection T n)) :
+private theorem noFun_transSelOpt {k n : ℕ} (keep : Option (Selection T n)) :
     Selection.noFunOpt (keep.map (fun φ => (transSel (k := k) 0 φ).toSel)) = true := by
   cases keep with
   | none => rfl
   | some φ => exact SP.noFun_toSel _
 
-theorem fine_junkB {c N M : ℕ} (s : String) : Fine Θ (junkB (T := T) (c := c) N M s) := by
+private theorem fine_junkB {c N M : ℕ} (s : String) : Fine Θ (junkB (T := T) (c := c) N M s) := by
   unfold Fine junkB
   rw [AggQueryIn.usesOnly_castKind, AggQueryIn.inSig_castKind, winAllReg_castKind,
     AggQueryIn.hygienic_castKind]
@@ -361,7 +374,7 @@ theorem fine_junkB {c N M : ℕ} (s : String) : Fine Θ (junkB (T := T) (c := c)
     trivial, trivial⟩
 
 /-- **The symbolic evaluation is of the fragment.** -/
-theorem fine_sym_aux {k c : ℕ} (env : SymEnv T k c) (henv : EnvFine Θ env) :
+private theorem fine_sym_aux {k c : ℕ} (env : SymEnv T k c) (henv : EnvFine Θ env) :
     ∀ (N : ℕ) (f : ℕ → String) {n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)}
       (q : AggQueryIn T (k + c) n κ l), sizeOf q ≤ N → q.inSig Θ →
       (∀ i, q.noMention (f i) ∧ EnvNoMention env (f i)) →
@@ -503,7 +516,7 @@ section CutFine
 
 variable {c : ℕ} {Θ : Set (SeqAggFunc T)} {cnt : SeqAggFunc T}
 
-theorem fine_unionFin (f : ℕ → String) :
+private theorem fine_unionFin (f : ℕ → String) :
     ∀ (n : ℕ) (F : Fin n → AggQueryIn T c 1 (ColKind.allReg 1)), (∀ i j, (F i).noMention (f j)) →
       (∀ i, Fine Θ (F i)) → Fine Θ (unionFin f n F)
   | 0, _, _, _ => by rw [unionFin]; exact fine_emptyRel 1
@@ -512,15 +525,15 @@ theorem fine_unionFin (f : ℕ → String) :
     exact fine_sumByMuX _ _ (h 0) (fine_unionFin _ n _ (fun i j => hF i.succ (j + 2))
       (fun i => h i.succ)) (hF 0 0) (hF 0 1) (noMention_unionFin _ n _ (fun i => hF i.succ 1))
 
-theorem fine_colsQ {N p : ℕ} (f : ℕ → String) {q : AggQueryIn T c N (ColKind.allReg N)}
+private theorem fine_colsQ {N p : ℕ} (f : ℕ → String) {q : AggQueryIn T c N (ColKind.allReg N)}
     (idx : Fin p → Fin N) (hf : ∀ i, q.noMention (f i)) (h : Fine Θ q) : Fine Θ (colsQ f q idx) :=
   fine_unionFin f p _ (fun _ j => noMention_projQ _ _ (hf j)) (fun _ => fine_projQ _ h)
 
-theorem fine_valsOf {N : ℕ} (f : ℕ → String) {q : AggQueryIn T c N (ColKind.allReg N)}
+private theorem fine_valsOf {N : ℕ} (f : ℕ → String) {q : AggQueryIn T c N (ColKind.allReg N)}
     (hf : ∀ i, q.noMention (f i)) (h : Fine Θ q) : Fine Θ (valsOf f q) :=
   fine_colsQ f id hf h
 
-theorem fine_cutOf (f : ℕ → String) (S : Finset T) {core : AggQueryIn T c 1 (ColKind.allReg 1)}
+private theorem fine_cutOf (f : ℕ → String) (S : Finset T) {core : AggQueryIn T c 1 (ColKind.allReg 1)}
     (hcore : ∀ i, core.noMention (f i)) (h : Fine Θ core) : Fine Θ (cutOf f S core) := by
   have hnull : Fine Θ (nullQ (T := T) (c := c)) := by
     unfold nullQ; split
@@ -540,7 +553,7 @@ theorem fine_cutOf (f : ℕ → String) (S : Finset T) {core : AggQueryIn T c 1 
     (noMention_u2 _ (noMention_constsQ _ S _) (hcore _))
 
 /-- **The cut is of the fragment.** -/
-theorem fine_cutCore {k : ℕ} (hc : cnt ∈ Θ) :
+private theorem fine_cutCore {k : ℕ} (hc : cnt ∈ Θ) :
     ∀ (N : ℕ) (f : ℕ → String) {n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)}
       (q : AggQueryIn T (k + c) n κ l), sizeOf q ≤ N → q.inSig Θ → (∀ i, q.noMention (f i)) →
       Fine Θ (cutCore cnt f q) := by
@@ -695,19 +708,19 @@ section ApplyFine
 
 variable {c k : ℕ} {Θ : Set (SeqAggFunc T)} {cnt : SeqAggFunc T}
 
-theorem envFine_tabEnv (hc : cnt ∈ Θ) (f : ℕ → String) {n : ℕ} {κ : Fin n → ColKind}
+private theorem envFine_tabEnv (hc : cnt ∈ Θ) (f : ℕ → String) {n : ℕ} {κ : Fin n → ColKind}
     (q : AggQueryIn T (k + c) n κ) (hi : q.inSig Θ) (hf : ∀ i, q.noMention (f i)) :
     EnvFine Θ (tabEnv cnt f q) :=
   envFine_envOf _ hc k (fine_cutOf _ _ (fun _ => noMention_cutCore cnt _ _ q le_rfl (hf _))
     (fine_cutCore hc _ _ q le_rfl hi (fun _ => hf _))) (fun _ => noMention_cutQ cnt _ q (hf _))
 
-theorem fine_tabQ (hc : cnt ∈ Θ) (f : ℕ → String) {n : ℕ} {κ : Fin n → ColKind}
+private theorem fine_tabQ (hc : cnt ∈ Θ) (f : ℕ → String) {n : ℕ} {κ : Fin n → ColKind}
     (q : AggQueryIn T (k + c) n κ) (hi : q.inSig Θ) (hf : ∀ i, q.noMention (f i)) :
     Fine Θ (tabQ cnt f q) :=
   (fine_sym_aux _ (envFine_tabEnv hc f q hi hf) _ (part f 2) q le_rfl hi
     (fun _ => ⟨hf _, envNoMention_tabEnv cnt f q (hf _)⟩)).1
 
-theorem fine_valsQ (f : ℕ → String) (env : SymEnv T k c) (henv : EnvFine Θ env)
+private theorem fine_valsQ (f : ℕ → String) (env : SymEnv T k c) (henv : EnvFine Θ env)
     {VQ : AggQueryIn T c 1 (ColKind.allReg 1)} (hV : Fine Θ VQ)
     (hVf : VQ.noMention (f 0) ∧ VQ.noMention (f 1))
     (hCf : env.CQ.noMention (f 1)) : Fine Θ (valsQ f env VQ) :=

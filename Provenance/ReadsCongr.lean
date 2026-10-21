@@ -6,6 +6,7 @@ module
 
 public import Provenance.AggQuery
 import Mathlib.Tactic.Bound.Init
+import all Provenance.AggQuery
 
 /-!
 # An evaluation reads its context only where it says it does
@@ -33,7 +34,7 @@ def AgreeOn {c : ℕ} {α : Type} (r : Fin c → Bool) (γ γ' : Fin c → α) :
   ∀ k, r k = true → γ k = γ' k
 
 omit [ValueType T] in
-theorem TermIn.eval_congr_reads {c n : ℕ} [ValueType T] (t : TermIn T c n) (u : Tuple T n)
+private theorem TermIn.eval_congr_reads {c n : ℕ} [ValueType T] (t : TermIn T c n) (u : Tuple T n)
     {γ γ' : Fin c → T} (h : ∀ k, t.readsOuter k = true → γ k = γ' k) :
     t.eval u γ = t.eval u γ' := by
   induction t with
@@ -52,7 +53,7 @@ theorem TermIn.eval_congr_reads {c n : ℕ} [ValueType T] (t : TermIn T c n) (u 
       ih₄ (fun k hk => h k (by simp [TermIn.readsOuter, hk]))]
 
 omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
-theorem TermGIn.eval_congr_reads {c n : ℕ} {κ : Fin n → ColKind} (t : TermGIn T c κ)
+private theorem TermGIn.eval_congr_reads {c n : ℕ} {κ : Fin n → ColKind} (t : TermGIn T c κ)
     (u : Tuple (GenValue T K) n) {γ γ' : Fin c → T}
     (h : ∀ k, t.readsOuter k = true → γ k = γ' k) :
     t.eval u γ = t.eval u γ' := by
@@ -75,7 +76,7 @@ theorem TermGIn.eval_congr_reads {c n : ℕ} {κ : Fin n → ColKind} (t : TermG
       ih₄ (fun k hk => h k (by simp [TermGIn.readsOuter, hk]))]
 
 omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
-theorem TermGIn.evalPlain_congr_reads {c n : ℕ} {κ : Fin n → ColKind} (t : TermGIn T c κ)
+private theorem TermGIn.evalPlain_congr_reads {c n : ℕ} {κ : Fin n → ColKind} (t : TermGIn T c κ)
     (u : Tuple T n) {γ γ' : Fin c → T}
     (h : ∀ k, t.readsOuter k = true → γ k = γ' k) :
     t.evalPlain u γ = t.evalPlain u γ' := by
@@ -98,7 +99,7 @@ theorem TermGIn.evalPlain_congr_reads {c n : ℕ} {κ : Fin n → ColKind} (t : 
       ih₄ (fun k hk => h k (by simp [TermGIn.readsOuter, hk]))]
 
 omit [DecidableEq K] [HasAltLinearOrder K] [CommSemiringWithMonus K] in
-theorem GenPredIn.eval3_congr_reads {c n : ℕ} {κ : Fin n → ColKind} (φ : GenPredIn T c κ)
+private theorem GenPredIn.eval3_congr_reads {c n : ℕ} {κ : Fin n → ColKind} (φ : GenPredIn T c κ)
     (u : Tuple (GenValue T K) n) {γ γ' : Fin c → T}
     (h : ∀ k, φ.readsOuter k = true → γ k = γ' k) :
     φ.eval3 u γ = φ.eval3 u γ' := by
@@ -123,7 +124,7 @@ theorem GenPredIn.eval3_congr_reads {c n : ℕ} {κ : Fin n → ColKind} (φ : G
     rw [ih (fun k hk => h k (by simp [GenPredIn.readsOuter, hk]))]
 
 omit [DecidableEq K] [HasAltLinearOrder K] [CommSemiringWithMonus K] in
-theorem GenPredIn.eval3W_congr_reads {c n : ℕ} {κ : Fin n → ColKind} (φ : GenPredIn T c κ)
+private theorem GenPredIn.eval3W_congr_reads {c n : ℕ} {κ : Fin n → ColKind} (φ : GenPredIn T c κ)
     (v : Fin n → Option T) (u : Tuple (GenValue T K) n) {γ γ' : Fin c → T}
     (h : ∀ k, φ.readsOuter k = true → γ k = γ' k) :
     φ.eval3W v u γ = φ.eval3W v u γ' := by
@@ -148,7 +149,7 @@ theorem GenPredIn.eval3W_congr_reads {c n : ℕ} {κ : Fin n → ColKind} (φ : 
     rw [ih (fun k hk => h k (by simp [GenPredIn.readsOuter, hk]))]
 
 omit [HasAltLinearOrder K] in
-theorem GenPredIn.predsemJ_congr_reads {c n : ℕ} {κ : Fin n → ColKind} (φ : GenPredIn T c κ)
+private theorem GenPredIn.predsemJ_congr_reads {c n : ℕ} {κ : Fin n → ColKind} (φ : GenPredIn T c κ)
     (neg : Bool) (u : Tuple (GenValue T K) n) {γ γ' : Fin c → T}
     (h : ∀ k, φ.readsOuter k = true → γ k = γ' k) :
     φ.predsemJ neg u γ = φ.predsemJ neg u γ' := by
@@ -156,7 +157,7 @@ theorem GenPredIn.predsemJ_congr_reads {c n : ℕ} {κ : Fin n → ColKind} (φ 
   simp only [φ.eval3W_congr_reads _ u h]
 
 omit [DecidableEq K] [HasAltLinearOrder K] [CommSemiringWithMonus K] in
-theorem ProjColIn.eval_congr_reads {c n : ℕ} {κ : Fin n → ColKind} (p : ProjColIn T c κ)
+private theorem ProjColIn.eval_congr_reads {c n : ℕ} {κ : Fin n → ColKind} (p : ProjColIn T c κ)
     (u : Tuple (GenValue T K) n) {γ γ' : Fin c → T}
     (h : ∀ k, p.readsOuter k = true → γ k = γ' k) :
     p.eval u γ = p.eval u γ' := by
@@ -174,33 +175,33 @@ section Builders
 variable {c m : ℕ} {γ γ' : Fin c → T}
 
 omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
-theorem AggValue.ofGroup_congr_γ (f : SeqAggFunc T) (t : TermIn T c m)
+private theorem AggValue.ofGroup_congr_γ (f : SeqAggFunc T) (t : TermIn T c m)
     (U : List (AnnotatedTuple T K m)) (h : ∀ r, t.eval r γ = t.eval r γ') :
     AggValue.ofGroup f t U γ = AggValue.ofGroup f t U γ' := by
   simp only [AggValue.ofGroup, h]
 
 omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
-theorem AggValue.ofScalarGroup_congr_γ (f : SeqAggFunc T) (t : TermIn T c m)
+private theorem AggValue.ofScalarGroup_congr_γ (f : SeqAggFunc T) (t : TermIn T c m)
     (U : List (AnnotatedTuple T K m)) (h : ∀ r, t.eval r γ = t.eval r γ') :
     AggValue.ofScalarGroup f t U γ = AggValue.ofScalarGroup f t U γ' := by
   simp only [AggValue.ofScalarGroup, AggValue.ofGroup, h]
 
 omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
-theorem AggExpr.ofSeqWhen_congr_γ (f : SeqAggFunc T) (t : TermIn T c m)
+private theorem AggExpr.ofSeqWhen_congr_γ (f : SeqAggFunc T) (t : TermIn T c m)
     (keep : Tuple T m → Bool) (U : List (AnnotatedTuple T K m)) (sc : Bool)
     (h : ∀ r, t.eval r γ = t.eval r γ') :
     AggExpr.ofSeqWhen f t keep U sc γ = AggExpr.ofSeqWhen f t keep U sc γ' := by
   simp only [AggExpr.ofSeqWhen, h]
 
 omit [DecidableEq K] [HasAltLinearOrder K] in
-theorem AggExpr.ofSeqDistWhen_congr_γ (f : SeqAggFunc T) (t : TermIn T c m)
+private theorem AggExpr.ofSeqDistWhen_congr_γ (f : SeqAggFunc T) (t : TermIn T c m)
     (keep : Tuple T m → Bool) (U : List (AnnotatedTuple T K m)) (sc : Bool)
     (h : ∀ r, t.eval r γ = t.eval r γ') :
     AggExpr.ofSeqDistWhen f t keep U sc γ = AggExpr.ofSeqDistWhen f t keep U sc γ' := by
   simp only [AggExpr.ofSeqDistWhen, h]
 
 omit [DecidableEq K] in
-theorem ValueFrame.tokenOfDist_congr_γ {n p : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
+private theorem ValueFrame.tokenOfDist_congr_γ {n p : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
     (o : OrderSpec p) (w : ValueFrame T p) (t : TermIn T c n) (f : SeqAggFunc T) (dist : Bool)
     (X : AnnotatedRelation T K n) (x : AnnotatedTuple T K n)
     (h : ∀ r, t.eval r γ = t.eval r γ') :
@@ -210,7 +211,7 @@ theorem ValueFrame.tokenOfDist_congr_γ {n p : ℕ} (P : Tuple (Fin n) m) (O : T
   rw [AggValue.ofGroup_congr_γ f t _ h, AggValue.ofScalarGroup_congr_γ f t _ h]
 
 omit [DecidableEq K] in
-theorem ValueFrame.exprWhenOf_congr_γ {n p : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
+private theorem ValueFrame.exprWhenOf_congr_γ {n p : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
     (o : OrderSpec p) (w : ValueFrame T p) (t : TermIn T c n) (f : SeqAggFunc T) (dist : Bool)
     (keep : Tuple T n → Bool) (X : AnnotatedRelation T K n) (x : AnnotatedTuple T K n)
     (h : ∀ r, t.eval r γ = t.eval r γ') :
@@ -220,7 +221,7 @@ theorem ValueFrame.exprWhenOf_congr_γ {n p : ℕ} (P : Tuple (Fin n) m) (O : Tu
   rw [AggExpr.ofSeqWhen_congr_γ f t keep _ _ h, AggExpr.ofSeqDistWhen_congr_γ f t keep _ _ h]
 
 omit [CommSemiringWithMonus K] [DecidableEq K] in
-theorem ValueFrame.exprOfWhen_congr_γ {n p q : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
+private theorem ValueFrame.exprOfWhen_congr_γ {n p q : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
     (o : OrderSpec p) (ws : Fin q → ValueFrame T p) (ts : Fin q → TermIn T c n)
     (fs : Fin q → SeqAggFunc T) (g : (Fin q → T) → T) (keeps : Fin q → Option (Selection T n))
     (r : OccFam (AnnotatedTuple T K n)) (i : Fin r.size)
@@ -230,7 +231,7 @@ theorem ValueFrame.exprOfWhen_congr_γ {n p q : ℕ} (P : Tuple (Fin n) m) (O : 
   simp only [ValueFrame.exprOfWhen, h]
 
 omit [DecidableEq K] in
-theorem ValueFrame.windowGenRow_congr_γ {n p : ℕ} (lab : ℕ) (ck : List (T ⊕ FamId T))
+private theorem ValueFrame.windowGenRow_congr_γ {n p : ℕ} (lab : ℕ) (ck : List (T ⊕ FamId T))
     (κ : Fin n → ColKind) (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
     (w : ValueFrame T p) (t : TermIn T c n) (f : SeqAggFunc T) (keep : Option (Selection T n))
     (X : AnnotatedRelation T K n) (x : GenRow T K n) (dist : Bool)
@@ -249,7 +250,7 @@ end Builders
 omit [DecidableEq K] [HasAltLinearOrder K] [ValueType T] [CommSemiringWithMonus K] in
 /-- The parameters a read set records, read off two contexts agreeing
 there. -/
-theorem EvalEnv.paramKey_congr_reads {c : ℕ} (rd : Fin c → Bool) {γ γ' : Fin c → T}
+private theorem EvalEnv.paramKey_congr_reads {c : ℕ} (rd : Fin c → Bool) {γ γ' : Fin c → T}
     {E E' : EvalEnv T K} (h : AgreeOn rd (E.ctxAt c γ) (E'.ctxAt c γ')) :
     E.paramKey rd γ = E'.paramKey rd γ' := by
   unfold EvalEnv.paramKey ctxKey

@@ -14,6 +14,11 @@ import Mathlib.Data.Rat.Cast.Order
 import Mathlib.Tactic.NormNum.Abs
 import Mathlib.Tactic.NormNum.DivMod
 import Mathlib.Tactic.NormNum.OfScientific
+import all Provenance.Circuit
+import all Provenance.Database
+import all Provenance.HavingSemantics
+import all Provenance.Probability
+import all Provenance.Semirings.BoolFunc
 
 @[expose] public section
 
@@ -56,16 +61,16 @@ variable {X : Type}
 
 /-- The constant `0` Boolean function depends on the empty support
 (equivalently on any support). -/
-lemma DependsOn.zero {S : Finset X} : (0 : BoolFunc X).DependsOn S :=
+private lemma DependsOn.zero {S : Finset X} : (0 : BoolFunc X).DependsOn S :=
   fun _ _ _ => rfl
 
 /-- The constant `1` Boolean function depends on the empty support
 (equivalently on any support). -/
-lemma DependsOn.one {S : Finset X} : (1 : BoolFunc X).DependsOn S :=
+private lemma DependsOn.one {S : Finset X} : (1 : BoolFunc X).DependsOn S :=
   fun _ _ _ => rfl
 
 /-- A variable depends on the singleton of its index. -/
-lemma DependsOn.var [DecidableEq X] (i : X) :
+private lemma DependsOn.var [DecidableEq X] (i : X) :
     (BoolFunc.var i).DependsOn ({i} : Finset X) := by
   intro v₁ v₂ hv
   have hi : i ∈ ({i} : Finset X) := Finset.mem_singleton.mpr rfl
@@ -74,7 +79,7 @@ lemma DependsOn.var [DecidableEq X] (i : X) :
 
 /-- `f * g` depends on `S ∪ T` whenever `f` depends on `S` and `g` on `T`.
 Multiplication in `BoolFunc X` is pointwise `&&`. -/
-lemma DependsOn.mul [DecidableEq X] {f g : BoolFunc X} {S T : Finset X}
+private lemma DependsOn.mul [DecidableEq X] {f g : BoolFunc X} {S T : Finset X}
     (hf : f.DependsOn S) (hg : g.DependsOn T) :
     (f * g).DependsOn (S ∪ T : Finset X) := by
   intro v₁ v₂ hv
@@ -83,7 +88,7 @@ lemma DependsOn.mul [DecidableEq X] {f g : BoolFunc X} {S T : Finset X}
       hg v₁ v₂ (fun x hx => hv x (Finset.mem_union_right S hx))]
 
 /-- `f + g` depends on `S ∪ T`. Addition in `BoolFunc X` is pointwise `||`. -/
-lemma DependsOn.add [DecidableEq X] {f g : BoolFunc X} {S T : Finset X}
+private lemma DependsOn.add [DecidableEq X] {f g : BoolFunc X} {S T : Finset X}
     (hf : f.DependsOn S) (hg : g.DependsOn T) :
     (f + g).DependsOn (S ∪ T : Finset X) := by
   intro v₁ v₂ hv
@@ -93,7 +98,7 @@ lemma DependsOn.add [DecidableEq X] {f g : BoolFunc X} {S T : Finset X}
 
 /-- `1 - f` depends on the same support as `f`. Subtraction here is pointwise
 `(1 v) && !(f v) = !(f v)`. -/
-lemma DependsOn.one_sub {f : BoolFunc X} {S : Finset X}
+private lemma DependsOn.one_sub {f : BoolFunc X} {S : Finset X}
     (hf : f.DependsOn S) : (1 - f).DependsOn S := by
   intro v₁ v₂ hv
   show ((1 : BoolFunc X) v₁ && !(f v₁)) = ((1 : BoolFunc X) v₂ && !(f v₂))
@@ -101,13 +106,13 @@ lemma DependsOn.one_sub {f : BoolFunc X} {S : Finset X}
   rfl
 
 /-- Enlarging the support preserves `DependsOn`. -/
-lemma DependsOn.mono {f : BoolFunc X} {S T : Finset X}
+private lemma DependsOn.mono {f : BoolFunc X} {S T : Finset X}
     (hf : f.DependsOn S) (hST : S ⊆ T) : f.DependsOn T :=
   fun v₁ v₂ hv => hf v₁ v₂ (fun x hx => hv x (hST hx))
 
 /-- `Finset.prod` of `BoolFunc`s depends on the `biUnion` of the per-factor
 supports. -/
-lemma DependsOn.prod [DecidableEq X] {ι : Type} [DecidableEq ι]
+private lemma DependsOn.prod [DecidableEq X] {ι : Type} [DecidableEq ι]
     {β : ι → BoolFunc X} {S : ι → Finset X}
     (h : ∀ i, (β i).DependsOn (S i)) (J : Finset ι) :
     (∏ i ∈ J, β i).DependsOn (J.biUnion S) := by
@@ -129,7 +134,7 @@ variable {X : Type} [Fintype X] [DecidableEq X]
 /-- Iterated independence: if `(β i)` depends on `S i` and the supports are
 pairwise disjoint, then the probability of `∏ i ∈ J, β i` factors as the
 product of the marginal probabilities `P.funcProb (β i)`. -/
-theorem funcProb_prod_disjoint (P : ProbAssignment X)
+private theorem funcProb_prod_disjoint (P : ProbAssignment X)
     {ι : Type} [DecidableEq ι]
     (β : ι → BoolFunc X) (S : ι → Finset X)
     (hdep : ∀ i, (β i).DependsOn (S i))
@@ -153,7 +158,7 @@ theorem funcProb_prod_disjoint (P : ProbAssignment X)
 /-- Additivity over pairwise-incompatible events: the probability of a
 `⊕`-sum (pointwise OR) of Boolean functions whose pairwise products vanish
 is the sum of the probabilities. -/
-theorem funcProb_sum_incompatible (P : ProbAssignment X)
+private theorem funcProb_sum_incompatible (P : ProbAssignment X)
     {ι : Type} [DecidableEq ι]
     (β : ι → BoolFunc X) (J : Finset ι)
     (hpair : ∀ i ∈ J, ∀ j ∈ J, i ≠ j → β i * β j = 0) :
@@ -192,7 +197,7 @@ variable (P : ProbAssignment X) (α : ι → BoolFunc X)
 
 /-- Pointwise evaluation of a Finset product of `BoolFunc`s: the product
 evaluates to `true` iff every factor does. -/
-lemma prod_eval_eq_true_iff {ι : Type} [DecidableEq ι]
+private lemma prod_eval_eq_true_iff {ι : Type} [DecidableEq ι]
     (J : Finset ι) (β : ι → BoolFunc X) (v : X → Bool) :
     (∏ i ∈ J, β i) v = true ↔ ∀ i ∈ J, β i v = true := by
   classical
@@ -244,7 +249,7 @@ def maxLeOnNonempty (C : V) : BoolFunc X :=
   maxNoneAbove α t C * someAtMost α t C
 
 /-- Semantic reading of `maxNoneAbove`. -/
-lemma maxNoneAbove_eval_iff (C : V) (v : X → Bool) :
+private lemma maxNoneAbove_eval_iff (C : V) (v : X → Bool) :
     (maxNoneAbove α t C) v = true ↔ ∀ i, α i v = true → t i ≤ C := by
   unfold maxNoneAbove
   rw [prod_eval_eq_true_iff]
@@ -271,7 +276,7 @@ lemma maxNoneAbove_eval_iff (C : V) (v : X → Bool) :
       rw [hf]; rfl
 
 /-- Semantic reading of `someAtMost`. -/
-lemma someAtMost_eval_iff (C : V) (v : X → Bool) :
+private lemma someAtMost_eval_iff (C : V) (v : X → Bool) :
     (someAtMost α t C) v = true ↔ ∃ i, t i ≤ C ∧ α i v = true := by
   unfold someAtMost
   show ((1 : BoolFunc X) v && !((∏ i ∈ _, (1 - α i)) v)) = true ↔ _
@@ -321,7 +326,7 @@ lemma someAtMost_eval_iff (C : V) (v : X → Bool) :
 /-- Full semantic reading: the BoolFunc `maxLeOnNonempty α t C` evaluates to
 `true` at `v` iff the random world `{i : α i v = true}` is nonempty and its
 maximum-of-`t` is at most `C`. -/
-theorem maxLeOnNonempty_eval_iff (C : V) (v : X → Bool) :
+private theorem maxLeOnNonempty_eval_iff (C : V) (v : X → Bool) :
     (maxLeOnNonempty α t C) v = true ↔
       (∃ i, α i v = true) ∧ ∀ i, α i v = true → t i ≤ C := by
   unfold maxLeOnNonempty
@@ -335,7 +340,7 @@ theorem maxLeOnNonempty_eval_iff (C : V) (v : X → Bool) :
 
 /-- Probability of `maxNoneAbove`: by iterated independence applied to
 `(1 - α i)`'s, this is the product of `(1 - p i)` over contributors above `C`. -/
-lemma funcProb_maxNoneAbove (S : ι → Finset X)
+private lemma funcProb_maxNoneAbove (S : ι → Finset X)
     (hdep : ∀ i, (α i).DependsOn (S i))
     (hdisj : Set.Pairwise Set.univ (fun i j => Disjoint (S i) (S j))) (C : V) :
     P.funcProb (maxNoneAbove α t C) =
@@ -349,7 +354,7 @@ lemma funcProb_maxNoneAbove (S : ι → Finset X)
   exact P.funcProb_sub_self_const_one (α i)
 
 /-- Probability of `someAtMost`: the complement of the product. -/
-lemma funcProb_someAtMost (S : ι → Finset X)
+private lemma funcProb_someAtMost (S : ι → Finset X)
     (hdep : ∀ i, (α i).DependsOn (S i))
     (hdisj : Set.Pairwise Set.univ (fun i j => Disjoint (S i) (S j))) (C : V) :
     P.funcProb (someAtMost α t C) =
@@ -418,7 +423,7 @@ def someAtLeast (C : V) : BoolFunc X :=
 def minGeOnNonempty (C : V) : BoolFunc X :=
   minNoneBelow α t C * someAtLeast α t C
 
-lemma minNoneBelow_eval_iff (C : V) (v : X → Bool) :
+private lemma minNoneBelow_eval_iff (C : V) (v : X → Bool) :
     (minNoneBelow α t C) v = true ↔ ∀ i, α i v = true → C ≤ t i := by
   unfold minNoneBelow
   rw [prod_eval_eq_true_iff]
@@ -444,7 +449,7 @@ lemma minNoneBelow_eval_iff (C : V) (v : X → Bool) :
     · have hf : α i v = false := by cases h : α i v; rfl; exact absurd h hav
       rw [hf]; rfl
 
-lemma someAtLeast_eval_iff (C : V) (v : X → Bool) :
+private lemma someAtLeast_eval_iff (C : V) (v : X → Bool) :
     (someAtLeast α t C) v = true ↔ ∃ i, C ≤ t i ∧ α i v = true := by
   unfold someAtLeast
   show ((1 : BoolFunc X) v && !((∏ i ∈ _, (1 - α i)) v)) = true ↔ _
@@ -488,7 +493,7 @@ lemma someAtLeast_eval_iff (C : V) (v : X → Bool) :
       exact absurd hne (by decide)
     rw [hp_false]; rfl
 
-theorem minGeOnNonempty_eval_iff (C : V) (v : X → Bool) :
+private theorem minGeOnNonempty_eval_iff (C : V) (v : X → Bool) :
     (minGeOnNonempty α t C) v = true ↔
       (∃ i, α i v = true) ∧ ∀ i, α i v = true → C ≤ t i := by
   unfold minGeOnNonempty
@@ -500,7 +505,7 @@ theorem minGeOnNonempty_eval_iff (C : V) (v : X → Bool) :
   · rintro ⟨⟨i, hαi⟩, hall⟩
     exact ⟨hall, i, hall i hαi, hαi⟩
 
-lemma funcProb_minNoneBelow (S : ι → Finset X)
+private lemma funcProb_minNoneBelow (S : ι → Finset X)
     (hdep : ∀ i, (α i).DependsOn (S i))
     (hdisj : Set.Pairwise Set.univ (fun i j => Disjoint (S i) (S j))) (C : V) :
     P.funcProb (minNoneBelow α t C) =
@@ -513,7 +518,7 @@ lemma funcProb_minNoneBelow (S : ι → Finset X)
   intro i _
   exact P.funcProb_sub_self_const_one (α i)
 
-lemma funcProb_someAtLeast (S : ι → Finset X)
+private lemma funcProb_someAtLeast (S : ι → Finset X)
     (hdep : ∀ i, (α i).DependsOn (S i))
     (hdisj : Set.Pairwise Set.univ (fun i j => Disjoint (S i) (S j))) (C : V) :
     P.funcProb (someAtLeast α t C) =
@@ -577,7 +582,7 @@ def countEqIndicator (J : Finset ι) (j : ℕ) : BoolFunc X :=
 
 /-- `countEqIndicator α J j` depends on `⋃ i ∈ J, S i`: its value at `v`
 only references `α i v` for `i ∈ J`. -/
-lemma countEqIndicator_dependsOn (S : ι → Finset X)
+private lemma countEqIndicator_dependsOn (S : ι → Finset X)
     (hdep : ∀ i, (α i).DependsOn (S i)) (J : Finset ι) (j : ℕ) :
     (countEqIndicator α J j).DependsOn (J.biUnion S) := by
   intro v₁ v₂ hv
@@ -593,7 +598,7 @@ lemma countEqIndicator_dependsOn (S : ι → Finset X)
 /-- Decomposition for `j = 0`: at most `0` of the indices in `insert i J`
 have `α k v = true` iff `α i v = false` and at most `0` of the indices in
 `J` have `α k v = true`. -/
-lemma countEqIndicator_insert_zero {i : ι} {J : Finset ι} (hi : i ∉ J) :
+private lemma countEqIndicator_insert_zero {i : ι} {J : Finset ι} (hi : i ∉ J) :
     countEqIndicator α (insert i J) 0
       = (1 - α i) * countEqIndicator α J 0 := by
   funext v
@@ -625,7 +630,7 @@ lemma countEqIndicator_insert_zero {i : ι} {J : Finset ι} (hi : i ∉ J) :
 /-- Decomposition for `j = j' + 1`: exactly `j' + 1` indices in `insert i J`
 have `α k v = true` iff either `α i v = true` and exactly `j'` indices in
 `J` do, or `α i v = false` and exactly `j' + 1` indices in `J` do. -/
-lemma countEqIndicator_insert_succ {i : ι} {J : Finset ι} (hi : i ∉ J) (j : ℕ) :
+private lemma countEqIndicator_insert_succ {i : ι} {J : Finset ι} (hi : i ∉ J) (j : ℕ) :
     countEqIndicator α (insert i J) (j + 1)
       = α i * countEqIndicator α J j
         + (1 - α i) * countEqIndicator α J (j + 1) := by
@@ -739,7 +744,7 @@ def sumEqIndicator (J : Finset ι) (s : ℕ) : BoolFunc X :=
   fun v => decide ((J.filter (fun i => α i v = true)).sum t = s)
 
 /-- Support lemma for `sumEqIndicator`. -/
-lemma sumEqIndicator_dependsOn (S : ι → Finset X)
+private lemma sumEqIndicator_dependsOn (S : ι → Finset X)
     (hdep : ∀ i, (α i).DependsOn (S i)) (J : Finset ι) (s : ℕ) :
     (sumEqIndicator α t J s).DependsOn (J.biUnion S) := by
   intro v₁ v₂ hv
@@ -755,7 +760,7 @@ lemma sumEqIndicator_dependsOn (S : ι → Finset X)
 /-- Decomposition when the new contributor's weight exceeds the target: if
 `t i > s`, the sum cannot reach `s` once `i` is included, so the only way to
 hit `s` is to leave `i` out. -/
-lemma sumEqIndicator_insert_of_lt {i : ι} {J : Finset ι} (hi : i ∉ J)
+private lemma sumEqIndicator_insert_of_lt {i : ι} {J : Finset ι} (hi : i ∉ J)
     {s : ℕ} (hs : s < t i) :
     sumEqIndicator α t (insert i J) s
       = (1 - α i) * sumEqIndicator α t J s := by
@@ -790,7 +795,7 @@ lemma sumEqIndicator_insert_of_lt {i : ι} {J : Finset ι} (hi : i ∉ J)
 /-- Decomposition when the new contributor's weight fits: if `t i ≤ s`, the
 target sum is reachable either without `i` (target stays `s`) or with `i`
 (target becomes `s − t i` on the remaining contributors). -/
-lemma sumEqIndicator_insert_of_le {i : ι} {J : Finset ι} (hi : i ∉ J)
+private lemma sumEqIndicator_insert_of_le {i : ι} {J : Finset ι} (hi : i ∉ J)
     {s : ℕ} (hs : t i ≤ s) :
     sumEqIndicator α t (insert i J) s
       = α i * sumEqIndicator α t J (s - t i)
@@ -874,7 +879,7 @@ theorem sumMass_insert_of_le
 /-- **SUM weighted Poisson-binomial recurrence (weight too large).** For
 `i ∉ J` and `s < t i`, the probability collapses to the keep-out branch:
 `σ_{insert i J}(s) = (1 − p i) · σ_J(s)`. -/
-theorem sumMass_insert_of_lt
+private theorem sumMass_insert_of_lt
     (hdep : ∀ i, (α i).DependsOn (S i))
     (hdisj : Set.Pairwise Set.univ (fun i j => Disjoint (S i) (S j)))
     {i : ι} {J : Finset ι} (hi : i ∉ J)
@@ -912,7 +917,7 @@ factor exactly as before, and each remaining comparison is an instance:
 and dually for `MIN`. -/
 
 /-- Pointwise evaluation of `1 - f`: Boolean negation. -/
-lemma one_sub_eval (f : BoolFunc X) (v : X → Bool) : (1 - f) v = !(f v) := rfl
+private lemma one_sub_eval (f : BoolFunc X) (v : X → Bool) : (1 - f) v = !(f v) := rfl
 
 section Guarded
 
@@ -935,7 +940,7 @@ def guardedSome : BoolFunc X :=
   noneOf α r * someOf α q
 
 /-- Semantic reading of `noneOf`. -/
-lemma noneOf_eval_iff (v : X → Bool) :
+private lemma noneOf_eval_iff (v : X → Bool) :
     (noneOf α r) v = true ↔ ∀ i, r i → α i v = false := by
   unfold noneOf
   rw [prod_eval_eq_true_iff]
@@ -948,7 +953,7 @@ lemma noneOf_eval_iff (v : X → Bool) :
     rfl
 
 /-- Semantic reading of `someOf`. -/
-lemma someOf_eval_iff (v : X → Bool) :
+private lemma someOf_eval_iff (v : X → Bool) :
     (someOf α q) v = true ↔ ∃ i, q i ∧ α i v = true := by
   unfold someOf
   rw [one_sub_eval, Bool.not_eq_eq_eq_not, Bool.not_true]
@@ -974,7 +979,7 @@ lemma someOf_eval_iff (v : X → Bool) :
       exact Bool.noConfusion this
 
 /-- Semantic reading of `guardedSome`. -/
-lemma guardedSome_eval_iff (v : X → Bool) :
+private lemma guardedSome_eval_iff (v : X → Bool) :
     (guardedSome α r q) v = true ↔
       (∀ i, r i → α i v = false) ∧ (∃ i, q i ∧ α i v = true) := by
   show ((noneOf α r) v && (someOf α q) v) = true ↔ _
@@ -983,7 +988,7 @@ lemma guardedSome_eval_iff (v : X → Bool) :
 variable (S : ι → Finset X)
 
 /-- Probability of `noneOf` under independence. -/
-lemma funcProb_noneOf
+private lemma funcProb_noneOf
     (hdep : ∀ i, (α i).DependsOn (S i))
     (hdisj : Set.Pairwise Set.univ (fun i j => Disjoint (S i) (S j))) :
     P.funcProb (noneOf α r) =
@@ -994,7 +999,7 @@ lemma funcProb_noneOf
   exact Finset.prod_congr rfl fun i _ => P.funcProb_sub_self_const_one (α i)
 
 /-- Probability of `someOf` under independence. -/
-lemma funcProb_someOf
+private lemma funcProb_someOf
     (hdep : ∀ i, (α i).DependsOn (S i))
     (hdisj : Set.Pairwise Set.univ (fun i j => Disjoint (S i) (S j))) :
     P.funcProb (someOf α q) =
@@ -1010,7 +1015,7 @@ lemma funcProb_someOf
 `r` and the witness `q` are mutually exclusive, the probability of
 `guardedSome r q` is the product of an “every `r`-contributor is absent”
 term and a “some `q`-contributor is present” term. -/
-theorem funcProb_guardedSome
+private theorem funcProb_guardedSome
     (hdep : ∀ i, (α i).DependsOn (S i))
     (hdisj : Set.Pairwise Set.univ (fun i j => Disjoint (S i) (S j)))
     (hrq : ∀ i, r i → q i → False) :
@@ -1079,7 +1084,7 @@ def minNeOnNonempty (C : V) : BoolFunc X :=
   minGtOnNonempty α t C + someBelow α t C
 
 /-- Semantic reading of `maxLtOnNonempty`. -/
-theorem maxLtOnNonempty_eval_iff (C : V) (v : X → Bool) :
+private theorem maxLtOnNonempty_eval_iff (C : V) (v : X → Bool) :
     (maxLtOnNonempty α t C) v = true ↔
       (∃ i, α i v = true) ∧ ∀ i, α i v = true → t i < C := by
   rw [maxLtOnNonempty, guardedSome_eval_iff]
@@ -1097,7 +1102,7 @@ theorem maxLtOnNonempty_eval_iff (C : V) (v : X → Bool) :
 
 /-- Semantic reading of `maxEqOnNonempty`: no present contributor exceeds
 `C` and some present contributor attains it. -/
-theorem maxEqOnNonempty_eval_iff (C : V) (v : X → Bool) :
+private theorem maxEqOnNonempty_eval_iff (C : V) (v : X → Bool) :
     (maxEqOnNonempty α t C) v = true ↔
       (∀ i, α i v = true → t i ≤ C) ∧ ∃ i, t i = C ∧ α i v = true := by
   rw [maxEqOnNonempty, guardedSome_eval_iff]
@@ -1114,7 +1119,7 @@ theorem maxEqOnNonempty_eval_iff (C : V) (v : X → Bool) :
     | true => exact absurd (hall j hα) (not_le.mpr hrj)
 
 /-- Semantic reading of `minGtOnNonempty`. -/
-theorem minGtOnNonempty_eval_iff (C : V) (v : X → Bool) :
+private theorem minGtOnNonempty_eval_iff (C : V) (v : X → Bool) :
     (minGtOnNonempty α t C) v = true ↔
       (∃ i, α i v = true) ∧ ∀ i, α i v = true → C < t i := by
   rw [minGtOnNonempty, guardedSome_eval_iff]
@@ -1132,7 +1137,7 @@ theorem minGtOnNonempty_eval_iff (C : V) (v : X → Bool) :
 
 /-- Semantic reading of `minEqOnNonempty`: no present contributor is below
 `C` and some present contributor attains it. -/
-theorem minEqOnNonempty_eval_iff (C : V) (v : X → Bool) :
+private theorem minEqOnNonempty_eval_iff (C : V) (v : X → Bool) :
     (minEqOnNonempty α t C) v = true ↔
       (∀ i, α i v = true → C ≤ t i) ∧ ∃ i, t i = C ∧ α i v = true := by
   rw [minEqOnNonempty, guardedSome_eval_iff]
@@ -1155,7 +1160,7 @@ variable (hdisj : Set.Pairwise Set.univ (fun i j => Disjoint (S i) (S j)))
 include hdep hdisj
 
 /-- **`MAX < C` factorization under independence.** -/
-theorem funcProb_maxLtOnNonempty (C : V) :
+private theorem funcProb_maxLtOnNonempty (C : V) :
     P.funcProb (maxLtOnNonempty α t C) =
       (∏ i ∈ Finset.univ.filter (fun i => C ≤ t i),
           (1 - P.funcProb (α i)))
@@ -1165,7 +1170,7 @@ theorem funcProb_maxLtOnNonempty (C : V) :
     (fun _ h1 h2 => absurd h2 (not_lt.mpr h1))
 
 /-- **`MAX = C` factorization under independence.** -/
-theorem funcProb_maxEqOnNonempty (C : V) :
+private theorem funcProb_maxEqOnNonempty (C : V) :
     P.funcProb (maxEqOnNonempty α t C) =
       (∏ i ∈ Finset.univ.filter (fun i => C < t i),
           (1 - P.funcProb (α i)))
@@ -1176,7 +1181,7 @@ theorem funcProb_maxEqOnNonempty (C : V) :
 
 /-- **`MAX > C` under independence**: the complement of “every contributor
 above `C` is absent”. -/
-theorem funcProb_someAbove (C : V) :
+private theorem funcProb_someAbove (C : V) :
     P.funcProb (someAbove α t C) =
       1 - ∏ i ∈ Finset.univ.filter (fun i => C < t i),
         (1 - P.funcProb (α i)) :=
@@ -1184,14 +1189,14 @@ theorem funcProb_someAbove (C : V) :
 
 /-- **`MIN < C` (equivalently `MAX`-dual) under independence**: the
 complement of “every contributor below `C` is absent”. -/
-theorem funcProb_someBelow (C : V) :
+private theorem funcProb_someBelow (C : V) :
     P.funcProb (someBelow α t C) =
       1 - ∏ i ∈ Finset.univ.filter (fun i => t i < C),
         (1 - P.funcProb (α i)) :=
   funcProb_someOf P α _ S hdep hdisj
 
 /-- **`MIN > C` factorization under independence.** -/
-theorem funcProb_minGtOnNonempty (C : V) :
+private theorem funcProb_minGtOnNonempty (C : V) :
     P.funcProb (minGtOnNonempty α t C) =
       (∏ i ∈ Finset.univ.filter (fun i => t i ≤ C),
           (1 - P.funcProb (α i)))
@@ -1201,7 +1206,7 @@ theorem funcProb_minGtOnNonempty (C : V) :
     (fun _ h1 h2 => absurd h1 (not_le.mpr h2))
 
 /-- **`MIN = C` factorization under independence.** -/
-theorem funcProb_minEqOnNonempty (C : V) :
+private theorem funcProb_minEqOnNonempty (C : V) :
     P.funcProb (minEqOnNonempty α t C) =
       (∏ i ∈ Finset.univ.filter (fun i => t i < C),
           (1 - P.funcProb (α i)))
@@ -1213,7 +1218,7 @@ theorem funcProb_minEqOnNonempty (C : V) :
 omit hdep hdisj in
 /-- The events `MAX < C` (on non-empty worlds) and `MAX > C` are
 incompatible: their product is the `𝟘` function. -/
-lemma maxLt_mul_someAbove_eq_zero (C : V) :
+private lemma maxLt_mul_someAbove_eq_zero (C : V) :
     maxLtOnNonempty α t C * someAbove α t C = 0 := by
   funext v
   show ((maxLtOnNonempty α t C) v && (someAbove α t C) v) = (0 : BoolFunc X) v
@@ -1231,7 +1236,7 @@ lemma maxLt_mul_someAbove_eq_zero (C : V) :
 omit hdep hdisj in
 /-- The events `MIN > C` (on non-empty worlds) and `MIN < C` are
 incompatible: their product is the `𝟘` function. -/
-lemma minGt_mul_someBelow_eq_zero (C : V) :
+private lemma minGt_mul_someBelow_eq_zero (C : V) :
     minGtOnNonempty α t C * someBelow α t C = 0 := by
   funext v
   show ((minGtOnNonempty α t C) v && (someBelow α t C) v) = (0 : BoolFunc X) v
@@ -1248,7 +1253,7 @@ lemma minGt_mul_someBelow_eq_zero (C : V) :
 
 /-- **`MAX ≠ C` on non-empty worlds under independence**: probabilities of
 the two disjoint cases `MAX < C` and `MAX > C` add. -/
-theorem funcProb_maxNeOnNonempty (C : V) :
+private theorem funcProb_maxNeOnNonempty (C : V) :
     P.funcProb (maxNeOnNonempty α t C) =
       P.funcProb (maxLtOnNonempty α t C) + P.funcProb (someAbove α t C) := by
   rw [maxNeOnNonempty, P.funcProb_add_eq,
@@ -1256,7 +1261,7 @@ theorem funcProb_maxNeOnNonempty (C : V) :
 
 /-- **`MIN ≠ C` on non-empty worlds under independence**: probabilities of
 the two disjoint cases `MIN > C` and `MIN < C` add. -/
-theorem funcProb_minNeOnNonempty (C : V) :
+private theorem funcProb_minNeOnNonempty (C : V) :
     P.funcProb (minNeOnNonempty α t C) =
       P.funcProb (minGtOnNonempty α t C) + P.funcProb (someBelow α t C) := by
   rw [minNeOnNonempty, P.funcProb_add_eq,
@@ -1279,7 +1284,7 @@ section CountCDF
 
 /-- Pointwise evaluation of a `Finset.sum` of `BoolFunc`s: the sum (OR)
 evaluates to `true` iff some summand does. -/
-lemma sum_eval_eq_true_iff {ι' : Type} [DecidableEq ι']
+private lemma sum_eval_eq_true_iff {ι' : Type} [DecidableEq ι']
     (J : Finset ι') (β : ι' → BoolFunc X) (v : X → Bool) :
     (∑ i ∈ J, β i) v = true ↔ ∃ i ∈ J, β i v = true := by
   classical
@@ -1304,7 +1309,7 @@ lemma sum_eval_eq_true_iff {ι' : Type} [DecidableEq ι']
       · exact Or.inr ⟨j, hjJ, h⟩
 
 /-- Distinct count indicators are incompatible. -/
-lemma countEqIndicator_mul_eq_zero (J : Finset ι) {j j' : ℕ} (h : j ≠ j') :
+private lemma countEqIndicator_mul_eq_zero (J : Finset ι) {j j' : ℕ} (h : j ≠ j') :
     countEqIndicator α J j * countEqIndicator α J j' = 0 := by
   funext v
   show ((countEqIndicator α J j) v && (countEqIndicator α J j') v)
@@ -1353,7 +1358,7 @@ theorem funcProb_count_filter (J : Finset ι) (g : ℕ → Prop) [DecidablePred 
 
 /-- **Empty-world mass.** The probability that no contributor of `J` is
 present is `∏_{i ∈ J} (1 - p i)`. -/
-theorem countMass_zero (S : ι → Finset X)
+private theorem countMass_zero (S : ι → Finset X)
     (hdep : ∀ i, (α i).DependsOn (S i))
     (hdisj : Set.Pairwise Set.univ (fun i j => Disjoint (S i) (S j)))
     (J : Finset ι) :
@@ -1394,7 +1399,7 @@ theorem countMass_zero (S : ι → Finset X)
 /-- **Shorter-tail identity, event form.** Counting the present
 contributors down from `C` is counting the absent contributors up to
 `|J| - C`: the two indicator functions coincide. -/
-theorem count_ge_eq_absent_le (J : Finset ι) {C : ℕ} (hC : C ≤ J.card) :
+private theorem count_ge_eq_absent_le (J : Finset ι) {C : ℕ} (hC : C ≤ J.card) :
     (fun v => decide (C ≤ (J.filter (fun i => α i v = true)).card) : BoolFunc X)
       = fun v =>
           decide ((J.filter (fun i => (1 - α i) v = true)).card ≤ J.card - C) := by
@@ -1417,7 +1422,7 @@ where `B` counts the present contributors and `B'` the absent ones. The
 right-hand side assembles from the point masses of the complemented
 contributors (`1 - α i`, marginals `1 - p i`), which is the shorter
 summation when `C` exceeds `N/2`. -/
-theorem funcProb_count_ge_eq_absent_le (J : Finset ι) {C : ℕ} (hC : C ≤ J.card) :
+private theorem funcProb_count_ge_eq_absent_le (J : Finset ι) {C : ℕ} (hC : C ≤ J.card) :
     P.funcProb (fun v => decide (C ≤ (J.filter (fun i => α i v = true)).card))
       = P.funcProb (fun v =>
           decide ((J.filter (fun i => (1 - α i) v = true)).card ≤ J.card - C)) := by
@@ -1465,7 +1470,7 @@ def realizedWorld {m : ℕ} (U : List (AnnotatedTuple T (BoolFunc X) m))
 
 /-- **Exactly one world annotation survives**: under a valuation `v`, the
 factored world annotation of `W` is true iff `W` is the realized world. -/
-theorem worldAnn_eval_iff {N : ℕ} (α : Fin N → BoolFunc X)
+private theorem worldAnn_eval_iff {N : ℕ} (α : Fin N → BoolFunc X)
     (W : Finset (Fin N)) (v : X → Bool) :
     (worldAnn α W) v = true ↔ W = Finset.univ.filter (fun i => α i v = true) := by
   show ((∏ i ∈ W, α i) v && ((1 - ∑ i ∈ Wᶜ, α i) v)) = true ↔ _
@@ -1493,7 +1498,7 @@ theorem worldAnn_eval_iff {N : ℕ} (α : Fin N → BoolFunc X)
         (Finset.mem_compl.mp hj)
 
 /-- Evaluation of the comparison characteristic `χ_op`. -/
-lemma chi_eval_iff (op : CompOp) (a c : T) (v : X → Bool) :
+private lemma chi_eval_iff (op : CompOp) (a c : T) (v : X → Bool) :
     (Having.chi (K := BoolFunc X) op a c) v = true
       ↔ op.eval3 a c = Kleene.true := by
   unfold Having.chi
@@ -1502,7 +1507,7 @@ lemma chi_eval_iff (op : CompOp) (a c : T) (v : X → Bool) :
   · exact iff_of_false (fun hh => hh.elim) h
 
 /-- Evaluation of the characteristic of an arbitrary test. -/
-lemma chiOf_eval_iff (P : T → Kleene) (a : T) (v : X → Bool) :
+private lemma chiOf_eval_iff (P : T → Kleene) (a : T) (v : X → Bool) :
     (Having.chiOf (K := BoolFunc X) P a) v = true ↔ P a = Kleene.true := by
   unfold Having.chiOf
   split_ifs with h
@@ -1515,7 +1520,7 @@ true iff the realized world is non-empty and its aggregate value satisfies
 the comparison. Composed with the probability semantics, the probability
 of the predicate provenance is the probability, over random worlds, that a
 non-empty realized group satisfies the `HAVING` comparison. -/
-theorem havingProv_eval_iff {m : ℕ} (U : List (AnnotatedTuple T (BoolFunc X) m))
+private theorem havingProv_eval_iff {m : ℕ} (U : List (AnnotatedTuple T (BoolFunc X) m))
     (t : Term T m) (f : SeqAggFunc T) (op : CompOp) (c : T) (v : X → Bool) :
     (havingProv U t f op c) v = true
       ↔ (realizedWorld U v).Nonempty
@@ -1545,7 +1550,7 @@ theorem havingProv_eval_iff {m : ℕ} (U : List (AnnotatedTuple T (BoolFunc X) m
 
 /-- Pointwise evaluation of a `Multiset.prod` of `BoolFunc`s: the product
 (AND) evaluates to true iff every factor does. -/
-lemma multiset_prod_eval_eq_true_iff (s : Multiset (BoolFunc X))
+private lemma multiset_prod_eval_eq_true_iff (s : Multiset (BoolFunc X))
     (v : X → Bool) : s.prod v = true ↔ ∀ f ∈ s, f v = true := by
   induction s using Multiset.induction with
   | empty =>
@@ -1566,7 +1571,7 @@ lemma multiset_prod_eval_eq_true_iff (s : Multiset (BoolFunc X))
 
 /-- Pointwise evaluation of a `Multiset.sum` of `BoolFunc`s: the sum (OR)
 evaluates to true iff some summand does. -/
-lemma multiset_sum_eval_eq_true_iff (s : Multiset (BoolFunc X)) (v : X → Bool) :
+private lemma multiset_sum_eval_eq_true_iff (s : Multiset (BoolFunc X)) (v : X → Bool) :
     s.sum v = true ↔ ∃ f ∈ s, f v = true := by
   induction s using Multiset.induction with
   | empty =>
@@ -1588,7 +1593,7 @@ lemma multiset_sum_eval_eq_true_iff (s : Multiset (BoolFunc X)) (v : X → Bool)
 
 /-- The subsequence selected by the realized world is the sublist of
 occurrences whose annotation is true under the valuation. -/
-theorem seqOf_realizedWorld {m : ℕ} (U : List (AnnotatedTuple T (BoolFunc X) m))
+private theorem seqOf_realizedWorld {m : ℕ} (U : List (AnnotatedTuple T (BoolFunc X) m))
     (v : X → Bool) :
     seqOf U (realizedWorld U v) = U.filter (fun p => p.snd v) := by
   unfold realizedWorld
@@ -1596,7 +1601,7 @@ theorem seqOf_realizedWorld {m : ℕ} (U : List (AnnotatedTuple T (BoolFunc X) m
 
 /-- The realized world of a group is non-empty iff some occurrence of the
 group survives the valuation. -/
-theorem realizedWorld_nonempty_iff {m : ℕ}
+private theorem realizedWorld_nonempty_iff {m : ℕ}
     (U : List (AnnotatedTuple T (BoolFunc X) m)) (v : X → Bool) :
     (realizedWorld U v).Nonempty ↔ ∃ p ∈ U, p.snd v = true := by
   unfold realizedWorld
@@ -1611,7 +1616,7 @@ theorem realizedWorld_nonempty_iff {m : ℕ}
 /-- **The plain group sequence of a random world is the realized
 subsequence of the annotated group sequence**: both are lists of the same
 multiset (the realized occurrences of the group), sorted along `≼`. -/
-theorem groupSeq_randomWorld {m n₁ : ℕ} [HasAltLinearOrder (BoolFunc X)]
+private theorem groupSeq_randomWorld {m n₁ : ℕ} [HasAltLinearOrder (BoolFunc X)]
     (is : Tuple (Fin m) n₁) (r : AnnotatedRelation T (BoolFunc X) m)
     (g : Tuple T n₁) (v : X → Bool) :
     Relation.groupSeq is (randomWorld v r) g
@@ -1676,7 +1681,7 @@ theorem groupSeq_randomWorld {m n₁ : ℕ} [HasAltLinearOrder (BoolFunc X)]
 
 /-- A key is realized in the random world iff the realized world of its
 group sequence is non-empty. -/
-theorem randomWorld_key_mem_iff {m n₁ : ℕ} [HasAltLinearOrder (BoolFunc X)]
+private theorem randomWorld_key_mem_iff {m n₁ : ℕ} [HasAltLinearOrder (BoolFunc X)]
     (is : Tuple (Fin m) n₁) (r : AnnotatedRelation T (BoolFunc X) m)
     (g : Tuple T n₁) (v : X → Bool) :
     g ∈ Multiset.map (fun u => fun k => u (is k)) (randomWorld v r)
@@ -1708,7 +1713,7 @@ occurrence sequence, to *true* at positive polarity and to *false* at
 negative polarity. That is the Kleene reading, and the polarity flag was
 already carrying it: a group on which `ψ` is unknown contributes to neither
 side. -/
-theorem HavingPred.provAux_eval_iff {m n₁ : ℕ}
+private theorem HavingPred.provAux_eval_iff {m n₁ : ℕ}
     (U : List (AnnotatedTuple T (BoolFunc X) m)) (g : Tuple T n₁)
     (v : X → Bool) :
     ∀ (negated : Bool) (ψ : HavingPred T m n₁),
@@ -1796,7 +1801,7 @@ theorem HavingPred.provAux_eval_iff {m n₁ : ℕ}
 Under a valuation, the predicate provenance of `ψ` on the group sequence
 `U` is true iff the realized world is non-empty and `ψ` holds classically
 on the realized occurrence sequence. -/
-theorem HavingPred.prov_eval_iff {m n₁ : ℕ}
+private theorem HavingPred.prov_eval_iff {m n₁ : ℕ}
     (U : List (AnnotatedTuple T (BoolFunc X) m)) (g : Tuple T n₁)
     (v : X → Bool) (ψ : HavingPred T m n₁) :
     (ψ.prov U g) v = true
@@ -1809,7 +1814,7 @@ theorem HavingPred.prov_eval_iff {m n₁ : ℕ}
 /-- **Characteristic property of the Boolean provenance.** Under a
 valuation, the Boolean provenance of a Boolean `HAVING` query is true iff
 the query holds on the corresponding possible world. -/
-theorem HavingPred.booleanProv_eval_iff [HasAltLinearOrder (BoolFunc X)]
+private theorem HavingPred.booleanProv_eval_iff [HasAltLinearOrder (BoolFunc X)]
     {m n₁ : ℕ} (q : Query T m) (hq : q.source)
     (Î : AnnotatedDatabase T (BoolFunc X)) (is : Tuple (Fin m) n₁)
     (ψ : HavingPred T m n₁) (v : X → Bool) :
@@ -1856,7 +1861,7 @@ the correctness of intensional probabilistic query evaluation
 (`ProbAssignment.theorem_12` machinery via
 `randomWorld_evaluateAnnotated`), and the aggregate comparison by the
 exactly-one-disjunct bridge `HavingPred.prov_eval_iff`. -/
-theorem booleanHaving_pqe [HasAltLinearOrder (BoolFunc X)] {m n₁ : ℕ}
+private theorem booleanHaving_pqe [HasAltLinearOrder (BoolFunc X)] {m n₁ : ℕ}
     (q : Query T m) (hq : q.source) (Î : AnnotatedDatabase T (BoolFunc X))
     (is : Tuple (Fin m) n₁) (ψ : HavingPred T m n₁) :
     booleanHavingProb P q Î is ψ = P.funcProb (ψ.booleanProv q hq Î is) := by

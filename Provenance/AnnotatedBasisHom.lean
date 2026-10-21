@@ -10,6 +10,8 @@ import Mathlib.Analysis.SpecialFunctions.Pow.NNReal
 import Provenance.AggQueryHom
 import Provenance.AnnotatedChains
 import Provenance.AnnotatedSum
+import all Provenance.AnnotatedChains
+import all Provenance.AnnotatedSum
 
 /-!
 # The matches of the annotated basis commute with homomorphisms
@@ -30,7 +32,7 @@ variable {T : Type} [ValueType T]
 
 /-- **A homomorphism commuting with the source commutes with its match**,
 wherever the source settles on both sides. -/
-theorem annotatedMatch_hom {K K' : Type} [CommSemiringWithMonus K] [DecidableEq K]
+private theorem annotatedMatch_hom {K K' : Type} [CommSemiringWithMonus K] [DecidableEq K]
     [HasAltLinearOrder K] [CommSemiringWithMonus K'] [DecidableEq K'] [HasAltLinearOrder K']
     (h : SemiringWithMonusHom K K') {n : ℕ} {κ : Fin n → ColKind} (q q' : AggQuery T n κ)
     (hm : ∀ d : AnnotatedDatabase T K, q.AnnSettlesAt d (fun _ => 0) {} →
@@ -81,7 +83,7 @@ theorem exists_annEpsOps_match_hom (sch : Schema) (cnt : SeqAggFunc T) (ch : Boo
 linear recursions settling early: `ℕ`, `ℕ[X]`, the tropical, Viterbi and
 Łukasiewicz semirings – the match commutes with every homomorphism the
 source commutes with. -/
-theorem exists_annEpsOps_match_hom_support (sch : Schema) (cnt : SeqAggFunc T)
+private theorem exists_annEpsOps_match_hom_support (sch : Schema) (cnt : SeqAggFunc T)
     {n : ℕ} {κ : Fin n → ColKind} (q : AggQuery T n κ) (ho : q.overSchema sch)
     (hu : q.usesOnly plainRecOps) (hi : q.inMinimalSig cnt) (ha : q.noExplode)
     (hp : q.wellKinded (ColKind.allReg 0) HoleKinds.empty) :
@@ -105,7 +107,7 @@ theorem exists_annEpsOps_match_hom_support (sch : Schema) (cnt : SeqAggFunc T)
 /-- **Between two semirings where `δ` is the identity** – the Boolean
 algebras, `MinMax` – the match commutes with every homomorphism the source
 commutes with. -/
-theorem exists_annEpsOps_match_hom_delta_id (sch : Schema) (cnt : SeqAggFunc T)
+private theorem exists_annEpsOps_match_hom_delta_id (sch : Schema) (cnt : SeqAggFunc T)
     {n : ℕ} {κ : Fin n → ColKind} (q : AggQuery T n κ) (ho : q.overSchema sch)
     (hu : q.usesOnly plainRecOps) (hi : q.inMinimalSig cnt) (ha : q.noExplode)
     (hp : q.wellKinded (ColKind.allReg 0) HoleKinds.empty) :

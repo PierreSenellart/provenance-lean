@@ -8,6 +8,11 @@ public import Provenance.Determinacy
 public import Provenance.PlainBasis
 import Mathlib.Tactic.NormNum.Inv
 import Mathlib.Tactic.NormNum.Pow
+import all Provenance.AggQuery
+import all Provenance.Determinacy
+import all Provenance.Frame
+import all Provenance.OrderSpec
+import all Provenance.PlainBasis
 
 /-!
 # Reading every column as a value
@@ -86,7 +91,7 @@ def TermGIn.toReg {c n : ℕ} {κ : Fin n → ColKind} :
   | .coalesce t₁ t₂ => .coalesce t₁.toReg t₂.toReg
 
 /-- It reads what the term reads. -/
-theorem TermGIn.evalPlain_toReg {c n : ℕ} {κ : Fin n → ColKind}
+private theorem TermGIn.evalPlain_toReg {c n : ℕ} {κ : Fin n → ColKind}
     (t : TermGIn T c κ) (u : Tuple T n) (γ : Fin c → T) :
     (t.toReg).evalPlain u γ = t.evalPlain u γ := by
   induction t with
@@ -124,7 +129,7 @@ def GenPredIn.toReg {c n : ℕ} {κ : Fin n → ColKind} :
   | .not φ => .not φ.toReg
 
 /-- It reads what the predicate reads. -/
-theorem GenPredIn.evalPlain3_toReg {c n : ℕ} {κ : Fin n → ColKind}
+private theorem GenPredIn.evalPlain3_toReg {c n : ℕ} {κ : Fin n → ColKind}
     (φ : GenPredIn T c κ) (u : Tuple T n) (γ : Fin c → T) :
     (φ.toReg).evalPlain3 u γ = φ.evalPlain3 u γ := by
   induction φ with
@@ -145,14 +150,14 @@ theorem GenPredIn.evalPlain3_toReg {c n : ℕ} {κ : Fin n → ColKind}
   | not φ ih => exact congrArg Kleene.not ih
 
 /-- It keeps the same rows. -/
-theorem GenPredIn.holdsPlain_toReg {c n : ℕ} {κ : Fin n → ColKind}
+private theorem GenPredIn.holdsPlain_toReg {c n : ℕ} {κ : Fin n → ColKind}
     (φ : GenPredIn T c κ) (u : Tuple T n) (γ : Fin c → T) :
     (φ.toReg).holdsPlain u γ ↔ φ.holdsPlain u γ := by
   unfold GenPredIn.holdsPlain
   rw [GenPredIn.evalPlain3_toReg]
 
 /-- And it has no aggregate atom left. -/
-@[simp] theorem GenPredIn.hasAggAtom_toReg {c n : ℕ} {κ : Fin n → ColKind}
+@[simp] private theorem GenPredIn.hasAggAtom_toReg {c n : ℕ} {κ : Fin n → ColKind}
     (φ : GenPredIn T c κ) : (φ.toReg).hasAggAtom = false := by
   induction φ with
   | cmp op t₁ t₂ => rfl
@@ -183,7 +188,7 @@ def ProjColIn.toReg {c n : ℕ} {κ : Fin n → ColKind} :
 
 /-- It reads what the column reads, where that has a regular
 counterpart. -/
-theorem ProjColIn.evalPlain_toReg {c n : ℕ} {κ : Fin n → ColKind}
+private theorem ProjColIn.evalPlain_toReg {c n : ℕ} {κ : Fin n → ColKind}
     (p : ProjColIn T c κ) (hp : p.sourceCol = true) (u : Tuple T n)
     (γ : Fin c → T) : (p.toReg).evalPlain u γ = p.evalPlain u γ := by
   cases p with
@@ -269,7 +274,7 @@ def AggQueryIn.allRegOf {c n : ℕ} {κ : Fin n → ColKind} {l : List (String �
 
 omit [ValueType T] in
 /-- Reading the columns as values changes no operator. -/
-@[simp] theorem AggQueryIn.usesOnly_explodeBelow {c n : ℕ} {S : Set OpKind} :
+@[simp] private theorem AggQueryIn.usesOnly_explodeBelow {c n : ℕ} {S : Set OpKind} :
     ∀ (m : ℕ) {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l),
       (q.explodeBelow m).usesOnly S ↔ q.usesOnly S := by
   intro m
@@ -297,7 +302,7 @@ omit [ValueType T] in
 
 omit [ValueType T] in
 /-- Nor which relations it names. -/
-@[simp] theorem AggQueryIn.overSchema_explodeBelow {c n : ℕ} {sch : Schema} :
+@[simp] private theorem AggQueryIn.overSchema_explodeBelow {c n : ℕ} {sch : Schema} :
     ∀ (m : ℕ) {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l),
       (q.explodeBelow m).overSchema sch ↔ q.overSchema sch := by
   intro m
@@ -325,7 +330,7 @@ omit [ValueType T] in
 
 /-- **And it is invisible to the plain semantics**: both readings are the
 identity there. -/
-@[simp] theorem AggQueryIn.evaluatePlain_explodeBelow {c n : ℕ} :
+@[simp] private theorem AggQueryIn.evaluatePlain_explodeBelow {c n : ℕ} :
     ∀ (m : ℕ) {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l)
       (D : Database T) (γ : Fin c → T),
       (q.explodeBelow m).evaluatePlain D γ = q.evaluatePlain D γ := by
@@ -353,20 +358,20 @@ identity there. -/
       exact ih q D γ
 
 omit [ValueType T] in
-@[simp] theorem AggQueryIn.usesOnly_allRegOf {c n : ℕ} {S : Set OpKind}
+@[simp] private theorem AggQueryIn.usesOnly_allRegOf {c n : ℕ} {S : Set OpKind}
     {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l) :
     (q.allRegOf).usesOnly S ↔ q.usesOnly S := by
   rw [AggQueryIn.allRegOf, AggQueryIn.usesOnly_castKind,
     AggQueryIn.usesOnly_explodeBelow]
 
 omit [ValueType T] in
-@[simp] theorem AggQueryIn.overSchema_allRegOf {c n : ℕ} {sch : Schema}
+@[simp] private theorem AggQueryIn.overSchema_allRegOf {c n : ℕ} {sch : Schema}
     {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l) :
     (q.allRegOf).overSchema sch ↔ q.overSchema sch := by
   rw [AggQueryIn.allRegOf, AggQueryIn.overSchema_castKind,
     AggQueryIn.overSchema_explodeBelow]
 
-@[simp] theorem AggQueryIn.evaluatePlain_allRegOf {c n : ℕ}
+@[simp] private theorem AggQueryIn.evaluatePlain_allRegOf {c n : ℕ}
     {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l) (D : Database T)
     (γ : Fin c → T) : (q.allRegOf).evaluatePlain D γ = q.evaluatePlain D γ := by
   rw [AggQueryIn.allRegOf, AggQueryIn.evaluatePlain_castKind,
@@ -526,14 +531,14 @@ theorem AggQueryIn.swapReady_selByDiff {k : ℕ} (yes : T)
   ⟨hq, hq, hq⟩
 
 omit [ValueType T] in
-@[simp] theorem AggQueryIn.swapReady_castKind {c n : ℕ}
+@[simp] private theorem AggQueryIn.swapReady_castKind {c n : ℕ}
     {κ κ' : Fin n → ColKind} {l : List (String × ℕ)} (h : κ = κ') (q : AggQueryIn T c n κ l) :
     (q.castKind h).SwapReady ↔ q.SwapReady := by
   cases h
   exact Iff.rfl
 
 omit [ValueType T] in
-@[simp] theorem AggQueryIn.swapReady_explodeBelow {c n : ℕ} :
+@[simp] private theorem AggQueryIn.swapReady_explodeBelow {c n : ℕ} :
     ∀ (m : ℕ) {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l),
       (q.explodeBelow m).SwapReady ↔ q.SwapReady := by
   intro m
@@ -560,7 +565,7 @@ omit [ValueType T] in
       exact ih q
 
 omit [ValueType T] in
-@[simp] theorem AggQueryIn.swapReady_allRegOf {c n : ℕ}
+@[simp] private theorem AggQueryIn.swapReady_allRegOf {c n : ℕ}
     {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l) :
     (q.allRegOf).SwapReady ↔ q.SwapReady := by
   rw [AggQueryIn.allRegOf, AggQueryIn.swapReady_castKind,
@@ -593,7 +598,7 @@ alone, so the rows it holds are the same ones; and a row agreeing with
 the current row on every regular column has its order key, hence is in
 the frame exactly when the current row is, so the occurrence a frame
 excluding its current row takes out is taken out on both sides. -/
-theorem ValueFrame.frameOf_readTuple {n m p : ℕ} {κ : Fin n → ColKind}
+private theorem ValueFrame.frameOf_readTuple {n m p : ℕ} {κ : Fin n → ColKind}
     (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (w : ValueFrame T p)
     (hP : ∀ k, (κ (P k)).base = ColKind.reg)
     (hO : ∀ k, (κ (O k)).base = ColKind.reg)
@@ -657,7 +662,7 @@ nulling.** The frame holds the same rows either way
 each of them (`TermIn.eval_readTuple`), so the two sequences the
 aggregate is applied to are permutations of one another – and a
 symmetric aggregate does not tell them apart. -/
-theorem ValueFrame.windowValue_readTuple {c n m p : ℕ} {κ : Fin n → ColKind}
+private theorem ValueFrame.windowValue_readTuple {c n m p : ℕ} {κ : Fin n → ColKind}
     (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
     (w : ValueFrame T p) (t : TermIn T c n) {f : SeqAggFunc T}
     (hf : f.Symmetric) (hrr : WinReadsReg κ P O t)

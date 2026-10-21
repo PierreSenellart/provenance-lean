@@ -5,6 +5,8 @@ public import Provenance.Semirings.Bool
 public import Provenance.Semirings.BoolFunc
 public import Mathlib.Algebra.Order.Group.Nat
 import Mathlib.Tactic.Bound.Init
+import all Provenance.SemiringWithMonus
+import all Provenance.Semirings.BoolFunc
 
 /-!
 # Counting m-semiring
@@ -81,7 +83,7 @@ Unlike in `Bool`, `𝟙 ⊖ a` is not a complement of `a` here: `2 + (1 - 2) = 2
 and not `1`. Exclusivity asks only for orthogonality, so it holds in a
 semiring where the monus against `𝟙` collapses as well as in one where it
 complements. -/
-theorem Nat.exclusive : exclusive Nat := by
+private theorem Nat.exclusive : exclusive Nat := by
   intro a
   rcases a with _ | n <;> simp
 
@@ -97,7 +99,7 @@ theorem Nat.not_absorptive : ¬ (absorptive Nat) := by
 /-- On `ℕ` the identity is not an admissible `δ`: `δ(𝟙 ⊕ 𝟙) = 𝟙` would make
 `ℕ` idempotent (`1 + 1 = 2 ≠ 1`). This is why the instance above takes the
 support indicator. -/
-theorem Nat.not_isDelta_id : ¬ IsDelta (id : ℕ → ℕ) :=
+private theorem Nat.not_isDelta_id : ¬ IsDelta (id : ℕ → ℕ) :=
   not_isDelta_id_of_not_idempotent Nat.not_idempotent
 
 /-- `ℕ` has characteristic 0: it satisfies `CharZero`, hence `CharP ℕ 0` via
@@ -107,7 +109,7 @@ theorem Nat.charP_zero : CharP Nat 0 := inferInstance
 /-- There is no semiring homomorphism from `BoolFunc X` to `ℕ` sending the
 variables to arbitrary values: `ℕ` is not absorptive (`1 + 1 = 2 ≠ 1`),
 which contradicts `var i + 1 = 1` in `BoolFunc X`. -/
-theorem Nat.no_hom_from_BoolFunc {X : Type} [Inhabited X] :
+private theorem Nat.no_hom_from_BoolFunc {X : Type} [Inhabited X] :
     ∃ ν : X → ℕ, ¬ ∃ φ : BoolFunc X →+* ℕ, ∀ i : X, φ (BoolFunc.var i) = ν i :=
   BoolFunc.no_hom_of_not_absorptive Nat.not_absorptive
 
@@ -136,7 +138,7 @@ three-tuple group, `(t₁ ⊗ t₂) ⊗ (𝟙 ⊖ t₃) ⊕ (t₁ ⊗ t₃) ⊗ 
 `((t₁ ⊗ t₂) ⊕ (t₁ ⊗ t₃) ⊕ (t₂ ⊗ t₃)) ⊖ (t₁ ⊗ t₂ ⊗ t₃)` produced by the
 join-based rewriting `Q₂^{≥2} − Q₂^{≥3}`. With `t₁ = t₂ = t₃ = 1`, the
 first expression evaluates to `0` while the second evaluates to `2`. -/
-theorem Nat.counterexample_having :
+private theorem Nat.counterexample_having :
     let t₁ : ℕ := 1
     let t₂ : ℕ := 1
     let t₃ : ℕ := 1
@@ -149,7 +151,7 @@ both summands vanish. It is complemented and not multiplicatively
 idempotent, which is the combination that separates the two readings of a
 conjunction of atoms over *one* family while leaving disjoint families
 alone. -/
-theorem Nat.complemented : _root_.complemented ℕ := by
+private theorem Nat.complemented : _root_.complemented ℕ := by
   intro a b
   cases a <;> cases b <;> simp
   omega

@@ -10,6 +10,15 @@ import Mathlib.Algebra.BigOperators.Ring.Multiset
 import Mathlib.Tactic.NormNum.Inv
 import Mathlib.Tactic.NormNum.Pow
 import Provenance.AggQueryAdequacy
+import all Provenance.AggQuery
+import all Provenance.AggQueryAdequacy
+import all Provenance.AggQueryBridges
+import all Provenance.HavingJoinCompositional
+import all Provenance.HavingQueryCorrectness
+import all Provenance.HavingSemantics
+import all Provenance.Nested
+import all Provenance.Query
+import all Provenance.Util.ValueTypeNull
 
 /-!
 # Monotone `HAVING` conditions: absorptivity suffices
@@ -82,7 +91,7 @@ def BoolTerm.ofCompOp {T : Type} {n : ℕ} (op : CompOp) (t s : Term T n) :
 /-- `t op s` holds on a tuple iff the comparison of the two values does.
 Stated over a domain where nothing is null, the comparison being
 three-valued. -/
-theorem BoolTerm.ofCompOp_eval {T : Type} [ValueType T] [NoNulls T] {n : ℕ}
+private theorem BoolTerm.ofCompOp_eval {T : Type} [ValueType T] [NoNulls T] {n : ℕ}
     (op : CompOp) (t s : Term T n) (u : Tuple T n) :
     (BoolTerm.ofCompOp op t s).eval u ↔ op.eval (t.eval u) (s.eval u) := by
   cases op <;>
@@ -109,7 +118,7 @@ theorem existentialQuery_source (t : Term ℕ 3) (op : CompOp) (c : ℕ)
 omit [HasAltLinearOrder K] in
 /-- Every row of the existential rewriting carries a key of the base
 query. -/
-theorem existentialQuery_key_mem (t : Term ℕ 3) (op : CompOp) (c : ℕ)
+private theorem existentialQuery_key_mem (t : Term ℕ 3) (op : CompOp) (c : ℕ)
     (q : Query ℕ 3) (hq : q.source) (d : AnnotatedDatabase ℕ K)
     (x : AnnotatedTuple ℕ K 1)
     (hx : x ∈ (existentialQuery t op c q).evaluateAnnotated
@@ -135,7 +144,7 @@ theorem existentialQuery_key_mem (t : Term ℕ 3) (op : CompOp) (c : ℕ)
 omit [HasAltLinearOrder K] in
 /-- Per key, the existential rewriting sums the annotations of the base
 rows of that key satisfying `t op c`. -/
-theorem existentialQuery_perKeySum (t : Term ℕ 3) (op : CompOp) (c : ℕ)
+private theorem existentialQuery_perKeySum (t : Term ℕ 3) (op : CompOp) (c : ℕ)
     (q : Query ℕ 3) (hq : q.source) (d : AnnotatedDatabase ℕ K) (g : Tuple ℕ 1) :
     (Multiset.map Prod.snd (Multiset.filter (fun p => p.fst = g)
         ((existentialQuery t op c q).evaluateAnnotated
@@ -284,7 +293,7 @@ def pairRow (z : AnnotatedTuple ℕ K 1 × AnnotatedTuple ℕ K 1) : AnnotatedTu
 omit [HasAltLinearOrder K] in
 /-- The annotated semantics of the key-equality selection over the
 product, in closed form. -/
-theorem keyJoinInner_eval (Q₁ Q₂ : Query ℕ 1) (h₁ : Q₁.source) (h₂ : Q₂.source)
+private theorem keyJoinInner_eval (Q₁ Q₂ : Query ℕ 1) (h₁ : Q₁.source) (h₂ : Q₂.source)
     (d : AnnotatedDatabase ℕ K) :
     (keyJoinInner Q₁ Q₂).evaluateAnnotated ⟨h₁, h₂⟩ d
       = @Multiset.filter _ (fun ta => joinSel.eval ta.fst) joinSel.evalDecidableAnnotated
@@ -294,7 +303,7 @@ theorem keyJoinInner_eval (Q₁ Q₂ : Query ℕ 1) (h₁ : Q₁.source) (h₂ :
 
 omit [DecidableEq K] [HasAltLinearOrder K] in
 /-- A sum of products over a product multiset factorizes. -/
-theorem sum_map_mul_product {α β : Type} (f : α → K) (h : β → K)
+private theorem sum_map_mul_product {α β : Type} (f : α → K) (h : β → K)
     (s : Multiset α) (t : Multiset β) :
     ((s ×ˢ t).map (fun z => f z.1 * h z.2)).sum = (s.map f).sum * (t.map h).sum := by
   induction s using Multiset.induction_on with
@@ -379,7 +388,7 @@ theorem keyUnion_perKeySum (Q₁ Q₂ : Query ℕ 1) (h₁ : Q₁.source) (h₂ 
 
 omit [HasAltLinearOrder K] in
 /-- Rows of a key join carry keys of the left argument. -/
-theorem keyJoin_key_mem (Q₁ Q₂ : Query ℕ 1) (h₁ : Q₁.source) (h₂ : Q₂.source)
+private theorem keyJoin_key_mem (Q₁ Q₂ : Query ℕ 1) (h₁ : Q₁.source) (h₂ : Q₂.source)
     (d : AnnotatedDatabase ℕ K) (x : AnnotatedTuple ℕ K 1)
     (hx : x ∈ (keyJoin Q₁ Q₂).evaluateAnnotated (keyJoin_source Q₁ Q₂ h₁ h₂) d) :
     ∃ y ∈ Q₁.evaluateAnnotated h₁ d, x.fst = y.fst := by
@@ -404,7 +413,7 @@ theorem keyJoin_key_mem (Q₁ Q₂ : Query ℕ 1) (h₁ : Q₁.source) (h₂ : Q
 
 omit [HasAltLinearOrder K] in
 /-- Rows of a set union carry keys of one of the arguments. -/
-theorem keyUnion_key_mem (Q₁ Q₂ : Query ℕ 1) (h₁ : Q₁.source) (h₂ : Q₂.source)
+private theorem keyUnion_key_mem (Q₁ Q₂ : Query ℕ 1) (h₁ : Q₁.source) (h₂ : Q₂.source)
     (d : AnnotatedDatabase ℕ K) (x : AnnotatedTuple ℕ K 1)
     (hx : x ∈ (keyUnion Q₁ Q₂).evaluateAnnotated (keyUnion_source Q₁ Q₂ h₁ h₂) d) :
     (∃ y ∈ Q₁.evaluateAnnotated h₁ d, x.fst = y.fst)
@@ -484,7 +493,7 @@ provenance `HavingPred.prov` of `ψ` on its group. Induction on `ψ`: the
 atoms are `Query.joinChain_count_correct` and `existential_perKey`, and
 `∧`/`∨` are `keyJoin_perKeySum`/`keyUnion_perKeySum`. Distributivity of
 `⊗` over `⊖` is not assumed. -/
-theorem perKey_correct (h_abs : absorptive K) (ts : Tuple (Term ℕ 3) n₂)
+private theorem perKey_correct (h_abs : absorptive K) (ts : Tuple (Term ℕ 3) n₂)
     (fs : Tuple (SeqAggFunc ℕ) n₂) (q : Query ℕ 3) (hq : q.source)
     (d : AnnotatedDatabase ℕ K)
     (hnodup : ((q.evaluateAnnotated hq d).map Prod.fst).Nodup) (g : Tuple ℕ 1) :
@@ -531,7 +540,7 @@ theorem perKey_correct (h_abs : absorptive K) (ts : Tuple (Term ℕ 3) n₂)
 
 omit [HasAltLinearOrder K] in
 /-- Every row of the rewriting carries a key of the base query. -/
-theorem key_mem (ts : Tuple (Term ℕ 3) n₂) (q : Query ℕ 3) (hq : q.source)
+private theorem key_mem (ts : Tuple (Term ℕ 3) n₂) (q : Query ℕ 3) (hq : q.source)
     (d : AnnotatedDatabase ℕ K) :
     ∀ (ψ : MonoCond n₂) (x : AnnotatedTuple ℕ K 1),
       x ∈ (ψ.rewrite ts q).evaluateAnnotated (rewrite_source ts q hq ψ) d →
@@ -555,7 +564,7 @@ absorptive commutative m-semiring, the padded rewriting `Q_ψ` of a
 well-formed monotone condition evaluates to exactly one row per group key
 of the base query, annotated with the fused provenance `HavingPred.prov`
 of `ψ` on the group. -/
-theorem padded_correct (h_abs : absorptive K) (ts : Tuple (Term ℕ 3) n₂)
+private theorem padded_correct (h_abs : absorptive K) (ts : Tuple (Term ℕ 3) n₂)
     (fs : Tuple (SeqAggFunc ℕ) n₂) (q : Query ℕ 3) (hq : q.source)
     (d : AnnotatedDatabase ℕ K)
     (hnodup : ((q.evaluateAnnotated hq d).map Prod.fst).Nodup)
@@ -603,7 +612,7 @@ abbrev site (ts : Tuple (Term ℕ 3) n₂) (fs : Tuple (SeqAggFunc ℕ) n₂) (�
     (qg : AggQuery ℕ 3 (ColKind.allReg 3)) : AggQuery ℕ (1 + n₂) (ColKind.gammaKinds 1 n₂) :=
   AggQueryIn.Sel ψ.toGenPred (AggQueryIn.Gamma (lab := 0) (rd := fun _ => false) keyIdx ts fs qg)
 
-theorem toGenPred_hasAggAtom : ∀ ψ : MonoCond n₂, ψ.toGenPred.hasAggAtom = true
+private theorem toGenPred_hasAggAtom : ∀ ψ : MonoCond n₂, ψ.toGenPred.hasAggAtom = true
   | countGe _ _ => rfl
   | countGt _ _ => rfl
   | exist _ _ _ => rfl
@@ -618,7 +627,7 @@ theorem toGenPred_hasAggAtom : ∀ ψ : MonoCond n₂, ψ.toGenPred.hasAggAtom =
 
 /-- A positive combination of aggregate atoms entails the existence of the
 compared groups. -/
-theorem toGenPred_entailsExistence :
+private theorem toGenPred_entailsExistence :
     ∀ ψ : MonoCond n₂, ψ.toGenPred.entailsExistence false = true
   | countGe _ _ => rfl
   | countGt _ _ => rfl
@@ -637,7 +646,7 @@ theorem toGenPred_entailsExistence :
     rfl
 
 /-- Every compared column of the condition is a token column. -/
-theorem toGenPred_comparedCols :
+private theorem toGenPred_comparedCols :
     ∀ ψ : MonoCond n₂, ∀ k ∈ ψ.toGenPred.comparedCols, ∃ l : Fin n₂, k = Fin.natAdd 1 l
   | countGe l _, k, hk => ⟨l, Finset.mem_singleton.mp hk⟩
   | countGt l _, k, hk => ⟨l, Finset.mem_singleton.mp hk⟩
@@ -652,7 +661,7 @@ theorem toGenPred_comparedCols :
     · exact toGenPred_comparedCols ψ₂ k h
 
 /-- The condition compares at least one token column. -/
-theorem toGenPred_comparedCols_nonempty :
+private theorem toGenPred_comparedCols_nonempty :
     ∀ ψ : MonoCond n₂, ψ.toGenPred.comparedCols.Nonempty
   | countGe l _ => ⟨Fin.natAdd 1 l, Finset.mem_singleton_self _⟩
   | countGt l _ => ⟨Fin.natAdd 1 l, Finset.mem_singleton_self _⟩
@@ -664,7 +673,7 @@ omit [HasAltLinearOrder K] in
 /-- The predicate provenance of the condition on the `Gamma` output row of
 the group `g` is `HavingPred.prov` of the condition on the group
 sequence. -/
-theorem toGenPred_predsem (ts : Tuple (Term ℕ 3) n₂) (fs : Tuple (SeqAggFunc ℕ) n₂)
+private theorem toGenPred_predsem (ts : Tuple (Term ℕ 3) n₂) (fs : Tuple (SeqAggFunc ℕ) n₂)
     (U : List (AnnotatedTuple ℕ K 3)) (g : Tuple ℕ 1) (φ : Fin n₂ → FamId ℕ)
     {ids : Option (List (OccId ℕ))} :
     ∀ ψ : MonoCond n₂,
@@ -718,7 +727,7 @@ theorem toGenPred_predsemJ (u : Tuple (GenValue ℕ K) (1 + n₂)) (γ : Fin 0 �
 omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 /-- The compared annotation lists of the condition on the `Gamma` output
 row all equal the group's annotation list. -/
-theorem compared_all_eq {f : Fin (1 + n₂) → Option (List K)} {L : List K}
+private theorem compared_all_eq {f : Fin (1 + n₂) → Option (List K)} {L : List K}
     (hf : ∀ l : Fin n₂, f (Fin.natAdd 1 l) = some L) (ψ : MonoCond n₂) :
     ∀ l' ∈ ψ.toGenPred.comparedCols.val.filterMap f, l' = L := by
   intro l' hl'
@@ -730,7 +739,7 @@ theorem compared_all_eq {f : Fin (1 + n₂) → Option (List K)} {L : List K}
 omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 /-- The condition compares at least one token, so its compared lists are
 not empty. -/
-theorem compared_ne_zero {f : Fin (1 + n₂) → Option (List K)} {L : List K}
+private theorem compared_ne_zero {f : Fin (1 + n₂) → Option (List K)} {L : List K}
     (hf : ∀ l : Fin n₂, f (Fin.natAdd 1 l) = some L) (ψ : MonoCond n₂) :
     ψ.toGenPred.comparedCols.val.filterMap f ≠ 0 := by
   obtain ⟨k, hk⟩ := toGenPred_comparedCols_nonempty ψ
@@ -743,7 +752,7 @@ theorem compared_ne_zero {f : Fin (1 + n₂) → Option (List K)} {L : List K}
 
 omit [DecidableEq K] [HasAltLinearOrder K] in
 /-- A row whose pending factors vanish finalizes to its concrete part. -/
-theorem finalize_eq_of_pending_eq_zero (b : K) (p : Multiset (List K)) (hp : p = 0) :
+private theorem finalize_eq_of_pending_eq_zero (b : K) (p : Multiset (List K)) (hp : p = 0) :
     GenAnn.finalize ⟨b, p⟩ = b := by
   subst hp
   exact GenAnn.finalize_of_pending_zero b
@@ -826,7 +835,7 @@ theorem site_evaluateAnnotated (ts : Tuple (Term ℕ 3) n₂) (fs : Tuple (SeqAg
 /-- **The key-projected fused site of a monotone condition** is one row per
 group key of the base query, annotated with the fused provenance of the
 condition on its group (the shape the padded rewriting evaluates to). -/
-theorem site_key_proj (ts : Tuple (Term ℕ 3) n₂) (fs : Tuple (SeqAggFunc ℕ) n₂)
+private theorem site_key_proj (ts : Tuple (Term ℕ 3) n₂) (fs : Tuple (SeqAggFunc ℕ) n₂)
     (ψ : MonoCond n₂) (hψ : ψ.isAtom = true) (qg : AggQuery ℕ 3 (ColKind.allReg 3))
     (q : Query ℕ 3) (hq : q.source) (d : AnnotatedDatabase ℕ K)
     (hin : qg.evaluateAnnotated d = q.evaluateAnnotated hq d) :

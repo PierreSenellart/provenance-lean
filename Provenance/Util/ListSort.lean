@@ -38,7 +38,7 @@ def insSort : List α → List α := foldr (orderedIns r) []
   | nil => simp [orderedIns]
   | cons b l ih => simp [orderedIns, ih]
 
-@[simp] theorem insSort_eq (l : List α) : l.insSort r = l.insertionSort r := by
+@[simp] private theorem insSort_eq (l : List α) : l.insSort r = l.insertionSort r := by
   induction l with
   | nil => simp [insSort, insertionSort_nil]
   | cons b l ih => simp only [insSort, foldr_cons, insertionSort_cons] at ih ⊢; rw [ih, orderedIns_eq]

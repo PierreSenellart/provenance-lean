@@ -114,7 +114,7 @@ variable (P : CatAssignment κ)
 
 /-- Each individual outcome probability is at most `1` (it is one summand of
 a sum of non-negatives equal to `1`). -/
-theorem prob_le_one (b : ι) (i : κ b) : P.prob b i ≤ 1 := by
+private theorem prob_le_one (b : ι) (i : κ b) : P.prob b i ≤ 1 := by
   have h := Finset.single_le_sum (f := fun j => P.prob b j)
     (fun j _ => P.prob_nonneg b j) (Finset.mem_univ i)
   rwa [P.sum_prob b] at h
@@ -128,13 +128,13 @@ def valProb (v : (b : ι) → κ b) : ℚ := ∏ b, P.prob b (v b)
 def eventProb (E : ((b : ι) → κ b) → Bool) : ℚ :=
   ∑ v : (b : ι) → κ b, if E v then P.valProb v else 0
 
-theorem valProb_nonneg (v : (b : ι) → κ b) : 0 ≤ P.valProb v := by
+private theorem valProb_nonneg (v : (b : ι) → κ b) : 0 ≤ P.valProb v := by
   unfold valProb
   exact Finset.prod_nonneg (fun b _ => P.prob_nonneg b (v b))
 
 /-- The categorical valuations form a probability distribution:
 `∑ v, Pr(v) = 1`. -/
-theorem sum_valProb_eq_one : ∑ v : (b : ι) → κ b, P.valProb v = 1 := by
+private theorem sum_valProb_eq_one : ∑ v : (b : ι) → κ b, P.valProb v = 1 := by
   have hps : (∏ b : ι, ∑ i : κ b, P.prob b i)
       = ∑ v : (b : ι) → κ b, ∏ b : ι, P.prob b (v b) :=
     Fintype.prod_sum (fun (b : ι) (i : κ b) => P.prob b i)
@@ -143,7 +143,7 @@ theorem sum_valProb_eq_one : ∑ v : (b : ι) → κ b, P.valProb v = 1 := by
   simp_rw [P.sum_prob]
   simp
 
-theorem eventProb_nonneg (E : ((b : ι) → κ b) → Bool) : 0 ≤ P.eventProb E := by
+private theorem eventProb_nonneg (E : ((b : ι) → κ b) → Bool) : 0 ≤ P.eventProb E := by
   unfold eventProb
   apply Finset.sum_nonneg
   intro v _
@@ -151,7 +151,7 @@ theorem eventProb_nonneg (E : ((b : ι) → κ b) → Bool) : 0 ≤ P.eventProb 
   · simp [hv]; exact P.valProb_nonneg v
   · simp [hv]
 
-theorem eventProb_le_one (E : ((b : ι) → κ b) → Bool) : P.eventProb E ≤ 1 := by
+private theorem eventProb_le_one (E : ((b : ι) → κ b) → Bool) : P.eventProb E ≤ 1 := by
   rw [← P.sum_valProb_eq_one]
   unfold eventProb
   apply Finset.sum_le_sum
@@ -161,14 +161,14 @@ theorem eventProb_le_one (E : ((b : ι) → κ b) → Bool) : P.eventProb E ≤ 
   · simp [hv]; exact P.valProb_nonneg v
 
 /-- `Pr(false) = 0`. -/
-theorem eventProb_false : P.eventProb (fun _ => false) = 0 := by
+private theorem eventProb_false : P.eventProb (fun _ => false) = 0 := by
   unfold eventProb
   apply Finset.sum_eq_zero
   intro v _
   simp
 
 /-- `Pr(true) = 1`. -/
-theorem eventProb_true : P.eventProb (fun _ => true) = 1 := by
+private theorem eventProb_true : P.eventProb (fun _ => true) = 1 := by
   rw [← P.sum_valProb_eq_one]
   unfold eventProb
   apply Finset.sum_congr rfl
@@ -176,7 +176,7 @@ theorem eventProb_true : P.eventProb (fun _ => true) = 1 := by
   simp
 
 /-- Pointwise-equal events have equal probabilities. -/
-theorem eventProb_congr {E F : ((b : ι) → κ b) → Bool} (h : ∀ v, E v = F v) :
+private theorem eventProb_congr {E F : ((b : ι) → κ b) → Bool} (h : ∀ v, E v = F v) :
     P.eventProb E = P.eventProb F := by
   unfold eventProb
   apply Finset.sum_congr rfl
@@ -203,7 +203,7 @@ variable (P : CatAssignment κ)
 `S` of outcomes is the sum of the corresponding marginals. The categorical
 analogue of `funcProb_var`, proved by the same `Fintype.prod_sum`
 column-swap. -/
-theorem eventProb_block_mem (b : ι) (S : Finset (κ b)) :
+private theorem eventProb_block_mem (b : ι) (S : Finset (κ b)) :
     P.eventProb (fun v => decide (v b ∈ S)) = ∑ i ∈ S, P.prob b i := by
   -- `t` restricts block `b` to the outcomes in `S`, leaving every other block free.
   let t : (b' : ι) → Finset (κ b') :=
@@ -372,7 +372,7 @@ theorem eventProb_or (E F : ((b : ι) → κ b) → Bool) :
   rw [Finset.sum_sub_distrib, ← Finset.sum_add_distrib]
 
 /-- **Complement.** `Pr(¬E) = 1 - Pr(E)`. -/
-theorem eventProb_not (E : ((b : ι) → κ b) → Bool) :
+private theorem eventProb_not (E : ((b : ι) → κ b) → Bool) :
     P.eventProb (fun v => !(E v)) = 1 - P.eventProb E := by
   unfold eventProb
   have hstep : (∑ v : (b : ι) → κ b, if (!(E v)) then P.valProb v else 0)
@@ -455,7 +455,7 @@ def probDD (P : CatAssignment κ) : CatCircuit ι κ → ℚ
   | .or c d => c.probDD P + d.probDD P
 
 /-- A circuit's event depends only on the blocks it reads. -/
-lemma toEvent_dependsOn_blocks (c : CatCircuit ι κ) :
+private lemma toEvent_dependsOn_blocks (c : CatCircuit ι κ) :
     EventDependsOn c.toEvent c.blocks := by
   intro v₁ v₂ heq
   unfold toEvent
@@ -559,7 +559,7 @@ theorem mulin_disjoint (b : ι) {i j : κ b} (h : i ≠ j) :
 /-- **`mulin_or_prob`.** The probability that block `b` fires *some* mulinput
 (its outcome is not the none-outcome `o`) is the exact sum of the mulinput
 marginals: the plain sum `evaluateCertifiedIsland` computes is exact. -/
-theorem mulin_or_prob (b : ι) (o : κ b) :
+private theorem mulin_or_prob (b : ι) (o : κ b) :
     P.eventProb (fun v => decide (v b ≠ o))
       = ∑ i ∈ Finset.univ.erase o, P.prob b i := by
   rw [← P.eventProb_block_mem b (Finset.univ.erase o)]
@@ -569,7 +569,7 @@ theorem mulin_or_prob (b : ι) (o : κ b) :
 
 /-- **`mulin_none`.** The none-branch probability is `1 - Σ pᵢ`, the
 `monus(one, plus(mulinputs))` the evaluator reads. -/
-theorem mulin_none (b : ι) (o : κ b) :
+private theorem mulin_none (b : ι) (o : κ b) :
     P.eventProb (fun v => decide (v b = o))
       = 1 - ∑ i ∈ Finset.univ.erase o, P.prob b i := by
   rw [P.eventProb_lit b o]

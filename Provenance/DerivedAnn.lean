@@ -11,6 +11,11 @@ import Mathlib.Tactic.NormNum.Pow
 import Provenance.AggQuerySubst
 import Provenance.HavingQueryCorrectness
 import Provenance.QueryAnnotatedDatabaseHom
+import all Provenance.AggQuery
+import all Provenance.AggQuerySubst
+import all Provenance.AggValue
+import all Provenance.Derived
+import all Provenance.QueryAnnotatedDatabaseHom
 
 /-!
 # Annotations of the derived operators
@@ -54,7 +59,7 @@ def _root_.AnnotatedRelation.annSum (r : AnnotatedRelation T K n)
   (Multiset.map Prod.snd
     (Multiset.filter (fun p : AnnotatedTuple T K n => p.1 = u) r)).sum
 
-theorem annSum_eq (q : AggQuery T n (ColKind.allReg n))
+private theorem annSum_eq (q : AggQuery T n (ColKind.allReg n))
     (d : AnnotatedDatabase T K) (u : Tuple T n) :
     annSum q d u = (q.evaluateAnnotated d).annSum u := rfl
 
@@ -62,7 +67,7 @@ theorem annSum_eq (q : AggQuery T n (ColKind.allReg n))
 the annotations its tuple carries on the right.** No row is removed: a row
 whose tuple is matched is kept with a monus, which is what ProvSQL
 emits. -/
-theorem evaluate_Diff (q₁ q₂ : AggQuery T n (ColKind.allReg n))
+private theorem evaluate_Diff (q₁ q₂ : AggQuery T n (ColKind.allReg n))
     (d : AnnotatedDatabase T K) :
     (AggQueryIn.Diff q₁ q₂).evaluate d
       = (q₁.evaluateAnnotated d).map (fun p =>
@@ -78,7 +83,7 @@ theorem evaluate_Diff (q₁ q₂ : AggQuery T n (ColKind.allReg n))
 
 /-- **Duplicate elimination keeps one copy of each tuple, carrying the
 `⊕`-sum of its copies' annotations.** -/
-theorem evaluate_Dedup (q : AggQuery T n (ColKind.allReg n))
+private theorem evaluate_Dedup (q : AggQuery T n (ColKind.allReg n))
     (d : AnnotatedDatabase T K) :
     (AggQueryIn.Dedup q).evaluate d
       = ((q.evaluateAnnotated d).map Prod.fst).dedup.map
@@ -106,7 +111,7 @@ private theorem product_map_map {α β γ δ : Type} (f : α → γ) (g : β →
 cashes of the pending factors, for the groups whose token columns it
 drops, it takes out of the pending part and multiplies into the concrete
 one, so the two together are unchanged. -/
-theorem evaluateAnnotated_Proj {m : ℕ} {κ : Fin n → ColKind}
+private theorem evaluateAnnotated_Proj {m : ℕ} {κ : Fin n → ColKind}
     (ps : Tuple (ProjCol T κ) m) (q : AggQuery T n κ)
     (d : AnnotatedDatabase T K) :
     (AggQueryIn.Proj ps q).evaluateAnnotated d
@@ -124,7 +129,7 @@ theorem evaluateAnnotated_Proj {m : ℕ} {κ : Fin n → ColKind}
     tsub_add_cancel_of_le (Multiset.inter_le_left)]
 
 /-- A selection without an aggregate atom filters. -/
-theorem evaluate_Sel_of_noAgg {κ : Fin n → ColKind} (φ : GenPred T κ)
+private theorem evaluate_Sel_of_noAgg {κ : Fin n → ColKind} (φ : GenPred T κ)
     (hφ : φ.hasAggAtom = false) (q : AggQuery T n κ)
     (d : AnnotatedDatabase T K) :
     (AggQueryIn.Sel φ q).evaluate d
@@ -135,7 +140,7 @@ theorem evaluate_Sel_of_noAgg {κ : Fin n → ColKind} (φ : GenPred T κ)
 
 /-- A product pairs the rows, multiplying the concrete annotations and
 putting the pending factors side by side. -/
-theorem evaluate_Prod {n₁ n₂ : ℕ} {κ₁ : Fin n₁ → ColKind} {κ₂ : Fin n₂ → ColKind}
+private theorem evaluate_Prod {n₁ n₂ : ℕ} {κ₁ : Fin n₁ → ColKind} {κ₂ : Fin n₂ → ColKind}
     (q₁ : AggQuery T n₁ κ₁) (q₂ : AggQuery T n₂ κ₂)
     (d : AnnotatedDatabase T K) :
     (AggQueryIn.Prod q₁ q₂).evaluate d
@@ -148,7 +153,7 @@ theorem evaluate_Prod {n₁ n₂ : ℕ} {κ₁ : Fin n₁ → ColKind} {κ₂ : 
 /-- **What intersection annotates**: a shared tuple by the product of the
 two `⊕`-sums, one per arm – the provenance of a conjunction of the two
 memberships. -/
-theorem evaluateAnnotated_inter (q₁ q₂ : AggQuery T n (ColKind.allReg n))
+private theorem evaluateAnnotated_inter (q₁ q₂ : AggQuery T n (ColKind.allReg n))
     (d : AnnotatedDatabase T K) :
     (inter q₁ q₂).evaluateAnnotated d
       = (Multiset.filter
@@ -231,7 +236,7 @@ noncomputable def matchAnn (φ : GenPred T (ColKind.allReg (n₁ + n₂)))
 
 /-- The right arm of the difference in a left outer join carries, on a
 tuple, the `⊕`-sum of the annotations of its matches. -/
-theorem annSum_firstCols (φ : GenPred T (ColKind.allReg (n₁ + n₂)))
+private theorem annSum_firstCols (φ : GenPred T (ColKind.allReg (n₁ + n₂)))
     (q₁ : AggQuery T n₁ (ColKind.allReg n₁))
     (q₂ : AggQuery T n₂ (ColKind.allReg n₂))
     (d : AnnotatedDatabase T K) (u : Tuple T n₁) :
@@ -262,7 +267,7 @@ unmatched in the worlds where none of its matches is present.
 The subtracted form is the definition. `α ⊗ (𝟙 ⊖ ⊕β)`, the form one would
 expect, is equal to it when `⊗` distributes over `⊖` and `K` is absorptive,
 and not in general. -/
-theorem evaluateAnnotated_leftOuter (φ : GenPred T (ColKind.allReg (n₁ + n₂)))
+private theorem evaluateAnnotated_leftOuter (φ : GenPred T (ColKind.allReg (n₁ + n₂)))
     (q₁ : AggQuery T n₁ (ColKind.allReg n₁))
     (q₂ : AggQuery T n₂ (ColKind.allReg n₂)) (d : AnnotatedDatabase T K) :
     (leftOuter φ q₁ q₂).evaluateAnnotated d
@@ -313,7 +318,7 @@ noncomputable def matchAnnRight (φ : GenPred T (ColKind.allReg (n₁ + n₂)))
 
 /-- The right arm of the difference in a right outer join carries, on a
 tuple, the `⊕`-sum of the annotations of its matches. -/
-theorem annSum_lastCols (φ : GenPred T (ColKind.allReg (n₁ + n₂)))
+private theorem annSum_lastCols (φ : GenPred T (ColKind.allReg (n₁ + n₂)))
     (q₁ : AggQuery T n₁ (ColKind.allReg n₁))
     (q₂ : AggQuery T n₂ (ColKind.allReg n₂))
     (d : AnnotatedDatabase T K) (v : Tuple T n₂) :
@@ -339,7 +344,7 @@ theorem annSum_lastCols (φ : GenPred T (ColKind.allReg (n₁ + n₂)))
 
 /-- The padded part of a right outer join: the rows of the right arm,
 padded on the left, each subtracted the annotations of its matches. -/
-theorem evaluateAnnotated_rightUnmatched
+private theorem evaluateAnnotated_rightUnmatched
     (φ : GenPred T (ColKind.allReg (n₁ + n₂)))
     (q₁ : AggQuery T n₁ (ColKind.allReg n₁))
     (q₂ : AggQuery T n₂ (ColKind.allReg n₂)) (d : AnnotatedDatabase T K) :
@@ -371,7 +376,7 @@ theorem evaluateAnnotated_rightUnmatched
     rfl
 
 /-- **What a right outer join annotates**, symmetrically. -/
-theorem evaluateAnnotated_rightOuter (φ : GenPred T (ColKind.allReg (n₁ + n₂)))
+private theorem evaluateAnnotated_rightOuter (φ : GenPred T (ColKind.allReg (n₁ + n₂)))
     (q₁ : AggQuery T n₁ (ColKind.allReg n₁))
     (q₂ : AggQuery T n₂ (ColKind.allReg n₂)) (d : AnnotatedDatabase T K) :
     (rightOuter φ q₁ q₂).evaluateAnnotated d
@@ -392,7 +397,7 @@ theorem evaluateAnnotated_rightOuter (φ : GenPred T (ColKind.allReg (n₁ + n�
 /-- **What a full outer join annotates**: the left outer join, and the rows
 of the right arm padded on the left, each subtracted the annotations of its
 matches. -/
-theorem evaluateAnnotated_fullOuter (φ : GenPred T (ColKind.allReg (n₁ + n₂)))
+private theorem evaluateAnnotated_fullOuter (φ : GenPred T (ColKind.allReg (n₁ + n₂)))
     (q₁ : AggQuery T n₁ (ColKind.allReg n₁))
     (q₂ : AggQuery T n₂ (ColKind.allReg n₂)) (d : AnnotatedDatabase T K) :
     (fullOuter φ q₁ q₂).evaluateAnnotated d
@@ -442,7 +447,7 @@ noncomputable def matchToken (cnt : SeqAggFunc T) (kap : Fin l)
 
 /-- A scalar aggregation on one `(term, aggregate)` pair produces the one
 row that carries its token. -/
-theorem evaluate_GammaScalar_one {lab : ℕ} {c m : ℕ} {rd : Fin c → Bool} (t : TermIn T c m)
+private theorem evaluate_GammaScalar_one {lab : ℕ} {c m : ℕ} {rd : Fin c → Bool} (t : TermIn T c m)
     (cnt : SeqAggFunc T) (q : AggQueryIn T c m (ColKind.allReg m))
     (d : AnnotatedDatabase T K) (γ : Fin c → T) :
     (GammaScalar (lab := lab) (rd := rd) ![t] ![cnt] q).evaluate d γ
@@ -459,7 +464,7 @@ theorem evaluate_GammaScalar_one {lab : ℕ} {c m : ℕ} {rd : Fin c → Bool} (
 
 /-- **What a match count evaluates to**: each occurrence of the left arm,
 its annotation untouched, extended by its match token. -/
-theorem evaluate_matchCount (cnt : SeqAggFunc T) (kap : Fin l)
+private theorem evaluate_matchCount (cnt : SeqAggFunc T) (kap : Fin l)
     (φ : GenPredIn T k (ColKind.allReg l))
     (R : AggQuery T k (ColKind.allReg k))
     (Q : AggQueryIn T k l (ColKind.allReg l))
@@ -486,7 +491,7 @@ theorem evaluate_matchCount (cnt : SeqAggFunc T) (kap : Fin l)
 /-- **The rows a count site produces**: each occurrence of the left arm,
 its annotation multiplied by the predicate provenance of comparing its
 match count against `𝟘`. -/
-theorem evaluateAnnotated_countSite (op : CompOp) (cnt : SeqAggFunc T)
+private theorem evaluateAnnotated_countSite (op : CompOp) (cnt : SeqAggFunc T)
     (kap : Fin l) (φ : GenPredIn T k (ColKind.allReg l))
     (R : AggQuery T k (ColKind.allReg k))
     (Q : AggQueryIn T k l (ColKind.allReg l))
@@ -583,7 +588,7 @@ private theorem sum_fin_get {α : Type} (f : α → K) :
 
 omit [CommSemiringWithMonus K] [DecidableEq K] in
 /-- With no key columns the group sequence is the whole relation. -/
-theorem havingGroup_nil_coe {m : ℕ} (r : AnnotatedRelation T K m) :
+private theorem havingGroup_nil_coe {m : ℕ} (r : AnnotatedRelation T K m) :
     (↑(Having.havingGroup (fun i : Fin 0 => i.elim0) r
         (fun i : Fin 0 => i.elim0)) : Multiset (AnnotatedTuple T K m))
       = (show Multiset (AnnotatedTuple T K m) from r) := by
@@ -592,7 +597,7 @@ theorem havingGroup_nil_coe {m : ℕ} (r : AnnotatedRelation T K m) :
 
 omit [DecidableEq K] in
 /-- With no key columns the group's annotations sum to the relation's. -/
-theorem annTotal_havingGroup {m : ℕ} (r : AnnotatedRelation T K m) :
+private theorem annTotal_havingGroup {m : ℕ} (r : AnnotatedRelation T K m) :
     ((Having.havingGroup (fun i : Fin 0 => i.elim0) r
           (fun i : Fin 0 => i.elim0)).map Prod.snd).sum = r.annTotal := by
   show ((Multiset.map Prod.snd
@@ -604,7 +609,7 @@ theorem annTotal_havingGroup {m : ℕ} (r : AnnotatedRelation T K m) :
 
 /-- The occurrences a match token carries are the matching rows, their
 `kap` values paired with their annotations. -/
-theorem matchToken_occs (cnt : SeqAggFunc T) (kap : Fin l)
+private theorem matchToken_occs (cnt : SeqAggFunc T) (kap : Fin l)
     (φ : GenPredIn T k (ColKind.allReg l))
     (Q : AggQueryIn T k l (ColKind.allReg l))
     (d : AnnotatedDatabase T K) (u : Tuple T k) :
@@ -615,7 +620,7 @@ theorem matchToken_occs (cnt : SeqAggFunc T) (kap : Fin l)
 
 /-- The `⊕`-sum of a match token's occurrence annotations is the `⊕`-sum
 of the annotations of the rows that match. -/
-theorem sum_anns_matchToken (cnt : SeqAggFunc T) (kap : Fin l)
+private theorem sum_anns_matchToken (cnt : SeqAggFunc T) (kap : Fin l)
     (φ : GenPredIn T k (ColKind.allReg l))
     (Q : AggQueryIn T k l (ColKind.allReg l))
     (d : AnnotatedDatabase T K) (u : Tuple T k) :
@@ -628,7 +633,7 @@ theorem sum_anns_matchToken (cnt : SeqAggFunc T) (kap : Fin l)
 
 /-- Every occurrence a match token carries has the value of a matching
 row in the counted column. -/
-theorem mem_matchToken_occs (cnt : SeqAggFunc T) (kap : Fin l)
+private theorem mem_matchToken_occs (cnt : SeqAggFunc T) (kap : Fin l)
     (φ : GenPredIn T k (ColKind.allReg l))
     (Q : AggQueryIn T k l (ColKind.allReg l))
     (d : AnnotatedDatabase T K) (u : Tuple T k)
@@ -644,7 +649,7 @@ theorem mem_matchToken_occs (cnt : SeqAggFunc T) (kap : Fin l)
 /-- **The semijoin's annotation.** Each occurrence of the left arm keeps
 its annotation, multiplied by the `⊕`-sum of the annotations of the rows
 it matches – the provenance of “there is a match”. -/
-theorem evaluateAnnotated_semijoin (h_abs : absorptive K)
+private theorem evaluateAnnotated_semijoin (h_abs : absorptive K)
     (cnt : SeqAggFunc T) (hc : SeqAggFunc.Counts cnt) (kap : Fin l)
     (φ : GenPredIn T k (ColKind.allReg l))
     (R : AggQuery T k (ColKind.allReg k))
@@ -669,7 +674,7 @@ theorem evaluateAnnotated_semijoin (h_abs : absorptive K)
 /-- **The antijoin's annotation.** Each occurrence of the left arm keeps
 its annotation, multiplied by `𝟙 ⊖` the `⊕`-sum of the annotations of the
 rows it matches. No hypothesis on `K` enters it. -/
-theorem evaluateAnnotated_antijoin (cnt : SeqAggFunc T)
+private theorem evaluateAnnotated_antijoin (cnt : SeqAggFunc T)
     (hc : SeqAggFunc.Counts cnt) (kap : Fin l)
     (φ : GenPredIn T k (ColKind.allReg l))
     (R : AggQuery T k (ColKind.allReg k))
@@ -713,7 +718,7 @@ omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 null-skipping aggregate**: nulling the rejected occurrences out and then
 skipping them is cutting them from the sequence. This is why a
 null-skipping `FILTER` needs nothing but a term. -/
-theorem aggValOn_filterTerm_sqlOf (f : SeqAggFunc T) (op : CompOp)
+private theorem aggValOn_filterTerm_sqlOf (f : SeqAggFunc T) (op : CompOp)
     (t₁ t₂ t : Term T m) (U : List (AnnotatedTuple T K m))
     (W : Finset (Fin U.length)) :
     Having.aggValOn U (filterTerm op t₁ t₂ t) f.sqlOf W
@@ -727,7 +732,7 @@ theorem aggValOn_filterTerm_sqlOf (f : SeqAggFunc T) (op : CompOp)
 
 omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 /-- The same for a count. -/
-theorem aggValOn_filterTerm_counting (f : SeqAggFunc T) (op : CompOp)
+private theorem aggValOn_filterTerm_counting (f : SeqAggFunc T) (op : CompOp)
     (t₁ t₂ t : Term T m) (U : List (AnnotatedTuple T K m))
     (W : Finset (Fin U.length)) :
     Having.aggValOn U (filterTerm op t₁ t₂ t) f.counting W
@@ -743,7 +748,7 @@ omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 /-- **The token of a filtered aggregation reads the same way**: its value
 in a world is the aggregate of the occurrences of that world the clause
 keeps. -/
-theorem valOn_ofGroup_filterTerm_sqlOf (f : SeqAggFunc T) (op : CompOp)
+private theorem valOn_ofGroup_filterTerm_sqlOf (f : SeqAggFunc T) (op : CompOp)
     (t₁ t₂ t : Term T m) (U : List (AnnotatedTuple T K m))
     (W : Finset (Fin U.length)) :
     (AggValue.ofGroup f.sqlOf (filterTerm op t₁ t₂ t) U).valOn
@@ -755,7 +760,7 @@ theorem valOn_ofGroup_filterTerm_sqlOf (f : SeqAggFunc T) (op : CompOp)
 
 omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 /-- The same for a count. -/
-theorem valOn_ofGroup_filterTerm_counting (f : SeqAggFunc T) (op : CompOp)
+private theorem valOn_ofGroup_filterTerm_counting (f : SeqAggFunc T) (op : CompOp)
     (t₁ t₂ t : Term T m) (U : List (AnnotatedTuple T K m))
     (W : Finset (Fin U.length)) :
     (AggValue.ofGroup f.counting (filterTerm op t₁ t₂ t) U).valOn
@@ -800,7 +805,7 @@ abbrev cl₂ : Term V 1 := TermIn.const (WithNull.val 1)
 /-- **The term encoding over-counts.** With the clause's rejected
 occurrence nulled out rather than removed, the null-keeping aggregate
 reads two values where SQL's `FILTER` gives it one. -/
-theorem filterTerm_ne_aggValOnWhen :
+private theorem filterTerm_ne_aggValOnWhen :
     Having.aggValOn U (filterTerm CompOp.eq cl₁ cl₂ (TermIn.index 0)) len
         Finset.univ
       ≠ Having.aggValOnWhen U (filterHolds CompOp.eq cl₁ cl₂)
@@ -808,12 +813,12 @@ theorem filterTerm_ne_aggValOnWhen :
   decide
 
 /-- The two values it reads, for the record: two against one. -/
-theorem filterTerm_val :
+private theorem filterTerm_val :
     Having.aggValOn U (filterTerm CompOp.eq cl₁ cl₂ (TermIn.index 0)) len
       Finset.univ = WithNull.val 2 := by
   decide
 
-theorem aggValOnWhen_val :
+private theorem aggValOnWhen_val :
     Having.aggValOnWhen U (filterHolds CompOp.eq cl₁ cl₂) (TermIn.index 0) len
       Finset.univ = WithNull.val 1 := by
   decide
@@ -835,7 +840,7 @@ group all of whose rows the clause rejects is still emitted – with the
 aggregate over nothing, and with the group's own existence as its
 annotation – and the existence guard is unchanged, being the pending
 factor over every occurrence. -/
-theorem evaluate_gammaWhere (is : Tuple (Fin m) n₁) (φ : Selection T m)
+private theorem evaluate_gammaWhere (is : Tuple (Fin m) n₁) (φ : Selection T m)
     (t : TermIn T c m) (f : SeqAggFunc T)
     (q : AggQueryIn T c m (ColKind.allReg m)) (d : AnnotatedDatabase T K)
     {γ : Fin c → T} :
@@ -876,7 +881,7 @@ section Constants
 variable [ValueType T] {k : ℕ}
 
 /-- **The unit relation's row is annotated `𝟙`.** -/
-@[simp] theorem evaluateAnnotated_unit (d : AnnotatedDatabase T K)
+@[simp] private theorem evaluateAnnotated_unit (d : AnnotatedDatabase T K)
     (γ : Fin 0 → T) (u : Tuple T 0) :
     (unit : AggQuery T 0 _).evaluateAnnotated d γ
       = ({(u, 1)} : Multiset (AnnotatedTuple T K 0)) := by
@@ -893,7 +898,7 @@ variable [ValueType T] {k : ℕ}
   · simp [GenRow.toAnnotated, GenAnn.finalize]
 
 /-- **And so is each row of a constant relation.** -/
-@[simp] theorem evaluateAnnotated_rowOf (u : Tuple T k)
+@[simp] private theorem evaluateAnnotated_rowOf (u : Tuple T k)
     (d : AnnotatedDatabase T K) (γ : Fin 0 → T) :
     (rowOf u).evaluateAnnotated d γ
       = ({(u, 1)} : Multiset (AnnotatedTuple T K k)) := by
@@ -920,7 +925,7 @@ variable [ValueType T] {k : ℕ}
 
 /-- The annotated rows a union of constant rows adds to what it starts
 from. -/
-theorem evaluateAnnotated_foldl_rowOf (l : List (Tuple T k))
+private theorem evaluateAnnotated_foldl_rowOf (l : List (Tuple T k))
     (q : AggQuery T k (ColKind.allReg k)) (d : AnnotatedDatabase T K)
     (γ : Fin 0 → T) (r : Multiset (AnnotatedTuple T K k))
     (hq : q.evaluateAnnotated d γ = r) :
@@ -948,7 +953,7 @@ theorem evaluateAnnotated_foldl_rowOf (l : List (Tuple T k))
     rfl
 
 /-- **What `VALUES` holds, annotated**: its tuples, each carrying `𝟙`. -/
-theorem evaluateAnnotated_values (us : List (Tuple T k)) (h : us ≠ [])
+private theorem evaluateAnnotated_values (us : List (Tuple T k)) (h : us ≠ [])
     (d : AnnotatedDatabase T K) (γ : Fin 0 → T) :
     (values us h).evaluateAnnotated d γ
       = Multiset.ofList

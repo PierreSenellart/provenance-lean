@@ -10,6 +10,9 @@ import Mathlib.Tactic.NormNum.Inv
 import Mathlib.Tactic.NormNum.Pow
 import Provenance.AggQueryHom
 import Provenance.QueryRewriting
+import all Provenance.AggQuery
+import all Provenance.AggQueryHom
+import all Provenance.QueryToAgg
 
 /-!
 # Stripping the classical fragment to the classical syntax
@@ -62,7 +65,7 @@ def TermGIn.strip {c n : ℕ} {κ : Fin n → ColKind} : TermGIn T c κ → Term
   | .coalesce t₁ t₂ => .coalesce t₁.strip t₂.strip
 
 /-- Plain evaluation factors through the strip. -/
-theorem TermGIn.strip_eval {c n : ℕ} {κ : Fin n → ColKind} (t : TermGIn T c κ)
+private theorem TermGIn.strip_eval {c n : ℕ} {κ : Fin n → ColKind} (t : TermGIn T c κ)
     (u : Tuple T n) : t.strip.eval u = t.evalPlain u := by
   induction t with
   | const a => rfl
@@ -98,7 +101,7 @@ def GenPredIn.strip {c n : ℕ} {κ : Fin n → ColKind} :
 
 /-- Truth factors through the strip, on aggregate-atom-free predicates –
 three-valuedly, both readings being Kleene's. -/
-theorem GenPredIn.strip_eval3 {c n : ℕ} {κ : Fin n → ColKind} :
+private theorem GenPredIn.strip_eval3 {c n : ℕ} {κ : Fin n → ColKind} :
     ∀ (φ : GenPredIn T c κ), φ.hasAggAtom = false → ∀ (u : Tuple T n),
       φ.strip.eval3 u = φ.evalPlain3 u
   | .cmp op t₁ t₂, _, u => by
@@ -123,7 +126,7 @@ theorem GenPredIn.strip_eval3 {c n : ℕ} {κ : Fin n → ColKind} :
     rfl
 
 /-- Truth factors through the strip, on aggregate-atom-free predicates. -/
-theorem GenPredIn.strip_eval {c n : ℕ} {κ : Fin n → ColKind}
+private theorem GenPredIn.strip_eval {c n : ℕ} {κ : Fin n → ColKind}
     (φ : GenPredIn T c κ) (hφ : φ.hasAggAtom = false) (u : Tuple T n) :
     φ.strip.eval u ↔ φ.holdsPlain u := by
   unfold Selection.eval GenPredIn.holdsPlain
@@ -194,7 +197,7 @@ section StripFaithful
 omit [ValueType T] [DecidableEq K] [HasAltLinearOrder K] in
 /-- The collapsed data part of an invariant row is its classical
 counterpart's data part. -/
-theorem GenRow.Inv.plainTuple_eq {n : ℕ} {r : GenRow T K n}
+private theorem GenRow.Inv.plainTuple_eq {n : ℕ} {r : GenRow T K n}
     {p : AnnotatedTuple T K n} (h : GenRow.Inv r p) :
     GenRow.plainTuple r.fst = p.fst :=
   congrArg Prod.fst h.toAnnotated_eq
@@ -202,7 +205,7 @@ theorem GenRow.Inv.plainTuple_eq {n : ℕ} {r : GenRow T K n}
 /-- **Row-wise faithfulness of the strip**: on the classical fragment,
 the general evaluator produces rows satisfying the embedding invariant
 against the classical annotated evaluation of the stripped query. -/
-theorem AggQueryIn.strip_rel :
+private theorem AggQueryIn.strip_rel :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l)
       (hq : q.classical) (d : AnnotatedDatabase T K),
       Multiset.Rel GenRow.Inv (q.evaluate d)

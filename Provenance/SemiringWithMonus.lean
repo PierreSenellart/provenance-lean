@@ -78,7 +78,7 @@ class SemiringWithMonus (α : Type)
 
 /-- In a `SemiringWithMonus`, `a - b` is the smallest element `c`
 satisfying `a ≤ b + c`. -/
-theorem monus_smallest [K : SemiringWithMonus α] :
+private theorem monus_smallest [K : SemiringWithMonus α] :
   ∀ a b : α, a ≤ b + (a - b) ∧ ∀ c: α, a ≤ b + c → a - b ≤ c := by {
     intro a b
     constructor
@@ -103,7 +103,7 @@ theorem monus_unique [K : SemiringWithMonus α] (s : α → α → α)
     exact (hs a b (s a b)).mp le_rfl
 
 /-- In a `SemiringWithMonus`, `δ 1 = 1`. -/
-theorem delta_one [K : SemiringWithMonus α] : K.delta 1 = 1 := by
+private theorem delta_one [K : SemiringWithMonus α] : K.delta 1 = 1 := by
   have h := K.delta_natCast_pos (n := 1) Nat.zero_lt_one
   simpa using h
 
@@ -308,7 +308,7 @@ abbrev complemented (α) [SemiringWithMonus α] :=
 /-- Being complemented is a statement about `𝟙 ⊖ ·` alone: subtracting
 the second summand from the complement of the first is multiplying by
 its complement. -/
-theorem complemented_iff (α) [SemiringWithMonus α] :
+private theorem complemented_iff (α) [SemiringWithMonus α] :
     complemented α ↔ ∀ a b : α, (1 - a) - b = (1 - a) * (1 - b) := by
   constructor
   · intro h a b
@@ -327,7 +327,7 @@ theorem idempotent_of_absorptive [K: Semiring α] :
     simp[habs 1]
 
 /-- In an idempotent `SemiringWithMonus`, `a ≤ b` iff `a + b = b`. -/
-theorem le_iff_add_eq [K: SemiringWithMonus α] (h: idempotent α) :
+private theorem le_iff_add_eq [K: SemiringWithMonus α] (h: idempotent α) :
   ∀ a b: α, a ≤ b ↔ a+b = b := by
     intro a b
     apply Iff.intro
@@ -344,7 +344,7 @@ theorem le_iff_add_eq [K: SemiringWithMonus α] (h: idempotent α) :
 
 /-- In an idempotent `SemiringWithMonus`, plus is the join of the
   semilattice -/
-theorem plus_is_join [K: SemiringWithMonus α] (h: idempotent α) :
+private theorem plus_is_join [K: SemiringWithMonus α] (h: idempotent α) :
   ∀ a b: α, ((a ≤ a+b) ∧ (b ≤ a+b)) ∧ (∀ u: α, (a ≤ u) ∧ (b ≤ u) → a+b ≤ u) := by
     intro a b
     constructor
@@ -453,7 +453,7 @@ form is what the proofs use. -/
 /-- Multiplication is monotone: the order of a `SemiringWithMonus` is the
 natural one, so a larger factor differs from a smaller one by a summand that
 multiplication distributes over. -/
-theorem mul_le_mul_left_of_le [SemiringWithMonus α] {x y : α} (h : x ≤ y) (z : α) :
+private theorem mul_le_mul_left_of_le [SemiringWithMonus α] {x y : α} (h : x ≤ y) (z : α) :
     z * x ≤ z * y := by
   obtain ⟨c, rfl⟩ := exists_add_of_le h
   rw [mul_add]
@@ -463,7 +463,7 @@ theorem mul_le_mul_left_of_le [SemiringWithMonus α] {x y : α} (h : x ≤ y) (z
 *any* sum containing it, not only of itself. Monus is antitone in its
 subtrahend, so the larger subtrahend `a ⊕ b` leaves a smaller complement than
 `a` does, and multiplication by `a` preserves that. -/
-theorem mul_one_monus_add_eq_zero [SemiringWithMonus α] (h : exclusive α) (a b : α) :
+private theorem mul_one_monus_add_eq_zero [SemiringWithMonus α] (h : exclusive α) (a b : α) :
     a * (1 - (a + b)) = 0 :=
   le_antisymm
     (calc a * (1 - (a + b)) ≤ a * (1 - a) :=
@@ -473,7 +473,7 @@ theorem mul_one_monus_add_eq_zero [SemiringWithMonus α] (h : exclusive α) (a b
 
 /-- The two-argument form is no stronger: exclusivity is its instance at
 `b = 𝟘`. -/
-theorem exclusive_of_mul_one_monus_add [SemiringWithMonus α]
+private theorem exclusive_of_mul_one_monus_add [SemiringWithMonus α]
     (h : ∀ a b : α, a * (1 - (a + b)) = 0) : exclusive α := by
   intro a
   simpa using h a 0
@@ -501,7 +501,7 @@ theorem add_one_monus_eq_one_of_absorptive [SemiringWithMonus α]
 /-- `𝟙` is join-irreducible whenever addition is idempotent and the natural
 order is total: the sum is then the join of a chain, hence one of its two
 arguments. -/
-theorem one_join_irreducible_of_total [SemiringWithMonus α] (hidem : idempotent α)
+private theorem one_join_irreducible_of_total [SemiringWithMonus α] (hidem : idempotent α)
     (htot : ∀ a b : α, a ≤ b ∨ b ≤ a) (a z : α) (h : a + z = 1) : a = 1 ∨ z = 1 := by
   rcases htot a z with hle | hle
   · right
@@ -512,7 +512,7 @@ theorem one_join_irreducible_of_total [SemiringWithMonus α] (hidem : idempotent
 /-- **Absorptivity and exclusivity together are restrictive.** If `𝟙` is
 join-irreducible – as it is in every absorptive m-semiring whose natural order
 is total – then an exclusive one has no element besides `𝟘` and `𝟙`. -/
-theorem eq_zero_or_one_of_exclusive_of_absorptive [SemiringWithMonus α]
+private theorem eq_zero_or_one_of_exclusive_of_absorptive [SemiringWithMonus α]
     (habs : absorptive α) (hirr : ∀ a z : α, a + z = 1 → a = 1 ∨ z = 1)
     (hexcl : exclusive α) (a : α) : a = 0 ∨ a = 1 := by
   rcases hirr a (1 - a) (add_one_monus_eq_one_of_absorptive habs a) with h | h
@@ -525,7 +525,7 @@ theorem eq_zero_or_one_of_exclusive_of_absorptive [SemiringWithMonus α]
 absorptive m-semiring with an element other than `𝟘` and `𝟙` is not
 exclusive. This one argument covers `Viterbi`, `MinMax`, `Lukasiewicz`,
 `Tropical` and `ChainFive`. -/
-theorem not_exclusive_of_absorptive_of_total [SemiringWithMonus α]
+private theorem not_exclusive_of_absorptive_of_total [SemiringWithMonus α]
     (habs : absorptive α) (htot : ∀ a b : α, a ≤ b ∨ b ≤ a)
     {a : α} (h0 : a ≠ 0) (h1 : a ≠ 1) : ¬ exclusive α := by
   intro hexcl
@@ -558,7 +558,7 @@ theorem natCast_pos_eq_one_of_idempotent {K : Type} [Semiring K] (h : idempotent
 Unlike `CharZero`, this does not require the natural-number cast to be injective:
 in an idempotent semiring every positive natural maps to `1`, but `1 ≠ 0` still
 suffices to give `CharP K 0`. -/
-theorem CharP.zero_of_idempotent {K : Type} [Semiring K] [Nontrivial K]
+private theorem CharP.zero_of_idempotent {K : Type} [Semiring K] [Nontrivial K]
   (h : idempotent K) : CharP K 0 := by
     refine ⟨fun x => ?_⟩
     rw [zero_dvd_iff]
@@ -643,7 +643,7 @@ theorem delta_absorb_indicator
 /-- **The support map is a legal `δ` wherever the casts are non-zero.**
 It is the greatest legal choice, the identity the least where it is
 available. -/
-theorem isLegalDelta_indicator {K : Type} [Semiring K] [PartialOrder K]
+private theorem isLegalDelta_indicator {K : Type} [Semiring K] [PartialOrder K]
     [IsOrderedAddMonoid K] [CanonicallyOrderedAdd K] [CharZero K]
     [Nontrivial K] {δ : K → K} (h : IsDeltaIndicator δ) :
     IsLegalDelta δ :=
@@ -673,12 +673,12 @@ structure IsDelta {K : Type} [Semiring K] (δ : K → K) : Prop where
 /-- The `δ` carried by a `SemiringWithMonus` is admissible, by definition of
 the class. In particular, in a semiring whose instance takes `δ := id` this
 gives `IsDelta id` for free. -/
-theorem isDelta_delta [K : SemiringWithMonus α] : IsDelta K.delta :=
+private theorem isDelta_delta [K : SemiringWithMonus α] : IsDelta K.delta :=
   ⟨K.delta_zero, K.delta_natCast_pos, K.delta_absorb⟩
 
 /-- To refute `δ := id`, exhibit a pair violating the lattice absorption law
 `a ⊗ (a ⊕ b) = a`, which is what `delta_absorb` demands of the identity. -/
-theorem not_isDelta_id_of_absorb_ne {K : Type} [Semiring K] {a b : K}
+private theorem not_isDelta_id_of_absorb_ne {K : Type} [Semiring K] {a b : K}
     (h : a * (a + b) ≠ a) : ¬ IsDelta (id : K → K) :=
   fun hd => h (by simpa using hd.absorb a b)
 
@@ -686,7 +686,7 @@ theorem not_isDelta_id_of_absorb_ne {K : Type} [Semiring K] {a b : K}
 `n = 2` reads `𝟙 ⊕ 𝟙 = 𝟙`, whence `a ⊕ a = a ⊗ (𝟙 ⊕ 𝟙) = a`. This is the
 crudest of the three obstructions, and the one that rules the identity out
 of the counting semirings (`ℕ`, `ℕ[X]`). -/
-theorem not_isDelta_id_of_not_idempotent {K : Type} [Semiring K]
+private theorem not_isDelta_id_of_not_idempotent {K : Type} [Semiring K]
     (h : ¬ idempotent K) : ¬ IsDelta (id : K → K) := by
   intro hd
   have h2 : (1 : K) + 1 = 1 := by
@@ -704,13 +704,13 @@ theorem not_isDelta_id_of_not_idempotent {K : Type} [Semiring K]
 idempotent: `delta_absorb` at `b = a` reads `a ⊗ (a ⊕ a) = a ⊗ a = a`. This is
 the obstruction in the absorptive semirings whose `⊗` is a genuine product
 (Viterbi, Łukasiewicz), where the two coarser tests below say nothing. -/
-theorem not_isDelta_id_of_not_mul_idempotent {K : Type} [Semiring K]
+private theorem not_isDelta_id_of_not_mul_idempotent {K : Type} [Semiring K]
     (hadd : idempotent K) (h : ¬ ∀ a : K, a * a = a) : ¬ IsDelta (id : K → K) :=
   fun hd => h (fun a => by simpa [hadd a] using hd.absorb a a)
 
 /-- `δ := id` requires absorptivity: `delta_absorb` at `a = 𝟙` reads
 `𝟙 ⊗ (𝟙 ⊕ b) = 𝟙`, i.e., `𝟙 ⊕ b = 𝟙`. -/
-theorem not_isDelta_id_of_not_absorptive {K : Type} [Semiring K]
+private theorem not_isDelta_id_of_not_absorptive {K : Type} [Semiring K]
     (h : ¬ absorptive K) : ¬ IsDelta (id : K → K) := by
   intro hd
   exact h (fun a => by simpa using hd.absorb 1 a)
@@ -774,7 +774,7 @@ axioms: the indicator witnessing `delta_exists_iff_charP_zero` satisfies
 question for a candidate δ is never one of existence – it is only about
 whether the *preferred* candidate, the identity, is among the admissible
 ones (`not_isDelta_id_of_*`). -/
-theorem isDelta_exists_of_natCast_axioms
+private theorem isDelta_exists_of_natCast_axioms
     {K : Type} [Semiring K] [PartialOrder K] [IsOrderedAddMonoid K]
     [CanonicallyOrderedAdd K] [Nontrivial K] {δ : K → K}
     (h0 : δ 0 = 0) (hpos : ∀ {n : ℕ}, 0 < n → δ ((n : K)) = 1) :
@@ -845,7 +845,7 @@ elementwise content of that characterization, stated without building the
 lattice structure. -/
 
 /-- A product is below each factor, in an absorptive semiring. -/
-theorem mul_le_right {α : Type} [CommSemiringWithMonus α]
+private theorem mul_le_right {α : Type} [CommSemiringWithMonus α]
     (hab : absorptive α) (a b : α) : a * b ≤ b :=
   le_iff_exists_add.mpr ⟨b, by
     calc b = b * (a + 1) := by rw [add_comm a 1, hab a, mul_one]
@@ -898,7 +898,7 @@ whole family at once: what one monus over everything a world leaves out
 becomes when the family is split into as many parts as there are
 occurrences. This is the form a *nested* world's annotation needs, where
 the absences come from two levels at once. -/
-theorem monus_multiset_sum {α : Type} [CommSemiringWithMonus α]
+private theorem monus_multiset_sum {α : Type} [CommSemiringWithMonus α]
     (hc : complemented α) :
     ∀ s : Multiset α, 1 - s.sum = (s.map (fun a => 1 - a)).prod := by
   intro s
@@ -929,7 +929,7 @@ CoeFun (SemiringWithMonusHom α β) (fun _ ↦ α → β) where
 
 /-- If ν is an injective m-semiring homomorphism from α to β,
   and β is idempotent, so is α. -/
-theorem idempotent_of_injective_homomorphism_idempotent
+private theorem idempotent_of_injective_homomorphism_idempotent
   [SemiringWithMonus α]
   [SemiringWithMonus β]
   (ν: SemiringWithMonusHom α β)
@@ -942,7 +942,7 @@ theorem idempotent_of_injective_homomorphism_idempotent
 
 /-- If ν is an m-semiring homomorphism from α onto β,
   and α is idempotent, so is β. -/
-theorem idempotent_of_surjective_homomorphism_idempotent
+private theorem idempotent_of_surjective_homomorphism_idempotent
   [SemiringWithMonus α]
   [SemiringWithMonus β]
   (ν: SemiringWithMonusHom α β)
@@ -956,7 +956,7 @@ theorem idempotent_of_surjective_homomorphism_idempotent
 
 /-- If ν is an injective m-semiring homomorphism from α to β,
   and β has left-distributivity of times over monus, so has α. -/
-theorem mul_sub_left_of_injective_homomorphism_mul_sub_left
+private theorem mul_sub_left_of_injective_homomorphism_mul_sub_left
    [SemiringWithMonus α]
    [SemiringWithMonus β]
    (ν: SemiringWithMonusHom α β)
@@ -969,7 +969,7 @@ theorem mul_sub_left_of_injective_homomorphism_mul_sub_left
 
 /-- If ν is an m-semiring homomorphism from α onto β,
   and α has left-distributivity of times over monus, so has β. -/
-theorem mul_sub_left_of_surjective_homomorphism_mul_sub_left
+private theorem mul_sub_left_of_surjective_homomorphism_mul_sub_left
   [SemiringWithMonus α]
   [SemiringWithMonus β]
   (ν: SemiringWithMonusHom α β)
@@ -985,7 +985,7 @@ theorem mul_sub_left_of_surjective_homomorphism_mul_sub_left
 
 /-- If ν is an injective m-semiring homomorphism from α to β,
   and β is exclusive, so is α. -/
-theorem exclusive_of_injective_homomorphism_exclusive
+private theorem exclusive_of_injective_homomorphism_exclusive
   [SemiringWithMonus α]
   [SemiringWithMonus β]
   (ν: SemiringWithMonusHom α β)
@@ -1005,7 +1005,7 @@ forced rather than independent: wherever every element of a semiring is the
 image of a variable under some homomorphism from `BoolFunc`, exclusivity
 follows from `BoolFunc.exclusive` and nothing else
 (`IntervalUnion.exclusive_of_boolFunc`). -/
-theorem mul_one_monus_self_eq_zero_of_range
+private theorem mul_one_monus_self_eq_zero_of_range
   [SemiringWithMonus α]
   [SemiringWithMonus β]
   (ν: SemiringWithMonusHom α β)
@@ -1020,7 +1020,7 @@ theorem mul_one_monus_self_eq_zero_of_range
 /-- If ν is an m-semiring homomorphism from α onto β,
   and α is exclusive, so is β. Exclusivity passes to quotients as idempotence
   and distributivity do, being likewise an equation. -/
-theorem exclusive_of_surjective_homomorphism_exclusive
+private theorem exclusive_of_surjective_homomorphism_exclusive
   [SemiringWithMonus α]
   [SemiringWithMonus β]
   (ν: SemiringWithMonusHom α β)

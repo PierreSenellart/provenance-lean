@@ -3,6 +3,8 @@ module
 public import Provenance.SemiringWithMonus
 public import Provenance.Semirings.BoolFunc
 import Mathlib.Tactic.Bound.Init
+import all Provenance.SemiringWithMonus
+import all Provenance.Semirings.BoolFunc
 
 /-!
 # Why-provenance m-semiring `Why[X]`
@@ -354,7 +356,7 @@ theorem Why.not_absorptive (hNotEmpty: ∃ (_: α), ⊤) : ¬(absorptive (Why α
 `δ`: `delta_absorb` at `a = 𝟙` is absorptivity, which Why[X] lacks. This is why
 the instance takes the support indicator rather than ProvSQL's historical
 witness-preserving `Why::delta`. -/
-theorem Why.not_isDelta_id (hNotEmpty : ∃ (_ : α), ⊤) :
+private theorem Why.not_isDelta_id (hNotEmpty : ∃ (_ : α), ⊤) :
     ¬ IsDelta (id : Why α → Why α) :=
   not_isDelta_id_of_not_absorptive (Why.not_absorptive hNotEmpty)
 
@@ -362,7 +364,7 @@ theorem Why.not_isDelta_id (hNotEmpty : ∃ (_ : α), ⊤) :
 a token `{{x}}` does not contain `∅`, so `𝟙 ⊖ {{x}} = 𝟙` and
 `{{x}} ⊗ 𝟙 = {{x}} ≠ 𝟘`. Why[X] is neither absorptive nor distributive, so
 this is a failure for reasons unrelated to the absorptive chains. -/
-theorem Why.not_exclusive [Inhabited α] : ¬ exclusive (Why α) := by
+private theorem Why.not_exclusive [Inhabited α] : ¬ exclusive (Why α) := by
   intro h
   have hsub : (1 : Why α) - ⟨{{default}}⟩ = 1 := by
     apply Why.ext
@@ -392,7 +394,7 @@ theorem Why.not_mul_sub_left_distributive [Inhabited α] :
 inhabited) sending the variables to arbitrary values: `Why α` is not
 absorptive (`Why.not_absorptive`), which contradicts `var i + 1 = 1` in
 `BoolFunc Y`. -/
-theorem Why.no_hom_from_BoolFunc {Y : Type} [Inhabited Y] [Inhabited α] :
+private theorem Why.no_hom_from_BoolFunc {Y : Type} [Inhabited Y] [Inhabited α] :
     ∃ ν : Y → Why α,
       ¬ ∃ φ : BoolFunc Y →+* Why α, ∀ i : Y, φ (BoolFunc.var i) = ν i :=
   BoolFunc.no_hom_of_not_absorptive (Why.not_absorptive ⟨default, trivial⟩)
@@ -410,7 +412,7 @@ idempotent, but without distributivity of `⊗` over `⊖`
 fused side keeps the witness, `⟨{{a}}⟩`, while on the join side the
 difference of the two `≥`-chains cancels it:
 `⟨{{a}}⟩ ⊖ ⟨{{a}}⟩ = 𝟘`. -/
-theorem Why.counterexample_having [Inhabited α] :
+private theorem Why.counterexample_having [Inhabited α] :
     ∃ t₁ t₂ t₃ : Why α,
       (t₁ * t₂) * (1 - t₃) + (t₁ * t₃) * (1 - t₂) + (t₂ * t₃) * (1 - t₁)
         ≠ (t₁ * t₂ + t₁ * t₃ + t₂ * t₃) - t₁ * t₂ * t₃ := by
@@ -456,7 +458,7 @@ where `a` does not hold the empty witness and `𝟘` where it does; the
 pairwise union of two copies of `{∅}` is `{∅}` and anything paired with
 `∅` is `∅`, so both sides are `𝟙` exactly when neither summand holds the
 empty witness. -/
-theorem Why.complemented : _root_.complemented (Why α) := by
+private theorem Why.complemented : _root_.complemented (Why α) := by
   intro a b
   ext w
   show w ∈ ({∅} : Set (Set α)) \ (a.carrier ∪ b.carrier)

@@ -9,6 +9,20 @@ public import Provenance.AggQueryProbability
 import Mathlib.Analysis.SpecialFunctions.Pow.NNReal
 import Provenance.AnnotatedChains
 import Provenance.AnnotatedEpsRow
+import all Provenance.AggQuery
+import all Provenance.AggQueryAdequacy
+import all Provenance.AggQueryProbability
+import all Provenance.AnnotatedBasis
+import all Provenance.AnnotatedBasisClass
+import all Provenance.AnnotatedChains
+import all Provenance.AnnotatedDiffRow
+import all Provenance.AnnotatedEpsRow
+import all Provenance.AnnotatedMuUnion
+import all Provenance.Database
+import all Provenance.PlainBasis
+import all Provenance.Probability
+import all Provenance.RecursionBasis
+import all Provenance.WinRow
 
 /-!
 # The necessity rows up to `≈`
@@ -60,7 +74,7 @@ variable {T : Type} [ValueType T]
 variable {X : Type} [Fintype X] [DecidableEq X] [HasAltLinearOrder (BoolFunc X)]
 
 omit [Fintype X] [DecidableEq X] [HasAltLinearOrder (BoolFunc X)] in
-theorem GenRow.specializeTuple_append {n₁ n₂ : ℕ}
+private theorem GenRow.specializeTuple_append {n₁ n₂ : ℕ}
     (u₁ : Tuple (GenValue T (BoolFunc X)) n₁)
     (u₂ : Tuple (GenValue T (BoolFunc X)) n₂) (v : X → Bool) :
     GenRow.specializeTuple v (Fin.append u₁ u₂)
@@ -72,14 +86,14 @@ theorem GenRow.specializeTuple_append {n₁ n₂ : ℕ}
   · rw [Fin.append_right, Fin.append_right]
 
 omit [Fintype X] [DecidableEq X] [HasAltLinearOrder (BoolFunc X)] in
-theorem genRandomWorld_zero' {n : ℕ} (v : X → Bool) :
+private theorem genRandomWorld_zero' {n : ℕ} (v : X → Bool) :
     genRandomWorld v (0 : Multiset (GenRow T (BoolFunc X) n)) = 0 := by
   unfold genRandomWorld; simp
 
 /-- **A query settling in the annotated semantics settles plainly on the
 world a valuation realizes**: its plain rounds are the realized worlds of
 its annotated ones (`AggQueryIn.genRandomWorld_evaluate_env`). -/
-theorem AggQueryIn.settlesAt_randomWorld_env :
+private theorem AggQueryIn.settlesAt_randomWorld_env :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l),
       q.noProvSum → q.hygienic → ∀ {ρc : Fin c → ColKind} {HK : HoleKinds},
       q.wellKinded ρc HK →
@@ -393,14 +407,14 @@ open Classical in
 noncomputable instance : HasAltLinearOrder BoolNone := ⟨linearOrderOfSTO WellOrderingRel⟩
 
 omit [ValueType T] in
-theorem AggQueryIn.noProvSum_of_usesOnly {S : Set OpKind} :
+private theorem AggQueryIn.noProvSum_of_usesOnly {S : Set OpKind} :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l),
       q.usesOnly S → q.noProvSum := by
   intro c n κ l q
   induction q <;> simp_all [AggQueryIn.usesOnly, AggQueryIn.noProvSum]
 
 omit [ValueType T] in
-theorem AnnotatedDatabase.randomWorld_liftOne {X : Type} (D : Database T) (v : X → Bool) :
+private theorem AnnotatedDatabase.randomWorld_liftOne {X : Type} (D : Database T) (v : X → Bool) :
     (D.liftOne (K := BoolFunc X)).randomWorld v = D := by
   unfold Database.liftOne AnnotatedDatabase.randomWorld
   rw [List.map_map]
@@ -413,7 +427,7 @@ theorem AnnotatedDatabase.randomWorld_liftOne {X : Type} (D : Database T) (v : X
     obtain ⟨u, -, rfl⟩ := Multiset.mem_map.1 hp; rfl), Multiset.map_map]
   exact Multiset.map_id' _
 
-theorem boolNone_ne_zero_iff (f : BoolNone) : f ≠ 0 ↔ f Empty.elim = true := by
+private theorem boolNone_ne_zero_iff (f : BoolNone) : f ≠ 0 ↔ f Empty.elim = true := by
   constructor
   · intro h
     by_contra hf
@@ -424,7 +438,7 @@ theorem boolNone_ne_zero_iff (f : BoolNone) : f ≠ 0 ↔ f Empty.elim = true :=
     rw [h0] at h
     exact Bool.false_ne_true h
 
-theorem zeroTuple_boolNone {n : ℕ} (u : Tuple (GenValue T BoolNone) n) :
+private theorem zeroTuple_boolNone {n : ℕ} (u : Tuple (GenValue T BoolNone) n) :
     GenRow.zeroTuple u = GenRow.specializeTuple Empty.elim u := by
   funext k
   unfold GenRow.zeroTuple GenRow.specializeTuple GenValue.specializeAt
@@ -442,7 +456,7 @@ theorem zeroTuple_boolNone {n : ℕ} (u : Tuple (GenValue T BoolNone) n) :
       exact ((boolNone_ne_zero_iff x).mp hx).symm
 
 /-- **Over `𝔹`, an evaluation up to `≈` is its realized world.** -/
-theorem zeroNorm_fst_boolNone {n : ℕ} (R : Multiset (GenRow T BoolNone n)) :
+private theorem zeroNorm_fst_boolNone {n : ℕ} (R : Multiset (GenRow T BoolNone n)) :
     (GenRow.zeroNorm R).map Prod.fst = genRandomWorld Empty.elim R := by
   unfold GenRow.zeroNorm genRandomWorld
   rw [Multiset.map_map]
@@ -494,52 +508,52 @@ section Rows
 variable {T : Type} [ValueType T]
 
 /-- `∅` is in every set generating the annotated algebra over `𝔹` up to `≈`. -/
-theorem empty_mem_of_generatesAnnZ {cnt : SeqAggFunc T} {S : Set OpKind}
+private theorem empty_mem_of_generatesAnnZ {cnt : SeqAggFunc T} {S : Set OpKind}
     (h : GeneratesAnnZ T BoolNone Schema.empty cnt S) : OpKind.empty ∈ S :=
   empty_mem_of_generatesAt (generatesAtNoExplode_of_generatesAnnZ h _
     AggQueryIn.liftFaithful_unit AggQueryIn.noExplode_unit AggQueryIn.wellKinded_unit).toGeneratesAt
 
 /-- `γ` is in every set generating the annotated algebra over `𝔹` up to `≈`. -/
-theorem gamma_mem_of_generatesAnnZ {sch : Schema} {cnt : SeqAggFunc T} {S : Set OpKind}
+private theorem gamma_mem_of_generatesAnnZ {sch : Schema} {cnt : SeqAggFunc T} {S : Set OpKind}
     (h : GeneratesAnnZ T BoolNone sch cnt S) : OpKind.gamma ∈ S :=
   gamma_mem_of_generatesAt (generatesAtNoExplode_of_generatesAnnZ h _
     AggQueryIn.liftFaithful_unit AggQueryIn.noExplode_unit AggQueryIn.wellKinded_unit).toGeneratesAt
 
 /-- `Π` is in every set generating the annotated algebra over `𝔹` up to `≈`. -/
-theorem proj_mem_of_generatesAnnZ {cnt : SeqAggFunc ℕ} {S : Set OpKind}
+private theorem proj_mem_of_generatesAnnZ {cnt : SeqAggFunc ℕ} {S : Set OpKind}
     (h : GeneratesAnnZ ℕ BoolNone schemaS cnt S) : OpKind.proj ∈ S :=
   proj_mem_of_generatesAt (generatesAtNoExplode_of_generatesAnnZ h _
     liftFaithful_projWitness noExplode_projWitness wellKinded_projWitness).toGeneratesAt
 
 /-- `×` or the apply is in every set generating the annotated algebra over
 `𝔹` up to `≈`. -/
-theorem prod_or_apply_mem_of_generatesAnnZ {cnt : SeqAggFunc ℕ} {S : Set OpKind}
+private theorem prod_or_apply_mem_of_generatesAnnZ {cnt : SeqAggFunc ℕ} {S : Set OpKind}
     (h : GeneratesAnnZ ℕ BoolNone schemaR cnt S) : OpKind.prod ∈ S ∨ OpKind.apply ∈ S :=
   prod_or_apply_mem_of_generatesAt (generatesAtNoExplode_of_generatesAnnZ h _
     liftFaithful_prodWitness noExplode_prodWitness wellKinded_prodWitness).toGeneratesAt
 
 /-- `μ^⊎` is in every set generating the annotated algebra over `𝔹` up to `≈`. -/
-theorem muBag_mem_of_generatesAnnZ {cnt : SeqAggFunc ℕ} (hcnt : cnt.ReadsCount)
+private theorem muBag_mem_of_generatesAnnZ {cnt : SeqAggFunc ℕ} (hcnt : cnt.ReadsCount)
     {S : Set OpKind} (h : GeneratesAnnZ ℕ BoolNone schemaSE cnt S) : OpKind.muBag ∈ S :=
   muBag_mem_of_generatesAt hcnt (generatesAtNoExplode_of_generatesAnnZ h _
     liftFaithful_chainWitness noExplode_chainWitness wellKinded_chainWitness).toGeneratesAt
 
 /-- `win` is in every set generating the annotated algebra over `𝔹` up to
 `≈`, with the counting aggregate. -/
-theorem win_mem_of_generatesAnnZ {S : Set OpKind}
+private theorem win_mem_of_generatesAnnZ {S : Set OpKind}
     (h : GeneratesAnnZ ℕ BoolNone schemaR SeqAggFunc.count S) : OpKind.win ∈ S :=
   win_mem_of_generatesAt (generatesAtNoExplode_of_generatesAnnZ h _
     liftFaithful_winWitness noExplode_winWitness wellKinded_winWitness).toGeneratesAt
 
 /-- `σ` is in every set generating the annotated algebra over `𝔹` up to `≈`. -/
-theorem sel_mem_of_generatesAnnZ {cnt : SeqAggFunc ℕ} {S : Set OpKind}
+private theorem sel_mem_of_generatesAnnZ {cnt : SeqAggFunc ℕ} {S : Set OpKind}
     (h : GeneratesAnnZ ℕ BoolNone schemaS cnt S) : OpKind.sel ∈ S :=
   sel_mem_of_generatesAtNoExplode (generatesAtNoExplode_of_generatesAnnZ h _
     liftFaithful_ltWitness noExplode_ltWitness wellKinded_ltWitness)
 
 /-- **`ε` or `μ^∪` is in every set generating the annotated algebra over `ℕ`
 up to `≈`**: the row annotated `2` that `ε(R)` gives is not one `≈` drops. -/
-theorem dedup_or_muSet_mem_of_generatesAnnZ {S : Set OpKind}
+private theorem dedup_or_muSet_mem_of_generatesAnnZ {S : Set OpKind}
     (h : GeneratesAnnZ ℕ ℕ schemaR SeqAggFunc.count S) :
     OpKind.dedup ∈ S ∨ OpKind.muSet ∈ S := by
   by_contra hS
@@ -557,7 +571,7 @@ theorem dedup_or_muSet_mem_of_generatesAnnZ {S : Set OpKind}
 
 /-- **`−` is in every set generating the annotated algebra over `ℕ × ℕ` up
 to `≈`.** -/
-theorem diff_mem_of_generatesAnnZ {cnt : SeqAggFunc ℕ} {S : Set OpKind}
+private theorem diff_mem_of_generatesAnnZ {cnt : SeqAggFunc ℕ} {S : Set OpKind}
     (h : GeneratesAnnZ ℕ NatPair schemaRS cnt S) : OpKind.diff ∈ S := by
   by_contra hS
   obtain ⟨q', -, hu', hi', ha', -, hm⟩ := h diffWitness overSchema_diffWitness
@@ -579,7 +593,7 @@ theorem diff_mem_of_generatesAnnZ {cnt : SeqAggFunc ℕ} {S : Set OpKind}
 
 /-- **`−` is in every set generating the annotated algebra over `ℕ[x, y]`
 up to `≈`.** -/
-theorem diff_mem_of_generatesAnnZ_xy {cnt : SeqAggFunc ℕ} {S : Set OpKind}
+private theorem diff_mem_of_generatesAnnZ_xy {cnt : SeqAggFunc ℕ} {S : Set OpKind}
     (h : GeneratesAnnZ ℕ PolyXY schemaRS cnt S) : OpKind.diff ∈ S := by
   by_contra hS
   obtain ⟨q', -, hu', hi', ha', -, hm⟩ := h diffWitness overSchema_diffWitness
@@ -606,7 +620,7 @@ end Rows
 
 /-! ## The basis up to `≈` -/
 
-theorem annBasisClass_boolNone : AnnBasisClass BoolNone := Or.inr fun _ => rfl
+private theorem annBasisClass_boolNone : AnnBasisClass BoolNone := Or.inr fun _ => rfl
 
 /-- **No proper subset of the nine classes generates the annotated algebra
 up to `≈` over every semiring of the class**, with the counting aggregate:
@@ -645,7 +659,7 @@ theorem annEpsOps_minimal_in_class_approx {S : Set OpKind} (hS : S ⊆ annEpsOps
 
 /-- Two evaluations agreeing row by row up to finalization agree up to `≈`:
 `≈` reads a row's columns and its finalized annotation only. -/
-theorem GenRow.zeroNorm_eq_of_fin {T : Type} [ValueType T] {K : Type} [CommSemiringWithMonus K]
+private theorem GenRow.zeroNorm_eq_of_fin {T : Type} [ValueType T] {K : Type} [CommSemiringWithMonus K]
     [DecidableEq K] {n : ℕ} {A B : Multiset (GenRow T K n)}
     (h : A.map GenRow.fin = B.map GenRow.fin) : GenRow.zeroNorm A = GenRow.zeroNorm B := by
   have hz : ∀ R : Multiset (GenRow T K n), GenRow.zeroNorm R

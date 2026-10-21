@@ -8,6 +8,12 @@ public import Provenance.Occurrence
 public import Provenance.AggExpr
 public import Provenance.OrderSpec
 import Mathlib.Tactic.Bound.Init
+import all Provenance.AggExpr
+import all Provenance.AggValue
+import all Provenance.Database
+import all Provenance.HavingSemantics
+import all Provenance.Occurrence
+import all Provenance.OrderSpec
 
 /-!
 # Window frames determined by values
@@ -45,7 +51,7 @@ def Tuple.key (is : Tuple (Fin n) p) (u : Tuple T n) : Tuple T p :=
 
 /-- Sorting and then keeping what a predicate accepts is sorting what it
 accepts: filtering does not disturb an order. -/
-theorem sortList_filter {α : Type} [LinearOrder α] (M : Multiset α)
+private theorem sortList_filter {α : Type} [LinearOrder α] (M : Multiset α)
     (c : α → Prop) [DecidablePred c] :
     (sortList M).filter (fun a => decide (c a)) = sortList (M.filter c) :=
   sortList_eq (List.Pairwise.filter _ (sortList_pairwise M))
@@ -60,7 +66,7 @@ def OccFam.ofSorted [LinearOrder α] (s : Multiset α) : OccFam α :=
   ⟨((s.foldr sortedInsert ⟨[], by simp⟩).val).length,
     fun i => ((s.foldr sortedInsert ⟨[], by simp⟩).val).get i⟩
 
-@[simp] theorem OccFam.toMultiset_ofSorted [LinearOrder α] (s : Multiset α) :
+@[simp] private theorem OccFam.toMultiset_ofSorted [LinearOrder α] (s : Multiset α) :
     (OccFam.ofSorted s).toMultiset = s := by
   have hlist : ∀ l : List α, (OccFam.mk l.length l.get).toMultiset
       = (l : Multiset α) := by
@@ -162,28 +168,28 @@ def holds : FrameCond T p → Tuple T p → Tuple T p → Bool
       if ValueType.isNull (ov k) then (o k).le (o' k) (ov k)
       else (o k).le (o' k) (shift (o k) pre a (ov k))
 
-@[simp] theorem holds_whole (o' ov : Tuple T p) :
+@[simp] private theorem holds_whole (o' ov : Tuple T p) :
     (FrameCond.whole : FrameCond T p).holds o' ov = true := rfl
 
-@[simp] theorem holds_le (o : OrderSpec p) (o' ov : Tuple T p) :
+@[simp] private theorem holds_le (o : OrderSpec p) (o' ov : Tuple T p) :
     (FrameCond.le o).holds o' ov = o.le o' ov := rfl
 
-@[simp] theorem holds_lt (o : OrderSpec p) (o' ov : Tuple T p) :
+@[simp] private theorem holds_lt (o : OrderSpec p) (o' ov : Tuple T p) :
     (FrameCond.lt o).holds o' ov = o.lt o' ov := rfl
 
-@[simp] theorem holds_ge (o : OrderSpec p) (o' ov : Tuple T p) :
+@[simp] private theorem holds_ge (o : OrderSpec p) (o' ov : Tuple T p) :
     (FrameCond.ge o).holds o' ov = o.le ov o' := rfl
 
-@[simp] theorem holds_gt (o : OrderSpec p) (o' ov : Tuple T p) :
+@[simp] private theorem holds_gt (o : OrderSpec p) (o' ov : Tuple T p) :
     (FrameCond.gt o).holds o' ov = o.lt ov o' := rfl
 
-@[simp] theorem holds_and (a b : FrameCond T p) (o' ov : Tuple T p) :
+@[simp] private theorem holds_and (a b : FrameCond T p) (o' ov : Tuple T p) :
     (FrameCond.and a b).holds o' ov = (a.holds o' ov && b.holds o' ov) := rfl
 
-@[simp] theorem holds_or (a b : FrameCond T p) (o' ov : Tuple T p) :
+@[simp] private theorem holds_or (a b : FrameCond T p) (o' ov : Tuple T p) :
     (FrameCond.or a b).holds o' ov = (a.holds o' ov || b.holds o' ov) := rfl
 
-@[simp] theorem holds_orAll {q : ℕ} (cs : Fin q → FrameCond T p)
+@[simp] private theorem holds_orAll {q : ℕ} (cs : Fin q → FrameCond T p)
     (o' ov : Tuple T p) :
     (FrameCond.orAll cs).holds o' ov
       = (List.finRange q).any (fun j => (cs j).holds o' ov) := rfl
@@ -192,7 +198,7 @@ omit [ValueType T] in
 /-- The current row's peer group: neither sorts before the other. -/
 def peers (o : OrderSpec p) : FrameCond T p := .and (.le o) (.ge o)
 
-@[simp] theorem holds_peers (o : OrderSpec p) (o' ov : Tuple T p) :
+@[simp] private theorem holds_peers (o : OrderSpec p) (o' ov : Tuple T p) :
     (FrameCond.peers o).holds o' ov = o.peer o' ov := rfl
 
 omit [ValueType T] in
@@ -202,7 +208,7 @@ occurrence is not a peer exactly when one of the two sorts strictly
 before the other. -/
 def notPeers (o : OrderSpec p) : FrameCond T p := .or (.lt o) (.gt o)
 
-theorem holds_notPeers (o : OrderSpec p) (o' ov : Tuple T p) :
+private theorem holds_notPeers (o : OrderSpec p) (o' ov : Tuple T p) :
     (FrameCond.notPeers o).holds o' ov = !o.peer o' ov := by
   show (o.lt o' ov || o.lt ov o') = !o.peer o' ov
   rw [OrderSpec.lt, OrderSpec.lt, OrderSpec.peer, Bool.not_and]
@@ -323,21 +329,21 @@ def ρ (w : ValueFrame T p) : Tuple T p → Tuple T p → Bool := w.cond.holds
 /-- Whether an occurrence with order value `o` is in its own frame. -/
 def s (w : ValueFrame T p) : Tuple T p → Bool := fun _ => w.self
 
-@[simp] theorem ρ_mk (c : FrameCond T p) (b : Bool) :
+@[simp] private theorem ρ_mk (c : FrameCond T p) (b : Bool) :
     (ValueFrame.mk c b : ValueFrame T p).ρ = FrameCond.holds c := rfl
 
 omit [ValueType T] in
-@[simp] theorem s_mk (c : FrameCond T p) (b : Bool) (o : Tuple T p) :
+@[simp] private theorem s_mk (c : FrameCond T p) (b : Bool) (o : Tuple T p) :
     (ValueFrame.mk c b : ValueFrame T p).s o = b := rfl
 
 omit [ValueType T] in
-theorem s_apply (w : ValueFrame T p) (o : Tuple T p) :
+private theorem s_apply (w : ValueFrame T p) (o : Tuple T p) :
     w.s o = w.self := rfl
 
 omit [ValueType T] in
-theorem s_eq (w : ValueFrame T p) : w.s = fun _ : Tuple T p => w.self := rfl
+private theorem s_eq (w : ValueFrame T p) : w.s = fun _ : Tuple T p => w.self := rfl
 
-theorem ρ_apply (w : ValueFrame T p) (o' o : Tuple T p) :
+private theorem ρ_apply (w : ValueFrame T p) (o' o : Tuple T p) :
     w.ρ o' o = w.cond.holds o' o := rfl
 
 /-- The frame *contains its current row exactly when it contains its peers*.
@@ -371,7 +377,7 @@ def frame {α : Type} (val : α → Tuple T n) (P : Tuple (Fin n) m)
 /-- Where the frame contains its current row exactly when it contains its
 peers, membership stops mentioning the occurrence at all: the `if` collapses,
 because an occurrence and itself have the same order value. -/
-theorem mem_of_containsSelf {α : Type} {val : α → Tuple T n}
+private theorem mem_of_containsSelf {α : Type} {val : α → Tuple T n}
     {P : Tuple (Fin n) m} {O : Tuple (Fin n) p}
     {w : ValueFrame T p} (h : w.ContainsSelf) (r : OccFam α)
     (i j : Fin r.size) :
@@ -392,7 +398,7 @@ The frames that fail `ContainsSelf` are exactly `EXCLUDE CURRENT ROW` and
 `EXCLUDE TIES`, and they are exactly the ones that do need them: each of two
 equal rows is then in the other's frame and not in its own, so the two get
 different aggregates from the same relation. -/
-theorem frame_eq_of_key_eq {α : Type} {val : α → Tuple T n}
+private theorem frame_eq_of_key_eq {α : Type} {val : α → Tuple T n}
     {P : Tuple (Fin n) m} {O : Tuple (Fin n) p}
     {w : ValueFrame T p} (h : w.ContainsSelf) (r : OccFam α)
     {i i' : Fin r.size} (hP : Tuple.key P (val (r.row i))
@@ -410,7 +416,7 @@ This is the only property of frames the annotated semantics uses, and it is
 what a positional frame lacks: whether an occurrence belongs to another's
 frame depends on the two order values and on whether they are the same
 occurrence, on nothing else that the absent rows could change. -/
-theorem frame_inter {α : Type} (val : α → Tuple T n) (P : Tuple (Fin n) m)
+private theorem frame_inter {α : Type} (val : α → Tuple T n) (P : Tuple (Fin n) m)
     (O : Tuple (Fin n) p)
     (w : ValueFrame T p) (r : OccFam α) (W : Finset (Fin r.size))
     (i : Fin r.size) :
@@ -454,7 +460,7 @@ def whole : ValueFrame T p := ⟨FrameCond.whole, true⟩
 /-- The whole partition contains its current row, so a window over it is
 read in the grouped convention – which is what makes the denominator of
 a distribution function a count over a non-empty family. -/
-theorem containsSelf_whole : (whole (T := T) (p := p)).ContainsSelf :=
+private theorem containsSelf_whole : (whole (T := T) (p := p)).ContainsSelf :=
   fun _ => rfl
 
 /-- `RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW` read against the
@@ -480,24 +486,24 @@ out, its peers left in. It is the modifier no relation on order values can
 express, which is why `s` is a field of its own. -/
 def excludeCurrent (w : ValueFrame T p) : ValueFrame T p := ⟨w.cond, false⟩
 
-@[simp] theorem whole_containsSelf : (whole : ValueFrame T p).ContainsSelf :=
+@[simp] private theorem whole_containsSelf : (whole : ValueFrame T p).ContainsSelf :=
   fun _ => rfl
 
 omit [ValueType T] in
-@[simp] theorem whole_containsCurrent : (whole : ValueFrame T p).ContainsCurrent :=
+@[simp] private theorem whole_containsCurrent : (whole : ValueFrame T p).ContainsCurrent :=
   fun _ => rfl
 
-@[simp] theorem upTo_containsSelf : (upTo : ValueFrame T p).ContainsSelf :=
+@[simp] private theorem upTo_containsSelf : (upTo : ValueFrame T p).ContainsSelf :=
   fun o => by simp [upTo]
 
 omit [ValueType T] in
-@[simp] theorem upTo_containsCurrent : (upTo : ValueFrame T p).ContainsCurrent :=
+@[simp] private theorem upTo_containsCurrent : (upTo : ValueFrame T p).ContainsCurrent :=
   fun _ => rfl
 
 /-- The rows strictly before are determined by the tuple even though the row
 is outside its own frame: its peers are outside too, so no occurrence needs
 telling from its twin. -/
-@[simp] theorem before_containsSelf : (before : ValueFrame T p).ContainsSelf :=
+@[simp] private theorem before_containsSelf : (before : ValueFrame T p).ContainsSelf :=
   fun o => by simp [before]
 
 /-- **`EXCLUDE CURRENT ROW` is exactly what occurrences are needed for.**
@@ -505,7 +511,7 @@ Excluding the current row from a frame that contained it leaves each of two
 equal rows in the other's frame and out of its own, so the two get different
 aggregates from the same relation – and a relation, which does not tell them
 apart, cannot say which gets which. -/
-theorem not_containsSelf_excludeCurrent {w : ValueFrame T p}
+private theorem not_containsSelf_excludeCurrent {w : ValueFrame T p}
     (h : ∃ o : Tuple T p, w.ρ o o = true) :
     ¬ (excludeCurrent w).ContainsSelf := by
   obtain ⟨o, ho⟩ := h
@@ -555,7 +561,7 @@ def frameSeqOnIn {α : Type} [LinearOrder α] (val : α → Tuple T n)
 
 /-- Reading it in the clause's order does not change which occurrences
 are in it. -/
-theorem frameSeqOnIn_perm {α : Type} [LinearOrder α] (val : α → Tuple T n)
+private theorem frameSeqOnIn_perm {α : Type} [LinearOrder α] (val : α → Tuple T n)
     (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
     (w : ValueFrame T p) (r : OccFam α) (W : Finset (Fin r.size))
     (i : Fin r.size) :
@@ -563,7 +569,7 @@ theorem frameSeqOnIn_perm {α : Type} [LinearOrder α] (val : α → Tuple T n)
   OrderSpec.sortSeq_perm _
 
 /-- It holds exactly the frame's present occurrences. -/
-theorem frameSeqIn_coe {α : Type} [LinearOrder α] (val : α → Tuple T n)
+private theorem frameSeqIn_coe {α : Type} [LinearOrder α] (val : α → Tuple T n)
     (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (w : ValueFrame T p)
     (r : OccFam α) (W : Finset (Fin r.size)) (i : Fin r.size) :
     (↑(frameSeqIn val P O w r W i) : Multiset α)
@@ -572,7 +578,7 @@ theorem frameSeqIn_coe {α : Type} [LinearOrder α] (val : α → Tuple T n)
 
 /-- Reading a frame in the clause's order does not change which occurrences
 are in it. -/
-theorem frameSeqOn_perm {α : Type} [LinearOrder α] (val : α → Tuple T n)
+private theorem frameSeqOn_perm {α : Type} [LinearOrder α] (val : α → Tuple T n)
     (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
     (w : ValueFrame T p) (r : OccFam α) (i : Fin r.size) :
     (frameSeqOn val P O o w r i).Perm (frameSeq val P O w r i) :=
@@ -588,7 +594,7 @@ instance annotatedTupleLinearOrder : LinearOrder (AnnotatedTuple T K n) :=
 
 /-- The canonical order on annotated tuples reads the tuple first, so it
 refines the order on tuples. -/
-theorem le_fst_of_le {a b : AnnotatedTuple T K n} (h : a ≤ b) :
+private theorem le_fst_of_le {a b : AnnotatedTuple T K n} (h : a ≤ b) :
     a.fst ≤ b.fst := by
   let _ : LinearOrder K := HasAltLinearOrder.altOrder
   exact Prod.Lex.monotone_fst a b h
@@ -624,14 +630,14 @@ theorem sorted_map_fst (s : Multiset (AnnotatedTuple T K n)) :
 
 /-- Sorting annotated tuples and projecting is sorting the tuples, in the
 `sortList` form. -/
-theorem sortList_map_fst (s : Multiset (AnnotatedTuple T K n)) :
+private theorem sortList_map_fst (s : Multiset (AnnotatedTuple T K n)) :
     List.map (α := AnnotatedTuple T K n) Prod.fst (sortList s)
       = sortList (Multiset.map (α := AnnotatedTuple T K n) Prod.fst s) :=
   sorted_map_fst s
 
 /-- The canonical indexing of a relation projects onto the canonical
 indexing of its plain reading: the same occurrences in the same order. -/
-theorem ofSorted_plain (s : Multiset (AnnotatedTuple T K n)) :
+private theorem ofSorted_plain (s : Multiset (AnnotatedTuple T K n)) :
     (OccFam.ofSorted s).plain
       = OccFam.ofSorted (Multiset.map (α := AnnotatedTuple T K n) Prod.fst s) := by
   refine OccFam.ext_cast ?_ (fun i => ?_) <;>
@@ -667,13 +673,13 @@ def tokenDist [AddCommMonoid K] {c : ℕ} (P : Tuple (Fin n) m)
   if dist then (token P O o w t f r i γ).mergeByValue
   else token P O o w t f r i γ
 
-@[simp] theorem tokenDist_false [AddCommMonoid K] {c : ℕ} (P : Tuple (Fin n) m)
+@[simp] private theorem tokenDist_false [AddCommMonoid K] {c : ℕ} (P : Tuple (Fin n) m)
     (O : Tuple (Fin n) p) (o : OrderSpec p) (w : ValueFrame T p)
     (t : TermIn T c n) (f : SeqAggFunc T)
     (r : OccFam (AnnotatedTuple T K n)) (i : Fin r.size) {γ : Fin c → T} :
     tokenDist P O o w t f false r i γ = token P O o w t f r i γ := rfl
 
-@[simp] theorem scalar_tokenDist [AddCommMonoid K] {c : ℕ}
+@[simp] private theorem scalar_tokenDist [AddCommMonoid K] {c : ℕ}
     (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
     (w : ValueFrame T p) (t : TermIn T c n) (f : SeqAggFunc T) (dist : Bool)
     (r : OccFam (AnnotatedTuple T K n)) (i : Fin r.size) {γ : Fin c → T} :
@@ -683,7 +689,7 @@ def tokenDist [AddCommMonoid K] {c : ℕ} (P : Tuple (Fin n) m)
   cases dist <;> rfl
 
 /-- A row inside its own frame reads its aggregate as a group's. -/
-@[simp] theorem token_scalar_of_mem {c : ℕ} (P : Tuple (Fin n) m)
+@[simp] private theorem token_scalar_of_mem {c : ℕ} (P : Tuple (Fin n) m)
     (O : Tuple (Fin n) p) (o : OrderSpec p) (w : ValueFrame T p)
     (t : TermIn T c n) (f : SeqAggFunc T)
     (r : OccFam (AnnotatedTuple T K n)) (i : Fin r.size) {γ : Fin c → T}
@@ -693,7 +699,7 @@ def tokenDist [AddCommMonoid K] {c : ℕ} (P : Tuple (Fin n) m)
 
 /-- A row outside its own frame reads it in the scalar convention: the frame
 may be empty in a world where the row is present. -/
-@[simp] theorem token_scalar_of_not_mem {c : ℕ} (P : Tuple (Fin n) m)
+@[simp] private theorem token_scalar_of_not_mem {c : ℕ} (P : Tuple (Fin n) m)
     (O : Tuple (Fin n) p) (o : OrderSpec p) (w : ValueFrame T p)
     (t : TermIn T c n)
     (f : SeqAggFunc T) (r : OccFam (AnnotatedTuple T K n)) (i : Fin r.size)
@@ -703,7 +709,7 @@ may be empty in a world where the row is present. -/
   simp [token, h]
 
 /-- Whichever convention it is read in, the token aggregates the frame. -/
-theorem token_occs {c : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
+private theorem token_occs {c : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
     (o : OrderSpec p) (w : ValueFrame T p) (t : TermIn T c n)
     (f : SeqAggFunc T)
     (r : OccFam (AnnotatedTuple T K n)) (i : Fin r.size) {γ : Fin c → T} :
@@ -715,14 +721,14 @@ theorem token_occs {c : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
 
 /-- An occurrence is in its own frame exactly when the frame contains the
 current row at that occurrence's order value. -/
-theorem self_mem_frame {α : Type} (val : α → Tuple T n) (P : Tuple (Fin n) m)
+private theorem self_mem_frame {α : Type} (val : α → Tuple T n) (P : Tuple (Fin n) m)
     (O : Tuple (Fin n) p) (w : ValueFrame T p) (r : OccFam α) (i : Fin r.size) :
     i ∈ frame val P O w r i ↔ w.s (Tuple.key O (val (r.row i))) = true := by
   unfold frame frameIn mem
   simp
 
 /-- The occurrence sequence of a frame holds exactly the frame's rows. -/
-theorem frameSeq_coe {α : Type} [LinearOrder α] (val : α → Tuple T n)
+private theorem frameSeq_coe {α : Type} [LinearOrder α] (val : α → Tuple T n)
     (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (w : ValueFrame T p)
     (r : OccFam α) (i : Fin r.size) :
     (↑(frameSeq val P O w r i) : Multiset α)
@@ -730,7 +736,7 @@ theorem frameSeq_coe {α : Type} [LinearOrder α] (val : α → Tuple T n)
   Having.foldr_sortedInsert_coe _
 
 /-- Whichever convention it is read in, the token aggregates with `f`. -/
-theorem token_agg {c : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
+private theorem token_agg {c : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
     (o : OrderSpec p) (w : ValueFrame T p) (t : TermIn T c n)
     (f : SeqAggFunc T)
     (r : OccFam (AnnotatedTuple T K n)) (i : Fin r.size) {γ : Fin c → T} :
@@ -765,7 +771,7 @@ def frameOf {α : Type} [LinearOrder α] (val : α → Tuple T n)
 
 /-- **The whole partition is the partition.** With `whole`, an occurrence's
 frame is every row sharing its partition key – its own row included, once. -/
-theorem frameOf_whole {α : Type} [LinearOrder α] (val : α → Tuple T n)
+private theorem frameOf_whole {α : Type} [LinearOrder α] (val : α → Tuple T n)
     (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (X : Multiset α) {x : α}
     (hx : x ∈ X) :
     frameOf val P O (whole : ValueFrame T p) X x
@@ -786,7 +792,7 @@ is what `ContainsSelf` says – so taking one copy out and putting it back
 leaves the selection as it was. Nothing then depends on the occurrence
 beyond its tuple, which is what lets two indexings of one relation, or
 two annotations of one tuple, be compared. -/
-theorem frameOf_of_containsSelf {α : Type} [LinearOrder α]
+private theorem frameOf_of_containsSelf {α : Type} [LinearOrder α]
     (val : α → Tuple T n) (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
     {w : ValueFrame T p} (hc : w.ContainsSelf) (X : Multiset α) {x : α}
     (hx : x ∈ X) :
@@ -810,7 +816,7 @@ theorem frameOf_of_containsSelf {α : Type} [LinearOrder α]
 /-- **Such a frame depends on the occurrence only through its tuple.**
 Two rows of the relation carrying the same tuple – two annotations of
 one tuple, say – have the same frame. -/
-theorem frameOf_congr_val {α : Type} [LinearOrder α] (val : α → Tuple T n)
+private theorem frameOf_congr_val {α : Type} [LinearOrder α] (val : α → Tuple T n)
     (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) {w : ValueFrame T p}
     (hc : w.ContainsSelf) (X : Multiset α) {x y : α} (hx : x ∈ X) (hy : y ∈ X)
     (hval : val x = val y) :
@@ -821,7 +827,7 @@ theorem frameOf_congr_val {α : Type} [LinearOrder α] (val : α → Tuple T n)
 /-- **A frame is carried along a map that keeps the values.** Changing the
 semiring, or forgetting the annotations, leaves every frame the image of the
 frame it came from: a frame reads the values and nothing else. -/
-theorem frameOf_map {α β : Type} [LinearOrder α] [LinearOrder β]
+private theorem frameOf_map {α β : Type} [LinearOrder α] [LinearOrder β]
     {valα : α → Tuple T n} {valβ : β → Tuple T n} (g : α → β)
     (hg : ∀ a, valβ (g a) = valα a) (P : Tuple (Fin n) m)
     (O : Tuple (Fin n) p) (w : ValueFrame T p) (X : Multiset α) {x : α}
@@ -869,7 +875,7 @@ theorem frameOf_map {α β : Type} [LinearOrder α] [LinearOrder β]
 relation to the rows a predicate keeps restricts every frame of a kept row
 to the rows it keeps. This is what lets a window be read world by world, and
 it is the only property of frames the annotated semantics uses. -/
-theorem frameOf_filter {α : Type} [LinearOrder α] (val : α → Tuple T n)
+private theorem frameOf_filter {α : Type} [LinearOrder α] (val : α → Tuple T n)
     (c : α → Prop) [DecidablePred c] (P : Tuple (Fin n) m)
     (O : Tuple (Fin n) p) (w : ValueFrame T p) (X : Multiset α) {x : α}
     (hx : c x) :
@@ -898,7 +904,7 @@ theorem frameOf_filter {α : Type} [LinearOrder α] (val : α → Tuple T n)
 /-- **A frame aggregates what the relation says it does.** The occurrence
 sequence of a frame holds exactly the rows `frameOf` names, so nothing an
 aggregate reads off a frame depends on the indexing. -/
-theorem frameSeq_coe_frameOf {α : Type} [LinearOrder α]
+private theorem frameSeq_coe_frameOf {α : Type} [LinearOrder α]
     (val : α → Tuple T n) (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
     (w : ValueFrame T p) (r : OccFam α) (i : Fin r.size) :
     (↑(frameSeq val P O w r i) : Multiset α)
@@ -974,7 +980,7 @@ sorted list of the rows `frameOf` names, so it depends on the relation and
 the row alone – not on which indexing of the relation was chosen, and not on
 which occurrence of an equal row the frame belongs to, beyond what `s`
 decides. -/
-theorem frameSeq_eq_sortList {α : Type} [LinearOrder α] (val : α → Tuple T n)
+private theorem frameSeq_eq_sortList {α : Type} [LinearOrder α] (val : α → Tuple T n)
     (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (w : ValueFrame T p)
     (r : OccFam α) (i : Fin r.size) :
     frameSeq val P O w r i = sortList (frameOf val P O w r.toMultiset (r.row i)) :=
@@ -987,7 +993,7 @@ def frameListOf {α : Type} [LinearOrder α] (val : α → Tuple T n)
     (w : ValueFrame T p) (X : Multiset α) (x : α) : List α :=
   OrderSpec.sortSeq (Tuple.key O) val o (sortList (frameOf val P O w X x))
 
-theorem frameSeqOn_eq_frameListOf {α : Type} [LinearOrder α]
+private theorem frameSeqOn_eq_frameListOf {α : Type} [LinearOrder α]
     (val : α → Tuple T n) (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
     (o : OrderSpec p) (w : ValueFrame T p) (r : OccFam α) (i : Fin r.size) :
     frameSeqOn val P O o w r i
@@ -1030,7 +1036,7 @@ def tokenOf {c : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
       (frameListOf (α := AnnotatedTuple T K n) Prod.fst P O o w X x) γ
 
 /-- A window's token is built in no family: the operator stamps one. -/
-@[simp] theorem tokenOf_fam {c : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
+@[simp] private theorem tokenOf_fam {c : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
     (o : OrderSpec p) (w : ValueFrame T p) (t : TermIn T c n) (f : SeqAggFunc T)
     (X : AnnotatedRelation T K n) (x : AnnotatedTuple T K n) (γ : Fin c → T) :
     (tokenOf P O o w t f X x γ).fam = FamId.none := by
@@ -1046,7 +1052,7 @@ def tokenOfDist [AddCommMonoid K] {c : ℕ} (P : Tuple (Fin n) m)
   if dist then (tokenOf P O o w t f X x γ).mergeByValue
   else tokenOf P O o w t f X x γ
 
-@[simp] theorem tokenOfDist_false [AddCommMonoid K] {c : ℕ}
+@[simp] private theorem tokenOfDist_false [AddCommMonoid K] {c : ℕ}
     (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
     (w : ValueFrame T p) (t : TermIn T c n) (f : SeqAggFunc T)
     (X : AnnotatedRelation T K n) (x : AnnotatedTuple T K n)
@@ -1054,7 +1060,7 @@ def tokenOfDist [AddCommMonoid K] {c : ℕ} (P : Tuple (Fin n) m)
     tokenOfDist P O o w t f false X x γ = tokenOf P O o w t f X x γ := rfl
 
 /-- An occurrence's token is the token its relation gives its row. -/
-theorem token_eq_tokenOf {c : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
+private theorem token_eq_tokenOf {c : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
     (o : OrderSpec p) (w : ValueFrame T p) (t : TermIn T c n)
     (f : SeqAggFunc T)
     (r : OccFam (AnnotatedTuple T K n)) (i : Fin r.size) {γ : Fin c → T} :
@@ -1126,7 +1132,7 @@ def exprWhenOf [AddCommMonoid K] {c : ℕ} (P : Tuple (Fin n) m)
       (frameListOf (α := AnnotatedTuple T K n) Prod.fst P O o w X x)
       (!w.s (Tuple.key O x.fst)) γ
 
-@[simp] theorem scalar_exprWhen [AddCommMonoid K] {c : ℕ} (P : Tuple (Fin n) m)
+@[simp] private theorem scalar_exprWhen [AddCommMonoid K] {c : ℕ} (P : Tuple (Fin n) m)
     (O : Tuple (Fin n) p) (o : OrderSpec p) (w : ValueFrame T p)
     (t : TermIn T c n) (f : SeqAggFunc T) (dist : Bool)
     (keep : Tuple T n → Bool) (r : OccFam (AnnotatedTuple T K n))
@@ -1139,7 +1145,7 @@ def exprWhenOf [AddCommMonoid K] {c : ℕ} (P : Tuple (Fin n) m)
 
 /-- **The leaf's group is the whole frame**, which is what makes the
 worlds the frame's and the clause a cut of the reading alone. -/
-@[simp] theorem inFrame_exprWhen [AddCommMonoid K] {c : ℕ}
+@[simp] private theorem inFrame_exprWhen [AddCommMonoid K] {c : ℕ}
     (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
     (w : ValueFrame T p) (t : TermIn T c n) (f : SeqAggFunc T) (dist : Bool)
     (keep : Tuple T n → Bool) (r : OccFam (AnnotatedTuple T K n))
@@ -1154,7 +1160,7 @@ worlds the frame's and the clause a cut of the reading alone. -/
 /-- **A filtered window's column is determined by the relation**: the
 frame is read off it and the clause reads the rows, neither of which the
 indexing moves. -/
-theorem exprWhen_eq_exprWhenOf [AddCommMonoid K] {c : ℕ} (P : Tuple (Fin n) m)
+private theorem exprWhen_eq_exprWhenOf [AddCommMonoid K] {c : ℕ} (P : Tuple (Fin n) m)
     (O : Tuple (Fin n) p) (o : OrderSpec p) (w : ValueFrame T p)
     (t : TermIn T c n) (f : SeqAggFunc T) (dist : Bool)
     (keep : Tuple T n → Bool) (r : OccFam (AnnotatedTuple T K n))
@@ -1167,7 +1173,7 @@ theorem exprWhen_eq_exprWhenOf [AddCommMonoid K] {c : ℕ} (P : Tuple (Fin n) m)
 /-- **The deterministic reading of a filtered window's column**: the
 aggregate over the rows of the frame the clause keeps, distinct where the
 `DISTINCT` flag says so – which is the plain filtered window value. -/
-theorem collapse_exprWhen [AddCommMonoid K] {c : ℕ} (P : Tuple (Fin n) m)
+private theorem collapse_exprWhen [AddCommMonoid K] {c : ℕ} (P : Tuple (Fin n) m)
     (O : Tuple (Fin n) p) (o : OrderSpec p) (w : ValueFrame T p)
     (t : TermIn T c n) (f : SeqAggFunc T) (dist : Bool)
     (keep : Tuple T n → Bool) (r : OccFam (AnnotatedTuple T K n))
@@ -1193,7 +1199,7 @@ def tokenOfDistWhen [AddCommMonoid K] {c : ℕ} (P : Tuple (Fin n) m)
   if dist then (tokenOfWhen P O o w t f keep X x γ).mergeByValue
   else tokenOfWhen P O o w t f keep X x γ
 
-@[simp] theorem scalar_tokenOfDistWhen [AddCommMonoid K] {c : ℕ}
+@[simp] private theorem scalar_tokenOfDistWhen [AddCommMonoid K] {c : ℕ}
     (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
     (w : ValueFrame T p) (t : TermIn T c n) (f : SeqAggFunc T) (dist : Bool)
     (keep : Tuple T n → Bool) (X : AnnotatedRelation T K n)
@@ -1205,7 +1211,7 @@ def tokenOfDistWhen [AddCommMonoid K] {c : ℕ} (P : Tuple (Fin n) m)
   · exact AggValue.scalar_mergeByValue _
 
 /-- Whichever convention it is read in, the token aggregates its frame. -/
-theorem tokenOf_occs {c : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
+private theorem tokenOf_occs {c : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
     (o : OrderSpec p) (w : ValueFrame T p) (t : TermIn T c n)
     (f : SeqAggFunc T)
     (X : AnnotatedRelation T K n) (x : AnnotatedTuple T K n)
@@ -1217,7 +1223,7 @@ theorem tokenOf_occs {c : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
   split <;> rfl
 
 /-- Whichever convention it is read in, the token aggregates with `f`. -/
-theorem tokenOf_agg {c : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
+private theorem tokenOf_agg {c : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
     (o : OrderSpec p) (w : ValueFrame T p) (t : TermIn T c n)
     (f : SeqAggFunc T)
     (X : AnnotatedRelation T K n) (x : AnnotatedTuple T K n)
@@ -1228,7 +1234,7 @@ theorem tokenOf_agg {c : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
 
 /-- The convention a token is read in is decided by whether the row is in
 its own frame. -/
-theorem tokenOf_scalar {c : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
+private theorem tokenOf_scalar {c : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
     (o : OrderSpec p) (w : ValueFrame T p) (t : TermIn T c n)
     (f : SeqAggFunc T)
     (X : AnnotatedRelation T K n) (x : AnnotatedTuple T K n)
@@ -1240,7 +1246,7 @@ theorem tokenOf_scalar {c : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
 /-- **A row in its own frame is one of its own token's occurrences**, and
 with its own annotation. That is what makes such a token guarded: in a world
 where the row exists, its aggregate ranges over at least that row. -/
-theorem self_mem_frameSeqOn (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
+private theorem self_mem_frameSeqOn (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
     (o : OrderSpec p) (w : ValueFrame T p)
     (r : OccFam (AnnotatedTuple T K n)) (i : Fin r.size)
     (h : w.s (Tuple.key O (r.row i).fst) = true) :
@@ -1249,7 +1255,7 @@ theorem self_mem_frameSeqOn (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
   rw [← Multiset.mem_coe, frameSeq_coe]
   exact Multiset.mem_map.mpr ⟨i, (self_mem_frame _ P O w r i).mpr h, rfl⟩
 
-theorem mem_token_occs {c : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
+private theorem mem_token_occs {c : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
     (o : OrderSpec p) (w : ValueFrame T p) (t : TermIn T c n)
     (f : SeqAggFunc T)
     (r : OccFam (AnnotatedTuple T K n)) (i : Fin r.size) {γ : Fin c → T}
@@ -1262,7 +1268,7 @@ theorem mem_token_occs {c : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
 omit [HasAltLinearOrder K] in
 /-- A frame does not read the annotations: an occurrence's frame in the
 plain reading of a family is its frame in the family. -/
-theorem frame_plain (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
+private theorem frame_plain (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
     (w : ValueFrame T p) (r : OccFam (AnnotatedTuple T K n)) (i : Fin r.size) :
     frame (α := Tuple T n) id P O w r.plain i
       = frame (α := AnnotatedTuple T K n) Prod.fst P O w r i := rfl
@@ -1270,7 +1276,7 @@ theorem frame_plain (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
 /-- **A frame's occurrence sequence projects onto the plain one.** The
 sequence is built by sorting, and sorting annotated tuples then projecting is
 sorting the tuples. -/
-theorem frameSeq_plain (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
+private theorem frameSeq_plain (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
     (w : ValueFrame T p) (r : OccFam (AnnotatedTuple T K n)) (i : Fin r.size) :
     List.map (α := AnnotatedTuple T K n) Prod.fst
         (frameSeq (α := AnnotatedTuple T K n) Prod.fst P O w r i)
@@ -1283,7 +1289,7 @@ omit [HasAltLinearOrder K] in
 /-- **The clause's order survives a change of semiring.** Pushing a map
 through the annotations does not move an occurrence, the clause reading only
 the rows. -/
-theorem sortSeq_mapAnn {K' : Type} (O : Tuple (Fin n) p) (o : OrderSpec p)
+private theorem sortSeq_mapAnn {K' : Type} (O : Tuple (Fin n) p) (o : OrderSpec p)
     (g : K → K') (L : List (AnnotatedTuple T K n)) :
     List.map (fun q : AnnotatedTuple T K n =>
         ((q.fst, g q.snd) : AnnotatedTuple T K' n))
@@ -1303,7 +1309,7 @@ omit [HasAltLinearOrder K] in
 /-- **Reading annotated occurrences in the clause's order and projecting to
 their rows is reading the rows in that order.** The clause looks only at the
 rows, so the annotations never enter the comparison. -/
-theorem sortSeq_map_fst (O : Tuple (Fin n) p) (o : OrderSpec p)
+private theorem sortSeq_map_fst (O : Tuple (Fin n) p) (o : OrderSpec p)
     (L : List (AnnotatedTuple T K n)) :
     List.map (α := AnnotatedTuple T K n) Prod.fst
         (OrderSpec.sortSeq (Tuple.key O) Prod.fst o L)
@@ -1316,7 +1322,7 @@ theorem sortSeq_map_fst (O : Tuple (Fin n) p) (o : OrderSpec p)
     (Prod.fst : AnnotatedTuple T K n → Tuple T n) L
     (fun _ _ _ _ => Iff.rfl)
 
-theorem frameSeqOn_plain (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
+private theorem frameSeqOn_plain (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
     (o : OrderSpec p) (w : ValueFrame T p)
     (r : OccFam (AnnotatedTuple T K n)) (i : Fin r.size) :
     List.map (α := AnnotatedTuple T K n) Prod.fst
@@ -1367,7 +1373,7 @@ theorem collapse_tokenDist [AddCommMonoid K] {c : ℕ} (P : Tuple (Fin n) m)
 /-- **A frame read off the relation, projected to its rows**: the frame
 of the plain relation. The frame is determined by values, so forgetting
 the annotations does not move it. -/
-theorem frameListOf_map_fst (P : Tuple (Fin n) m)
+private theorem frameListOf_map_fst (P : Tuple (Fin n) m)
     (O : Tuple (Fin n) p) (o : OrderSpec p) (w : ValueFrame T p)
     (X : Multiset (AnnotatedTuple T K n)) (x : AnnotatedTuple T K n)
     (hmem : x ∈ X) :
@@ -1402,7 +1408,7 @@ theorem frameListOf_map_fst (P : Tuple (Fin n) m)
 /-- **What a token read off the relation holds**: the term's values over
 the frame of the *plain* relation, which is what the plain evaluator
 reads for that row. -/
-theorem tokenOf_occs_map_fst_row {c : ℕ} (P : Tuple (Fin n) m)
+private theorem tokenOf_occs_map_fst_row {c : ℕ} (P : Tuple (Fin n) m)
     (O : Tuple (Fin n) p) (o : OrderSpec p) (w : ValueFrame T p)
     (t : TermIn T c n) (f : SeqAggFunc T)
     (r : OccFam (AnnotatedTuple T K n)) (i : Fin r.size) {γ : Fin c → T} :
@@ -1427,7 +1433,7 @@ theorem tokenOf_occs_map_fst_row {c : ℕ} (P : Tuple (Fin n) m)
   rfl
 
 /-- The same for a row of the relation. -/
-theorem tokenOf_occs_map_fst {c : ℕ} (P : Tuple (Fin n) m)
+private theorem tokenOf_occs_map_fst {c : ℕ} (P : Tuple (Fin n) m)
     (O : Tuple (Fin n) p) (o : OrderSpec p) (w : ValueFrame T p)
     (t : TermIn T c n) (f : SeqAggFunc T)
     (X : Multiset (AnnotatedTuple T K n)) (x : AnnotatedTuple T K n)
@@ -1452,7 +1458,7 @@ aggregate over the frame of the plain relation, which is what the plain
 evaluator computes for that row. It is the relation-level counterpart of
 `collapse_token`, and it is what the data-part adequacy of a window rests
 on. -/
-theorem collapse_tokenOf {c : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
+private theorem collapse_tokenOf {c : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
     (o : OrderSpec p) (w : ValueFrame T p) (t : TermIn T c n)
     (f : SeqAggFunc T) (X : Multiset (AnnotatedTuple T K n))
     (x : AnnotatedTuple T K n) (hmem : x ∈ X) {γ : Fin c → T} :
@@ -1465,7 +1471,7 @@ theorem collapse_tokenOf {c : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
 
 /-- **With `DISTINCT`**: the classes are merged only afterwards, so the
 deterministic reading is the distinct aggregate of the frame. -/
-theorem collapse_tokenOfDist [AddCommMonoid K] {c : ℕ} (P : Tuple (Fin n) m)
+private theorem collapse_tokenOfDist [AddCommMonoid K] {c : ℕ} (P : Tuple (Fin n) m)
     (O : Tuple (Fin n) p) (o : OrderSpec p) (w : ValueFrame T p)
     (t : TermIn T c n) (f : SeqAggFunc T) (dist : Bool)
     (X : Multiset (AnnotatedTuple T K n)) (x : AnnotatedTuple T K n)
@@ -1484,7 +1490,7 @@ theorem collapse_tokenOfDist [AddCommMonoid K] {c : ℕ} (P : Tuple (Fin n) m)
 
 /-- **And under a `FILTER` clause**, whose column is an expression: its
 reading is the aggregate over the part of the frame the clause keeps. -/
-theorem collapse_exprWhenOf [AddCommMonoid K] {c : ℕ} (P : Tuple (Fin n) m)
+private theorem collapse_exprWhenOf [AddCommMonoid K] {c : ℕ} (P : Tuple (Fin n) m)
     (O : Tuple (Fin n) p) (o : OrderSpec p) (w : ValueFrame T p)
     (t : TermIn T c n) (f : SeqAggFunc T) (dist : Bool)
     (keep : Tuple T n → Bool) (X : Multiset (AnnotatedTuple T K n))
@@ -1541,32 +1547,32 @@ row itself left in. -/
 def excludeTies (o : OrderSpec p) (w : ValueFrame T p) : ValueFrame T p :=
   ⟨FrameCond.and w.cond (FrameCond.notPeers o), w.self⟩
 
-@[simp] theorem rangeUpTo_containsSelf (o : OrderSpec p) :
+@[simp] private theorem rangeUpTo_containsSelf (o : OrderSpec p) :
     (rangeUpTo o : ValueFrame T p).ContainsSelf := fun ov => by
   simp [rangeUpTo]
 
 omit [ValueType T] in
-@[simp] theorem rangeUpTo_containsCurrent (o : OrderSpec p) :
+@[simp] private theorem rangeUpTo_containsCurrent (o : OrderSpec p) :
     (rangeUpTo o : ValueFrame T p).ContainsCurrent := fun _ => rfl
 
 /-- The rows strictly before are determined by the tuple even though the row
 is outside its own frame: its peers are outside too, so no occurrence needs
 telling from its twin. -/
-@[simp] theorem rangeBefore_containsSelf (o : OrderSpec p) :
+@[simp] private theorem rangeBefore_containsSelf (o : OrderSpec p) :
     (rangeBefore o : ValueFrame T p).ContainsSelf := fun ov => by
   simp [rangeBefore]
 
-@[simp] theorem rangeFrom_containsSelf (o : OrderSpec p) :
+@[simp] private theorem rangeFrom_containsSelf (o : OrderSpec p) :
     (rangeFrom o : ValueFrame T p).ContainsSelf := fun ov => by
   simp [rangeFrom]
 
 omit [ValueType T] in
-@[simp] theorem rangeFrom_containsCurrent (o : OrderSpec p) :
+@[simp] private theorem rangeFrom_containsCurrent (o : OrderSpec p) :
     (rangeFrom o : ValueFrame T p).ContainsCurrent := fun _ => rfl
 
 /-- The rows strictly after are determined by the tuple, for the reason the
 rows strictly before are: the peers are outside the frame too. -/
-@[simp] theorem rangeAfter_containsSelf (o : OrderSpec p) :
+@[simp] private theorem rangeAfter_containsSelf (o : OrderSpec p) :
     (rangeAfter o : ValueFrame T p).ContainsSelf := fun ov => by
   simp [rangeAfter]
 
@@ -1619,55 +1625,55 @@ elab "sql_frame%" : term <= ty => do
 
 
 omit [ValueType T] in
-theorem isSQL_whole (o : OrderSpec p) : (whole : ValueFrame T p).IsSQL o :=
+private theorem isSQL_whole (o : OrderSpec p) : (whole : ValueFrame T p).IsSQL o :=
   Or.inl (.noOthers .whole)
 
 omit [ValueType T] in
-theorem isSQL_rangeUpTo (o : OrderSpec p) : (rangeUpTo o : ValueFrame T p).IsSQL o :=
+private theorem isSQL_rangeUpTo (o : OrderSpec p) : (rangeUpTo o : ValueFrame T p).IsSQL o :=
   Or.inl (.noOthers .upTo)
 
 omit [ValueType T] in
-theorem isSQL_rangeFrom (o : OrderSpec p) : (rangeFrom o : ValueFrame T p).IsSQL o :=
+private theorem isSQL_rangeFrom (o : OrderSpec p) : (rangeFrom o : ValueFrame T p).IsSQL o :=
   Or.inl (.noOthers .from_)
 
 omit [ValueType T] in
-theorem isSQL_peerGroup (o : OrderSpec p) : (peerGroup o : ValueFrame T p).IsSQL o :=
+private theorem isSQL_peerGroup (o : OrderSpec p) : (peerGroup o : ValueFrame T p).IsSQL o :=
   Or.inl (.noOthers .peers)
 
 omit [ValueType T] in
-theorem isSQL_rangeBefore (o : OrderSpec p) :
+private theorem isSQL_rangeBefore (o : OrderSpec p) :
     (rangeBefore o : ValueFrame T p).IsSQL o :=
   Or.inl (.before)
 
 omit [ValueType T] in
-theorem isSQL_rangeAfter (o : OrderSpec p) : (rangeAfter o : ValueFrame T p).IsSQL o :=
+private theorem isSQL_rangeAfter (o : OrderSpec p) : (rangeAfter o : ValueFrame T p).IsSQL o :=
   Or.inl (.after)
 
 omit [ValueType T] in
 /-- The frames up to the current row and strictly before it, under the
 all-ascending clause. -/
-theorem isSQL_upTo : (upTo : ValueFrame T p).IsSQL (OrderSpec.asc p) :=
+private theorem isSQL_upTo : (upTo : ValueFrame T p).IsSQL (OrderSpec.asc p) :=
   Or.inl (.noOthers .upTo)
 
 omit [ValueType T] in
-theorem isSQL_before : (before : ValueFrame T p).IsSQL (OrderSpec.asc p) :=
+private theorem isSQL_before : (before : ValueFrame T p).IsSQL (OrderSpec.asc p) :=
   Or.inl (.before)
 
 omit [ValueType T] in
 /-- `EXCLUDE CURRENT ROW` of a frame with no modifier. -/
-theorem isSQL_excludeCurrent {o : OrderSpec p} {c : FrameCond T p} (h : c.SqlBase o) :
+private theorem isSQL_excludeCurrent {o : OrderSpec p} {c : FrameCond T p} (h : c.SqlBase o) :
     (excludeCurrent ⟨c, true⟩ : ValueFrame T p).IsSQL o :=
   Or.inl (.current h)
 
 omit [ValueType T] in
 /-- `EXCLUDE GROUP` of a frame with no modifier. -/
-theorem isSQL_excludeGroup {o : OrderSpec p} {c : FrameCond T p} {b : Bool}
+private theorem isSQL_excludeGroup {o : OrderSpec p} {c : FrameCond T p} {b : Bool}
     (h : c.SqlBase o) : (excludeGroup o ⟨c, b⟩ : ValueFrame T p).IsSQL o :=
   Or.inl (.group h)
 
 omit [ValueType T] in
 /-- `EXCLUDE TIES` of a frame with no modifier. -/
-theorem isSQL_excludeTies {o : OrderSpec p} {c : FrameCond T p}
+private theorem isSQL_excludeTies {o : OrderSpec p} {c : FrameCond T p}
     (h : c.SqlBase o) : (excludeTies o ⟨c, true⟩ : ValueFrame T p).IsSQL o :=
   Or.inl (.ties h)
 
@@ -1675,29 +1681,29 @@ theorem isSQL_excludeTies {o : OrderSpec p} {c : FrameCond T p}
 the rows from it on, and the rows before into the rows after. The two
 frames are different *conditions* – `o.reverse` at or before, against `o`
 at or after – and this says they hold of the same occurrences. -/
-@[simp] theorem rangeUpTo_reverse (o : OrderSpec p) :
+@[simp] private theorem rangeUpTo_reverse (o : OrderSpec p) :
     (rangeUpTo o.reverse : ValueFrame T p).ρ = (rangeFrom o : ValueFrame T p).ρ := by
   unfold rangeUpTo rangeFrom
   exact funext fun a => funext fun b => by simp
 
-@[simp] theorem rangeBefore_reverse (o : OrderSpec p) :
+@[simp] private theorem rangeBefore_reverse (o : OrderSpec p) :
     (rangeBefore o.reverse : ValueFrame T p).ρ
       = (rangeAfter o : ValueFrame T p).ρ := by
   unfold rangeBefore rangeAfter
   exact funext fun a => funext fun b => by simp
 
-@[simp] theorem peerGroup_containsSelf (o : OrderSpec p) :
+@[simp] private theorem peerGroup_containsSelf (o : OrderSpec p) :
     (peerGroup o : ValueFrame T p).ContainsSelf := fun ov => by
   simp [peerGroup]
 
 omit [ValueType T] in
-@[simp] theorem peerGroup_containsCurrent (o : OrderSpec p) :
+@[simp] private theorem peerGroup_containsCurrent (o : OrderSpec p) :
     (peerGroup o : ValueFrame T p).ContainsCurrent := fun _ => rfl
 
 /-- **`EXCLUDE GROUP` keeps a frame readable off the relation**: it drops the
 current row together with its peers, so two equal rows are dropped from each
 other's frame as well as from their own. -/
-@[simp] theorem excludeGroup_containsSelf (o : OrderSpec p)
+@[simp] private theorem excludeGroup_containsSelf (o : OrderSpec p)
     (w : ValueFrame T p) : (excludeGroup o w : ValueFrame T p).ContainsSelf :=
   fun ov => by simp [excludeGroup, FrameCond.holds_notPeers]
 
@@ -1705,7 +1711,7 @@ other's frame as well as from their own. -/
 ROW`: it leaves each of two equal rows in the other's frame and out of its
 own, so the two take different values from one relation – which, not telling
 them apart, cannot say which takes which. -/
-theorem not_containsSelf_excludeTies (o : OrderSpec p) {w : ValueFrame T p}
+private theorem not_containsSelf_excludeTies (o : OrderSpec p) {w : ValueFrame T p}
     (h : w.ContainsCurrent) :
     ¬ (excludeTies o w : ValueFrame T p).ContainsSelf := by
   intro hc
@@ -1718,12 +1724,12 @@ omit [ValueType T] in
 all-ascending clause is `ValueFrame.upTo`, which is how that frame is
 defined: a frame names a condition, and the condition the
 domain's own order states is the all-ascending clause's. -/
-theorem rangeUpTo_asc :
+private theorem rangeUpTo_asc :
     (rangeUpTo (OrderSpec.asc p) : ValueFrame T p) = ValueFrame.upTo := rfl
 
 omit [ValueType T] in
 /-- And the rows strictly before are `ValueFrame.before`. -/
-theorem rangeBefore_asc :
+private theorem rangeBefore_asc :
     (rangeBefore (OrderSpec.asc p) : ValueFrame T p) = ValueFrame.before := rfl
 
 
@@ -1758,7 +1764,7 @@ def unionFrame (ws : Fin q → ValueFrame T p) : ValueFrame T p where
 omit [HasAltLinearOrder K] in
 /-- **The union of frames that contain their current row does too**: both
 sides of `ContainsSelf` are the disjunction over the leaves. -/
-theorem containsSelf_unionFrame {ws : Fin q → ValueFrame T p}
+private theorem containsSelf_unionFrame {ws : Fin q → ValueFrame T p}
     (h : ∀ l, (ws l).ContainsSelf) : (unionFrame ws).ContainsSelf := by
   intro a
   show (List.finRange q).any (fun j => (ws j).s a)
@@ -1767,7 +1773,7 @@ theorem containsSelf_unionFrame {ws : Fin q → ValueFrame T p}
 
 /-- An occurrence is in the union of the frames exactly when it is in one
 of them. -/
-theorem mem_unionFrame {α : Type} (val : α → Tuple T n) (P : Tuple (Fin n) m)
+private theorem mem_unionFrame {α : Type} (val : α → Tuple T n) (P : Tuple (Fin n) m)
     (O : Tuple (Fin n) p) (ws : Fin q → ValueFrame T p)
     (r : OccFam α) (i j : Fin r.size) :
     mem val P O (unionFrame ws) r i j = true
@@ -1787,7 +1793,7 @@ def exprIdx {α : Type} [LinearOrder α] (val : α → Tuple T n)
     (OccFam.mk r.size id) (Fin.cast (by simp) i)
 
 /-- Every index the leaves read is in the union of the frames. -/
-theorem mem_exprIdx {α : Type} [LinearOrder α] (val : α → Tuple T n)
+private theorem mem_exprIdx {α : Type} [LinearOrder α] (val : α → Tuple T n)
     (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
     (ws : Fin q → ValueFrame T p) (r : OccFam α) (i : Fin r.size)
     {j : Fin r.size} (hj : j ∈ exprIdx val P O o ws r i) :
@@ -1857,7 +1863,7 @@ def exprOfValsWhen (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
 
 /-- **No clause is the unfiltered expression**, so everything proved of
 `exprOfVals` applies to a window whose leaves carry none. -/
-@[simp] theorem exprOfValsWhen_none (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
+@[simp] private theorem exprOfValsWhen_none (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
     (o : OrderSpec p) (ws : Fin q → ValueFrame T p)
     (r : OccFam (AnnotatedTuple T K n)) (i : Fin r.size)
     (vals : Fin q → Fin r.size → T) (fs : Fin q → SeqAggFunc T)
@@ -1893,7 +1899,7 @@ def exprOfWhen {c : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
 /-- **No clause is the unfiltered window**, so every result proved of
 `exprOf` – its collapse, its displacement, its specialization – applies
 unchanged to a window whose leaves carry none. -/
-@[simp] theorem exprOfWhen_none {c : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
+@[simp] private theorem exprOfWhen_none {c : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
     (o : OrderSpec p) (ws : Fin q → ValueFrame T p)
     (ts : Fin q → TermIn T c n) (fs : Fin q → SeqAggFunc T)
     (g : (Fin q → T) → T) (r : OccFam (AnnotatedTuple T K n))
@@ -1906,7 +1912,7 @@ unchanged to a window whose leaves carry none. -/
 cut out**: the values of its own frame's occurrences that `keep` keeps.
 With the leaf flags in the occurrences this is a `List.filter` of the
 index sequence and nothing is transported. -/
-theorem leafSeq_exprOf_keep {c : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
+private theorem leafSeq_exprOf_keep {c : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
     (o : OrderSpec p) (ws : Fin q → ValueFrame T p)
     (ts : Fin q → TermIn T c n) (fs : Fin q → SeqAggFunc T)
     (g : (Fin q → T) → T) (r : OccFam (AnnotatedTuple T K n))
@@ -1938,7 +1944,7 @@ theorem leafSeq_exprOf_keep {c : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p
     (List.filter_congr (fun j _ => congrArg₂ (· && ·) (Bool.and_true _) rfl))
 
 /-- The full world is the case that keeps every occurrence. -/
-theorem leafSeq_exprOf {c : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
+private theorem leafSeq_exprOf {c : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
     (o : OrderSpec p) (ws : Fin q → ValueFrame T p)
     (ts : Fin q → TermIn T c n) (fs : Fin q → SeqAggFunc T)
     (g : (Fin q → T) → T) (r : OccFam (AnnotatedTuple T K n))
@@ -1959,7 +1965,7 @@ theorem leafSeq_exprOf {c : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
 /-- **What one leaf of a filtered window reads in a world the annotations
 cut out**: its own frame's occurrences that its clause keeps and the
 world holds. -/
-theorem leafSeq_exprOfWhen_keep {c : ℕ} (P : Tuple (Fin n) m)
+private theorem leafSeq_exprOfWhen_keep {c : ℕ} (P : Tuple (Fin n) m)
     (O : Tuple (Fin n) p) (o : OrderSpec p) (ws : Fin q → ValueFrame T p)
     (ts : Fin q → TermIn T c n) (fs : Fin q → SeqAggFunc T)
     (g : (Fin q → T) → T) (keeps : Fin q → Option (Selection T n))
@@ -1997,7 +2003,7 @@ theorem leafSeq_exprOfWhen_keep {c : ℕ} (P : Tuple (Fin n) m)
 
 /-- **What one leaf of a filtered window reads**: its own frame's
 occurrences among the family, among those its own clause keeps. -/
-theorem leafSeq_exprOfWhen {c : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
+private theorem leafSeq_exprOfWhen {c : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
     (o : OrderSpec p) (ws : Fin q → ValueFrame T p)
     (ts : Fin q → TermIn T c n) (fs : Fin q → SeqAggFunc T)
     (g : (Fin q → T) → T) (keeps : Fin q → Option (Selection T n))
@@ -2025,7 +2031,7 @@ theorem leafSeq_exprOfWhen {c : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
 
 /-- The indices one leaf reads out of the shared family are exactly its
 own frame's. -/
-theorem exprIdx_filter_coe (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
+private theorem exprIdx_filter_coe (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
     (o : OrderSpec p) (ws : Fin q → ValueFrame T p)
     (r : OccFam (AnnotatedTuple T K n)) (i : Fin r.size) (l : Fin q) :
     (↑((exprIdx (α := AnnotatedTuple T K n) Prod.fst P O o ws r i).filter
@@ -2056,7 +2062,7 @@ theorem exprIdx_filter_coe (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
 
 /-- Selecting occurrences from the family leaves the rows sorted by the
 clause. -/
-theorem exprIdx_filter_rows_pairwise {α : Type} [LinearOrder α]
+private theorem exprIdx_filter_rows_pairwise {α : Type} [LinearOrder α]
     (val : α → Tuple T n) (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
     (o : OrderSpec p) (ws : Fin q → ValueFrame T p) (r : OccFam α)
     (i : Fin r.size) (pp : Fin r.size → Bool) :
@@ -2074,7 +2080,7 @@ index and the plain frame by row, but both are sorted by the clause, so
 they differ only inside blocks of occurrences carrying equal rows – and
 equal rows give the leaf equal values, and the predicate the same
 answer. -/
-theorem map_exprIdx_filter_occs {c : ℕ} (P : Tuple (Fin n) m)
+private theorem map_exprIdx_filter_occs {c : ℕ} (P : Tuple (Fin n) m)
     (O : Tuple (Fin n) p) (o : OrderSpec p) (ws : Fin q → ValueFrame T p)
     (ts : Fin q → TermIn T c n) (r : OccFam (AnnotatedTuple T K n))
     (i : Fin r.size) (γ : Fin c → T) (l : Fin q)
@@ -2130,7 +2136,7 @@ theorem map_exprIdx_filter_occs {c : ℕ} (P : Tuple (Fin n) m)
 
 /-- The same for a predicate on the rows, against the plain frame: what
 the deterministic reading of a filtered window needs. -/
-theorem map_exprIdx_filter_rows {c : ℕ} (P : Tuple (Fin n) m)
+private theorem map_exprIdx_filter_rows {c : ℕ} (P : Tuple (Fin n) m)
     (O : Tuple (Fin n) p) (o : OrderSpec p) (ws : Fin q → ValueFrame T p)
     (ts : Fin q → TermIn T c n) (r : OccFam (AnnotatedTuple T K n))
     (i : Fin r.size) (γ : Fin c → T) (l : Fin q) (pr : Tuple T n → Bool) :
@@ -2151,7 +2157,7 @@ listed by occurrence index and the plain frame by row, but both are
 sorted by the clause, so the two differ only inside blocks of
 occurrences carrying equal rows – and equal rows give the leaf equal
 values (`OrderSpec.map_eq_of_sorted`). -/
-theorem collapse_exprOf {c : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
+private theorem collapse_exprOf {c : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
     (o : OrderSpec p) (ws : Fin q → ValueFrame T p)
     (ts : Fin q → TermIn T c n) (fs : Fin q → SeqAggFunc T)
     (g : (Fin q → T) → T)
@@ -2222,7 +2228,7 @@ theorem collapse_exprOfWhen {c : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p
 
 /-- The indices one leaf reads out of the shared family, among the
 occurrences a predicate keeps, are its own frame's present ones. -/
-theorem exprIdx_filter_keep_coe (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
+private theorem exprIdx_filter_keep_coe (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
     (o : OrderSpec p) (ws : Fin q → ValueFrame T p)
     (r : OccFam (AnnotatedTuple T K n)) (i : Fin r.size) (l : Fin q)
     (keep : Fin r.size → Bool) :
@@ -2264,7 +2270,7 @@ that the database as it is keeps, `hTop` saying which annotations hold
 there. `collapse_exprOf` is the case where every annotation does, and
 nothing is asked of the leaf aggregates for the same reason: both
 readings are sorted by the clause. -/
-theorem disp_exprOf {c : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
+private theorem disp_exprOf {c : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
     (o : OrderSpec p) (ws : Fin q → ValueFrame T p)
     (ts : Fin q → TermIn T c n) (fs : Fin q → SeqAggFunc T)
     (g : (Fin q → T) → T)
@@ -2314,7 +2320,7 @@ theorem disp_exprOf {c : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
       (key := Tuple.key O) (val := Prod.fst) (o := o) _)
 
 /-- Equal leaf values give the same expression. -/
-theorem exprOfVals_congr (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
+private theorem exprOfVals_congr (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
     (o : OrderSpec p) (ws : Fin q → ValueFrame T p)
     (r : OccFam (AnnotatedTuple T K n)) (i : Fin r.size)
     {vals vals' : Fin q → Fin r.size → T} (h : vals = vals')
@@ -2323,7 +2329,7 @@ theorem exprOfVals_congr (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
   congrArg (fun V => exprOfVals P O o ws r i V fs g) h
 
 /-- Equal leaf values give the same expression, clauses and all. -/
-theorem exprOfValsWhen_congr (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
+private theorem exprOfValsWhen_congr (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
     (o : OrderSpec p) (ws : Fin q → ValueFrame T p)
     (keeps : Fin q → Option (Selection T n))
     (r : OccFam (AnnotatedTuple T K n)) (i : Fin r.size)
@@ -2344,7 +2350,7 @@ compared. -/
 
 /-- The occurrences the leaves read are the union frame's, as a
 multiset. -/
-theorem exprIdx_coe {α : Type} [LinearOrder α] (val : α → Tuple T n)
+private theorem exprIdx_coe {α : Type} [LinearOrder α] (val : α → Tuple T n)
     (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
     (ws : Fin q → ValueFrame T p) (r : OccFam α) (i : Fin r.size) :
     (↑(exprIdx val P O o ws r i) : Multiset (Fin r.size))
@@ -2358,7 +2364,7 @@ theorem exprIdx_coe {α : Type} [LinearOrder α] (val : α → Tuple T n)
 /-- **And the rows at those occurrences are the frame the relation
 names.** No `ContainsSelf` is needed here: the union frame of an
 occurrence is read off the relation whatever it contains. -/
-theorem exprIdx_rows_coe {α : Type} [LinearOrder α] (val : α → Tuple T n)
+private theorem exprIdx_rows_coe {α : Type} [LinearOrder α] (val : α → Tuple T n)
     (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
     (ws : Fin q → ValueFrame T p) (r : OccFam α) (i : Fin r.size) :
     Multiset.map r.row (↑(exprIdx val P O o ws r i) : Multiset (Fin r.size))
@@ -2367,7 +2373,7 @@ theorem exprIdx_rows_coe {α : Type} [LinearOrder α] (val : α → Tuple T n)
 
 /-- The family is read in the clause's order, so the rows at its
 occurrences are sorted by it. -/
-theorem exprIdx_rows_pairwise {α : Type} [LinearOrder α] (val : α → Tuple T n)
+private theorem exprIdx_rows_pairwise {α : Type} [LinearOrder α] (val : α → Tuple T n)
     (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
     (ws : Fin q → ValueFrame T p) (r : OccFam α) (i : Fin r.size) :
     ((exprIdx val P O o ws r i).map r.row).Pairwise
@@ -2380,7 +2386,7 @@ theorem exprIdx_rows_pairwise {α : Type} [LinearOrder α] (val : α → Tuple T
 `ContainsSelf` a leaf's flag is its frame's test on the tuple, so every
 occurrence of the family is a function of the row it carries and of the
 tuple the column is computed for. -/
-theorem occs_exprOf {c : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
+private theorem occs_exprOf {c : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
     (o : OrderSpec p) {ws : Fin q → ValueFrame T p}
     (hcs : ∀ l, (ws l).ContainsSelf) (ts : Fin q → TermIn T c n)
     (fs : Fin q → SeqAggFunc T) (g : (Fin q → T) → T)
@@ -2425,7 +2431,7 @@ theorem occs_exprOfWhen {c : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
   exact mem_of_containsSelf (hcs l) r i j
 
 /-- The clause's reading of a frame lists exactly the frame. -/
-theorem frameListOf_coe {α : Type} [LinearOrder α] (val : α → Tuple T n)
+private theorem frameListOf_coe {α : Type} [LinearOrder α] (val : α → Tuple T n)
     (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
     (w : ValueFrame T p) (X : Multiset α) (x : α) :
     (↑(frameListOf val P O o w X x) : Multiset α) = frameOf val P O w X x := by
@@ -2435,7 +2441,7 @@ theorem frameListOf_coe {α : Type} [LinearOrder α] (val : α → Tuple T n)
 /-- **The rows one leaf reads among the occurrences a predicate keeps are
 the kept part of its own frame.** This is `exprIdx_filter_keep_coe` read
 at the level of rows, which is where a frame is read off the relation. -/
-theorem exprIdx_filter_keep_rows_coe (P : Tuple (Fin n) m)
+private theorem exprIdx_filter_keep_rows_coe (P : Tuple (Fin n) m)
     (O : Tuple (Fin n) p) (o : OrderSpec p) (ws : Fin q → ValueFrame T p)
     (r : OccFam (AnnotatedTuple T K n)) (i : Fin r.size) (l : Fin q)
     (keep : K → Bool) :
@@ -2465,7 +2471,7 @@ frame contains the current row**, and it is then read by every such leaf
 and carries the row's own annotation. This is what makes the window's
 column guarded: a world that keeps the row keeps an occurrence of every
 grouped leaf. -/
-theorem self_mem_exprOf {c : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
+private theorem self_mem_exprOf {c : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
     (o : OrderSpec p) {ws : Fin q → ValueFrame T p} (ts : Fin q → TermIn T c n)
     (fs : Fin q → SeqAggFunc T) (g : (Fin q → T) → T)
     (r : OccFam (AnnotatedTuple T K n)) (i : Fin r.size) (γ : Fin c → T)
@@ -2517,7 +2523,7 @@ theorem self_mem_exprOf {c : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
 every leaf whose frame contains the current row *and* whose clause keeps
 it. A leaf whose clause rejects it reads nothing of it – and asks
 nothing, being read in the scalar convention. -/
-theorem self_mem_exprOfWhen {c : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
+private theorem self_mem_exprOfWhen {c : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
     (o : OrderSpec p) {ws : Fin q → ValueFrame T p} (ts : Fin q → TermIn T c n)
     (fs : Fin q → SeqAggFunc T) (g : (Fin q → T) → T)
     (keeps : Fin q → Option (Selection T n))
@@ -2584,7 +2590,7 @@ theorem self_mem_exprOfWhen {c : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p
 contains the current row**, clause or no clause: a clause cuts what a
 leaf reads of the family, not the group the world condition is about.
 This is what makes a filtered window's column guarded. -/
-theorem self_mem_inFrame_exprOfWhen {c : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
+private theorem self_mem_inFrame_exprOfWhen {c : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
     (o : OrderSpec p) {ws : Fin q → ValueFrame T p} (ts : Fin q → TermIn T c n)
     (fs : Fin q → SeqAggFunc T) (g : (Fin q → T) → T)
     (keeps : Fin q → Option (Selection T n))

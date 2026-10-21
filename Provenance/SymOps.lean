@@ -4,6 +4,11 @@ public import Provenance.SymTerms
 import Mathlib.Tactic.NormNum.Inv
 import Mathlib.Tactic.NormNum.Pow
 import Provenance.SumByMu
+import all Provenance.SumByMu
+import all Provenance.SymCells
+import all Provenance.SymRel
+import all Provenance.SymTerms
+import all Provenance.Util.Kleene
 
 /-!
 # The symbolic operators: projection, selection, join
@@ -30,7 +35,7 @@ variable {k c n : ℕ}
 def descP {P : ℕ} (r : Tuple T ((k + n) * (7 + k) + P)) : Tuple T (k * (7 + k)) :=
   ofCells (fun i j => r (cc P (Fin.castAdd n i) j))
 
-theorem descP_rowEncP (C : Finset T) (par : Fin k → T) (v : Tuple T n) {P : ℕ}
+private theorem descP_rowEncP (C : Finset T) (par : Fin k → T) (v : Tuple T n) {P : ℕ}
     (e : Tuple T P) : descP (rowEncP C par v e) = descEnc C par := by
   unfold descP descEnc
   congr 1
@@ -58,7 +63,7 @@ def SliceIs (C : Finset T) (par : Fin k → T) {P : ℕ}
 /-! ## Maps keeping the descriptor -/
 
 /-- **A map keeping the descriptor maps the slices.** -/
-theorem slice_map {m P P' : ℕ}
+private theorem slice_map {m P P' : ℕ}
     (g : Tuple T ((k + n) * (7 + k) + P) → Tuple T ((k + m) * (7 + k) + P'))
     (hg : ∀ r, descP (g r) = descP r) (Q : Multiset (Tuple T ((k + n) * (7 + k) + P)))
     (d : Tuple T (k * (7 + k))) : slice (Q.map g) d = (slice Q d).map g := by
@@ -68,7 +73,7 @@ theorem slice_map {m P P' : ℕ}
   exact Multiset.filter_congr (fun r _ => by simp only [Function.comp, hg])
 
 /-- **A filter commutes with the slices.** -/
-theorem slice_filter {P : ℕ} (p : Tuple T ((k + n) * (7 + k) + P) → Prop) [DecidablePred p]
+private theorem slice_filter {P : ℕ} (p : Tuple T ((k + n) * (7 + k) + P) → Prop) [DecidablePred p]
     (Q : Multiset (Tuple T ((k + n) * (7 + k) + P))) (d : Tuple T (k * (7 + k))) :
     slice (Q.filter p) d = (slice Q d).filter p := by
   unfold slice
@@ -78,7 +83,7 @@ theorem slice_filter {P : ℕ} (p : Tuple T ((k + n) * (7 + k) + P) → Prop) [D
 /-! ## Projection -/
 
 /-- The symbolic projection keeps the descriptor. -/
-theorem descP_symProj (P : ℕ) {m : ℕ} (srcs : Fin m → CS T k c n) (γ : Fin c → T)
+private theorem descP_symProj (P : ℕ) {m : ℕ} (srcs : Fin m → CS T k c n) (γ : Fin c → T)
     (r : Tuple T ((k + n) * (7 + k) + P)) :
     descP (fun x => (symProjSA P srcs x).eval r γ) = descP r := by
   unfold descP
@@ -106,7 +111,7 @@ theorem sliceIs_symProj {C : Finset T} (par : Fin k → T) (P : ℕ) {m : ℕ}
 /-! ## Selection -/
 
 /-- **The symbolic selection's slice**: the encodings of the rows kept. -/
-theorem sliceIs_symSel {C : Finset T} (par : Fin k → T) (P : ℕ) {κ : Fin n → ColKind}
+private theorem sliceIs_symSel {C : Finset T} (par : Fin k → T) (P : ℕ) {κ : Fin n → ColKind}
     (φ : GenPredIn T (k + c) κ) (hφ : φ.noFun = true) (hφc : ∀ a ∈ φ.consts, CG C a)
     (γ : Fin c → T) (hamb : ∀ j, CG C (γ j))
     {Q : Multiset (Tuple T ((k + n) * (7 + k) + P))} {R : Multiset (Tuple T n × Tuple T P)}
@@ -134,7 +139,7 @@ def descEqSP (P₁ P₂ : ℕ) :
     .atom .syneq (.col (Fin.castAdd _ (cc P₁ (Fin.castAdd n₁ i) j)))
       (.col (Fin.natAdd _ (cc P₂ (Fin.castAdd n₂ i) j))))))
 
-theorem eval3_descEqSP (P₁ P₂ : ℕ) (r₁ : Tuple T ((k + n₁) * (7 + k) + P₁))
+private theorem eval3_descEqSP (P₁ P₂ : ℕ) (r₁ : Tuple T ((k + n₁) * (7 + k) + P₁))
     (r₂ : Tuple T ((k + n₂) * (7 + k) + P₂)) (γ : Fin c → T) :
     (descEqSP (n₁ := n₁) (n₂ := n₂) P₁ P₂).eval3 (Fin.append r₁ r₂) γ
       = Kleene.ofBool (decide (descP r₁ = descP r₂)) := by
@@ -185,7 +190,7 @@ def joinRSA (P₁ P₂ : ℕ) :
       → SA T c (((k + n₁) * (7 + k) + P₁) + ((k + n₂) * (7 + k) + P₂)) :=
   Fin.addCases (joinCellSA P₁ P₂) (fun z => .col (Fin.natAdd _ (Fin.natAdd _ z)))
 
-theorem joinCellSA_eval (C : Finset T) (par : Fin k → T) {P₁ P₂ : ℕ} (v₁ : Tuple T n₁)
+private theorem joinCellSA_eval (C : Finset T) (par : Fin k → T) {P₁ P₂ : ℕ} (v₁ : Tuple T n₁)
     (e₁ : Tuple T P₁) (v₂ : Tuple T n₂) (e₂ : Tuple T P₂) (γ : Fin c → T)
     (i : Fin (k + (n₁ + n₂))) (j : Fin (7 + k)) :
     (joinCellSA P₁ P₂ (finProdFinEquiv (i, j))).eval
@@ -207,7 +212,7 @@ theorem joinCellSA_eval (C : Finset T) (par : Fin k → T) {P₁ P₂ : ℕ} (v�
       show Fin.append (rowEncP C par v₁ e₁) (rowEncP C par v₂ e₂) (Fin.natAdd _ _) = _
       rw [Fin.append_right, rowEncP_cc, Fin.append_right]
 
-theorem rowEncP_ext (C : Finset T) (par : Fin k → T) {m P : ℕ} (v : Tuple T m) (e : Tuple T P)
+private theorem rowEncP_ext (C : Finset T) (par : Fin k → T) {m P : ℕ} (v : Tuple T m) (e : Tuple T P)
     (f : Tuple T ((k + m) * (7 + k) + P))
     (hc : ∀ i j, f (cc P i j) = (Fin.append (fun i => enc C k (code C par i))
       (fun j => enc C k (vcode C par (v j))) i) j)
@@ -223,7 +228,7 @@ theorem rowEncP_ext (C : Finset T) (par : Fin k → T) {m P : ℕ} (v : Tuple T 
 
 /-- **A joined pair of encoded rows is the encoding of the joined row**,
 the left one's further columns kept. -/
-theorem joinLSA_eval (C : Finset T) (par : Fin k → T) {P₁ P₂ : ℕ} (v₁ : Tuple T n₁)
+private theorem joinLSA_eval (C : Finset T) (par : Fin k → T) {P₁ P₂ : ℕ} (v₁ : Tuple T n₁)
     (e₁ : Tuple T P₁) (v₂ : Tuple T n₂) (e₂ : Tuple T P₂) (γ : Fin c → T) :
     (fun x => (joinLSA P₁ P₂ x).eval (Fin.append (rowEncP C par v₁ e₁) (rowEncP C par v₂ e₂)) γ)
       = rowEncP C par (Fin.append v₁ v₂) e₁ := by
@@ -238,7 +243,7 @@ theorem joinLSA_eval (C : Finset T) (par : Fin k → T) {P₁ P₂ : ℕ} (v₁ 
     rw [Fin.append_right]
 
 /-- **The same, the right one's further columns kept.** -/
-theorem joinRSA_eval (C : Finset T) (par : Fin k → T) {P₁ P₂ : ℕ} (v₁ : Tuple T n₁)
+private theorem joinRSA_eval (C : Finset T) (par : Fin k → T) {P₁ P₂ : ℕ} (v₁ : Tuple T n₁)
     (e₁ : Tuple T P₁) (v₂ : Tuple T n₂) (e₂ : Tuple T P₂) (γ : Fin c → T) :
     (fun x => (joinRSA P₁ P₂ x).eval (Fin.append (rowEncP C par v₁ e₁) (rowEncP C par v₂ e₂)) γ)
       = rowEncP C par (Fin.append v₁ v₂) e₂ := by
@@ -253,7 +258,7 @@ theorem joinRSA_eval (C : Finset T) (par : Fin k → T) {P₁ P₂ : ℕ} (v₁ 
     rw [Fin.append_right]
 
 omit [ValueType T] in
-theorem descP_joinCell {P₁ P₂ M : ℕ}
+private theorem descP_joinCell {P₁ P₂ M : ℕ}
     (f : Fin ((k + (n₁ + n₂)) * (7 + k) + M)
       → SA T c (((k + n₁) * (7 + k) + P₁) + ((k + n₂) * (7 + k) + P₂)))
     (hf : ∀ y, f (Fin.castAdd M y) = joinCellSA P₁ P₂ y)
@@ -269,7 +274,7 @@ theorem descP_joinCell {P₁ P₂ M : ℕ}
   rw [Fin.append_left]
 
 /-- **The slices of a join** are the joins of the slices. -/
-theorem slice_join {P₁ P₂ M : ℕ}
+private theorem slice_join {P₁ P₂ M : ℕ}
     (proj : Tuple T (((k + n₁) * (7 + k) + P₁) + ((k + n₂) * (7 + k) + P₂))
       → Tuple T ((k + (n₁ + n₂)) * (7 + k) + M))
     (hproj : ∀ r₁ r₂, descP (proj (Fin.append r₁ r₂)) = descP r₁) (γ : Fin c → T)
@@ -299,7 +304,7 @@ theorem slice_join {P₁ P₂ M : ℕ}
       exact h₁ h.1
 
 /-- **The symbolic join's slice, the left row's further columns kept.** -/
-theorem sliceIs_joinL {C : Finset T} (par : Fin k → T) {P₁ P₂ : ℕ} (γ : Fin c → T)
+private theorem sliceIs_joinL {C : Finset T} (par : Fin k → T) {P₁ P₂ : ℕ} (γ : Fin c → T)
     {Q₁ : Multiset (Tuple T ((k + n₁) * (7 + k) + P₁))}
     {Q₂ : Multiset (Tuple T ((k + n₂) * (7 + k) + P₂))}
     {R₁ : Multiset (Tuple T n₁ × Tuple T P₁)} {R₂ : Multiset (Tuple T n₂ × Tuple T P₂)}
@@ -317,7 +322,7 @@ theorem sliceIs_joinL {C : Finset T} (par : Fin k → T) {P₁ P₂ : ℕ} (γ :
   exact Multiset.map_congr rfl (fun x₂ _ => joinLSA_eval C par _ _ _ _ γ)
 
 /-- **The symbolic join's slice, the right row's further columns kept.** -/
-theorem sliceIs_joinR {C : Finset T} (par : Fin k → T) {P₁ P₂ : ℕ} (γ : Fin c → T)
+private theorem sliceIs_joinR {C : Finset T} (par : Fin k → T) {P₁ P₂ : ℕ} (γ : Fin c → T)
     {Q₁ : Multiset (Tuple T ((k + n₁) * (7 + k) + P₁))}
     {Q₂ : Multiset (Tuple T ((k + n₂) * (7 + k) + P₂))}
     {R₁ : Multiset (Tuple T n₁ × Tuple T P₁)} {R₂ : Multiset (Tuple T n₂ × Tuple T P₂)}
@@ -340,7 +345,7 @@ end Join
 
 omit [ValueType T] in
 /-- A row of descriptors is its own descriptor. -/
-theorem descP_desc (r : Tuple T ((k + 0) * (7 + k) + 0)) : descP (n := 0) (P := 0) r = r := by
+private theorem descP_desc (r : Tuple T ((k + 0) * (7 + k) + 0)) : descP (n := 0) (P := 0) r = r := by
   funext x
   obtain ⟨⟨i, j⟩, rfl⟩ := finProdFinEquiv.surjective x
   show r (cc 0 (Fin.castAdd 0 (finProdFinEquiv.symm (finProdFinEquiv (i, j))).1)
@@ -349,7 +354,7 @@ theorem descP_desc (r : Tuple T ((k + 0) * (7 + k) + 0)) : descP (n := 0) (P := 
   rfl
 
 /-- The encoding of a parameter row with no output is its descriptor. -/
-theorem rowEncP_zero (C : Finset T) (par : Fin k → T) :
+private theorem rowEncP_zero (C : Finset T) (par : Fin k → T) :
     rowEncP (n := 0) C par Fin.elim0 (Fin.elim0 : Tuple T 0) = descEnc C par := by
   funext x
   obtain ⟨⟨i, j⟩, rfl⟩ := finProdFinEquiv.surjective x
@@ -360,7 +365,7 @@ theorem rowEncP_zero (C : Finset T) (par : Fin k → T) :
 
 /-- **The relation of descriptors, as a symbolic relation with no
 output**: its slice under a descriptor it holds once is that row. -/
-theorem sliceIs_desc {C : Finset T} (par : Fin k → T) {Dq : Multiset (Tuple T (k * (7 + k)))}
+private theorem sliceIs_desc {C : Finset T} (par : Fin k → T) {Dq : Multiset (Tuple T (k * (7 + k)))}
     (hnd : Dq.Nodup) (hm : descEnc C par ∈ Dq) :
     SliceIs (n := 0) (P := 0) C par Dq {((Fin.elim0 : Tuple T 0), (Fin.elim0 : Tuple T 0))} := by
   classical
@@ -379,7 +384,7 @@ def leafSA (n : ℕ) : Fin ((k + n) * (7 + k) + 0) → SA T c (k * (7 + k) + n) 
     (fun t => concCols (.col (Fin.natAdd _ t)) (finProdFinEquiv.symm x).2)
     (finProdFinEquiv.symm x).1
 
-theorem leafSA_eval (C : Finset T) (par : Fin k → T) (v : Tuple T n) (γ : Fin c → T)
+private theorem leafSA_eval (C : Finset T) (par : Fin k → T) (v : Tuple T n) (γ : Fin c → T)
     (hv : ∀ t, CG C (v t)) :
     (fun x => (leafSA (k := k) n x).eval (Fin.append (descEnc C par) v) γ)
       = rowEncP C par v (Fin.elim0 : Tuple T 0) := by
@@ -398,7 +403,7 @@ theorem leafSA_eval (C : Finset T) (par : Fin k → T) (v : Tuple T n) (γ : Fin
     show enc C k (.conc (Fin.append (descEnc C par) v (Fin.natAdd _ t))) j = _
     rw [Fin.append_right, vcode_of_mem par (hv t)]
 
-theorem descP_leafSA (d : Tuple T (k * (7 + k))) (v : Tuple T n) (γ : Fin c → T) :
+private theorem descP_leafSA (d : Tuple T (k * (7 + k))) (v : Tuple T n) (γ : Fin c → T) :
     descP (P := 0) (fun x => (leafSA (k := k) n x).eval (Fin.append d v) γ) = d := by
   funext x
   obtain ⟨⟨i, j⟩, rfl⟩ := finProdFinEquiv.surjective x
@@ -415,7 +420,7 @@ theorem descP_leafSA (d : Tuple T (k * (7 + k))) (v : Tuple T n) (γ : Fin c →
 
 /-- **A leaf paired with the descriptors**: its slice under a descriptor
 is the encoding of its rows. -/
-theorem sliceIs_leaf {C : Finset T} (par : Fin k → T) (γ : Fin c → T)
+private theorem sliceIs_leaf {C : Finset T} (par : Fin k → T) (γ : Fin c → T)
     {Dq : Multiset (Tuple T (k * (7 + k)))} (hnd : Dq.Nodup) (hm : descEnc C par ∈ Dq)
     (R : Multiset (Tuple T n)) (hR : ∀ v ∈ R, ∀ t, CG C (v t)) :
     SliceIs C par ((Dq.bind fun d => R.map fun v => (Fin.append d v : Tuple T _)).map

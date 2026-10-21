@@ -12,6 +12,20 @@ public import Provenance.Probability
 import Mathlib.Analysis.SpecialFunctions.Pow.NNReal
 import Provenance.AnnotatedSum
 import Provenance.HavingQueryCorrectness
+import all Provenance.AggQuery
+import all Provenance.AggQueryAdequacy
+import all Provenance.AggQuerySubst
+import all Provenance.AnnotatedBasis
+import all Provenance.AnnotatedProd
+import all Provenance.AnnotatedSum
+import all Provenance.MuUnion
+import all Provenance.OrderSpec
+import all Provenance.PathSum
+import all Provenance.PlainBasis
+import all Provenance.QueryAnnotatedDatabaseHom
+import all Provenance.RecursionBasisPass
+import all Provenance.SumByMu
+import all Provenance.Util.Kleene
 
 /-!
 # The set recursion from the bag recursion and `ε`, in the annotated semantics
@@ -61,13 +75,13 @@ noncomputable def ann {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × 
     (E : EvalEnv T K) : AnnotatedRelation T K n :=
   (q.evaluate d γ E).map GenRow.toAnnotated
 
-theorem ann_castKind {c n : ℕ} {κ κ' : Fin n → ColKind} {l : List (String × ℕ)} (h : κ = κ')
+private theorem ann_castKind {c n : ℕ} {κ κ' : Fin n → ColKind} {l : List (String × ℕ)} (h : κ = κ')
     (q : AggQueryIn T c n κ l) (d : AnnotatedDatabase T K) (γ : Fin c → T) (E : EvalEnv T K) :
     (q.castKind h).ann d γ E = q.ann d γ E := by
   rw [ann, ann, evaluate_castKind]
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
-theorem plainTuple_append {n₁ n₂ : ℕ} (x : Tuple (GenValue T K) n₁)
+private theorem plainTuple_append {n₁ n₂ : ℕ} (x : Tuple (GenValue T K) n₁)
     (y : Tuple (GenValue T K) n₂) :
     GenRow.plainTuple (Fin.append x y : Tuple (GenValue T K) (n₁ + n₂))
       = Fin.append (GenRow.plainTuple x) (GenRow.plainTuple y) := by
@@ -78,7 +92,7 @@ theorem plainTuple_append {n₁ n₂ : ℕ} (x : Tuple (GenValue T K) n₁)
 
 /-- **The product written as an apply** pairs the rows and multiplies the
 annotations. -/
-theorem ann_prodA {c n₁ n₂ : ℕ} {l : List (String × ℕ)}
+private theorem ann_prodA {c n₁ n₂ : ℕ} {l : List (String × ℕ)}
     (q₁ : AggQueryIn T c n₁ (ColKind.allReg n₁) l) (q₂ : AggQueryIn T c n₂ (ColKind.allReg n₂))
     (d : AnnotatedDatabase T K) (γ : Fin c → T) (E : EvalEnv T K) :
     (prodA q₁ q₂).ann d γ E
@@ -93,7 +107,7 @@ theorem ann_prodA {c n₁ n₂ : ℕ} {l : List (String × ℕ)}
   refine Prod.ext (plainTuple_append x.fst y.fst) (GenAnn.finalize_mul' x.snd y.snd)
 
 /-- A selection without an aggregate atom filters. -/
-theorem ann_sel {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (φ : GenPredIn T c κ)
+private theorem ann_sel {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (φ : GenPredIn T c κ)
     (q : AggQueryIn T c n κ l) (hφ : SelOK l φ) (hφ' : φ.hasAggAtom = false)
     (d : AnnotatedDatabase T K) (γ : Fin c → T) (E : EvalEnv T K) :
     (Sel φ q hφ).ann d γ E = (q.ann d γ E).filter (fun p => φ.holdsPlain p.1 γ) := by
@@ -103,14 +117,14 @@ theorem ann_sel {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} 
   refine Multiset.filter_congr fun r _ => ?_
   exact GenPredIn.holds_iff_holdsPlain φ r.fst
 
-theorem ann_sum {c n : ℕ} {κ : Fin n → ColKind} {l₁ l₂ : List (String × ℕ)}
+private theorem ann_sum {c n : ℕ} {κ : Fin n → ColKind} {l₁ l₂ : List (String × ℕ)}
     (q₁ : AggQueryIn T c n κ l₁) (q₂ : AggQueryIn T c n κ l₂)
     (d : AnnotatedDatabase T K) (γ : Fin c → T) (E : EvalEnv T K) :
     (Sum q₁ q₂).ann d γ E = q₁.ann d γ E + q₂.ann d γ E := by
   simp only [ann, evaluate, Multiset.map_add]
 
 /-- **Duplicate elimination**, in the vocabulary of `PathSum`. -/
-theorem ann_dedup {c n : ℕ} (q : AggQueryIn T c n (ColKind.allReg n))
+private theorem ann_dedup {c n : ℕ} (q : AggQueryIn T c n (ColKind.allReg n))
     (d : AnnotatedDatabase T K) (γ : Fin c → T) (E : EvalEnv T K) :
     (Dedup q).ann d γ E = PathSum.dedupK (q.ann d γ E) := by
   simp only [ann, evaluate, Multiset.map_map]
@@ -120,7 +134,7 @@ theorem ann_dedup {c n : ℕ} (q : AggQueryIn T c n (ColKind.allReg n))
 
 /-- **Difference**, in the vocabulary of `PathSum`: every row of the left
 side is kept, its annotation minus the right side's weight on its tuple. -/
-theorem ann_diff {c n : ℕ} (q₁ q₂ : AggQueryIn T c n (ColKind.allReg n))
+private theorem ann_diff {c n : ℕ} (q₁ q₂ : AggQueryIn T c n (ColKind.allReg n))
     (d : AnnotatedDatabase T K) (γ : Fin c → T) (E : EvalEnv T K) :
     (Diff q₁ q₂).ann d γ E
       = (q₁.ann d γ E).map (fun p => ((p.1, p.2 - PathSum.wt (q₂.ann d γ E) p.1)
@@ -138,7 +152,7 @@ theorem ann_diff {c n : ℕ} (q₁ q₂ : AggQueryIn T c n (ColKind.allReg n))
 finalization: bound to a relation `Y`, it gives, for each row of `Y`, its
 value at that row's tuple annotated `𝟙`, the annotations multiplied by the
 row's. -/
-theorem evaluate_fin_of_recLinear {s : String} {n : ℕ} :
+private theorem evaluate_fin_of_recLinear {s : String} {n : ℕ} :
     ∀ {c m : ℕ} {κ : Fin m → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c m κ l),
       q.recLinear s n → q.noExplode →
       ∀ (d : AnnotatedDatabase T K) (γ : Fin c → T) (E : EvalEnv T K)
@@ -290,7 +304,7 @@ theorem evaluate_fin_of_recLinear {s : String} {n : ℕ} :
 /-- **A linear term, in the vocabulary of `PathSum`**: its annotated
 relation at a round `Y` is `Y ⊳ G`, `G` reading the term at one tuple
 annotated `𝟙`. -/
-theorem ann_of_recLinear {s : String} {n c m : ℕ} {κ : Fin m → ColKind}
+private theorem ann_of_recLinear {s : String} {n c m : ℕ} {κ : Fin m → ColKind}
     {l : List (String × ℕ)} (q : AggQueryIn T c m κ l) (h : q.recLinear s n)
     (hx : q.noExplode) (d : AnnotatedDatabase T K) (γ : Fin c → T) (E : EvalEnv T K)
     (Y : AnnotatedRelation T K n) :
@@ -308,14 +322,14 @@ theorem ann_of_recLinear {s : String} {n c m : ℕ} {κ : Fin m → ColKind}
 
 omit [HasAltLinearOrder K] in
 /-- `ε` of an annotated relation is `PathSum.dedupK`. -/
-theorem dedupAnn_eq_dedupK {n : ℕ} (r : AnnotatedRelation T K n) :
+private theorem dedupAnn_eq_dedupK {n : ℕ} (r : AnnotatedRelation T K n) :
     AnnotatedRelation.dedupAnn r = PathSum.dedupK r := by
   rw [AnnotatedRelation.dedupAnn, groupByKey_eq_dedup_map]
   rfl
 
 /-- **A set recursion with a linear body is the set recursion of
 `PathSum`**: its value is the settled iterate of `X ↦ ε(B ⊎ X ⊳ G)`. -/
-theorem evaluate_MuSet_of_recLinear {c n : ℕ} (s : String)
+private theorem evaluate_MuSet_of_recLinear {c n : ℕ} (s : String)
     (q₀ : AggQueryIn T c n (ColKind.allReg n))
     (q₁ : AggQueryIn T c n (ColKind.allReg n) [(s, n)]) (h : q₁.recLinear s n)
     (hx : q₁.noExplode) (d : AnnotatedDatabase T K) (γ : Fin c → T) (E : EvalEnv T K) :
@@ -340,7 +354,7 @@ def paramRow {c n : ℕ} (E : EvalEnv T K) (γ : Fin c → T) (pv : Fin n → T 
 /-- **Substituting is binding, in the annotated semantics**: the linear
 term with its hole replaced by the parameter row reads as the term with
 the hole bound to that row alone. -/
-theorem evaluate_substRel {s : String} {c n : ℕ} (pv : Fin n → T ⊕ Fin c) :
+private theorem evaluate_substRel {s : String} {c n : ℕ} (pv : Fin n → T ⊕ Fin c) :
     ∀ {m : ℕ} {κ : Fin m → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c m κ l),
         q.recLinear s n →
       ∀ (d : AnnotatedDatabase T K) (γ : Fin c → T) (E : EvalEnv T K),
@@ -405,7 +419,7 @@ variable {c : ℕ}
 
 /-- **A lexicographic comparison of two runs of terms**, read on values
 none of which is the null. -/
-theorem holdsPlain_ltPredOn_asc {m K : ℕ} (x y : Fin K → TermGIn T c (ColKind.allReg m))
+private theorem holdsPlain_ltPredOn_asc {m K : ℕ} (x y : Fin K → TermGIn T c (ColKind.allReg m))
     (u : Tuple T m) (γ : Fin c → T) (hx : ∀ k, ValueType.isNull ((x k).evalPlain u γ) = false)
     (hy : ∀ k, ValueType.isNull ((y k).evalPlain u γ) = false) :
     (OrderSpec.ltPredOn (OrderSpec.asc K) x y (List.finRange K)).holdsPlain u γ
@@ -490,16 +504,16 @@ def ctrStart (ch : Bool) (EQ : AggQueryIn T c 1 (ColKind.allReg 1)) (K : ℕ) :
     AggQueryIn T c K (ColKind.allReg K) :=
   cond ch (ctr EQ K) (ctrLeast EQ K)
 
-@[simp] theorem ctrStep_false (EQ : AggQueryIn T c 1 (ColKind.allReg 1)) (K : ℕ) :
+@[simp] private theorem ctrStep_false (EQ : AggQueryIn T c 1 (ColKind.allReg 1)) (K : ℕ) :
     ctrStep false EQ K = ctrSucc EQ K := rfl
 
-@[simp] theorem ctrStep_true (EQ : AggQueryIn T c 1 (ColKind.allReg 1)) (K : ℕ) :
+@[simp] private theorem ctrStep_true (EQ : AggQueryIn T c 1 (ColKind.allReg 1)) (K : ℕ) :
     ctrStep true EQ K = ctrLt EQ K := rfl
 
-@[simp] theorem ctrStart_false (EQ : AggQueryIn T c 1 (ColKind.allReg 1)) (K : ℕ) :
+@[simp] private theorem ctrStart_false (EQ : AggQueryIn T c 1 (ColKind.allReg 1)) (K : ℕ) :
     ctrStart false EQ K = ctrLeast EQ K := rfl
 
-@[simp] theorem ctrStart_true (EQ : AggQueryIn T c 1 (ColKind.allReg 1)) (K : ℕ) :
+@[simp] private theorem ctrStart_true (EQ : AggQueryIn T c 1 (ColKind.allReg 1)) (K : ℕ) :
     ctrStart true EQ K = ctr EQ K := rfl
 
 /-- **The counters after the current row's**, under an apply over the
@@ -542,7 +556,7 @@ section CounterAnn
 variable {c : ℕ}
 
 /-- **Keeping columns** keeps the rows and their annotations. -/
-theorem ann_keepCols {n m : ℕ} {l : List (String × ℕ)} (cols : Fin m → Fin n)
+private theorem ann_keepCols {n m : ℕ} {l : List (String × ℕ)} (cols : Fin m → Fin n)
     (q : AggQueryIn T c n (ColKind.allReg n) l) (d : AnnotatedDatabase T K) (γ : Fin c → T)
     (E : EvalEnv T K) :
     (keepCols cols q).ann d γ E
@@ -554,7 +568,7 @@ theorem ann_keepCols {n m : ℕ} {l : List (String × ℕ)} (cols : Fin m → Fi
   exact Prod.ext rfl (GenAnn.finalize_cash' r.snd _ Multiset.inter_le_left)
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
-theorem plainTuple_append_nil {n : ℕ} (g : Tuple T n) (v : Fin 0 → GenValue T K) :
+private theorem plainTuple_append_nil {n : ℕ} (g : Tuple T n) (v : Fin 0 → GenValue T K) :
     GenRow.plainTuple (Fin.append (fun k => (Sum.inl (g k) : GenValue T K)) v
       : Tuple (GenValue T K) (n + 0)) = g := by
   funext k
@@ -564,7 +578,7 @@ theorem plainTuple_append_nil {n : ℕ} (g : Tuple T n) (v : Fin 0 → GenValue 
 
 /-- **Grouping by every column with no aggregate**: one row per tuple,
 annotated `δ` of its weight. -/
-theorem ann_dedupG {n : ℕ} (q : AggQueryIn T c n (ColKind.allReg n))
+private theorem ann_dedupG {n : ℕ} (q : AggQueryIn T c n (ColKind.allReg n))
     (d : AnnotatedDatabase T K) (γ : Fin c → T) (E : EvalEnv T K) :
     (dedupG q).ann d γ E
       = ((q.ann d γ E).map Prod.fst).dedup.map (fun g =>
@@ -588,7 +602,7 @@ theorem ann_dedupG {n : ℕ} (q : AggQueryIn T c n (ColKind.allReg n))
   exact ⟨fun h => funext h, fun h k => congrFun h k⟩
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
-theorem product_map_map' {α β γ' δ' : Type} (f : α → γ') (g : β → δ')
+private theorem product_map_map' {α β γ' δ' : Type} (f : α → γ') (g : β → δ')
     (A : Multiset α) (B : Multiset β) :
     (A.map f).product (B.map g) = (A.product B).map (fun p => (f p.1, g p.2)) := by
   unfold Multiset.product
@@ -598,7 +612,7 @@ theorem product_map_map' {α β γ' δ' : Type} (f : α → γ') (g : β → δ'
   rfl
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
-theorem product_map_left' {α β γ' : Type} (f : α → γ') (A : Multiset α) (B : Multiset β) :
+private theorem product_map_left' {α β γ' : Type} (f : α → γ') (A : Multiset α) (B : Multiset β) :
     (A.map f).product B = (A.product B).map (fun p => (f p.1, p.2)) := by
   unfold Multiset.product
   rw [Multiset.bind_map, Multiset.map_bind]
@@ -607,7 +621,7 @@ theorem product_map_left' {α β γ' : Type} (f : α → γ') (A : Multiset α) 
   rfl
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
-theorem map_filter_congr {α β : Type} {S : Multiset α} {P Q : α → Prop} [DecidablePred P]
+private theorem map_filter_congr {α β : Type} {S : Multiset α} {P Q : α → Prop} [DecidablePred P]
     [DecidablePred Q] {F G : α → β} (hPQ : ∀ x ∈ S, P x ↔ Q x)
     (hFG : ∀ x ∈ S, Q x → F x = G x) : (S.filter P).map F = (S.filter Q).map G := by
   rw [Multiset.filter_congr hPQ]
@@ -619,7 +633,7 @@ def powT (V : Multiset (Tuple T 1)) : (K : ℕ) → Multiset (Tuple T K)
   | 0 => {fun k => k.elim0}
   | K + 1 => ((powT V K).product V).map (fun p => Fin.append p.1 p.2)
 
-theorem ann_unitC (d : AnnotatedDatabase T K) (γ : Fin c → T) (E : EvalEnv T K) :
+private theorem ann_unitC (d : AnnotatedDatabase T K) (γ : Fin c → T) (E : EvalEnv T K) :
     (unitC : AggQueryIn T c 0 _).ann d γ E
       = ({((fun k => k.elim0, 1) : AnnotatedTuple T K 0)} : Multiset (AnnotatedTuple T K 0)) := by
   rw [unitC, ann_castKind]
@@ -629,7 +643,7 @@ theorem ann_unitC (d : AnnotatedDatabase T K) (γ : Fin c → T) (E : EvalEnv T 
 
 /-- **The power of a relation of rows annotated `𝟙`** is the tuples over
 its rows, each annotated `𝟙`. -/
-theorem ann_pow_ones (C : AggQueryIn T c 1 (ColKind.allReg 1)) (V : Multiset (Tuple T 1))
+private theorem ann_pow_ones (C : AggQueryIn T c 1 (ColKind.allReg 1)) (V : Multiset (Tuple T 1))
     (d : AnnotatedDatabase T K) (γ : Fin c → T) (E : EvalEnv T K)
     (hC : C.ann d γ E = V.map (fun v => ((v, 1) : AnnotatedTuple T K 1))) :
     ∀ K', (pow C K').ann d γ E = (powT V K').map (fun v => ((v, 1) : AnnotatedTuple T K K'))
@@ -641,7 +655,7 @@ theorem ann_pow_ones (C : AggQueryIn T c 1 (ColKind.allReg 1)) (V : Multiset (Tu
     simp only [Function.comp, mul_one]
 
 omit [ValueType T] in
-theorem nodup_powT {V : Multiset (Tuple T 1)} (hV : V.Nodup) : ∀ K', (powT V K').Nodup
+private theorem nodup_powT {V : Multiset (Tuple T 1)} (hV : V.Nodup) : ∀ K', (powT V K').Nodup
   | 0 => Multiset.nodup_singleton _
   | K' + 1 => by
     refine Multiset.Nodup.map_on ?_ (Multiset.Nodup.product (nodup_powT hV K') hV)
@@ -653,7 +667,7 @@ theorem nodup_powT {V : Multiset (Tuple T 1)} (hV : V.Nodup) : ∀ K', (powT V K
     exact Prod.ext h₁ h₂
 
 omit [ValueType T] in
-theorem mem_powT {V : Multiset (Tuple T 1)} :
+private theorem mem_powT {V : Multiset (Tuple T 1)} :
     ∀ (K' : ℕ) (u : Tuple T K'), u ∈ powT V K' ↔ ∀ k, (fun _ => u k) ∈ V
   | 0, u => by
     simp only [powT, Multiset.mem_singleton]
@@ -677,7 +691,7 @@ theorem mem_powT {V : Multiset (Tuple T 1)} :
       · rw [Fin.append_left]
       · rw [Fin.append_right, Fin.fin_one_eq_zero i]
 
-theorem hasAggAtom_ltPredOnOf {p m : ℕ} (base : Fin p → GenPredIn T c (ColKind.allReg m))
+private theorem hasAggAtom_ltPredOnOf {p m : ℕ} (base : Fin p → GenPredIn T c (ColKind.allReg m))
     (x y : Fin p → TermGIn T c (ColKind.allReg m)) (hb : ∀ k, (base k).hasAggAtom = false) :
     ∀ ks : List (Fin p), (OrderSpec.ltPredOnOf base x y ks).hasAggAtom = false
   | [] => rfl
@@ -685,20 +699,20 @@ theorem hasAggAtom_ltPredOnOf {p m : ℕ} (base : Fin p → GenPredIn T c (ColKi
     simp only [OrderSpec.ltPredOnOf, GenPredIn.hasAggAtom, hb k,
       hasAggAtom_ltPredOnOf base x y hb ks, Bool.or_false]
 
-theorem hasAggAtom_ltPredOn {p m : ℕ} (o : OrderSpec p)
+private theorem hasAggAtom_ltPredOn {p m : ℕ} (o : OrderSpec p)
     (x y : Fin p → TermGIn T c (ColKind.allReg m)) (ks : List (Fin p)) :
     (OrderSpec.ltPredOn o x y ks).hasAggAtom = false :=
   hasAggAtom_ltPredOnOf _ x y (fun k => by
     show (OrderCol.ltPred (o k) (x k) (y k)).hasAggAtom = false
     unfold OrderCol.ltPred; split_ifs <;> rfl) ks
 
-theorem hasAggAtom_halvesLt (K' : ℕ) : (halvesLt (c := c) (T := T) K').hasAggAtom = false :=
+private theorem hasAggAtom_halvesLt (K' : ℕ) : (halvesLt (c := c) (T := T) K').hasAggAtom = false :=
   hasAggAtom_ltPredOn _ _ _ _
 
-theorem hasAggAtom_midLt (K' : ℕ) : (midLt (c := c) (T := T) K').hasAggAtom = false := by
+private theorem hasAggAtom_midLt (K' : ℕ) : (midLt (c := c) (T := T) K').hasAggAtom = false := by
   simp only [midLt, GenPredIn.hasAggAtom, hasAggAtom_ltPredOn, Bool.or_false]
 
-theorem hasAggAtom_eqOuter (n K' : ℕ) : (eqOuter (c := c) (T := T) n K').hasAggAtom = false := by
+private theorem hasAggAtom_eqOuter (n K' : ℕ) : (eqOuter (c := c) (T := T) n K').hasAggAtom = false := by
   unfold eqOuter
   generalize List.finRange K' = ks
   induction ks with
@@ -706,7 +720,7 @@ theorem hasAggAtom_eqOuter (n K' : ℕ) : (eqOuter (c := c) (T := T) n K').hasAg
   | cons k ks ih => simp only [List.map_cons, List.foldr_cons, GenPredIn.hasAggAtom, ih,
       Bool.or_false]
 
-theorem holdsPlain_halvesLt (K' : ℕ) (a b : Tuple T K') (γ : Fin c → T)
+private theorem holdsPlain_halvesLt (K' : ℕ) (a b : Tuple T K') (γ : Fin c → T)
     (ha : ∀ k, ValueType.isNull (a k) = false) (hb : ∀ k, ValueType.isNull (b k) = false) :
     (halvesLt K').holdsPlain (Fin.append a b) γ ↔ ascLt K' a b := by
   have hx : (fun k => (TermGIn.index (T := T) (c := c) (κ := ColKind.allReg (K' + K'))
@@ -718,11 +732,11 @@ theorem holdsPlain_halvesLt (K' : ℕ) (a b : Tuple T K') (γ : Fin c → T)
   rw [halvesLt, holdsPlain_ltPredOn_asc _ _ _ _ (fun k => (congrFun hx k).symm ▸ ha k)
     (fun k => (congrFun hy k).symm ▸ hb k), hx, hy]
 
-theorem holdsPlain_and' {m : ℕ} (φ ψ : GenPredIn T c (ColKind.allReg m)) (u : Tuple T m)
+private theorem holdsPlain_and' {m : ℕ} (φ ψ : GenPredIn T c (ColKind.allReg m)) (u : Tuple T m)
     (γ : Fin c → T) : (GenPredIn.and φ ψ).holdsPlain u γ ↔ φ.holdsPlain u γ ∧ ψ.holdsPlain u γ :=
   Kleene.and_eq_true_iff _ _
 
-theorem holdsPlain_midLt (K' : ℕ) (a m b : Tuple T K') (γ : Fin c → T)
+private theorem holdsPlain_midLt (K' : ℕ) (a m b : Tuple T K') (γ : Fin c → T)
     (ha : ∀ k, ValueType.isNull (a k) = false) (hm : ∀ k, ValueType.isNull (m k) = false)
     (hb : ∀ k, ValueType.isNull (b k) = false) :
     (midLt K').holdsPlain (Fin.append (Fin.append a m) b) γ ↔ ascLt K' a m ∧ ascLt K' m b := by
@@ -745,7 +759,7 @@ theorem holdsPlain_midLt (K' : ℕ) (a m b : Tuple T K') (γ : Fin c → T)
 
 /-- **The pairs of counters with one between**, once per counter between,
 annotated by the product of the three counters' annotations. -/
-theorem ann_ctrMid (EQ : AggQueryIn T c 1 (ColKind.allReg 1)) (K' : ℕ)
+private theorem ann_ctrMid (EQ : AggQueryIn T c 1 (ColKind.allReg 1)) (K' : ℕ)
     (d : AnnotatedDatabase T K) (γ : Fin c → T) (E : EvalEnv T K) (W : Multiset (Tuple T K'))
     (w : Tuple T K' → K)
     (hW : (ctr EQ K').ann d γ E = W.map (fun v => ((v, w v) : AnnotatedTuple T K K')))
@@ -775,7 +789,7 @@ theorem ann_ctrMid (EQ : AggQueryIn T c 1 (ColKind.allReg 1)) (K' : ℕ)
       simp only [outerThirds, Fin.addCases_right, Fin.append_right]
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
-theorem append_eq_append_iff {a b : ℕ} {x x' : Tuple T a} {y y' : Tuple T b} :
+private theorem append_eq_append_iff {a b : ℕ} {x x' : Tuple T a} {y y' : Tuple T b} :
     (Fin.append x y : Tuple T (a + b)) = Fin.append x' y' ↔ x = x' ∧ y = y' := by
   constructor
   · intro h
@@ -789,7 +803,7 @@ def ltPairs {K' : ℕ} (W : Multiset (Tuple T K')) : Multiset (Tuple T (K' + K')
   ((W.product W).filter (fun p => ascLt K' p.1 p.2)).map (fun p => Fin.append p.1 p.2)
 
 omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
-theorem mem_ltPairs {K' : ℕ} {W : Multiset (Tuple T K')} (a b : Tuple T K') :
+private theorem mem_ltPairs {K' : ℕ} {W : Multiset (Tuple T K')} (a b : Tuple T K') :
     Fin.append a b ∈ ltPairs W ↔ a ∈ W ∧ b ∈ W ∧ ascLt K' a b := by
   simp only [ltPairs, Multiset.mem_map, Multiset.mem_filter]
   constructor
@@ -801,14 +815,14 @@ theorem mem_ltPairs {K' : ℕ} {W : Multiset (Tuple T K')} (a b : Tuple T K') :
     exact ⟨(a, b), ⟨Multiset.mem_product.2 ⟨ha, hb⟩, hlt⟩, rfl⟩
 
 omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
-theorem nodup_ltPairs {K' : ℕ} {W : Multiset (Tuple T K')} (hW : W.Nodup) : (ltPairs W).Nodup :=
+private theorem nodup_ltPairs {K' : ℕ} {W : Multiset (Tuple T K')} (hW : W.Nodup) : (ltPairs W).Nodup :=
   Multiset.Nodup.map_on (fun p _ q _ h => by
     obtain ⟨h₁, h₂⟩ := append_eq_append_iff.1 h; exact Prod.ext h₁ h₂)
     (Multiset.Nodup.filter _ (Multiset.Nodup.product hW hW))
 
 /-- **The ordered pairs of counters**, each once, annotated by the product
 of the two counters' annotations. -/
-theorem ann_ctrLt (EQ : AggQueryIn T c 1 (ColKind.allReg 1)) (K' : ℕ)
+private theorem ann_ctrLt (EQ : AggQueryIn T c 1 (ColKind.allReg 1)) (K' : ℕ)
     (d : AnnotatedDatabase T K) (γ : Fin c → T) (E : EvalEnv T K) (W : Multiset (Tuple T K'))
     (w : Tuple T K' → K)
     (hW : (ctr EQ K').ann d γ E = W.map (fun v => ((v, w v) : AnnotatedTuple T K K')))
@@ -839,7 +853,7 @@ open Classical in
 omit [ValueType T] [DecidableEq K] [HasAltLinearOrder K] in
 /-- **`𝟙` minus the weight of rows annotated `𝟘` or `𝟙`** is `𝟘` where one
 of them is annotated `𝟙` and `𝟙` elsewhere. -/
-theorem one_sub_wt_01 {α : Type} [DecidableEq α] (X : Multiset (α × K))
+private theorem one_sub_wt_01 {α : Type} [DecidableEq α] (X : Multiset (α × K))
     (h01 : ∀ p ∈ X, p.2 = 0 ∨ p.2 = 1) (x : α) :
     ((1 : K) - PathSum.wt X x : K) = if ∃ p ∈ X, p.1 = x ∧ p.2 = 1 then 0 else 1 := by
   split_ifs with hx
@@ -861,17 +875,17 @@ theorem one_sub_wt_01 {α : Type} [DecidableEq α] (X : Multiset (α × K))
     rw [h0, monus_zero]
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
-theorem ind_mul_ind [CommSemiringWithMonus K] (p q : Prop) [Decidable p] [Decidable q] :
+private theorem ind_mul_ind [CommSemiringWithMonus K] (p q : Prop) [Decidable p] [Decidable q] :
     ((if p then (1 : K) else 0) * (if q then 1 else 0) : K) = if p ∧ q then 1 else 0 := by
   by_cases hp : p <;> by_cases hq : q <;> simp [hp, hq]
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
-theorem ite_nested_one [CommSemiringWithMonus K] (p q : Prop) [Decidable p] [Decidable q] :
+private theorem ite_nested_one [CommSemiringWithMonus K] (p q : Prop) [Decidable p] [Decidable q] :
     (if p then (if q then (1 : K) else 0) else 0) = if p ∧ q then 1 else 0 := by
   by_cases hp : p <;> by_cases hq : q <;> simp [hp, hq]
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
-theorem ite_nested_zero [CommSemiringWithMonus K] (p q : Prop) [Decidable p] [Decidable q] :
+private theorem ite_nested_zero [CommSemiringWithMonus K] (p q : Prop) [Decidable p] [Decidable q] :
     (if p then (if q then (0 : K) else 1) else 0) = if p ∧ ¬ q then 1 else 0 := by
   by_cases hp : p <;> by_cases hq : q <;> simp [hp, hq]
 
@@ -880,7 +894,7 @@ open Classical in
 `P` holds and `𝟘` elsewhere: `𝟙` on a pair of the counters `P` keeps with
 none of them between, `𝟘` on any other ordered pair, and no row
 elsewhere. -/
-theorem wt_ctrSucc (EQ : AggQueryIn T c 1 (ColKind.allReg 1)) (K' : ℕ)
+private theorem wt_ctrSucc (EQ : AggQueryIn T c 1 (ColKind.allReg 1)) (K' : ℕ)
     (d : AnnotatedDatabase T K) (γ : Fin c → T) (E : EvalEnv T K) (W : Multiset (Tuple T K'))
     (hWn : W.Nodup) (P : Tuple T K' → Prop)
     (hW : (ctr EQ K').ann d γ E
@@ -945,7 +959,7 @@ open Classical in
 /-- **The least counter's weights**, for counters annotated `𝟙` where `P`
 holds and `𝟘` elsewhere: `𝟙` on the least counter `P` keeps, `𝟘` on the
 others. -/
-theorem wt_ctrLeast (EQ : AggQueryIn T c 1 (ColKind.allReg 1)) (K' : ℕ)
+private theorem wt_ctrLeast (EQ : AggQueryIn T c 1 (ColKind.allReg 1)) (K' : ℕ)
     (d : AnnotatedDatabase T K) (γ : Fin c → T) (E : EvalEnv T K) (W : Multiset (Tuple T K'))
     (hWn : W.Nodup) (P : Tuple T K' → Prop)
     (hW : (ctr EQ K').ann d γ E
@@ -1011,7 +1025,7 @@ theorem wt_ctrLeast (EQ : AggQueryIn T c 1 (ColKind.allReg 1)) (K' : ℕ)
 
 omit [DecidableEq K] [HasAltLinearOrder K] in
 /-- **Reading the second half of the rows whose first half is `a`.** -/
-theorem wt_halves {K' : ℕ} (X : Multiset (Tuple T (K' + K') × K)) (a b : Tuple T K') :
+private theorem wt_halves {K' : ℕ} (X : Multiset (Tuple T (K' + K') × K)) (a b : Tuple T K') :
     PathSum.wt ((X.filter (fun p => (fun k => p.1 (Fin.castAdd K' k)) = a)).map
         (fun p => (((fun j => p.1 (Fin.natAdd K' j)), p.2) : Tuple T K' × K))) b
       = PathSum.wt X (Fin.append a b) := by
@@ -1027,7 +1041,7 @@ theorem wt_halves {K' : ℕ} (X : Multiset (Tuple T (K' + K') × K)) (a b : Tupl
     exact ⟨funext fun j => Fin.append_right a b j, funext fun k => Fin.append_left a b k⟩
 
 omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
-theorem mem_supp_halves {K' : ℕ} (X : Multiset (Tuple T (K' + K') × K)) (a b : Tuple T K') :
+private theorem mem_supp_halves {K' : ℕ} (X : Multiset (Tuple T (K' + K') × K)) (a b : Tuple T K') :
     b ∈ PathSum.supp ((X.filter (fun p => (fun k => p.1 (Fin.castAdd K' k)) = a)).map
         (fun p => (((fun j => p.1 (Fin.natAdd K' j)), p.2) : Tuple T K' × K)))
       ↔ Fin.append a b ∈ PathSum.supp X := by
@@ -1041,7 +1055,7 @@ theorem mem_supp_halves {K' : ℕ} (X : Multiset (Tuple T (K' + K') × K)) (a b 
     · show (fun j => p.1 (Fin.natAdd K' j)) = b
       rw [he]; exact funext fun j => Fin.append_right a b j
 
-theorem holdsPlain_eqOuter (n K' : ℕ) (z : Tuple T (K' + K')) (u : Tuple T (n + K'))
+private theorem holdsPlain_eqOuter (n K' : ℕ) (z : Tuple T (K' + K')) (u : Tuple T (n + K'))
     (γ : Fin c → T) :
     (eqOuter n K').holdsPlain z (Fin.append u γ : Tuple T ((n + K') + c))
       ↔ (fun k => z (Fin.castAdd K' k)) = rightPart n K' u := by
@@ -1069,7 +1083,7 @@ theorem holdsPlain_eqOuter (n K' : ℕ) (z : Tuple T (K' + K')) (u : Tuple T (n 
 
 /-- **The counters after the current row's**, read off the step
 relation. -/
-theorem ann_ctrNext (ch : Bool) (EQ : AggQueryIn T c 1 (ColKind.allReg 1)) (n K' : ℕ)
+private theorem ann_ctrNext (ch : Bool) (EQ : AggQueryIn T c 1 (ColKind.allReg 1)) (n K' : ℕ)
     (d : AnnotatedDatabase T K) (γ : Fin c → T) (E' : EvalEnv T K)
     (x : Tuple (GenValue T K) (n + K')) (u : Tuple T (n + K')) :
     (ctrNext ch EQ n K').ann d (Fin.append u γ) (E'.withCtx (Fin.append x (E'.ctxAt c γ)))
@@ -1094,7 +1108,7 @@ variable {c : ℕ}
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 /-- A row of regular kinds holds its values. -/
-theorem eq_inl_of_conforms {n : ℕ} {u : Tuple (GenValue T K) n}
+private theorem eq_inl_of_conforms {n : ℕ} {u : Tuple (GenValue T K) n}
     (h : GenRow.Conforms (ColKind.allReg n) u) :
     u = fun k => Sum.inl (GenRow.plainTuple u k) := by
   funext k
@@ -1118,7 +1132,7 @@ noncomputable def simRow (s : String) (n K' : ℕ) (ch : Bool)
 
 /-- **One round of the simulation is linear**: each row of the previous
 round gives `simRow` at its tuple, multiplied by its annotation. -/
-theorem ann_simBodyA (s s' : String) (n K' : ℕ) (ch : Bool)
+private theorem ann_simBodyA (s s' : String) (n K' : ℕ) (ch : Bool)
     (EQ : AggQueryIn T c 1 (ColKind.allReg 1))
     (L : AggQueryIn T c n (ColKind.allReg n) [(s, n)]) (d : AnnotatedDatabase T K)
     (γ : Fin c → T) (E : EvalEnv T K) (X : Multiset (GenRow T K (n + K')))
@@ -1151,7 +1165,7 @@ theorem ann_simBodyA (s s' : String) (n K' : ℕ) (ch : Bool)
 
 /-- **The simulation's rounds, annotated**: the bag recursion of `PathSum`
 with the linear step `simRow`, wherever those rounds end. -/
-theorem ann_simA (s s' : String) (n K' : ℕ) (ch : Bool)
+private theorem ann_simA (s s' : String) (n K' : ℕ) (ch : Bool)
     (EQ : AggQueryIn T c 1 (ColKind.allReg 1))
     (BQ : AggQueryIn T c n (ColKind.allReg n)) (L : AggQueryIn T c n (ColKind.allReg n) [(s, n)])
     (d : AnnotatedDatabase T K) (γ : Fin c → T) (E : EvalEnv T K)
@@ -1194,7 +1208,7 @@ theorem ann_simA (s s' : String) (n K' : ℕ) (ch : Bool)
 
 /-- The simulation's rounds, as rows, are those of `PathSum.lin` read
 through `toAnnotated`. -/
-theorem simA_iter (s s' : String) (n K' : ℕ) (ch : Bool)
+private theorem simA_iter (s s' : String) (n K' : ℕ) (ch : Bool)
     (EQ : AggQueryIn T c 1 (ColKind.allReg 1))
     (BQ : AggQueryIn T c n (ColKind.allReg n)) (L : AggQueryIn T c n (ColKind.allReg n) [(s, n)])
     (d : AnnotatedDatabase T K) (γ : Fin c → T) (E : EvalEnv T K) :
@@ -1218,7 +1232,7 @@ theorem simA_iter (s s' : String) (n K' : ℕ) (ch : Bool)
     rw [Function.iterate_succ_apply', Function.iterate_succ_apply', ← ih]
     exact ann_simBodyA s s' n K' ch EQ L d γ E _ (hconf i)
 
-theorem simA_step_zero (s s' : String) (n K' : ℕ) (ch : Bool)
+private theorem simA_step_zero (s s' : String) (n K' : ℕ) (ch : Bool)
     (EQ : AggQueryIn T c 1 (ColKind.allReg 1))
     (L : AggQueryIn T c n (ColKind.allReg n) [(s, n)]) (d : AnnotatedDatabase T K)
     (γ : Fin c → T) (E : EvalEnv T K) : muStep s' (simBodyA s s' n K' ch EQ L) d γ E 0 = 0 := by
@@ -1234,7 +1248,7 @@ section SimSpecInst
 variable {c : ℕ}
 
 /-- **The successor relation**, as one row per ordered pair. -/
-theorem ann_ctrSucc_eq (EQ : AggQueryIn T c 1 (ColKind.allReg 1)) (K' : ℕ)
+private theorem ann_ctrSucc_eq (EQ : AggQueryIn T c 1 (ColKind.allReg 1)) (K' : ℕ)
     (d : AnnotatedDatabase T K) (γ : Fin c → T) (E : EvalEnv T K) (W : Multiset (Tuple T K'))
     (w : Tuple T K' → K)
     (hW : (ctr EQ K').ann d γ E = W.map (fun v => ((v, w v) : AnnotatedTuple T K K')))
@@ -1246,7 +1260,7 @@ theorem ann_ctrSucc_eq (EQ : AggQueryIn T c 1 (ColKind.allReg 1)) (K' : ℕ)
   rfl
 
 /-- **The least-counter relation**, as one row per counter. -/
-theorem ann_ctrLeast_eq (EQ : AggQueryIn T c 1 (ColKind.allReg 1)) (K' : ℕ)
+private theorem ann_ctrLeast_eq (EQ : AggQueryIn T c 1 (ColKind.allReg 1)) (K' : ℕ)
     (d : AnnotatedDatabase T K) (γ : Fin c → T) (E : EvalEnv T K) (W : Multiset (Tuple T K'))
     (w : Tuple T K' → K)
     (hW : (ctr EQ K').ann d γ E = W.map (fun v => ((v, w v) : AnnotatedTuple T K K'))) :
@@ -1257,7 +1271,7 @@ theorem ann_ctrLeast_eq (EQ : AggQueryIn T c 1 (ColKind.allReg 1)) (K' : ℕ)
   rw [ctrLeast, ann_diff, hW, Multiset.map_map]
   rfl
 
-theorem supp_ctrSucc (EQ : AggQueryIn T c 1 (ColKind.allReg 1)) (K' : ℕ)
+private theorem supp_ctrSucc (EQ : AggQueryIn T c 1 (ColKind.allReg 1)) (K' : ℕ)
     (d : AnnotatedDatabase T K) (γ : Fin c → T) (E : EvalEnv T K) (W : Multiset (Tuple T K'))
     (w : Tuple T K' → K)
     (hW : (ctr EQ K').ann d γ E = W.map (fun v => ((v, w v) : AnnotatedTuple T K K')))
@@ -1267,7 +1281,7 @@ theorem supp_ctrSucc (EQ : AggQueryIn T c 1 (ColKind.allReg 1)) (K' : ℕ)
     Multiset.mem_toFinset]
   exact mem_ltPairs a b
 
-theorem supp_ctrLeast (EQ : AggQueryIn T c 1 (ColKind.allReg 1)) (K' : ℕ)
+private theorem supp_ctrLeast (EQ : AggQueryIn T c 1 (ColKind.allReg 1)) (K' : ℕ)
     (d : AnnotatedDatabase T K) (γ : Fin c → T) (E : EvalEnv T K) (W : Multiset (Tuple T K'))
     (w : Tuple T K' → K)
     (hW : (ctr EQ K').ann d γ E = W.map (fun v => ((v, w v) : AnnotatedTuple T K K')))
@@ -1277,7 +1291,7 @@ theorem supp_ctrLeast (EQ : AggQueryIn T c 1 (ColKind.allReg 1)) (K' : ℕ)
 
 /-- **The term at the current row's tuple**, read through the substitution:
 the term with its hole bound to that tuple annotated `𝟙`. -/
-theorem ann_substRow (s : String) (n K' : ℕ) (L : AggQueryIn T c n (ColKind.allReg n) [(s, n)])
+private theorem ann_substRow (s : String) (n K' : ℕ) (L : AggQueryIn T c n (ColKind.allReg n) [(s, n)])
     (hL : L.recLinear s n) (d : AnnotatedDatabase T K) (γ : Fin c → T) (E : EvalEnv T K)
     (u : Tuple T (n + K')) :
     (castIdx (subIdx_self s n) (substRel s (rowPv n K') (L.substMap (applyOuter T c (n + K'))))).ann
@@ -1314,7 +1328,7 @@ def splitRow {n K' : ℕ} (p : AnnotatedTuple T K (n + K')) : (Tuple T n × Tupl
   ((leftPart n K' p.1, rightPart n K' p.1), p.2)
 
 omit [ValueType T] [DecidableEq K] [HasAltLinearOrder K] in
-theorem lin_map_splitRow {n K' : ℕ} (F : Tuple T (n + K') → AnnotatedRelation T K (n + K'))
+private theorem lin_map_splitRow {n K' : ℕ} (F : Tuple T (n + K') → AnnotatedRelation T K (n + K'))
     (X : AnnotatedRelation T K (n + K')) :
     PathSum.lin (fun q : Tuple T n × Tuple T K' => (F (Fin.append q.1 q.2)).map splitRow)
         (X.map splitRow)
@@ -1328,7 +1342,7 @@ theorem lin_map_splitRow {n K' : ℕ} (F : Tuple T (n + K') → AnnotatedRelatio
   rfl
 
 omit [ValueType T] [DecidableEq K] [HasAltLinearOrder K] in
-theorem rounds_map_splitRow {n K' : ℕ} (F : Tuple T (n + K') → AnnotatedRelation T K (n + K'))
+private theorem rounds_map_splitRow {n K' : ℕ} (F : Tuple T (n + K') → AnnotatedRelation T K (n + K'))
     (X : AnnotatedRelation T K (n + K')) :
     ∀ j, PathSum.rounds (X.map splitRow)
         (fun q : Tuple T n × Tuple T K' => (F (Fin.append q.1 q.2)).map splitRow) j
@@ -1339,7 +1353,7 @@ theorem rounds_map_splitRow {n K' : ℕ} (F : Tuple T (n + K') → AnnotatedRela
       Function.iterate_succ_apply']
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
-theorem muSum_eq_sum {α : Type} (step : Multiset α → Multiset α) :
+private theorem muSum_eq_sum {α : Type} (step : Multiset α → Multiset α) :
     ∀ (k : ℕ) (M : Multiset α), muSum step k M = ∑ j ∈ Finset.range (k + 1), step^[j] M
   | 0, M => by simp [muSum]
   | k + 1, M => by
@@ -1350,12 +1364,12 @@ theorem muSum_eq_sum {α : Type} (step : Multiset α → Multiset α) :
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 /-- **A bag recursion whose `L`-th round is empty is the sum of its first
 `L` rounds.** -/
-theorem muSumFix_eq_sum {α : Type} {step : Multiset α → Multiset α} (h0 : step 0 = 0)
+private theorem muSumFix_eq_sum {α : Type} {step : Multiset α → Multiset α} (h0 : step 0 = 0)
     {M : Multiset α} {L : ℕ} (hL : step^[L + 1] M = 0) :
     muSumFix step M = ∑ j ∈ Finset.range (L + 1), step^[j] M := by
   rw [muSumFix_eq_of_empty h0 hL, muSum_eq_sum]
 
-theorem evaluate_dedup_eq {c n : ℕ} (q : AggQueryIn T c n (ColKind.allReg n))
+private theorem evaluate_dedup_eq {c n : ℕ} (q : AggQueryIn T c n (ColKind.allReg n))
     (d : AnnotatedDatabase T K) (γ : Fin c → T) (E : EvalEnv T K) :
     (Dedup q).evaluate d γ E = (PathSum.dedupK (q.ann d γ E)).map GenRow.ofAnnotated := by
   simp only [evaluate, ann]
@@ -1363,17 +1377,17 @@ theorem evaluate_dedup_eq {c n : ℕ} (q : AggQueryIn T c n (ColKind.allReg n))
   rfl
 
 omit [DecidableEq K] [HasAltLinearOrder K] in
-theorem ascLt_irrefl' {K' : ℕ} (x : Tuple T K') : ¬ ascLt K' x x := by
+private theorem ascLt_irrefl' {K' : ℕ} (x : Tuple T K') : ¬ ascLt K' x x := by
   intro h; unfold ascLt at h; rw [OrderSpec.lt_irrefl] at h; exact absurd h (by simp)
 
 omit [DecidableEq K] [HasAltLinearOrder K] in
-theorem ascLt_trans' {K' : ℕ} (x y z : Tuple T K') (h₁ : ascLt K' x y) (h₂ : ascLt K' y z) :
+private theorem ascLt_trans' {K' : ℕ} (x y z : Tuple T K') (h₁ : ascLt K' x y) (h₂ : ascLt K' y z) :
     ascLt K' x z :=
   OrderSpec.lt_trans' (OrderSpec.asc K') h₁ h₂
 
 open Classical in
 omit [DecidableEq K] [HasAltLinearOrder K] in
-theorem firstInd_eq_of_sorted {K' : ℕ} {W : Multiset (Tuple T K')} {l : List (Tuple T K')}
+private theorem firstInd_eq_of_sorted {K' : ℕ} {W : Multiset (Tuple T K')} {l : List (Tuple T K')}
     (hl : l.Pairwise (ascLt K')) (hmem : ∀ x, x ∈ l ↔ x ∈ W) (b : Tuple T K') :
     (if b ∈ W then (if ∃ a ∈ W, ascLt K' a b then (0 : K) else 1) else 0)
       = PathSum.firstInd l b := by
@@ -1389,7 +1403,7 @@ theorem firstInd_eq_of_sorted {K' : ℕ} {W : Multiset (Tuple T K')} {l : List (
 
 open Classical in
 omit [DecidableEq K] [HasAltLinearOrder K] in
-theorem succInd_eq_of_sorted {K' : ℕ} {W : Multiset (Tuple T K')} {l : List (Tuple T K')}
+private theorem succInd_eq_of_sorted {K' : ℕ} {W : Multiset (Tuple T K')} {l : List (Tuple T K')}
     (hl : l.Pairwise (ascLt K')) (hmem : ∀ x, x ∈ l ↔ x ∈ W) {a : Tuple T K'} (ha : a ∈ l)
     (b : Tuple T K') :
     (if a ∈ W ∧ b ∈ W ∧ ascLt K' a b then
@@ -1419,7 +1433,7 @@ theorem succInd_eq_of_sorted {K' : ℕ} {W : Multiset (Tuple T K')} {l : List (T
 open Classical in
 omit [DecidableEq K] [HasAltLinearOrder K] in
 /-- The first counter of the sublist `P` keeps. -/
-theorem firstInd_filter {K' : ℕ} {W : Multiset (Tuple T K')} {l : List (Tuple T K')}
+private theorem firstInd_filter {K' : ℕ} {W : Multiset (Tuple T K')} {l : List (Tuple T K')}
     (hl : l.Pairwise (ascLt K')) (hmem : ∀ x, x ∈ l ↔ x ∈ W) (P : Tuple T K' → Prop)
     (b : Tuple T K') :
     (if b ∈ W then (if P b ∧ ¬ ∃ a ∈ W, P a ∧ ascLt K' a b then (1 : K) else 0) else 0)
@@ -1436,7 +1450,7 @@ theorem firstInd_filter {K' : ℕ} {W : Multiset (Tuple T K')} {l : List (Tuple 
 open Classical in
 omit [DecidableEq K] [HasAltLinearOrder K] in
 /-- The successor in the sublist `P` keeps. -/
-theorem succInd_filter {K' : ℕ} {W : Multiset (Tuple T K')} {l : List (Tuple T K')}
+private theorem succInd_filter {K' : ℕ} {W : Multiset (Tuple T K')} {l : List (Tuple T K')}
     (hl : l.Pairwise (ascLt K')) (hmem : ∀ x, x ∈ l ↔ x ∈ W) (P : Tuple T K' → Prop)
     {a : Tuple T K'} (b : Tuple T K') :
     (if a ∈ W ∧ b ∈ W ∧ ascLt K' a b then
@@ -1459,7 +1473,7 @@ theorem succInd_filter {K' : ℕ} {W : Multiset (Tuple T K')} {l : List (Tuple T
     rw [ite_eq_right (fun h => ha ⟨h.1.1, h.2.1⟩),
       ite_eq_right (fun h => ha (Multiset.mem_filter.1 ((hmem' a).1 h.1)))]
 
-theorem length_filter_eq {K' : ℕ} {W : Multiset (Tuple T K')} {l : List (Tuple T K')}
+private theorem length_filter_eq {K' : ℕ} {W : Multiset (Tuple T K')} {l : List (Tuple T K')}
     (hl : l.Nodup) (hW : W.Nodup) (hmem : ∀ x, x ∈ l ↔ x ∈ W) (p : Tuple T K' → Bool) :
     (l.filter p).length = (W.filter (fun x => p x = true)).card := by
   rw [← List.toFinset_card_of_nodup (hl.filter p),
@@ -1471,7 +1485,7 @@ theorem length_filter_eq {K' : ℕ} {W : Multiset (Tuple T K')} {l : List (Tuple
 /-- **The simulation's rounds are those of `PathSum.SimSpec`**, for a
 sorted listing `l` of the counters, its weights read on the counters `P`
 keeps. -/
-theorem simSpec_of (s : String) (n K' : ℕ) (EQ : AggQueryIn T c 1 (ColKind.allReg 1))
+private theorem simSpec_of (s : String) (n K' : ℕ) (EQ : AggQueryIn T c 1 (ColKind.allReg 1))
     (BQ : AggQueryIn T c n (ColKind.allReg n)) (L : AggQueryIn T c n (ColKind.allReg n) [(s, n)])
     (hL : L.recLinear s n) (d : AnnotatedDatabase T K) (γ : Fin c → T)
     (E : EvalEnv T K) (W : Multiset (Tuple T K')) (hWn : W.Nodup) (P : Tuple T K' → Prop)
@@ -1547,7 +1561,7 @@ theorem simSpec_of (s : String) (n K' : ℕ) (EQ : AggQueryIn T c 1 (ColKind.all
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 /-- **A set recursion's value is every round from the one it settles at.** -/
-theorem muFix_eq_iterate_add {α : Type} {step : Multiset α → Multiset α}
+private theorem muFix_eq_iterate_add {α : Type} {step : Multiset α → Multiset α}
     (hs : MuSetSettles step) : ∀ k, muFix step = step^[muFixIdx step + k] 0
   | 0 => by rw [Nat.add_zero, muFix, muIter_eq_iterate]
   | k + 1 => by
@@ -1562,7 +1576,7 @@ least as many counters `P` keeps as tuples in a set `S'` the derivations of
 non-zero weight do not leave, in a semiring where a linear recursion
 settles within `|S'|` rounds if at all, the simulation's value is the set
 recursion's wherever the latter settles. -/
-theorem evaluate_simResultA (s s' : String) (n K' : ℕ) (EQ : AggQueryIn T c 1 (ColKind.allReg 1))
+private theorem evaluate_simResultA (s s' : String) (n K' : ℕ) (EQ : AggQueryIn T c 1 (ColKind.allReg 1))
     (BQ : AggQueryIn T c n (ColKind.allReg n)) (L : AggQueryIn T c n (ColKind.allReg n) [(s, n)])
     (hL : L.recLinear s n) (hLx : L.noExplode) (d : AnnotatedDatabase T K) (γ : Fin c → T)
     (E : EvalEnv T K) (W : Multiset (Tuple T K')) (hWn : W.Nodup) (P : Tuple T K' → Prop)
@@ -1637,7 +1651,7 @@ end SimSpecInst
 section Settle
 
 /-- **A recursion-free query settles everywhere.** -/
-theorem annSettlesAt_of_noRec :
+private theorem annSettlesAt_of_noRec :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l),
       q.noRec → ∀ (d : AnnotatedDatabase T K) (γ : Fin c → T) (E : EvalEnv T K),
         q.AnnSettlesAt d γ E := by
@@ -1668,7 +1682,7 @@ theorem annSettlesAt_of_noRec :
 
 /-- The rows a linear term gives at a round are, in their columns, rows
 it gives at any round holding the same tuples and more. -/
-theorem exists_row_of_recLinear {s : String} {n c m : ℕ} {κ : Fin m → ColKind}
+private theorem exists_row_of_recLinear {s : String} {n c m : ℕ} {κ : Fin m → ColKind}
     {l : List (String × ℕ)} (q : AggQueryIn T c m κ l) (h : q.recLinear s n) (hx : q.noExplode)
     (d : AnnotatedDatabase T K) (γ : Fin c → T) (E : EvalEnv T K)
     (X Y : AnnotatedRelation T K n) (hXY : PathSum.supp Y ⊆ PathSum.supp X)
@@ -1690,7 +1704,7 @@ theorem exists_row_of_recLinear {s : String} {n c m : ℕ} {κ : Fin m → ColKi
 /-- **A linear term settling at a round settles at any round holding fewer
 tuples**: its recursions are closed, and the right side of an apply on its
 recursive side is read at rows whose columns the larger round gives too. -/
-theorem annSettlesAt_of_recLinear_subset {s : String} {n : ℕ} :
+private theorem annSettlesAt_of_recLinear_subset {s : String} {n : ℕ} :
     ∀ {c m : ℕ} {κ : Fin m → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c m κ l),
       q.recLinear s n → q.noExplode →
       ∀ (d : AnnotatedDatabase T K) (γ : Fin c → T) (E : EvalEnv T K)
@@ -1737,7 +1751,7 @@ theorem annSettlesAt_of_recLinear_subset {s : String} {n : ℕ} :
 
 /-- **Settling under an apply's outer columns** is settling under the
 ambient context. -/
-theorem annSettlesAt_applyOuter {c n₁ n₂ : ℕ} {κ₂ : Fin n₂ → ColKind} {l : List (String × ℕ)}
+private theorem annSettlesAt_applyOuter {c n₁ n₂ : ℕ} {κ₂ : Fin n₂ → ColKind} {l : List (String × ℕ)}
     (q : AggQueryIn T c n₂ κ₂ l) (dB : AnnotatedDatabase T K) (γ : Fin c → T) (E : EvalEnv T K)
     (x : Tuple (GenValue T K) n₁) (u : Fin n₁ → T) :
     (q.substMap (applyOuter T c n₁)).AnnSettlesAt dB (Fin.append u γ)
@@ -1748,7 +1762,7 @@ theorem annSettlesAt_applyOuter {c n₁ n₂ : ℕ} {κ₂ : Fin n₂ → ColKin
   · exact annSettlesAt_congr_holes q dB γ (fun _ _ => rfl) (ctxAt_substEnv_applyOuter E γ x u).symm
 
 /-- A product written as an apply settles where its factors do. -/
-theorem annSettlesAt_prodA {c n₁ n₂ : ℕ} {l : List (String × ℕ)}
+private theorem annSettlesAt_prodA {c n₁ n₂ : ℕ} {l : List (String × ℕ)}
     (q₁ : AggQueryIn T c n₁ (ColKind.allReg n₁) l) (q₂ : AggQueryIn T c n₂ (ColKind.allReg n₂))
     (d : AnnotatedDatabase T K) (γ : Fin c → T) (E : EvalEnv T K)
     (h₁ : q₁.AnnSettlesAt d γ E) (h₂ : q₂.AnnSettlesAt d γ E) :
@@ -1756,13 +1770,13 @@ theorem annSettlesAt_prodA {c n₁ n₂ : ℕ} {l : List (String × ℕ)}
   rw [prodA, annSettlesAt_castKind]
   exact ⟨h₁, fun x _ => (annSettlesAt_applyOuter q₂ d γ E x.fst _).2 h₂⟩
 
-theorem annSettlesAt_keepCols {c n m : ℕ} {l : List (String × ℕ)} (cols : Fin m → Fin n)
+private theorem annSettlesAt_keepCols {c n m : ℕ} {l : List (String × ℕ)} (cols : Fin m → Fin n)
     (q : AggQueryIn T c n (ColKind.allReg n) l) (d : AnnotatedDatabase T K) (γ : Fin c → T)
     (E : EvalEnv T K) : (keepCols cols q).AnnSettlesAt d γ E ↔ q.AnnSettlesAt d γ E := by
   rw [keepCols, annSettlesAt_castKind]; exact Iff.rfl
 
 /-- **The substituted term settles where the term does at the one row.** -/
-theorem annSettlesAt_substRel {s : String} {c n : ℕ} (pv : Fin n → T ⊕ Fin c) :
+private theorem annSettlesAt_substRel {s : String} {c n : ℕ} (pv : Fin n → T ⊕ Fin c) :
     ∀ {m : ℕ} {κ : Fin m → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c m κ l),
         q.recLinear s n →
       ∀ (d : AnnotatedDatabase T K) (γ : Fin c → T) (E : EvalEnv T K),
@@ -1814,7 +1828,7 @@ variable {c : ℕ} (EQ : AggQueryIn T c 1 (ColKind.allReg 1))
   (hEQ : ∀ (d : AnnotatedDatabase T K) (γ : Fin c → T) (E : EvalEnv T K), EQ.AnnSettlesAt d γ E)
 include hEQ
 
-theorem annSettlesAt_ctr (K' : ℕ) (d : AnnotatedDatabase T K) (γ : Fin c → T) (E : EvalEnv T K) :
+private theorem annSettlesAt_ctr (K' : ℕ) (d : AnnotatedDatabase T K) (γ : Fin c → T) (E : EvalEnv T K) :
     (ctr EQ K').AnnSettlesAt d γ E := by
   induction K' with
   | zero =>
@@ -1826,12 +1840,12 @@ theorem annSettlesAt_ctr (K' : ℕ) (d : AnnotatedDatabase T K) (γ : Fin c → 
     rw [dedupG, annSettlesAt_castKind]
     exact hEQ d γ E
 
-theorem annSettlesAt_ctrLt (K' : ℕ) (d : AnnotatedDatabase T K) (γ : Fin c → T)
+private theorem annSettlesAt_ctrLt (K' : ℕ) (d : AnnotatedDatabase T K) (γ : Fin c → T)
     (E : EvalEnv T K) : (ctrLt EQ K').AnnSettlesAt d γ E :=
   annSettlesAt_prodA _ _ d γ E (annSettlesAt_ctr EQ hEQ K' d γ E)
     (annSettlesAt_ctr EQ hEQ K' d γ E)
 
-theorem annSettlesAt_ctrSucc (K' : ℕ) (d : AnnotatedDatabase T K) (γ : Fin c → T)
+private theorem annSettlesAt_ctrSucc (K' : ℕ) (d : AnnotatedDatabase T K) (γ : Fin c → T)
     (E : EvalEnv T K) : (ctrSucc EQ K').AnnSettlesAt d γ E := by
   refine ⟨annSettlesAt_ctrLt EQ hEQ K' d γ E, ?_⟩
   rw [ctrMid, annSettlesAt_keepCols]
@@ -1839,24 +1853,24 @@ theorem annSettlesAt_ctrSucc (K' : ℕ) (d : AnnotatedDatabase T K) (γ : Fin c 
     (annSettlesAt_ctr EQ hEQ K' d γ E) (annSettlesAt_ctr EQ hEQ K' d γ E))
     (annSettlesAt_ctr EQ hEQ K' d γ E)
 
-theorem annSettlesAt_ctrLeast (K' : ℕ) (d : AnnotatedDatabase T K) (γ : Fin c → T)
+private theorem annSettlesAt_ctrLeast (K' : ℕ) (d : AnnotatedDatabase T K) (γ : Fin c → T)
     (E : EvalEnv T K) : (ctrLeast EQ K').AnnSettlesAt d γ E :=
   ⟨annSettlesAt_ctr EQ hEQ K' d γ E,
     (annSettlesAt_keepCols _ _ d γ E).2 (annSettlesAt_ctrLt EQ hEQ K' d γ E)⟩
 
-theorem annSettlesAt_ctrStep (ch : Bool) (K' : ℕ) (d : AnnotatedDatabase T K)
+private theorem annSettlesAt_ctrStep (ch : Bool) (K' : ℕ) (d : AnnotatedDatabase T K)
     (γ : Fin c → T) (E : EvalEnv T K) : (ctrStep ch EQ K').AnnSettlesAt d γ E := by
   cases ch
   · exact annSettlesAt_ctrSucc EQ hEQ K' d γ E
   · exact annSettlesAt_ctrLt EQ hEQ K' d γ E
 
-theorem annSettlesAt_ctrStart (ch : Bool) (K' : ℕ) (d : AnnotatedDatabase T K)
+private theorem annSettlesAt_ctrStart (ch : Bool) (K' : ℕ) (d : AnnotatedDatabase T K)
     (γ : Fin c → T) (E : EvalEnv T K) : (ctrStart ch EQ K').AnnSettlesAt d γ E := by
   cases ch
   · exact annSettlesAt_ctrLeast EQ hEQ K' d γ E
   · exact annSettlesAt_ctr EQ hEQ K' d γ E
 
-theorem annSettlesAt_ctrNext (ch : Bool) (n K' : ℕ) (d : AnnotatedDatabase T K)
+private theorem annSettlesAt_ctrNext (ch : Bool) (n K' : ℕ) (d : AnnotatedDatabase T K)
     (γ : Fin c → T) (E : EvalEnv T K) (x : Tuple (GenValue T K) (n + K'))
     (u : Tuple T (n + K')) :
     (ctrNext ch EQ n K').AnnSettlesAt d (Fin.append u γ)
@@ -1868,7 +1882,7 @@ end CtrSettle
 
 /-- **The simulation settles wherever its rounds end and read the term at
 tuples of the recursion's rounds**, where the term settles. -/
-theorem annSettlesAt_simResultA_of (s s' : String) (n K' : ℕ) (ch : Bool)
+private theorem annSettlesAt_simResultA_of (s s' : String) (n K' : ℕ) (ch : Bool)
     (EQ : AggQueryIn T c 1 (ColKind.allReg 1))
     (hEQ : ∀ (d : AnnotatedDatabase T K) (γ : Fin c → T) (E : EvalEnv T K), EQ.AnnSettlesAt d γ E)
     (BQ : AggQueryIn T c n (ColKind.allReg n)) (L : AggQueryIn T c n (ColKind.allReg n) [(s, n)])
@@ -1956,7 +1970,7 @@ theorem annSettlesAt_simResultA_of (s s' : String) (n K' : ℕ) (ch : Bool)
 
 /-- **The successor simulation settles wherever the set recursion does**:
 its rounds end at the number of counters. -/
-theorem annSettlesAt_simResultA (s s' : String) (n K' : ℕ)
+private theorem annSettlesAt_simResultA (s s' : String) (n K' : ℕ)
     (EQ : AggQueryIn T c 1 (ColKind.allReg 1))
     (hEQ : ∀ (d : AnnotatedDatabase T K) (γ : Fin c → T) (E : EvalEnv T K), EQ.AnnSettlesAt d γ E)
     (BQ : AggQueryIn T c n (ColKind.allReg n)) (L : AggQueryIn T c n (ColKind.allReg n) [(s, n)])
@@ -1996,18 +2010,18 @@ value, so it is well-kinded under any context. -/
 def valRel (ls : List (ℕ × String)) (cs : List T) : AggQueryIn T c 1 (ColKind.allReg 1) :=
   Sel nonNullPred (listSum (valParts ls cs))
 
-theorem ann_emptyRel (n : ℕ) (d : AnnotatedDatabase T K) (γ : Fin c → T) (E : EvalEnv T K) :
+private theorem ann_emptyRel (n : ℕ) (d : AnnotatedDatabase T K) (γ : Fin c → T) (E : EvalEnv T K) :
     (emptyRel (T := T) (c := c) n).ann d γ E = 0 := by
   rw [emptyRel, ann_castKind]
   simp [ann, evaluate]
 
-theorem ann_listSum {n : ℕ} (d : AnnotatedDatabase T K) (γ : Fin c → T) (E : EvalEnv T K) :
+private theorem ann_listSum {n : ℕ} (d : AnnotatedDatabase T K) (γ : Fin c → T) (E : EvalEnv T K) :
     ∀ l : List (AggQueryIn T c n (ColKind.allReg n)),
       (listSum l).ann d γ E = (l.map (fun q => q.ann d γ E)).sum
   | [] => ann_emptyRel n d γ E
   | q :: l => by rw [listSum, ann_sum, ann_listSum d γ E l, List.map_cons, List.sum_cons]
 
-theorem ann_colRel {n : ℕ} (q : AggQueryIn T c n (ColKind.allReg n)) (i : Fin n)
+private theorem ann_colRel {n : ℕ} (q : AggQueryIn T c n (ColKind.allReg n)) (i : Fin n)
     (d : AnnotatedDatabase T K) (γ : Fin c → T) (E : EvalEnv T K) :
     (colRel q i).ann d γ E
       = (q.ann d γ E).map (fun p => ((fun _ => p.1 i, p.2) : AnnotatedTuple T K 1)) := by
@@ -2017,7 +2031,7 @@ theorem ann_colRel {n : ℕ} (q : AggQueryIn T c n (ColKind.allReg n)) (i : Fin 
   simp only [Function.comp, GenRow.toAnnotated]
   exact Prod.ext rfl (GenAnn.finalize_cash' r.snd _ Multiset.inter_le_left)
 
-theorem ann_Rel (k : ℕ) (t : String) (d : AnnotatedDatabase T K) (γ : Fin c → T)
+private theorem ann_Rel (k : ℕ) (t : String) (d : AnnotatedDatabase T K) (γ : Fin c → T)
     (E : EvalEnv T K) :
     (Rel k t : AggQueryIn T c k (ColKind.allReg k)).ann d γ E
       = match d.find k t with
@@ -2032,7 +2046,7 @@ theorem ann_Rel (k : ℕ) (t : String) (d : AnnotatedDatabase T K) (γ : Fin c �
     exact (Multiset.map_congr rfl fun p _ => GenRow.toAnnotated_ofAnnotated p).trans
       (Multiset.map_id _)
 
-theorem ann_constRel (a : T) (d : AnnotatedDatabase T K) (γ : Fin c → T) (E : EvalEnv T K) :
+private theorem ann_constRel (a : T) (d : AnnotatedDatabase T K) (γ : Fin c → T) (E : EvalEnv T K) :
     (constRel (c := c) a).ann d γ E
       = ({((fun _ => a, 1) : AnnotatedTuple T K 1)} : Multiset (AnnotatedTuple T K 1)) := by
   rw [constRel, ann_castKind]
@@ -2042,7 +2056,7 @@ theorem ann_constRel (a : T) (d : AnnotatedDatabase T K) (γ : Fin c → T) (E :
   simp [GenAnn.finalize]
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
-theorem mem_list_sum' {α : Type} {x : α} :
+private theorem mem_list_sum' {α : Type} {x : α} :
     ∀ l : List (Multiset α), x ∈ l.sum ↔ ∃ X ∈ l, x ∈ X
   | [] => by simp
   | X :: l => by
@@ -2050,13 +2064,13 @@ theorem mem_list_sum' {α : Type} {x : α} :
     simp
 
 omit [DecidableEq K] [HasAltLinearOrder K] in
-theorem holdsPlain_nonNullPred' (y : Tuple T 1) (γ : Fin c → T) :
+private theorem holdsPlain_nonNullPred' (y : Tuple T 1) (γ : Fin c → T) :
     (nonNullPred (c := c)).holdsPlain y γ ↔ ValueType.isNull (y 0) = false :=
   holdsPlain_nonNullPred y γ
 
 /-- **The rows of the counter values**: each is non-null, and its
 annotation is that of a leaf row or `𝟙`. -/
-theorem mem_ann_valRel {ls : List (ℕ × String)} {cs : List T} {d : AnnotatedDatabase T K}
+private theorem mem_ann_valRel {ls : List (ℕ × String)} {cs : List T} {d : AnnotatedDatabase T K}
     {γ : Fin c → T} {E : EvalEnv T K} {p : AnnotatedTuple T K 1}
     (hp : p ∈ (valRel ls cs).ann d γ E) :
     ValueType.isNull (p.1 0) = false ∧
@@ -2083,7 +2097,7 @@ theorem mem_ann_valRel {ls : List (ℕ × String)} {cs : List T} {d : AnnotatedD
     exact Or.inl (congrArg Prod.snd hpX)
 
 /-- A non-null value of a leaf is a counter value. -/
-theorem mem_valRel_of_leaf {ls : List (ℕ × String)} {cs : List T} (d : AnnotatedDatabase T K)
+private theorem mem_valRel_of_leaf {ls : List (ℕ × String)} {cs : List T} (d : AnnotatedDatabase T K)
     (γ : Fin c → T) (E : EvalEnv T K) {q : ℕ × String} (hq : q ∈ ls)
     {r : AnnotatedRelation T K q.1} (hr : d.find q.1 q.2 = some r) {p : AnnotatedTuple T K q.1}
     (hp : p ∈ r) (i : Fin q.1) (hnn : ValueType.isNull (p.1 i) = false) :
@@ -2098,7 +2112,7 @@ theorem mem_valRel_of_leaf {ls : List (ℕ × String)} {cs : List T} (d : Annota
   · exact (holdsPlain_nonNullPred' _ γ).2 hnn
 
 /-- A non-null constant is a counter value. -/
-theorem mem_valRel_of_const {ls : List (ℕ × String)} {cs : List T} (d : AnnotatedDatabase T K)
+private theorem mem_valRel_of_const {ls : List (ℕ × String)} {cs : List T} (d : AnnotatedDatabase T K)
     (γ : Fin c → T) (E : EvalEnv T K) {a : T} (ha : a ∈ cs) (hnn : ValueType.isNull a = false) :
     (fun _ => a) ∈ ((valRel ls cs).ann d γ E).map Prod.fst := by
   rw [valRel, ann_sel _ _ _ rfl, ann_listSum]
@@ -2110,7 +2124,7 @@ theorem mem_valRel_of_const {ls : List (ℕ × String)} {cs : List T} (d : Annot
   · exact (holdsPlain_nonNullPred' _ γ).2 hnn
 
 omit [ValueType T] in
-theorem card_powT (V : Multiset (Tuple T 1)) :
+private theorem card_powT (V : Multiset (Tuple T 1)) :
     ∀ K', Multiset.card (powT V K') = Multiset.card V ^ K'
   | 0 => by simp [powT]
   | K' + 1 => by
@@ -2118,7 +2132,7 @@ theorem card_powT (V : Multiset (Tuple T 1)) :
       Multiset.card_product, card_powT V K', pow_succ]
 
 omit [DecidableEq K] [HasAltLinearOrder K] in
-theorem nonNull_powT {V : Multiset (Tuple T 1)} (hV : ∀ v ∈ V, ValueType.isNull (v 0) = false) :
+private theorem nonNull_powT {V : Multiset (Tuple T 1)} (hV : ∀ v ∈ V, ValueType.isNull (v 0) = false) :
     ∀ (K' : ℕ), ∀ u ∈ powT V K', ∀ k, ValueType.isNull (u k) = false :=
   fun K' u hu k => hV _ ((mem_powT K' u).1 hu k)
 
@@ -2129,14 +2143,14 @@ end ValRel
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 /-- **Two set recursions agreeing along the iteration of one of them** have
 the same iterates and the same value. -/
-theorem muIter_congr_iter {α : Type} {step step' : Multiset α → Multiset α}
+private theorem muIter_congr_iter {α : Type} {step step' : Multiset α → Multiset α}
     (h : ∀ k, step' (muIter step k) = step (muIter step k)) :
     ∀ k, muIter step' k = muIter step k
   | 0 => rfl
   | k + 1 => by rw [muIter, muIter, muIter_congr_iter h k, h k]
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
-theorem muFix_congr_iter {α : Type} {step step' : Multiset α → Multiset α}
+private theorem muFix_congr_iter {α : Type} {step step' : Multiset α → Multiset α}
     (h : ∀ k, step' (muIter step k) = step (muIter step k)) : muFix step' = muFix step := by
   have hi := muIter_congr_iter h
   have hidx : muFixIdx step' = muFixIdx step := by
@@ -2147,7 +2161,7 @@ theorem muFix_congr_iter {α : Type} {step step' : Multiset α → Multiset α}
   rw [muFix, muFix, hidx, hi]
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
-theorem muSetSettles_congr_iter {α : Type} {step step' : Multiset α → Multiset α}
+private theorem muSetSettles_congr_iter {α : Type} {step step' : Multiset α → Multiset α}
     (h : ∀ k, step' (muIter step k) = step (muIter step k)) (hs : MuSetSettles step) :
     MuSetSettles step' := by
   obtain ⟨j, hj⟩ := hs
@@ -2158,7 +2172,7 @@ theorem muSetSettles_congr_iter {α : Type} {step step' : Multiset α → Multis
 
 omit [DecidableEq K] [HasAltLinearOrder K] in
 /-- **The tuples of the settled value are closed under the rounds.** -/
-theorem closed_supp_muFix {n : ℕ} (B : AnnotatedRelation T K n)
+private theorem closed_supp_muFix {n : ℕ} (B : AnnotatedRelation T K n)
     (G : Tuple T n → AnnotatedRelation T K n) (hs : MuSetSettles (PathSum.stepK B G)) :
     PathSum.Closed (PathSum.supp (muFix (PathSum.stepK B G))) B G := by
   have hfix := muFix_isFix hs
@@ -2172,7 +2186,7 @@ theorem closed_supp_muFix {n : ℕ} (B : AnnotatedRelation T K n)
 
 omit [ValueType T] [DecidableEq K] [HasAltLinearOrder K] in
 /-- Stripping keeps the recursions hygienic. -/
-theorem hygienic_stripAgg :
+private theorem hygienic_stripAgg :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l),
       q.hygienic → q.stripAgg.hygienic := by
   intro c n κ l q
@@ -2209,7 +2223,7 @@ theorem hygienic_stripAgg :
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 /-- Stripping reads no leaf the query does not. -/
-theorem leaves_stripAgg_subset :
+private theorem leaves_stripAgg_subset :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l),
       ∀ p ∈ q.stripAgg.leaves, p ∈ q.leaves := by
   intro c n κ l q
@@ -2256,7 +2270,7 @@ theorem leaves_stripAgg_subset :
 
 omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 /-- Stripping reads no constant the query does not. -/
-theorem allConsts_stripAgg_subset :
+private theorem allConsts_stripAgg_subset :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l),
       ∀ x ∈ q.stripAgg.allConsts, x ∈ q.allConsts := by
   intro c n κ l q
@@ -2330,7 +2344,7 @@ theorem allConsts_stripAgg_subset :
     exact hx.imp id (ih x)
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
-theorem add_le_pow_of_two_le {m : ℕ} (hm : 2 ≤ m) : ∀ c : ℕ, m + c + 2 ≤ m ^ (c + 2)
+private theorem add_le_pow_of_two_le {m : ℕ} (hm : 2 ≤ m) : ∀ c : ℕ, m + c + 2 ≤ m ^ (c + 2)
   | 0 => by
     rw [pow_two]
     nlinarith
@@ -2345,7 +2359,7 @@ section Node
 
 variable {c : ℕ}
 
-theorem annSettlesAt_valRel (ls : List (ℕ × String)) (cs : List T) (d : AnnotatedDatabase T K)
+private theorem annSettlesAt_valRel (ls : List (ℕ × String)) (cs : List T) (d : AnnotatedDatabase T K)
     (γ : Fin c → T) (E : EvalEnv T K) : (valRel ls cs).AnnSettlesAt d γ E := by
   show (listSum (valParts ls cs)).AnnSettlesAt d γ E
   have key : ∀ l : List (AggQueryIn T c 1 (ColKind.allReg 1)),
@@ -2401,13 +2415,13 @@ section SimStructure
 variable {c : ℕ}
 
 omit [ValueType T] [DecidableEq K] [HasAltLinearOrder K] in
-theorem noExplode_prodA {n₁ n₂ : ℕ} {l : List (String × ℕ)}
+private theorem noExplode_prodA {n₁ n₂ : ℕ} {l : List (String × ℕ)}
     (q₁ : AggQueryIn T c n₁ (ColKind.allReg n₁) l) (q₂ : AggQueryIn T c n₂ (ColKind.allReg n₂))
     (h₁ : q₁.noExplode) (h₂ : q₂.noExplode) : (prodA q₁ q₂).noExplode := by
   rw [prodA, noExplode_castKind]
   exact ⟨h₁, (noExplode_substMap _ _).2 h₂⟩
 
-theorem noMention_valRel (ls : List (ℕ × String)) (cs : List T) (t : String)
+private theorem noMention_valRel (ls : List (ℕ × String)) (cs : List T) (t : String)
     (hls : ∀ p ∈ ls, p.2 ≠ t) : (valRel (c := c) ls cs).noMention t := by
   show (listSum (valParts ls cs)).noMention t
   refine noMention_listSum t _ fun q hq => ?_
@@ -2421,7 +2435,7 @@ theorem noMention_valRel (ls : List (ℕ × String)) (cs : List T) (t : String)
     exact noMention_unitC t
 
 omit [DecidableEq K] [HasAltLinearOrder K] in
-theorem noExplode_valRel (ls : List (ℕ × String)) (cs : List T) :
+private theorem noExplode_valRel (ls : List (ℕ × String)) (cs : List T) :
     (valRel (c := c) ls cs).noExplode := by
   show (listSum (valParts ls cs)).noExplode
   have key : ∀ l : List (AggQueryIn T c 1 (ColKind.allReg 1)), (∀ q ∈ l, q.noExplode) →
@@ -2448,7 +2462,7 @@ section Ctr
 variable (EQ : AggQueryIn T c 1 (ColKind.allReg 1))
 
 omit [ValueType T] [DecidableEq K] [HasAltLinearOrder K] in
-theorem noExplode_ctr (h : EQ.noExplode) (K' : ℕ) : (ctr EQ K').noExplode := by
+private theorem noExplode_ctr (h : EQ.noExplode) (K' : ℕ) : (ctr EQ K').noExplode := by
   induction K' with
   | zero => rw [ctr, pow, unitC, noExplode_castKind]; trivial
   | succ K' ih =>
@@ -2458,62 +2472,62 @@ theorem noExplode_ctr (h : EQ.noExplode) (K' : ℕ) : (ctr EQ K').noExplode := b
     exact h
 
 omit [ValueType T] in
-theorem noMention_ctr (t : String) (h : EQ.noMention t) (K' : ℕ) : (ctr EQ K').noMention t :=
+private theorem noMention_ctr (t : String) (h : EQ.noMention t) (K' : ℕ) : (ctr EQ K').noMention t :=
   noMention_pow _ (noMention_dedupG _ t h) K'
 
 omit [DecidableEq K] [HasAltLinearOrder K] in
-theorem noExplode_ctrSucc (h : EQ.noExplode) (K' : ℕ) : (ctrSucc EQ K').noExplode :=
+private theorem noExplode_ctrSucc (h : EQ.noExplode) (K' : ℕ) : (ctrSucc EQ K').noExplode :=
   ⟨noExplode_prodA _ _ (noExplode_ctr EQ h K') (noExplode_ctr EQ h K'),
     noExplode_prodA _ _ (noExplode_prodA _ _ (noExplode_ctr EQ h K') (noExplode_ctr EQ h K'))
       (noExplode_ctr EQ h K')⟩
 
-theorem noMention_ctrSucc (t : String) (h : EQ.noMention t) (K' : ℕ) :
+private theorem noMention_ctrSucc (t : String) (h : EQ.noMention t) (K' : ℕ) :
     (ctrSucc EQ K').noMention t :=
   ⟨noMention_prodA _ _ (noMention_ctr EQ t h K') (noMention_ctr EQ t h K'),
     noMention_prodA _ _ (noMention_prodA _ _ (noMention_ctr EQ t h K') (noMention_ctr EQ t h K'))
       (noMention_ctr EQ t h K')⟩
 
 omit [DecidableEq K] [HasAltLinearOrder K] in
-theorem noExplode_ctrLeast (h : EQ.noExplode) (K' : ℕ) : (ctrLeast EQ K').noExplode :=
+private theorem noExplode_ctrLeast (h : EQ.noExplode) (K' : ℕ) : (ctrLeast EQ K').noExplode :=
   ⟨noExplode_ctr EQ h K', noExplode_prodA _ _ (noExplode_ctr EQ h K') (noExplode_ctr EQ h K')⟩
 
-theorem noMention_ctrLeast (t : String) (h : EQ.noMention t) (K' : ℕ) :
+private theorem noMention_ctrLeast (t : String) (h : EQ.noMention t) (K' : ℕ) :
     (ctrLeast EQ K').noMention t :=
   ⟨noMention_ctr EQ t h K', noMention_prodA _ _ (noMention_ctr EQ t h K') (noMention_ctr EQ t h K')⟩
 
 omit [DecidableEq K] [HasAltLinearOrder K] in
-theorem noExplode_ctrStep (ch : Bool) (h : EQ.noExplode) (K' : ℕ) :
+private theorem noExplode_ctrStep (ch : Bool) (h : EQ.noExplode) (K' : ℕ) :
     (ctrStep ch EQ K').noExplode := by
   cases ch
   · exact noExplode_ctrSucc EQ h K'
   · exact noExplode_prodA _ _ (noExplode_ctr EQ h K') (noExplode_ctr EQ h K')
 
 omit [DecidableEq K] [HasAltLinearOrder K] in
-theorem noExplode_ctrStart (ch : Bool) (h : EQ.noExplode) (K' : ℕ) :
+private theorem noExplode_ctrStart (ch : Bool) (h : EQ.noExplode) (K' : ℕ) :
     (ctrStart ch EQ K').noExplode := by
   cases ch
   · exact noExplode_ctrLeast EQ h K'
   · exact noExplode_ctr EQ h K'
 
-theorem noMention_ctrStep (ch : Bool) (t : String) (h : EQ.noMention t) (K' : ℕ) :
+private theorem noMention_ctrStep (ch : Bool) (t : String) (h : EQ.noMention t) (K' : ℕ) :
     (ctrStep ch EQ K').noMention t := by
   cases ch
   · exact noMention_ctrSucc EQ t h K'
   · exact noMention_prodA _ _ (noMention_ctr EQ t h K') (noMention_ctr EQ t h K')
 
-theorem noMention_ctrStart (ch : Bool) (t : String) (h : EQ.noMention t) (K' : ℕ) :
+private theorem noMention_ctrStart (ch : Bool) (t : String) (h : EQ.noMention t) (K' : ℕ) :
     (ctrStart ch EQ K').noMention t := by
   cases ch
   · exact noMention_ctrLeast EQ t h K'
   · exact noMention_ctr EQ t h K'
 
 omit [DecidableEq K] [HasAltLinearOrder K] in
-theorem noExplode_ctrNext (ch : Bool) (h : EQ.noExplode) (n K' : ℕ) :
+private theorem noExplode_ctrNext (ch : Bool) (h : EQ.noExplode) (n K' : ℕ) :
     (ctrNext ch EQ n K').noExplode := by
   show ((ctrStep ch EQ K').substMap (applyOuter T c (n + K'))).noExplode
   exact (noExplode_substMap _ _).2 (noExplode_ctrStep EQ ch h K')
 
-theorem noMention_ctrNext (ch : Bool) (t : String) (h : EQ.noMention t) (n K' : ℕ) :
+private theorem noMention_ctrNext (ch : Bool) (t : String) (h : EQ.noMention t) (n K' : ℕ) :
     (ctrNext ch EQ n K').noMention t := by
   show ((ctrStep ch EQ K').substMap (applyOuter T c (n + K'))).noMention t
   exact (noMention_substMap _ _).2 (noMention_ctrStep EQ ch t h K')
@@ -2521,7 +2535,7 @@ theorem noMention_ctrNext (ch : Bool) (t : String) (h : EQ.noMention t) (n K' : 
 end Ctr
 
 omit [ValueType T] [DecidableEq K] [HasAltLinearOrder K] in
-theorem noExplode_substRel {s : String} {n : ℕ} (pv : Fin n → T ⊕ Fin c) :
+private theorem noExplode_substRel {s : String} {n : ℕ} (pv : Fin n → T ⊕ Fin c) :
     ∀ {m : ℕ} {κ : Fin m → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c m κ l),
       q.recLinear s n → q.noExplode → (substRel s pv q).noExplode := by
   intro m κ l q
@@ -2563,7 +2577,7 @@ section SimStructure2
 
 variable {c : ℕ}
 
-theorem noMention_muSetSim (ch : Bool) {n : ℕ} (s s' t : String)
+private theorem noMention_muSetSim (ch : Bool) {n : ℕ} (s s' t : String)
     (q₀ : AggQueryIn T c n (ColKind.allReg n))
     (q₁ : AggQueryIn T c n (ColKind.allReg n) [(s, n)])
     (q₀' : AggQueryIn T c n (ColKind.allReg n))
@@ -2585,7 +2599,7 @@ theorem noMention_muSetSim (ch : Bool) {n : ℕ} (s s' t : String)
   trivial
 
 omit [DecidableEq K] [HasAltLinearOrder K] in
-theorem noExplode_muSetSim (ch : Bool) {n : ℕ} (s s' : String)
+private theorem noExplode_muSetSim (ch : Bool) {n : ℕ} (s s' : String)
     (q₀ : AggQueryIn T c n (ColKind.allReg n))
     (q₁ : AggQueryIn T c n (ColKind.allReg n) [(s, n)])
     (q₀' : AggQueryIn T c n (ColKind.allReg n))
@@ -2654,7 +2668,7 @@ noncomputable def muSetFreeA (ch : Bool) (f : ℕ → String) :
 /-- **The pass keeps a name unmentioned, and a recursive term linear.** The
 two go together: a product's closed side must stay unmentioning, and a set
 recursion's body must stay linear for its simulation to mention nothing new. -/
-theorem muSetFreeA_struct (ch : Bool) :
+private theorem muSetFreeA_struct (ch : Bool) :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l)
       (f : ℕ → String), q.usesOnly (Set.univ \ {OpKind.union}) → q.hygienic →
         (∀ t, q.noMention t → (muSetFreeA ch f q).noMention t)
@@ -2720,7 +2734,7 @@ theorem muSetFreeA_struct (ch : Bool) :
 
 omit [DecidableEq K] [HasAltLinearOrder K] in
 /-- **The pass explodes nothing.** -/
-theorem noExplode_muSetFreeA (ch : Bool) :
+private theorem noExplode_muSetFreeA (ch : Bool) :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l)
       (f : ℕ → String), q.usesOnly (Set.univ \ {OpKind.union}) → q.hygienic → q.noExplode →
         (muSetFreeA ch f q).noExplode := by
@@ -2761,14 +2775,14 @@ theorem noExplode_muSetFreeA (ch : Bool) :
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 /-- **Two bag recursions agreeing along the rounds of one of them** have the
 same rounds and the same value. -/
-theorem iterate_congr_iter {α : Type} {step step' : Multiset α → Multiset α} {M : Multiset α}
+private theorem iterate_congr_iter {α : Type} {step step' : Multiset α → Multiset α} {M : Multiset α}
     (h : ∀ k, step' (step^[k] M) = step (step^[k] M)) : ∀ k, step'^[k] M = step^[k] M
   | 0 => rfl
   | k + 1 => by
     rw [Function.iterate_succ_apply', Function.iterate_succ_apply', iterate_congr_iter h k, h k]
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
-theorem muSumFix_congr_iter {α : Type} {step step' : Multiset α → Multiset α} {M : Multiset α}
+private theorem muSumFix_congr_iter {α : Type} {step step' : Multiset α → Multiset α} {M : Multiset α}
     (h : ∀ k, step' (step^[k] M) = step (step^[k] M)) : muSumFix step' M = muSumFix step M := by
   have hi := iterate_congr_iter h
   have hr : muRounds step' M = muRounds step M := by
@@ -2805,7 +2819,7 @@ def NodeCorrect (cnt : SeqAggFunc T) (ch : Bool) (P : AnnotatedDatabase T K → 
 and its result settles there too: at the instances `P` admits, where its
 node is correct, for a count `cnt` and a query of `𝒜(∅, {cnt})` with no
 union and no explosion. -/
-theorem muSetFreeA_correct (cnt : SeqAggFunc T) (ch : Bool) {P : AnnotatedDatabase T K → Prop}
+private theorem muSetFreeA_correct (cnt : SeqAggFunc T) (ch : Bool) {P : AnnotatedDatabase T K → Prop}
     (hnode : NodeCorrect cnt ch P) :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l)
       (f : ℕ → String), q.usesOnly (Set.univ \ {OpKind.union}) → q.inSig {cnt} → q.hygienic →
@@ -2941,18 +2955,18 @@ variable {c : ℕ} {S : Set OpKind} (hS : simOps ⊆ S)
 include hS
 
 omit [ValueType T] in
-theorem sumMuOps_subset_of_simOps : sumMuOps ⊆ S := fun o ho => hS (by
+private theorem sumMuOps_subset_of_simOps : sumMuOps ⊆ S := fun o ho => hS (by
   simp only [sumMuOps, Set.mem_insert_iff, Set.mem_singleton_iff] at ho
   rcases ho with rfl | rfl | rfl | rfl | rfl | rfl <;> simp [simOps])
 
 omit [ValueType T] in
-theorem usesOnly_keepCols {n m : ℕ} {l : List (String × ℕ)} (cols : Fin m → Fin n)
+private theorem usesOnly_keepCols {n m : ℕ} {l : List (String × ℕ)} (cols : Fin m → Fin n)
     (q : AggQueryIn T c n (ColKind.allReg n) l) (h : q.usesOnly S) :
     (keepCols cols q).usesOnly S := by
   rw [keepCols, usesOnly_castKind]
   exact ⟨⟨hS (by simp [simOps]), fun _ => rfl⟩, h⟩
 
-theorem usesOnly_valRel (ls : List (ℕ × String)) (cs : List T) :
+private theorem usesOnly_valRel (ls : List (ℕ × String)) (cs : List T) :
     (valRel (c := c) ls cs).usesOnly S := by
   have hS' := sumMuOps_subset_of_simOps hS
   have hproj : OpKind.proj ∈ S := hS (by simp [simOps])
@@ -2975,16 +2989,16 @@ theorem usesOnly_valRel (ls : List (ℕ × String)) (cs : List T) :
     exact ⟨⟨hproj, fun _ => rfl⟩, usesOnly_unitC hS'⟩
 
 omit [ValueType T] in
-theorem usesOnly_ctr (EQ : AggQueryIn T c 1 (ColKind.allReg 1)) (h : EQ.usesOnly S) (K' : ℕ) :
+private theorem usesOnly_ctr (EQ : AggQueryIn T c 1 (ColKind.allReg 1)) (h : EQ.usesOnly S) (K' : ℕ) :
     (ctr EQ K').usesOnly S :=
   usesOnly_pow _ (sumMuOps_subset_of_simOps hS) (usesOnly_dedupG _ (hS (by simp [simOps])) h) K'
 
-theorem usesOnly_ctrLt (EQ : AggQueryIn T c 1 (ColKind.allReg 1)) (h : EQ.usesOnly S)
+private theorem usesOnly_ctrLt (EQ : AggQueryIn T c 1 (ColKind.allReg 1)) (h : EQ.usesOnly S)
     (K' : ℕ) : (ctrLt EQ K').usesOnly S :=
   ⟨hS (by simp [simOps]), usesOnly_prodA _ _ (hS (by simp [simOps])) (usesOnly_ctr hS EQ h K')
     (usesOnly_ctr hS EQ h K')⟩
 
-theorem usesOnly_ctrSucc (EQ : AggQueryIn T c 1 (ColKind.allReg 1)) (h : EQ.usesOnly S)
+private theorem usesOnly_ctrSucc (EQ : AggQueryIn T c 1 (ColKind.allReg 1)) (h : EQ.usesOnly S)
     (K' : ℕ) : (ctrSucc EQ K').usesOnly S := by
   have ha : OpKind.apply ∈ S := hS (by simp [simOps])
   refine ⟨hS (by simp [simOps]), usesOnly_ctrLt hS EQ h K', ?_⟩
@@ -2992,29 +3006,29 @@ theorem usesOnly_ctrSucc (EQ : AggQueryIn T c 1 (ColKind.allReg 1)) (h : EQ.uses
     (usesOnly_prodA _ _ ha (usesOnly_ctr hS EQ h K') (usesOnly_ctr hS EQ h K'))
     (usesOnly_ctr hS EQ h K')⟩
 
-theorem usesOnly_ctrLeast (EQ : AggQueryIn T c 1 (ColKind.allReg 1)) (h : EQ.usesOnly S)
+private theorem usesOnly_ctrLeast (EQ : AggQueryIn T c 1 (ColKind.allReg 1)) (h : EQ.usesOnly S)
     (K' : ℕ) : (ctrLeast EQ K').usesOnly S :=
   ⟨hS (by simp [simOps]), usesOnly_ctr hS EQ h K',
     usesOnly_keepCols hS _ _ (usesOnly_ctrLt hS EQ h K')⟩
 
-theorem usesOnly_ctrStep (ch : Bool) (EQ : AggQueryIn T c 1 (ColKind.allReg 1))
+private theorem usesOnly_ctrStep (ch : Bool) (EQ : AggQueryIn T c 1 (ColKind.allReg 1))
     (h : EQ.usesOnly S) (K' : ℕ) : (ctrStep ch EQ K').usesOnly S := by
   cases ch
   · exact usesOnly_ctrSucc hS EQ h K'
   · exact usesOnly_ctrLt hS EQ h K'
 
-theorem usesOnly_ctrStart (ch : Bool) (EQ : AggQueryIn T c 1 (ColKind.allReg 1))
+private theorem usesOnly_ctrStart (ch : Bool) (EQ : AggQueryIn T c 1 (ColKind.allReg 1))
     (h : EQ.usesOnly S) (K' : ℕ) : (ctrStart ch EQ K').usesOnly S := by
   cases ch
   · exact usesOnly_ctrLeast hS EQ h K'
   · exact usesOnly_ctr hS EQ h K'
 
-theorem usesOnly_ctrNext (ch : Bool) (EQ : AggQueryIn T c 1 (ColKind.allReg 1))
+private theorem usesOnly_ctrNext (ch : Bool) (EQ : AggQueryIn T c 1 (ColKind.allReg 1))
     (h : EQ.usesOnly S) (n K' : ℕ) : (ctrNext ch EQ n K').usesOnly S :=
   usesOnly_keepCols hS _ _ ⟨hS (by simp [simOps]),
     (usesOnly_substMap _ _).2 (usesOnly_ctrStep hS ch EQ h K')⟩
 
-theorem usesOnly_muSetSim (ch : Bool) {n : ℕ} (s s' : String)
+private theorem usesOnly_muSetSim (ch : Bool) {n : ℕ} (s s' : String)
     (q₀ : AggQueryIn T c n (ColKind.allReg n))
     (q₁ : AggQueryIn T c n (ColKind.allReg n) [(s, n)])
     (q₀' : AggQueryIn T c n (ColKind.allReg n))
@@ -3041,7 +3055,7 @@ private theorem memT {S : Set OpKind} {o : OpKind} (h : o ∈ S) (hne : o ≠ Op
 
 /-- **The classes of the pass's output**: the input's, without the set
 recursion, with the union the counter values are written with. -/
-theorem usesOnly_muSetFreeA (ch : Bool) {S : Set OpKind}
+private theorem usesOnly_muSetFreeA (ch : Bool) {S : Set OpKind}
     (hS : simOps ⊆ insert OpKind.union (S \ {OpKind.muSet})) :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l)
       (f : ℕ → String), q.usesOnly S → q.usesOnly (Set.univ \ {OpKind.union}) → q.hygienic →
@@ -3092,12 +3106,12 @@ section Signature
 
 variable {c : ℕ} {Θ : Set (SeqAggFunc T)}
 
-theorem noFun_halvesLt (K' : ℕ) : (halvesLt (T := T) (c := c) K').noFun = true := by
+private theorem noFun_halvesLt (K' : ℕ) : (halvesLt (T := T) (c := c) K').noFun = true := by
   rw [halvesLt, OrderSpec.ltPredOn]
   exact OrderSpec.noFun_ltPredOnOf (fun k => OrderCol.noFun_ltPred _ rfl rfl)
     (fun _ => rfl) (fun _ => rfl) _
 
-theorem noFun_midLt (K' : ℕ) : (midLt (T := T) (c := c) K').noFun = true := by
+private theorem noFun_midLt (K' : ℕ) : (midLt (T := T) (c := c) K').noFun = true := by
   simp only [midLt, GenPredIn.noFun, Bool.and_eq_true]
   refine ⟨?_, ?_⟩
   · rw [OrderSpec.ltPredOn]
@@ -3107,7 +3121,7 @@ theorem noFun_midLt (K' : ℕ) : (midLt (T := T) (c := c) K').noFun = true := by
     exact OrderSpec.noFun_ltPredOnOf (fun k => OrderCol.noFun_ltPred _ rfl rfl)
       (fun _ => rfl) (fun _ => rfl) _
 
-theorem noFun_eqOuter (n K' : ℕ) : (eqOuter (T := T) (c := c) n K').noFun = true := by
+private theorem noFun_eqOuter (n K' : ℕ) : (eqOuter (T := T) (c := c) n K').noFun = true := by
   unfold eqOuter
   generalize List.finRange K' = ks
   induction ks with
@@ -3116,12 +3130,12 @@ theorem noFun_eqOuter (n K' : ℕ) : (eqOuter (T := T) (c := c) n K').noFun = tr
     simp only [List.map_cons, List.foldr_cons, GenPredIn.noFun, Bool.and_eq_true]
     exact ⟨⟨rfl, rfl⟩, ih⟩
 
-theorem inSig_keepCols {n m : ℕ} {l : List (String × ℕ)} (cols : Fin m → Fin n)
+private theorem inSig_keepCols {n m : ℕ} {l : List (String × ℕ)} (cols : Fin m → Fin n)
     (q : AggQueryIn T c n (ColKind.allReg n) l) (h : q.inSig Θ) : (keepCols cols q).inSig Θ := by
   rw [keepCols, inSig_castKind]
   exact ⟨fun _ => rfl, h⟩
 
-theorem inSig_valRel (ls : List (ℕ × String)) (cs : List T) :
+private theorem inSig_valRel (ls : List (ℕ × String)) (cs : List T) :
     (valRel (c := c) ls cs).inSig Θ := by
   refine ⟨rfl, inSig_listSum _ fun q hq => ?_⟩
   rcases List.mem_append.1 hq with hq | hq
@@ -3133,40 +3147,40 @@ theorem inSig_valRel (ls : List (ℕ × String)) (cs : List T) :
     rw [constRel, inSig_castKind]
     exact ⟨fun _ => rfl, inSig_unitC Θ⟩
 
-theorem inSig_ctr (EQ : AggQueryIn T c 1 (ColKind.allReg 1)) (h : EQ.inSig Θ) (K' : ℕ) :
+private theorem inSig_ctr (EQ : AggQueryIn T c 1 (ColKind.allReg 1)) (h : EQ.inSig Θ) (K' : ℕ) :
     (ctr EQ K').inSig Θ :=
   inSig_pow _ (inSig_dedupG _ h) K'
 
-theorem inSig_ctrLt (EQ : AggQueryIn T c 1 (ColKind.allReg 1)) (h : EQ.inSig Θ) (K' : ℕ) :
+private theorem inSig_ctrLt (EQ : AggQueryIn T c 1 (ColKind.allReg 1)) (h : EQ.inSig Θ) (K' : ℕ) :
     (ctrLt EQ K').inSig Θ :=
   ⟨noFun_halvesLt K', inSig_prodA _ _ (inSig_ctr EQ h K') (inSig_ctr EQ h K')⟩
 
-theorem inSig_ctrSucc (EQ : AggQueryIn T c 1 (ColKind.allReg 1)) (h : EQ.inSig Θ) (K' : ℕ) :
+private theorem inSig_ctrSucc (EQ : AggQueryIn T c 1 (ColKind.allReg 1)) (h : EQ.inSig Θ) (K' : ℕ) :
     (ctrSucc EQ K').inSig Θ :=
   ⟨inSig_ctrLt EQ h K', inSig_keepCols _ _ ⟨noFun_midLt K', inSig_prodA _ _
     (inSig_prodA _ _ (inSig_ctr EQ h K') (inSig_ctr EQ h K')) (inSig_ctr EQ h K')⟩⟩
 
-theorem inSig_ctrLeast (EQ : AggQueryIn T c 1 (ColKind.allReg 1)) (h : EQ.inSig Θ) (K' : ℕ) :
+private theorem inSig_ctrLeast (EQ : AggQueryIn T c 1 (ColKind.allReg 1)) (h : EQ.inSig Θ) (K' : ℕ) :
     (ctrLeast EQ K').inSig Θ :=
   ⟨inSig_ctr EQ h K', inSig_keepCols _ _ (inSig_ctrLt EQ h K')⟩
 
-theorem inSig_ctrStep (ch : Bool) (EQ : AggQueryIn T c 1 (ColKind.allReg 1)) (h : EQ.inSig Θ)
+private theorem inSig_ctrStep (ch : Bool) (EQ : AggQueryIn T c 1 (ColKind.allReg 1)) (h : EQ.inSig Θ)
     (K' : ℕ) : (ctrStep ch EQ K').inSig Θ := by
   cases ch
   · exact inSig_ctrSucc EQ h K'
   · exact inSig_ctrLt EQ h K'
 
-theorem inSig_ctrStart (ch : Bool) (EQ : AggQueryIn T c 1 (ColKind.allReg 1)) (h : EQ.inSig Θ)
+private theorem inSig_ctrStart (ch : Bool) (EQ : AggQueryIn T c 1 (ColKind.allReg 1)) (h : EQ.inSig Θ)
     (K' : ℕ) : (ctrStart ch EQ K').inSig Θ := by
   cases ch
   · exact inSig_ctrLeast EQ h K'
   · exact inSig_ctr EQ h K'
 
-theorem inSig_ctrNext (ch : Bool) (EQ : AggQueryIn T c 1 (ColKind.allReg 1)) (h : EQ.inSig Θ)
+private theorem inSig_ctrNext (ch : Bool) (EQ : AggQueryIn T c 1 (ColKind.allReg 1)) (h : EQ.inSig Θ)
     (n K' : ℕ) : (ctrNext ch EQ n K').inSig Θ :=
   inSig_keepCols _ _ ⟨noFun_eqOuter n K', (inSig_substMap _ _).2 (inSig_ctrStep ch EQ h K')⟩
 
-theorem inSig_muSetSim (ch : Bool) {n : ℕ} (s s' : String)
+private theorem inSig_muSetSim (ch : Bool) {n : ℕ} (s s' : String)
     (q₀ : AggQueryIn T c n (ColKind.allReg n))
     (q₁ : AggQueryIn T c n (ColKind.allReg n) [(s, n)])
     (q₀' : AggQueryIn T c n (ColKind.allReg n))
@@ -3183,7 +3197,7 @@ theorem inSig_muSetSim (ch : Bool) {n : ℕ} (s s' : String)
   trivial
 
 /-- **The pass keeps the signature.** -/
-theorem inSig_muSetFreeA (ch : Bool) :
+private theorem inSig_muSetFreeA (ch : Bool) :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l)
       (f : ℕ → String), q.usesOnly (Set.univ \ {OpKind.union}) → q.hygienic → q.inSig Θ →
         (muSetFreeA ch f q).inSig Θ := by
@@ -3228,7 +3242,7 @@ section Kinds
 
 variable {c : ℕ}
 
-theorem outerOk_ltPredOnOf {p m : ℕ} (ok : Fin c → Prop)
+private theorem outerOk_ltPredOnOf {p m : ℕ} (ok : Fin c → Prop)
     (base : Fin p → GenPredIn T c (ColKind.allReg m))
     (x y : Fin p → TermGIn T c (ColKind.allReg m)) (hb : ∀ k, (base k).outerOk ok)
     (hx : ∀ k, (x k).outerOk ok) (hy : ∀ k, (y k).outerOk ok) :
@@ -3236,7 +3250,7 @@ theorem outerOk_ltPredOnOf {p m : ℕ} (ok : Fin c → Prop)
   | [] => ⟨trivial, trivial⟩
   | k :: ks => ⟨⟨⟨hx k, hy k⟩, outerOk_ltPredOnOf ok base x y hb hx hy ks⟩, ⟨⟨hx k, hy k⟩, hb k⟩⟩
 
-theorem outerOk_ltPredOn {p m : ℕ} (ok : Fin c → Prop) (o : OrderSpec p)
+private theorem outerOk_ltPredOn {p m : ℕ} (ok : Fin c → Prop) (o : OrderSpec p)
     (x y : Fin p → TermGIn T c (ColKind.allReg m)) (hx : ∀ k, (x k).outerOk ok)
     (hy : ∀ k, (y k).outerOk ok) (ks : List (Fin p)) :
     (OrderSpec.ltPredOn o x y ks).outerOk ok :=
@@ -3247,40 +3261,40 @@ theorem outerOk_ltPredOn {p m : ℕ} (ok : Fin c → Prop) (o : OrderSpec p)
     · exact ⟨hy k, hx k⟩
     · exact ⟨hx k, hy k⟩) hx hy ks
 
-theorem outerOk_halvesLt (ok : Fin c → Prop) (K' : ℕ) :
+private theorem outerOk_halvesLt (ok : Fin c → Prop) (K' : ℕ) :
     (halvesLt (T := T) (c := c) K').outerOk ok := by
   unfold halvesLt
   refine outerOk_ltPredOn ok _ _ _ ?_ ?_ _ <;> intro k <;> trivial
 
-theorem outerOk_midLt (ok : Fin c → Prop) (K' : ℕ) :
+private theorem outerOk_midLt (ok : Fin c → Prop) (K' : ℕ) :
     (midLt (T := T) (c := c) K').outerOk ok := by
   unfold midLt
   refine ⟨outerOk_ltPredOn ok _ _ _ ?_ ?_ _, outerOk_ltPredOn ok _ _ _ ?_ ?_ _⟩ <;>
     intro k <;> trivial
 
 omit [ValueType T] in
-theorem wellKinded_keepCols {n m : ℕ} {l : List (String × ℕ)} (cols : Fin m → Fin n)
+private theorem wellKinded_keepCols {n m : ℕ} {l : List (String × ℕ)} (cols : Fin m → Fin n)
     (q : AggQueryIn T c n (ColKind.allReg n) l) {ρc : Fin c → ColKind} {HK : HoleKinds}
     (h : q.wellKinded ρc HK) : (keepCols cols q).wellKinded ρc HK := by
   rw [keepCols, wellKinded_castKind]
   exact ⟨fun _ => trivial, h⟩
 
 omit [ValueType T] in
-theorem hθ_applyOuter {m : ℕ} (κ' : Fin m → ColKind) (ρc : Fin c → ColKind) (k : Fin c) :
+private theorem hθ_applyOuter {m : ℕ} (κ' : Fin m → ColKind) (ρc : Fin c → ColKind) (k : Fin c) :
     (ρc k).base = _root_.Sum.elim (fun _ => ColKind.reg) (fun j => (Fin.append κ' ρc j).base)
       (applyOuter T c m k) := by
   show _ = (Fin.append κ' ρc (Fin.natAdd _ k)).base
   rw [Fin.append_right]
 
 omit [ValueType T] in
-theorem wellKinded_prodA' {n₁ n₂ : ℕ} {l : List (String × ℕ)}
+private theorem wellKinded_prodA' {n₁ n₂ : ℕ} {l : List (String × ℕ)}
     (q₁ : AggQueryIn T c n₁ (ColKind.allReg n₁) l) (q₂ : AggQueryIn T c n₂ (ColKind.allReg n₂))
     {ρc : Fin c → ColKind} {HK : HoleKinds} (h₁ : q₁.wellKinded ρc HK)
     (h₂ : q₂.wellKinded ρc HK) : (prodA q₁ q₂).wellKinded ρc HK := by
   rw [prodA, wellKinded_castKind]
   exact ⟨h₁, wellKinded_substMap _ _ (hθ_applyOuter _ ρc) h₂⟩
 
-theorem wellKinded_valRel (ls : List (ℕ × String)) (cs : List T) (ρc : Fin c → ColKind)
+private theorem wellKinded_valRel (ls : List (ℕ × String)) (cs : List T) (ρc : Fin c → ColKind)
     (HK : HoleKinds) : (valRel (c := c) ls cs).wellKinded ρc HK := by
   refine ⟨⟨trivial, trivial⟩, ?_⟩
   have key : ∀ l : List (AggQueryIn T c 1 (ColKind.allReg 1)), (∀ q ∈ l, q.wellKinded ρc HK) →
@@ -3313,7 +3327,7 @@ variable (EQ : AggQueryIn T c 1 (ColKind.allReg 1)) {ρc : Fin c → ColKind} {H
 include h
 
 omit [ValueType T] in
-theorem wellKinded_ctr (K' : ℕ) : (ctr EQ K').wellKinded ρc HK := by
+private theorem wellKinded_ctr (K' : ℕ) : (ctr EQ K').wellKinded ρc HK := by
   induction K' with
   | zero =>
     rw [ctr, pow, unitC, wellKinded_castKind]
@@ -3324,30 +3338,30 @@ theorem wellKinded_ctr (K' : ℕ) : (ctr EQ K').wellKinded ρc HK := by
     rw [dedupG, wellKinded_castKind]
     exact ⟨fun j => j.elim0, h⟩
 
-theorem wellKinded_ctrLt (K' : ℕ) : (ctrLt EQ K').wellKinded ρc HK :=
+private theorem wellKinded_ctrLt (K' : ℕ) : (ctrLt EQ K').wellKinded ρc HK :=
   ⟨outerOk_halvesLt _ K',
     wellKinded_prodA' _ _ (wellKinded_ctr EQ h K') (wellKinded_ctr EQ h K')⟩
 
-theorem wellKinded_ctrSucc (K' : ℕ) : (ctrSucc EQ K').wellKinded ρc HK :=
+private theorem wellKinded_ctrSucc (K' : ℕ) : (ctrSucc EQ K').wellKinded ρc HK :=
   ⟨wellKinded_ctrLt EQ h K', wellKinded_keepCols _ _
     ⟨outerOk_midLt _ K',
     wellKinded_prodA' _ _ (wellKinded_prodA' _ _ (wellKinded_ctr EQ h K')
       (wellKinded_ctr EQ h K')) (wellKinded_ctr EQ h K')⟩⟩
 
-theorem wellKinded_ctrLeast (K' : ℕ) : (ctrLeast EQ K').wellKinded ρc HK :=
+private theorem wellKinded_ctrLeast (K' : ℕ) : (ctrLeast EQ K').wellKinded ρc HK :=
   ⟨wellKinded_ctr EQ h K', wellKinded_keepCols _ _ (wellKinded_ctrLt EQ h K')⟩
 
-theorem wellKinded_ctrStep (ch : Bool) (K' : ℕ) : (ctrStep ch EQ K').wellKinded ρc HK := by
+private theorem wellKinded_ctrStep (ch : Bool) (K' : ℕ) : (ctrStep ch EQ K').wellKinded ρc HK := by
   cases ch
   · exact wellKinded_ctrSucc EQ h K'
   · exact wellKinded_ctrLt EQ h K'
 
-theorem wellKinded_ctrStart (ch : Bool) (K' : ℕ) : (ctrStart ch EQ K').wellKinded ρc HK := by
+private theorem wellKinded_ctrStart (ch : Bool) (K' : ℕ) : (ctrStart ch EQ K').wellKinded ρc HK := by
   cases ch
   · exact wellKinded_ctrLeast EQ h K'
   · exact wellKinded_ctr EQ h K'
 
-theorem wellKinded_ctrNext (ch : Bool) (n K' : ℕ) :
+private theorem wellKinded_ctrNext (ch : Bool) (n K' : ℕ) :
     (ctrNext ch EQ n K').wellKinded (Fin.append (ColKind.allReg (n + K')) ρc) HK := by
   refine wellKinded_keepCols _ _ ⟨?_, wellKinded_substMap _ _ (hθ_applyOuter _ ρc)
     (wellKinded_ctrStep EQ h ch K')⟩
@@ -3368,7 +3382,7 @@ end Ctr
 omit [ValueType T] in
 /-- **The substituted term is well-kinded** where the parameters it reads
 have the hole's kinds. -/
-theorem wellKinded_substRel {s : String} {n : ℕ} (pv : Fin n → T ⊕ Fin c) :
+private theorem wellKinded_substRel {s : String} {n : ℕ} (pv : Fin n → T ⊕ Fin c) :
     ∀ {m : ℕ} {κ : Fin m → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c m κ l),
       q.recLinear s n → ∀ {ρc : Fin c → ColKind} {HK : HoleKinds}, q.wellKinded ρc HK →
       (∀ k, (HK s n k).base = _root_.Sum.elim (fun _ => ColKind.reg) (fun j => (ρc j).base)
@@ -3417,13 +3431,13 @@ section Kinds2
 variable {c : ℕ}
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
-theorem HoleKinds.assign_self_base (HK : HoleKinds) (s : String) {n : ℕ}
+private theorem HoleKinds.assign_self_base (HK : HoleKinds) (s : String) {n : ℕ}
     (κ : Fin n → ColKind) (k : Fin n) : ((HK.assign s κ) s n k).base = (κ k).base := by
   unfold HoleKinds.assign
   rw [dite_eq_left ⟨rfl, rfl⟩]
   rfl
 
-theorem wellKinded_muSetSim (ch : Bool) {n : ℕ} (s s' : String)
+private theorem wellKinded_muSetSim (ch : Bool) {n : ℕ} (s s' : String)
     (q₀ : AggQueryIn T c n (ColKind.allReg n))
     (q₁ : AggQueryIn T c n (ColKind.allReg n) [(s, n)])
     (q₀' : AggQueryIn T c n (ColKind.allReg n))
@@ -3446,7 +3460,7 @@ theorem wellKinded_muSetSim (ch : Bool) {n : ℕ} (s s' : String)
     rfl
 
 /-- **The pass keeps the kinds.** -/
-theorem wellKinded_muSetFreeA (ch : Bool) :
+private theorem wellKinded_muSetFreeA (ch : Bool) :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l)
       (f : ℕ → String), q.usesOnly (Set.univ \ {OpKind.union}) → q.hygienic →
       ∀ {ρc : Fin c → ColKind} {HK : HoleKinds}, q.wellKinded ρc HK →
@@ -3495,7 +3509,7 @@ variable {c : ℕ}
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 /-- Stripping names nothing new. -/
-theorem mem_names_of_stripAgg :
+private theorem mem_names_of_stripAgg :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l)
       (x : String), x ∈ q.stripAgg.names → x ∈ q.names := by
   intro c n κ l q
@@ -3547,7 +3561,7 @@ theorem mem_names_of_stripAgg :
   | Win _ _ _ _ _ _ q _ _ _ ih => exact fun x h => ih x h
   | WinExpr _ _ _ _ _ _ _ q _ ih => exact fun x h => ih x h
 
-theorem mem_names_valRel (ls : List (ℕ × String)) (cs : List T) (x : String)
+private theorem mem_names_valRel (ls : List (ℕ × String)) (cs : List T) (x : String)
     (hx : x ∈ (valRel (c := c) ls cs).names) : ∃ p ∈ ls, x = p.2 := by
   obtain ⟨q, hq, hx⟩ := mem_names_listSum _ x hx
   rcases List.mem_append.1 hq with hq | hq
@@ -3564,21 +3578,21 @@ section Ctr
 variable (EQ : AggQueryIn T c 1 (ColKind.allReg 1))
 
 omit [ValueType T] in
-theorem names_keepCols {n m : ℕ} {l : List (String × ℕ)} (cols : Fin m → Fin n)
+private theorem names_keepCols {n m : ℕ} {l : List (String × ℕ)} (cols : Fin m → Fin n)
     (q : AggQueryIn T c n (ColKind.allReg n) l) : (keepCols cols q).names = q.names := by
   rw [keepCols, names_castKind]; rfl
 
 omit [ValueType T] in
-theorem mem_names_ctr (K' : ℕ) (x : String) (h : x ∈ (ctr EQ K').names) : x ∈ EQ.names := by
+private theorem mem_names_ctr (K' : ℕ) (x : String) (h : x ∈ (ctr EQ K').names) : x ∈ EQ.names := by
   have := mem_names_pow _ K' x h
   rwa [names_dedupG] at this
 
-theorem mem_names_ctrLt (K' : ℕ) (x : String) (h : x ∈ (ctrLt EQ K').names) : x ∈ EQ.names := by
+private theorem mem_names_ctrLt (K' : ℕ) (x : String) (h : x ∈ (ctrLt EQ K').names) : x ∈ EQ.names := by
   have h : x ∈ (prodA (ctr EQ K') (ctr EQ K')).names := h
   rw [names_prodA] at h
   exact (Finset.mem_union.1 h).elim (mem_names_ctr EQ K' x) (mem_names_ctr EQ K' x)
 
-theorem mem_names_ctrSucc (K' : ℕ) (x : String) (h : x ∈ (ctrSucc EQ K').names) :
+private theorem mem_names_ctrSucc (K' : ℕ) (x : String) (h : x ∈ (ctrSucc EQ K').names) :
     x ∈ EQ.names := by
   rcases Finset.mem_union.1 h with h | h
   · exact mem_names_ctrLt EQ K' x h
@@ -3589,26 +3603,26 @@ theorem mem_names_ctrSucc (K' : ℕ) (x : String) (h : x ∈ (ctrSucc EQ K').nam
     · exact (Finset.mem_union.1 h).elim (mem_names_ctr EQ K' x) (mem_names_ctr EQ K' x)
     · exact mem_names_ctr EQ K' x h
 
-theorem mem_names_ctrLeast (K' : ℕ) (x : String) (h : x ∈ (ctrLeast EQ K').names) :
+private theorem mem_names_ctrLeast (K' : ℕ) (x : String) (h : x ∈ (ctrLeast EQ K').names) :
     x ∈ EQ.names := by
   rcases Finset.mem_union.1 h with h | h
   · exact mem_names_ctr EQ K' x h
   · rw [names_keepCols] at h
     exact mem_names_ctrLt EQ K' x h
 
-theorem mem_names_ctrStep (ch : Bool) (K' : ℕ) (x : String) (h : x ∈ (ctrStep ch EQ K').names) :
+private theorem mem_names_ctrStep (ch : Bool) (K' : ℕ) (x : String) (h : x ∈ (ctrStep ch EQ K').names) :
     x ∈ EQ.names := by
   cases ch
   · exact mem_names_ctrSucc EQ K' x h
   · exact mem_names_ctrLt EQ K' x h
 
-theorem mem_names_ctrStart (ch : Bool) (K' : ℕ) (x : String)
+private theorem mem_names_ctrStart (ch : Bool) (K' : ℕ) (x : String)
     (h : x ∈ (ctrStart ch EQ K').names) : x ∈ EQ.names := by
   cases ch
   · exact mem_names_ctrLeast EQ K' x h
   · exact mem_names_ctr EQ K' x h
 
-theorem mem_names_ctrNext (ch : Bool) (n K' : ℕ) (x : String)
+private theorem mem_names_ctrNext (ch : Bool) (n K' : ℕ) (x : String)
     (h : x ∈ (ctrNext ch EQ n K').names) : x ∈ EQ.names := by
   rw [ctrNext, names_keepCols] at h
   have h : x ∈ ((ctrStep ch EQ K').substMap (applyOuter T c (n + K'))).names := h
@@ -3617,7 +3631,7 @@ theorem mem_names_ctrNext (ch : Bool) (n K' : ℕ) (x : String)
 
 end Ctr
 
-theorem mem_names_muSetSim (ch : Bool) {n : ℕ} (s s' : String)
+private theorem mem_names_muSetSim (ch : Bool) {n : ℕ} (s s' : String)
     (q₀ : AggQueryIn T c n (ColKind.allReg n))
     (q₁ : AggQueryIn T c n (ColKind.allReg n) [(s, n)])
     (q₀' : AggQueryIn T c n (ColKind.allReg n))
@@ -3654,7 +3668,7 @@ theorem mem_names_muSetSim (ch : Bool) {n : ℕ} (s s' : String)
     · exact Or.inr (Or.inr (Or.inr (hEQ x (mem_names_ctrNext _ ch _ _ x hx))))
 
 /-- **The names of the pass's output**: the input's, and the supply's. -/
-theorem mem_names_muSetFreeA (ch : Bool) :
+private theorem mem_names_muSetFreeA (ch : Bool) :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l)
       (f : ℕ → String), q.usesOnly (Set.univ \ {OpKind.union}) → q.hygienic →
       ∀ x, x ∈ (muSetFreeA ch f q).names → x ∈ q.names ∨ ∃ i, x = f i := by
@@ -3731,17 +3745,17 @@ section Hygiene
 variable {c : ℕ}
 
 omit [ValueType T] in
-theorem hygienic_keepCols {n m : ℕ} {l : List (String × ℕ)} (cols : Fin m → Fin n)
+private theorem hygienic_keepCols {n m : ℕ} {l : List (String × ℕ)} (cols : Fin m → Fin n)
     (q : AggQueryIn T c n (ColKind.allReg n) l) (h : q.hygienic) : (keepCols cols q).hygienic := by
   rw [keepCols, hygienic_castKind]; exact h
 
 omit [ValueType T] in
-theorem overSchema_keepCols {sch : Schema} {n m : ℕ} {l : List (String × ℕ)}
+private theorem overSchema_keepCols {sch : Schema} {n m : ℕ} {l : List (String × ℕ)}
     (cols : Fin m → Fin n) (q : AggQueryIn T c n (ColKind.allReg n) l) (h : q.overSchema sch) :
     (keepCols cols q).overSchema sch := by
   rw [keepCols, overSchema_castKind]; exact h
 
-theorem hygienic_valRel (ls : List (ℕ × String)) (cs : List T) :
+private theorem hygienic_valRel (ls : List (ℕ × String)) (cs : List T) :
     (valRel (c := c) ls cs).hygienic := by
   refine hygienic_listSum _ fun q hq => ?_
   rcases List.mem_append.1 hq with hq | hq
@@ -3751,7 +3765,7 @@ theorem hygienic_valRel (ls : List (ℕ × String)) (cs : List T) :
   · obtain ⟨a, -, rfl⟩ := List.mem_map.1 hq
     rw [constRel, hygienic_castKind]; exact hygienic_unitC
 
-theorem overSchema_valRel {sch : Schema} (ls : List (ℕ × String)) (cs : List T)
+private theorem overSchema_valRel {sch : Schema} (ls : List (ℕ × String)) (cs : List T)
     (hls : ∀ p ∈ ls, sch p.2 = some p.1) : (valRel (c := c) ls cs).overSchema sch := by
   refine overSchema_listSum _ fun q hq => ?_
   rcases List.mem_append.1 hq with hq | hq
@@ -3766,31 +3780,31 @@ section Ctr
 variable (EQ : AggQueryIn T c 1 (ColKind.allReg 1))
 
 omit [ValueType T] in
-theorem hygienic_ctr (h : EQ.hygienic) (K' : ℕ) : (ctr EQ K').hygienic :=
+private theorem hygienic_ctr (h : EQ.hygienic) (K' : ℕ) : (ctr EQ K').hygienic :=
   hygienic_pow _ (hygienic_dedupG _ h) K'
 
-theorem hygienic_ctrLt (h : EQ.hygienic) (K' : ℕ) : (ctrLt EQ K').hygienic :=
+private theorem hygienic_ctrLt (h : EQ.hygienic) (K' : ℕ) : (ctrLt EQ K').hygienic :=
   hygienic_prodA _ _ (hygienic_ctr EQ h K') (hygienic_ctr EQ h K')
 
-theorem hygienic_ctrLeast (h : EQ.hygienic) (K' : ℕ) : (ctrLeast EQ K').hygienic :=
+private theorem hygienic_ctrLeast (h : EQ.hygienic) (K' : ℕ) : (ctrLeast EQ K').hygienic :=
   ⟨hygienic_ctr EQ h K', hygienic_keepCols _ _ (hygienic_ctrLt EQ h K')⟩
 
-theorem hygienic_ctrSucc (h : EQ.hygienic) (K' : ℕ) : (ctrSucc EQ K').hygienic :=
+private theorem hygienic_ctrSucc (h : EQ.hygienic) (K' : ℕ) : (ctrSucc EQ K').hygienic :=
   ⟨hygienic_ctrLt EQ h K', hygienic_keepCols _ _ (hygienic_prodA _ _
     (hygienic_prodA _ _ (hygienic_ctr EQ h K') (hygienic_ctr EQ h K')) (hygienic_ctr EQ h K'))⟩
 
-theorem hygienic_ctrStep (ch : Bool) (h : EQ.hygienic) (K' : ℕ) : (ctrStep ch EQ K').hygienic := by
+private theorem hygienic_ctrStep (ch : Bool) (h : EQ.hygienic) (K' : ℕ) : (ctrStep ch EQ K').hygienic := by
   cases ch
   · exact hygienic_ctrSucc EQ h K'
   · exact hygienic_ctrLt EQ h K'
 
-theorem hygienic_ctrStart (ch : Bool) (h : EQ.hygienic) (K' : ℕ) :
+private theorem hygienic_ctrStart (ch : Bool) (h : EQ.hygienic) (K' : ℕ) :
     (ctrStart ch EQ K').hygienic := by
   cases ch
   · exact hygienic_ctrLeast EQ h K'
   · exact hygienic_ctr EQ h K'
 
-theorem hygienic_ctrNext (ch : Bool) (h : EQ.hygienic) (n K' : ℕ) :
+private theorem hygienic_ctrNext (ch : Bool) (h : EQ.hygienic) (n K' : ℕ) :
     (ctrNext ch EQ n K').hygienic :=
   hygienic_keepCols _ _ ((hygienic_substMap _ _).2 (hygienic_ctrStep EQ ch h K'))
 
@@ -3798,37 +3812,37 @@ variable {sch : Schema} (h : EQ.overSchema sch)
 include h
 
 omit [ValueType T] in
-theorem overSchema_ctr (K' : ℕ) : (ctr EQ K').overSchema sch :=
+private theorem overSchema_ctr (K' : ℕ) : (ctr EQ K').overSchema sch :=
   overSchema_pow _ (overSchema_dedupG _ h) K'
 
-theorem overSchema_ctrLt (K' : ℕ) : (ctrLt EQ K').overSchema sch :=
+private theorem overSchema_ctrLt (K' : ℕ) : (ctrLt EQ K').overSchema sch :=
   overSchema_prodA _ _ (overSchema_ctr EQ h K') (overSchema_ctr EQ h K')
 
-theorem overSchema_ctrLeast (K' : ℕ) : (ctrLeast EQ K').overSchema sch :=
+private theorem overSchema_ctrLeast (K' : ℕ) : (ctrLeast EQ K').overSchema sch :=
   ⟨overSchema_ctr EQ h K', overSchema_keepCols _ _ (overSchema_ctrLt EQ h K')⟩
 
-theorem overSchema_ctrSucc (K' : ℕ) : (ctrSucc EQ K').overSchema sch :=
+private theorem overSchema_ctrSucc (K' : ℕ) : (ctrSucc EQ K').overSchema sch :=
   ⟨overSchema_ctrLt EQ h K', overSchema_keepCols _ _ (overSchema_prodA _ _
     (overSchema_prodA _ _ (overSchema_ctr EQ h K') (overSchema_ctr EQ h K'))
     (overSchema_ctr EQ h K'))⟩
 
-theorem overSchema_ctrStep (ch : Bool) (K' : ℕ) : (ctrStep ch EQ K').overSchema sch := by
+private theorem overSchema_ctrStep (ch : Bool) (K' : ℕ) : (ctrStep ch EQ K').overSchema sch := by
   cases ch
   · exact overSchema_ctrSucc EQ h K'
   · exact overSchema_ctrLt EQ h K'
 
-theorem overSchema_ctrStart (ch : Bool) (K' : ℕ) : (ctrStart ch EQ K').overSchema sch := by
+private theorem overSchema_ctrStart (ch : Bool) (K' : ℕ) : (ctrStart ch EQ K').overSchema sch := by
   cases ch
   · exact overSchema_ctrLeast EQ h K'
   · exact overSchema_ctr EQ h K'
 
-theorem overSchema_ctrNext (ch : Bool) (n K' : ℕ) : (ctrNext ch EQ n K').overSchema sch :=
+private theorem overSchema_ctrNext (ch : Bool) (n K' : ℕ) : (ctrNext ch EQ n K').overSchema sch :=
   overSchema_keepCols _ _ ((overSchema_substMap _ _ sch).2 (overSchema_ctrStep EQ h ch K'))
 
 end Ctr
 
 /-- **The simulation is hygienic** where its own name is fresh. -/
-theorem hygienic_muSetSim (ch : Bool) {n : ℕ} (s s' : String)
+private theorem hygienic_muSetSim (ch : Bool) {n : ℕ} (s s' : String)
     (q₀ : AggQueryIn T c n (ColKind.allReg n))
     (q₁ : AggQueryIn T c n (ColKind.allReg n) [(s, n)])
     (q₀' : AggQueryIn T c n (ColKind.allReg n))
@@ -3858,7 +3872,7 @@ theorem hygienic_muSetSim (ch : Bool) {n : ℕ} (s s' : String)
 
 /-- **The simulation is well-formed over the schema** of its recursion,
 its own name being fresh. -/
-theorem overSchema_muSetSim (ch : Bool) {n : ℕ} (s s' : String)
+private theorem overSchema_muSetSim (ch : Bool) {n : ℕ} (s s' : String)
     (q₀ : AggQueryIn T c n (ColKind.allReg n))
     (q₁ : AggQueryIn T c n (ColKind.allReg n) [(s, n)])
     (q₀' : AggQueryIn T c n (ColKind.allReg n))
@@ -3909,7 +3923,7 @@ private theorem f0_notMem_tri2 {f : ℕ → String} (hf : Function.Injective f)
   · have := hf hi; simp at this
 
 /-- **The pass's output is hygienic**, its fresh names being fresh. -/
-theorem hygienic_muSetFreeA (ch : Bool) :
+private theorem hygienic_muSetFreeA (ch : Bool) :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l)
       (f : ℕ → String), q.usesOnly (Set.univ \ {OpKind.union}) → q.hygienic →
       (∀ i, f i ∉ q.names) → (muSetFreeA ch f q).hygienic := by
@@ -3964,7 +3978,7 @@ theorem hygienic_muSetFreeA (ch : Bool) :
 
 /-- **The pass's output is well-formed over the schema**, its fresh names
 being fresh for the query and undeclared by the schema. -/
-theorem overSchema_muSetFreeA (ch : Bool) :
+private theorem overSchema_muSetFreeA (ch : Bool) :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l)
       (f : ℕ → String), Function.Injective f → q.usesOnly (Set.univ \ {OpKind.union}) →
       q.hygienic → (∀ i, f i ∉ q.names) → ∀ {sch : Schema}, (∀ i, sch (f i) = none) →
@@ -4153,7 +4167,7 @@ theorem exists_annEpsOps_matchU (sch : Schema) (cnt : SeqAggFunc T) (ch : Bool)
 
 
 /-- `exists_annEpsOps_matchU` at one semiring. -/
-theorem exists_annEpsOps_match (sch : Schema) (cnt : SeqAggFunc T) (ch : Bool)
+private theorem exists_annEpsOps_match (sch : Schema) (cnt : SeqAggFunc T) (ch : Bool)
     {P : AnnotatedDatabase T K → Prop} (hnode : AggQueryIn.NodeCorrect cnt ch P)
     {n : ℕ} {κ : Fin n → ColKind} (q : AggQuery T n κ) (ho : q.overSchema sch)
     (hu : q.usesOnly plainRecOps) (hi : q.inMinimalSig cnt) (ha : q.noExplode)

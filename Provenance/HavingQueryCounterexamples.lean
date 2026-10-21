@@ -14,6 +14,12 @@ public import Provenance.Derived
 public import Mathlib.Basic.NNReal.Defs
 public import Provenance.AggQueryBridges
 import Mathlib.Basic.NNReal.Basic
+import all Provenance.Database
+import all Provenance.JointFamily
+import all Provenance.Nested
+import all Provenance.Semirings.Bool
+import all Provenance.Semirings.Nat
+import all Provenance.Semirings.Tropical
 
 /-!
 # Query-level counterexamples for the HAVING / JOIN correspondence
@@ -158,7 +164,7 @@ def qExcept : Query ℕ 1 :=
 /-- **The antijoin keeps the row**, annotated `hi ⊗ (𝟙 ⊖ hi) = hi`: the
 world in which the match is absent weighs `𝟙 ⊖ hi`, which is `𝟙` in the
 chain. -/
-theorem chainFive_antijoinQuery :
+private theorem chainFive_antijoinQuery :
     (qAnti.evaluateAnnotated dX).map (fun p => p.snd)
       = {ChainFive.hi} := by
   decide
@@ -166,7 +172,7 @@ theorem chainFive_antijoinQuery :
 /-- **The `EXCEPT` drops it**, annotated `hi ⊖ hi ⊗ hi = 𝟘`: the chain's
 monus cancels the row against its own matched copy
 (`ChainFive.difference_ann`). -/
-theorem chainFive_exceptQuery :
+private theorem chainFive_exceptQuery :
     (qExcept.evaluateAnnotated (by decide) dX).map (fun p => p.snd)
       = {(0 : ChainFive)} := by
   decide
@@ -191,14 +197,14 @@ def dC : AnnotatedDatabase ℕ ChainFive :=
 /-- Fused side: `COUNT(*) = 1` has predicate provenance `hi` (each
 singleton world contributes its own annotation, the factored
 discarded-occurrence factor `𝟙 ⊖ hi` being `𝟙` in the chain). -/
-theorem chainFive_fused :
+private theorem chainFive_fused :
     ((AggQueryIn.havingSite ![0] ![#1] ![SeqAggFunc.count] CompOp.eq 0
         (TermIn.const 1) qgR).evaluateAnnotated dC).map (fun p => p.snd)
       = {ChainFive.hi} := by
   decide
 
 /-- Join side: `Q₂^{=1}` has annotation `𝟘` (`hi ⊖ hi`). -/
-theorem chainFive_join :
+private theorem chainFive_join :
     (q2eq1.evaluateAnnotated (by decide) dC).map (fun p => p.snd)
       = {(0 : ChainFive)} := by
   decide
@@ -215,7 +221,7 @@ theorem ChainFive.query_counterexample :
 /-- Fused side of `COUNT(*) ≥ 1` on the same instance: `mid ⊕ hi ⊕ hi = hi`
 (the worlds of size `≥ 1`, in factored form, sum to the monomials of the
 singletons). -/
-theorem chainFive_fused_ge_one :
+private theorem chainFive_fused_ge_one :
     ((AggQueryIn.havingSite ![0] ![#1] ![SeqAggFunc.count] CompOp.ge 0
         (TermIn.const 1) qgR).evaluateAnnotated dC).map (fun p => p.snd)
       = {ChainFive.hi} := by
@@ -244,13 +250,13 @@ theorem ChainFive.query_ge_two_agree :
 
 /-- The tropical semiring over `ℤ ∪ {∞}` is not absorptive:
 `𝟙 ⊕ trop (-1) = trop (-1) ≠ 𝟙`. -/
-theorem MinTropicalZ.not_absorptive_witness :
+private theorem MinTropicalZ.not_absorptive_witness :
     (1 : MinTropical (WithTop ℤ)) + MinTropical.trop ((-1 : ℤ) : WithTop ℤ)
       ≠ (1 : MinTropical (WithTop ℤ)) := by
   decide
 
 /-- The tropical semiring over `ℤ ∪ {∞}` is `⊗`-over-`⊖` distributive. -/
-theorem MinTropicalZ.mul_sub_left_distributive :
+private theorem MinTropicalZ.mul_sub_left_distributive :
     mul_sub_left_distributive (MinTropical (WithTop ℤ)) :=
   MinTropical.mul_sub_left_distributive
 
@@ -263,14 +269,14 @@ noncomputable def dZ : AnnotatedDatabase ℕ (MinTropical (WithTop ℤ)) :=
 /-- Fused side: `COUNT(*) ≥ 1` has predicate provenance `trop (-2)`: the
 two singleton worlds have annotation `trop (-1) ⊗ (𝟙 ⊖ trop (-1)) = 𝟘`,
 and only the full world `trop (-1) ⊗ trop (-1) = trop (-2)` survives. -/
-theorem tropicalZ_fused :
+private theorem tropicalZ_fused :
     ((AggQueryIn.havingSite ![0] ![#1] ![SeqAggFunc.count] CompOp.ge 0
         (TermIn.const 1) qgR).evaluateAnnotated dZ).map (fun p => p.snd)
       = {MinTropical.trop ((-2 : ℤ) : WithTop ℤ)} := by
   decide
 
 /-- Join side: `Q₂^{≥1}` has annotation `trop (-1) ⊕ trop (-1) = trop (-1)`. -/
-theorem tropicalZ_join :
+private theorem tropicalZ_join :
     (q2ge1.evaluateAnnotated (by decide) dZ).map (fun p => p.snd)
       = {MinTropical.trop ((-1 : ℤ) : WithTop ℤ)} := by
   decide
@@ -348,7 +354,7 @@ def natCountToken : AggValue ℕ ℕ := ⟨SeqAggFunc.count, [(1, 1), (1, 2)], t
 
 /-- **The possible-world sum of `COUNT ≥ 1` over `ℕ` is the product of the
 two annotations**, not their sum and not `𝟙`. -/
-theorem natCountToken_predProvScalar :
+private theorem natCountToken_predProvScalar :
     natCountToken.predProvScalar CompOp.ne 0 = 2 := by decide
 
 /-- It is not the `⊕`-sum the absorptive collapse gives. -/
@@ -400,18 +406,18 @@ theorem natRangeToken_mul_ne_and :
       ≠ natRangeToken.predProvOfAnd CompOp.gt 0 CompOp.le 1 := by decide
 
 /-- The joint reading is the one a truncation asks for. -/
-theorem natRangeToken_and :
+private theorem natRangeToken_and :
     natRangeToken.predProvOfAnd CompOp.gt 0 CompOp.le 1 = 2 := by decide
 
 /-- The product is not. -/
-theorem natRangeToken_mul :
+private theorem natRangeToken_mul :
     natRangeToken.predProvOf CompOp.gt 0
       * natRangeToken.predProvOf CompOp.le 1 = 4 := by decide
 
 /-- The same token with its occurrence annotated `𝟙` agrees. -/
 def natUnitToken : AggValue ℕ ℕ := ⟨SeqAggFunc.count, [(1, 1)], true, FamId.none, []⟩
 
-theorem natUnitToken_mul_eq_and :
+private theorem natUnitToken_mul_eq_and :
     natUnitToken.predProvOf CompOp.gt 0
         * natUnitToken.predProvOf CompOp.le 1
       = natUnitToken.predProvOfAnd CompOp.gt 0 CompOp.le 1 := by decide
@@ -442,13 +448,13 @@ theorem Having.natRange_ne :
           - Having.S natRangeAnn Finset.univ 2 : ℕ) := by decide
 
 /-- The possible-world sum is `𝟘` there. -/
-theorem Having.natRange_worlds :
+private theorem Having.natRange_worlds :
     ∑ W ∈ (Finset.univ : Finset (Fin 2)).powerset.filter
         (fun W => 0 + 1 ≤ W.card ∧ W.card ≤ 1),
         Having.T natRangeAnn Finset.univ W = 0 := by decide
 
 /-- The join side is `𝟙`. -/
-theorem Having.natRange_join :
+private theorem Having.natRange_join :
     (Having.S natRangeAnn Finset.univ 1
       - Having.S natRangeAnn Finset.univ 2 : ℕ) = 1 := by decide
 
@@ -540,7 +546,7 @@ over the worlds of the concatenated family where `K` is complemented
 instances below are instances about the union reading; over a
 non-complemented `K` it is `jointPair` that says what a predicate
 annotates, and the double sum that does not. -/
-theorem joint2_eq_jointPair (hc : complemented K) (a b : AggValue T K)
+private theorem joint2_eq_jointPair (hc : complemented K) (a b : AggValue T K)
     (ha : a.scalar = false) (hb : b.scalar = false) (χ : T → T → Kleene) :
     joint2 a b χ = jointPair a b χ := by
   rw [jointPair_eq_split hc]
@@ -636,11 +642,11 @@ def testGe1 : ℕ → Kleene := fun v => CompOp.ge.eval3 v 1
 /-- `count ≥ 2`, not satisfied on a one-occurrence family. -/
 def testGe2 : ℕ → Kleene := fun v => CompOp.ge.eval3 v 2
 
-theorem nat_or_per_atom :
+private theorem nat_or_per_atom :
     natTokenOne.predProvWith testGe1 + natTokenTwo.predProvWith testGe2 = 1 := by
   decide
 
-theorem nat_or_joint :
+private theorem nat_or_joint :
     Having.jointOr natTokenOne natTokenTwo testGe1 testGe2 = 2 := by decide
 
 theorem nat_or_ne_joint :
@@ -651,7 +657,7 @@ theorem nat_or_ne_joint :
 complemented, so the double sum above is `Having.jointPair` – the `⊕`
 over the worlds of the concatenated family – and the structural `⊕` of
 the two atoms is not it. -/
-theorem nat_or_ne_jointPair :
+private theorem nat_or_ne_jointPair :
     natTokenOne.predProvWith testGe1 + natTokenTwo.predProvWith testGe2
       ≠ Having.jointPair natTokenOne natTokenTwo
           (fun x y => (testGe1 x).or (testGe2 y)) := by
@@ -659,7 +665,7 @@ theorem nat_or_ne_jointPair :
   exact nat_or_ne_joint
 
 /-- And over `𝔹`, which is complemented too. -/
-theorem bool_or_ne_jointPair :
+private theorem bool_or_ne_jointPair :
     boolTokenT.predProvWith testNe + boolTokenF.predProvWith testEq
       ≠ Having.jointPair boolTokenT boolTokenF
           (fun x y => (testNe x).or (testEq y)) := by
@@ -687,22 +693,22 @@ once per disjunct. -/
 one-occurrence family. -/
 def testLt1 : ℕ → Kleene := fun v => CompOp.lt.eval3 v 1
 
-theorem nat_or_both_per_atom :
+private theorem nat_or_both_per_atom :
     natTokenOne.predProvWith testGe1 + natTokenOne.predProvWith testGe1
       = 2 := by decide
 
-theorem nat_or_both_joint :
+private theorem nat_or_both_joint :
     Having.jointOr natTokenOne natTokenOne testGe1 testGe1 = 1 := by decide
 
 /-- The `false` alternative of the same column is `𝟘` here: neither
 disjunct fails. -/
-theorem nat_or_false_alt :
+private theorem nat_or_false_alt :
     natTokenOne.predProvWith testLt1 * natTokenOne.predProvWith testLt1
       = 0 := by decide
 
 /-- What the worlds of the two families together carry, which is what a
 non-Boolean column's alternatives sum to. -/
-theorem nat_or_support :
+private theorem nat_or_support :
     Having.joint2 natTokenOne natTokenOne (fun _ _ => Kleene.true) = 1 := by
   decide
 
@@ -737,7 +743,7 @@ def testEq1 : ℕ → Kleene := fun v => CompOp.eq.eval3 v 1
 /-- The case split of `CASE WHEN c ≥ 1 THEN d ELSE e END ≐ 1`, with `c`
 and `d` annotated `𝟙` and `e` – read by no world, the guard holding –
 annotated `2`. Only the first branch fires. -/
-theorem natCase_split :
+private theorem natCase_split :
     Having.joint2 natTokenOne natTokenOne
         (fun x y => (testGe1 x).and (testEq1 y))
       + Having.joint2 natTokenOne natTokenTwo
@@ -746,7 +752,7 @@ theorem natCase_split :
 
 /-- The one sum over the union of all three families charges the world
 for `e` as well. -/
-theorem natCase_joint :
+private theorem natCase_joint :
     Having.joint3 natTokenOne natTokenOne natTokenTwo
         (fun x y z => testEq1 (if testGe1 x = Kleene.true then y else z))
       = 2 := by decide
@@ -784,7 +790,7 @@ def natOrExpr : AggExpr ℕ ℕ where
 
 /-- **The joint reading of the disjunction is `𝟙`**: its one world meets
 both families and carries `𝟙 ⊗ 𝟙`. -/
-theorem natOrExpr_joint : natOrExpr.predProv CompOp.eq 1 = 1 := by decide
+private theorem natOrExpr_joint : natOrExpr.predProv CompOp.eq 1 = 1 := by decide
 
 /-- **The structural `⊕` is `2`**, counting the world once per disjunct. -/
 theorem natOrExpr_ne_structural :
@@ -807,7 +813,7 @@ def natCaseExpr : AggExpr ℕ ℕ where
 /-- **The joint reading of the conditional is `2`**: its one world meets
 all three families, `e` among them, though the branch that fires never
 reads `e`. -/
-theorem natCaseExpr_joint : natCaseExpr.predProv CompOp.eq 1 = 2 := by decide
+private theorem natCaseExpr_joint : natCaseExpr.predProv CompOp.eq 1 = 2 := by decide
 
 /-- **The branch decomposition is `𝟙`**, so a conditional whose branches
 read different families parts from the definition with no disjunction
@@ -903,7 +909,7 @@ for this shape. What no statement here gives is the family shapes: both
 are about two singleton grouped families, and an implementation that
 exempts a semiring on the strength of this needs the equation for the
 shapes it actually builds. -/
-theorem bool_row_agree_all : ∀ α β : Bool,
+private theorem bool_row_agree_all : ∀ α β : Bool,
     SemiringWithMonus.delta α * SemiringWithMonus.delta β
         * ((boolTokenOf α).predProvWith testNe
           + (boolTokenOf β).predProvWith testEq)
@@ -954,23 +960,23 @@ def chainCountWhen : AggValue ℕ ChainFive :=
 
 /-- The first is the token the grouping builds with no clause, and the
 second is what reading the cut family in the scalar convention gave. -/
-theorem chainCount_eq_ofGroup :
+private theorem chainCount_eq_ofGroup :
     chainCount = AggValue.ofGroup (c := 0) SeqAggFunc.count
       (TermIn.index 0) [(![1], ChainFive.mid)] := rfl
 
-theorem chainCountWhen_eq_scalar :
+private theorem chainCountWhen_eq_scalar :
     chainCountWhen = { chainCount with scalar := true } := rfl
 
 /-- **`HAVING count(*) ≐ 0` rejects the row** of a group the data leaves
 non-empty: no world of a grouped token is empty. -/
-theorem chain_count_zero :
+private theorem chain_count_zero :
     SemiringWithMonus.delta ChainFive.mid * chainCount.predProvOfWith testEq0
       = 0 := by decide
 
 /-- **Under `FILTER (WHERE true)` the same test reports it**, and with
 `𝟙`: the empty world is a world of the filtered token, and the group's
 existence factor does not absorb its weight. -/
-theorem chain_count_zero_when :
+private theorem chain_count_zero_when :
     SemiringWithMonus.delta ChainFive.mid
         * chainCountWhen.predProvOfWith testEq0
       = 1 := by decide
@@ -1061,7 +1067,7 @@ theorem chainExprMixed_zero :
       = ChainFive.hi * (1 - ChainFive.mid) := by decide
 
 /-- Which is `hi` here, so the reading is not `𝟘` either. -/
-theorem chainExprMixed_zero_eq : chainExprMixed.predProvWith testEq0
+private theorem chainExprMixed_zero_eq : chainExprMixed.predProvWith testEq0
     = ChainFive.hi := by decide
 
 /-! ### What a filtered window reads, and what `DISTINCT` decides
@@ -1096,7 +1102,7 @@ theorem chainWinMixed_zero :
 /-- **The merge of two kept occurrences of equal value is one class
 carrying their `⊕`.** This is what `AggExpr.ofSeqDistWhen` puts in the
 family, and what makes the two readings below differ. -/
-theorem mergeOccs_two :
+private theorem mergeOccs_two :
     AggValue.mergeOccs [((5 : ℕ), (1 : ℕ)), (5, 1)] = [(5, 2)] := by
   simp [AggValue.mergeOccs, AggValue.classSum, List.dedup_cons_of_mem]
   rfl
@@ -1115,7 +1121,7 @@ def natWinDistinct : AggExpr ℕ ℕ where
 /-- **A distinct count is the length of the deduplicated sequence.**
 `SeqAggFunc.distinct` sorts the distinct values, and a count does not read
 the order, so the two are the same aggregate. -/
-theorem count_distinct_eq_dedup_length :
+private theorem count_distinct_eq_dedup_length :
     SeqAggFunc.count.distinct = fun l : List ℕ => (List.dedup l).length := by
   funext l
   show (sortList ((l.dedup : Multiset ℕ))).length = _
@@ -1174,17 +1180,17 @@ def ordByDesc : GroupOrder ℕ 2 := GroupOrder.byCols ![1] ![OrderCol.DESC]
 abbrev noKey : Tuple (Fin 2) 0 := fun k => k.elim0
 
 /-- Under the clause the aggregate reads the larger value first. -/
-theorem groupSeqOrd_pickFirst :
+private theorem groupSeqOrd_pickFirst :
     (SeqAggFunc.pickFirst ((Relation.groupSeqOrd noKey ordByDesc ordGroupRel
         (fun k : Fin 0 => k.elim0)).map (fun u => u 1)) : ℕ) = 2 := by decide
 
 /-- Without it, in the domain's canonical order, it reads the smaller. -/
-theorem groupSeq_pickFirst :
+private theorem groupSeq_pickFirst :
     (SeqAggFunc.pickFirst ((Relation.groupSeqOrd noKey GroupOrder.unord
         ordGroupRel (fun k : Fin 0 => k.elim0)).map (fun u => u 1)) : ℕ)
       = 1 := by decide
 
-theorem groupSeqOrd_ne_groupSeq :
+private theorem groupSeqOrd_ne_groupSeq :
     (SeqAggFunc.pickFirst ((Relation.groupSeqOrd noKey ordByDesc ordGroupRel
         (fun k : Fin 0 => k.elim0)).map (fun u => u 1)) : ℕ)
       ≠ SeqAggFunc.pickFirst ((Relation.groupSeqOrd noKey GroupOrder.unord
@@ -1223,13 +1229,13 @@ def peerRelWorld : Relation ℕ 3 :=
   Multiset.ofList [![0, 1, 1], ![0, 9, 2]]
 
 /-- What a window reads of the two is the same relation. -/
-theorem peerRel_readTuple_eq :
+private theorem peerRel_readTuple_eq :
     peerRelDet.map (ColKind.readTuple peerKinds)
       = peerRelWorld.map (ColKind.readTuple peerKinds) := by decide
 
 /-- Yet read whole they give `first_value` different values, which is
 why the reading cuts the aggregate column out. -/
-theorem windowValue_ne_of_agg_column :
+private theorem windowValue_ne_of_agg_column :
     (ValueFrame.windowValue (fun k : Fin 0 => k.elim0) ![0] (OrderSpec.asc 1)
         ValueFrame.whole (TermIn.index (c := 0) 2) SeqAggFunc.pickFirst peerRelDet
         ![0, 5, 1] : ℕ)
@@ -1252,7 +1258,7 @@ idempotent `⊕` it was never counted twice. -/
 empty world counts and the family's total is `𝟙`. -/
 def boolScalarT : AggValue ℕ Bool := ⟨SeqAggFunc.count, [(1, true)], true, FamId.none, []⟩
 
-theorem bool_incl_excl_sides :
+private theorem bool_incl_excl_sides :
     boolScalarT.predProvOfWith testNe = true
       ∧ Having.jointPair boolScalarT boolScalarT
           (fun x y => (testNe x).or (testNe y)) = true := by
@@ -1390,7 +1396,7 @@ abbrev incoherentWorld {K : Type} [CommSemiringWithMonus K] [DecidableEq K]
     {(leafKey (innerOf 0 β₀ : AggExpr ℕ K), {0}), (leafKey (innerOf 1 β₁ : AggExpr ℕ K), {0})}, 0⟩
 
 /-- It decides on exactly the families of `nestOf`. -/
-theorem isWorldOf_incoherentWorld {K : Type} [CommSemiringWithMonus K] [DecidableEq K]
+private theorem isWorldOf_incoherentWorld {K : Type} [CommSemiringWithMonus K] [DecidableEq K]
     (α₀ α₁ β₀ β₁ : K) :
     (incoherentWorld α₀ α₁ β₀ β₁).IsWorldOf (nestOf α₀ α₁ β₀ β₁) := by
   have hne : leafKey (innerOf 0 β₀ : AggExpr ℕ K) ≠ leafKey (innerOf 1 β₁ : AggExpr ℕ K) := by
@@ -1409,7 +1415,7 @@ theorem isWorldOf_incoherentWorld {K : Type} [CommSemiringWithMonus K] [Decidabl
 /-- **It is a world of the nested reading** – an occurrence is kept with
 its inner family met – and it is barred by the coherent reading, which is
 what makes it the world at issue. -/
-theorem isWorld_incoherentWorld {K : Type} [CommSemiringWithMonus K] [DecidableEq K]
+private theorem isWorld_incoherentWorld {K : Type} [CommSemiringWithMonus K] [DecidableEq K]
     (α₀ α₁ β₀ β₁ : K) :
     (incoherentWorld α₀ α₁ β₀ β₁).IsWorld (nestOf α₀ α₁ β₀ β₁)
       ∧ ¬ (incoherentWorld α₀ α₁ β₀ β₁).IsWorldCoherent
@@ -1548,7 +1554,7 @@ def nestedIncoherentWitness : NestedValue ℕ Bool :=
 
 /-- **The current reading admits five worlds, the coherent reading
 three.** -/
-theorem nestedIncoherentWitness_world_counts :
+private theorem nestedIncoherentWitness_world_counts :
     (Multiset.card (nestedIncoherentWitness.worlds.filter
         (fun W => W.IsWorld nestedIncoherentWitness)),
       Multiset.card (nestedIncoherentWitness.worlds.filter

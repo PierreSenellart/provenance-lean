@@ -5,6 +5,12 @@ public import Provenance.SumByMu
 import Mathlib.Tactic.NormNum.Inv
 import Mathlib.Tactic.NormNum.Pow
 import Provenance.WinKept
+import all Provenance.AggQuery
+import all Provenance.AllRegular
+import all Provenance.Decorrelate
+import all Provenance.PlainBasis
+import all Provenance.SumByMu
+import all Provenance.WinKept
 
 /-!
 # The pass over the whole algebra
@@ -47,7 +53,7 @@ variable {T : Type} [ValueType T]
 /-! ## The same through the re-typing of a query's columns -/
 
 omit [ValueType T] in
-theorem AggQueryIn.names_explodeBelow {c n : ℕ} :
+private theorem AggQueryIn.names_explodeBelow {c n : ℕ} :
     ∀ (m : ℕ) {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l),
       (q.explodeBelow m).names = q.names := by
   intro m
@@ -72,7 +78,7 @@ theorem AggQueryIn.names_explodeBelow {c n : ℕ} :
       exact ih q
 
 omit [ValueType T] in
-theorem AggQueryIn.noMention_explodeBelow {c n : ℕ} {s : String} :
+private theorem AggQueryIn.noMention_explodeBelow {c n : ℕ} {s : String} :
     ∀ (m : ℕ) {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l),
       (q.explodeBelow m).noMention s ↔ q.noMention s := by
   intro m
@@ -97,7 +103,7 @@ theorem AggQueryIn.noMention_explodeBelow {c n : ℕ} {s : String} :
       exact ih q
 
 omit [ValueType T] in
-theorem AggQueryIn.hygienic_explodeBelow {c n : ℕ} :
+private theorem AggQueryIn.hygienic_explodeBelow {c n : ℕ} :
     ∀ (m : ℕ) {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l),
       (q.explodeBelow m).hygienic ↔ q.hygienic := by
   intro m
@@ -121,7 +127,7 @@ theorem AggQueryIn.hygienic_explodeBelow {c n : ℕ} :
     · rw [AggQueryIn.hygienic_castKind]
       exact ih q
 
-theorem AggQueryIn.settlesAt_explodeBelow {c n : ℕ} :
+private theorem AggQueryIn.settlesAt_explodeBelow {c n : ℕ} :
     ∀ (m : ℕ) {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l)
         (D : Database T)
       (γ : Fin c → T), (q.explodeBelow m).SettlesAt D γ ↔ q.SettlesAt D γ := by
@@ -147,23 +153,23 @@ theorem AggQueryIn.settlesAt_explodeBelow {c n : ℕ} :
       exact ih q D γ
 
 omit [ValueType T] in
-@[simp] theorem AggQueryIn.names_allRegOf {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)}
+@[simp] private theorem AggQueryIn.names_allRegOf {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)}
     (q : AggQueryIn T c n κ l) : (q.allRegOf).names = q.names := by
   rw [AggQueryIn.allRegOf, AggQueryIn.names_castKind, AggQueryIn.names_explodeBelow]
 
 omit [ValueType T] in
-@[simp] theorem AggQueryIn.noMention_allRegOf {c n : ℕ} {κ : Fin n → ColKind} {l : List
+@[simp] private theorem AggQueryIn.noMention_allRegOf {c n : ℕ} {κ : Fin n → ColKind} {l : List
     (String × ℕ)}
     (q : AggQueryIn T c n κ l) (s : String) : (q.allRegOf).noMention s ↔ q.noMention s := by
   rw [AggQueryIn.allRegOf, AggQueryIn.noMention_castKind, AggQueryIn.noMention_explodeBelow]
 
 omit [ValueType T] in
-@[simp] theorem AggQueryIn.hygienic_allRegOf {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)}
+@[simp] private theorem AggQueryIn.hygienic_allRegOf {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)}
     (q : AggQueryIn T c n κ l) : (q.allRegOf).hygienic ↔ q.hygienic := by
   rw [AggQueryIn.allRegOf, AggQueryIn.hygienic_castKind,
     AggQueryIn.hygienic_explodeBelow]
 
-@[simp] theorem AggQueryIn.settlesAt_allRegOf {c n : ℕ} {κ : Fin n → ColKind} {l : List
+@[simp] private theorem AggQueryIn.settlesAt_allRegOf {c n : ℕ} {κ : Fin n → ColKind} {l : List
     (String × ℕ)}
     (q : AggQueryIn T c n κ l) (D : Database T) (γ : Fin c → T) :
     (q.allRegOf).SettlesAt D γ ↔ q.SettlesAt D γ := by
@@ -171,16 +177,16 @@ omit [ValueType T] in
 
 /-! ## What re-typing a column keeps of the signature -/
 
-theorem TermGIn.noFun_toReg {c n : ℕ} {κ : Fin n → ColKind} {t : TermGIn T c κ}
+private theorem TermGIn.noFun_toReg {c n : ℕ} {κ : Fin n → ColKind} {t : TermGIn T c κ}
     (h : t.noFun = true) : (t.toReg).noFun = true := by
   cases t <;> first | rfl | exact Bool.noConfusion h
 
 omit [ValueType T] in
-theorem TermIn.noFun_atCol {c k : ℕ} {κ : Fin k → ColKind} (i : Fin k) (h : κ i = ColKind.reg)
+private theorem TermIn.noFun_atCol {c k : ℕ} {κ : Fin k → ColKind} (i : Fin k) (h : κ i = ColKind.reg)
     {t : TermIn T 1 0} (ht : t.noFun = true) : (t.atCol (c := c) i h).noFun = true := by
   cases t <;> first | rfl | exact Bool.noConfusion ht | exact Fin.elim0 ‹Fin 0›
 
-theorem ProjColIn.noFun_toReg {c n : ℕ} {κ : Fin n → ColKind} {p : ProjColIn T c κ}
+private theorem ProjColIn.noFun_toReg {c n : ℕ} {κ : Fin n → ColKind} {p : ProjColIn T c κ}
     (hs : p.sourceCol = true) (hn : p.noFun = true) : (p.toReg).noFun = true := by
   cases p with
   | term t => exact TermGIn.noFun_toReg hn
@@ -190,10 +196,10 @@ theorem ProjColIn.noFun_toReg {c n : ℕ} {κ : Fin n → ColKind} {p : ProjColI
   | provTerm t => exact TermGIn.noFun_toReg hn
 
 omit [ValueType T] in
-@[simp] theorem TermGIn.noFun_index {c n : ℕ} {κ : Fin n → ColKind} (k : Fin n)
+@[simp] private theorem TermGIn.noFun_index {c n : ℕ} {κ : Fin n → ColKind} (k : Fin n)
     (h : κ k = ColKind.reg) : (TermGIn.index (T := T) (c := c) k h).noFun = true := rfl
 
-theorem GenPredIn.noFun_toReg {c n : ℕ} {κ : Fin n → ColKind} {φ : GenPredIn T c κ}
+private theorem GenPredIn.noFun_toReg {c n : ℕ} {κ : Fin n → ColKind} {φ : GenPredIn T c κ}
     (h : φ.noFun = true) : (φ.toReg).noFun = true := by
   induction φ with
   | cmp op t₁ t₂ =>
@@ -230,7 +236,7 @@ def swapIdx (n₁ n₂ : ℕ) : Fin (n₁ + n₂) → Fin (n₂ + n₁) :=
   Fin.addCases (fun i => Fin.natAdd n₂ i) (fun i => Fin.castAdd n₁ i)
 
 omit [ValueType T] in
-theorem swap_append {n₁ n₂ : ℕ} (u : Tuple T n₁) (v : Tuple T n₂) :
+private theorem swap_append {n₁ n₂ : ℕ} (u : Tuple T n₁) (v : Tuple T n₂) :
     (fun j => (Fin.append v u : Tuple T (n₂ + n₁)) (swapIdx n₁ n₂ j))
       = (Fin.append u v : Tuple T (n₁ + n₂)) := by
   funext j
@@ -243,7 +249,7 @@ theorem swap_append {n₁ n₂ : ℕ} (u : Tuple T n₁) (v : Tuple T n₂) :
 omit [ValueType T] in
 /-- **A product read through the swap is the product the other way
 round.** -/
-theorem Relation.hMul_swap {n₁ n₂ : ℕ} (r₁ : Relation T n₁) (r₂ : Relation T n₂) :
+private theorem Relation.hMul_swap {n₁ n₂ : ℕ} (r₁ : Relation T n₁) (r₂ : Relation T n₂) :
     Multiset.map (fun u : Tuple T (n₂ + n₁) =>
         (fun j => u (swapIdx n₁ n₂ j) : Tuple T (n₁ + n₂))) (r₂ * r₁)
       = r₁ * r₂ := by
@@ -285,7 +291,7 @@ def AggQueryIn.prodSwap {c n₁ n₂ : ℕ} {l : List (String × ℕ)}
     (AggQueryIn.Apply q₂ (q₁.substMap (fun j : Fin c => Sum.inr (Fin.natAdd n₂ j))))).castKind
     (swapCols_kind c n₁ n₂)
 
-theorem AggQueryIn.evaluatePlain_prodSwap {c n₁ n₂ : ℕ} {l : List (String × ℕ)}
+private theorem AggQueryIn.evaluatePlain_prodSwap {c n₁ n₂ : ℕ} {l : List (String × ℕ)}
     (q₂ : AggQueryIn T c n₂ (ColKind.allReg n₂) l) (q₁ : AggQueryIn T c n₁ (ColKind.allReg n₁))
     (D : Database T) (γ : Fin c → T) :
     (AggQueryIn.prodSwap q₂ q₁).evaluatePlain D γ
@@ -300,7 +306,7 @@ theorem AggQueryIn.evaluatePlain_prodSwap {c n₁ n₂ : ℕ} {l : List (String 
 
 /-! ## The window's derived form, through the predicates of the pass -/
 
-theorem noFun_outerKeyCond {c n' m' : ℕ} {κ : Fin n' → ColKind} (cols : Tuple (Fin n') m')
+private theorem noFun_outerKeyCond {c n' m' : ℕ} {κ : Fin n' → ColKind} (cols : Tuple (Fin n') m')
     (h : ∀ k, κ (cols k) = ColKind.reg) (outs : Tuple (Fin c) m') :
     (outerKeyCond (T := T) cols h outs).noFun = true := by
   unfold outerKeyCond
@@ -317,26 +323,26 @@ variable {n m p : ℕ} {c : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o 
   (ψ : GenPredIn T (n + c) (ColKind.allReg n)) (t : TermIn T c n) (f : SeqAggFunc T)
   (q : AggQueryIn T c n (ColKind.allReg n))
 
-theorem AggQueryIn.names_winByApply : (winByApply P O o ψ t f q).names = q.names := by
+private theorem AggQueryIn.names_winByApply : (winByApply P O o ψ t f q).names = q.names := by
   rw [winByApply, winByApplyOn, AggQueryIn.names_castKind]
   show Union.union q.names (q.substMap _).names = q.names
   rw [AggQueryIn.names_substMap, Finset.union_self]
 
-theorem AggQueryIn.noMention_winByApply (s : String) :
+private theorem AggQueryIn.noMention_winByApply (s : String) :
     (winByApply P O o ψ t f q).noMention s ↔ q.noMention s := by
   rw [winByApply, winByApplyOn, AggQueryIn.noMention_castKind]
   show q.noMention s ∧ (q.substMap _).noMention s ↔ _
   rw [AggQueryIn.noMention_substMap]
   exact and_self_iff
 
-theorem AggQueryIn.hygienic_winByApply :
+private theorem AggQueryIn.hygienic_winByApply :
     (winByApply P O o ψ t f q).hygienic ↔ q.hygienic := by
   rw [winByApply, winByApplyOn, AggQueryIn.hygienic_castKind]
   show q.hygienic ∧ (q.substMap _).hygienic ↔ _
   rw [AggQueryIn.hygienic_substMap]
   exact and_self_iff
 
-theorem AggQueryIn.inSig_winByApply {Θ : Set (SeqAggFunc T)} (hf : f ∈ Θ) (ht : t.noFun = true)
+private theorem AggQueryIn.inSig_winByApply {Θ : Set (SeqAggFunc T)} (hf : f ∈ Θ) (ht : t.noFun = true)
     (hψ : ψ.noFun = true) (hq : q.inSig Θ) : (winByApply P O o ψ t f q).inSig Θ := by
   rw [winByApply, winByApplyOn, AggQueryIn.inSig_castKind]
   refine ⟨hq, fun j => ?_, fun j => ?_, ?_, (AggQueryIn.inSig_substMap q _).mpr hq⟩
@@ -350,7 +356,7 @@ theorem AggQueryIn.inSig_winByApply {Θ : Set (SeqAggFunc T)} (hf : f ∈ Θ) (h
     rw [noFun_outerKeyCond, hψ]
     rfl
 
-theorem AggQueryIn.settlesAt_winByApply (D : Database T) (γ : Fin c → T) :
+private theorem AggQueryIn.settlesAt_winByApply (D : Database T) (γ : Fin c → T) :
     (winByApply P O o ψ t f q).SettlesAt D γ ↔ q.SettlesAt D γ := by
   rw [winByApply, winByApplyOn, AggQueryIn.settlesAt_castKind]
   show q.SettlesAt D γ ∧ (∀ u, Multiset.Mem (q.evaluatePlain D γ) u →
@@ -375,7 +381,7 @@ def AggQueryIn.notInDiffA : AggQueryIn T c k (ColKind.allReg k) :=
     (.Sel AggQueryIn.notInCond (.Apply q₁
       ((AggQueryIn.tagAgg cnt q₁ q₂).substMap (applyOuter T c k))))
 
-theorem AggQueryIn.evaluatePlain_notInDiffA (D : Database T) (γ : Fin c → T) :
+private theorem AggQueryIn.evaluatePlain_notInDiffA (D : Database T) (γ : Fin c → T) :
     (AggQueryIn.notInDiffA cnt q₁ q₂).evaluatePlain D γ
       = (AggQueryIn.notInDiff cnt q₁ q₂).evaluatePlain D γ := by
   show Multiset.map _ (Multiset.filter _ ((AggQueryIn.Apply q₁
@@ -385,7 +391,7 @@ theorem AggQueryIn.evaluatePlain_notInDiffA (D : Database T) (γ : Fin c → T) 
       ((AggQueryIn.Prod q₁ (AggQueryIn.tagAgg cnt q₁ q₂)).evaluatePlain D γ))
   rw [AggQueryIn.apply_plainEquiv_prod q₁ (AggQueryIn.tagAgg cnt q₁ q₂) D γ]
 
-theorem noFun_keyJoinCond {n m : ℕ} {κ : Fin m → ColKind} (posL posR : Fin n → Fin m)
+private theorem noFun_keyJoinCond {n m : ℕ} {κ : Fin m → ColKind} (posL posR : Fin n → Fin m)
     (hL : ∀ k, κ (posL k) = ColKind.reg) (hR : ∀ k, κ (posR k) = ColKind.reg) :
     (keyJoinCond (T' := T) posL posR hL hR).noFun = true := by
   unfold keyJoinCond
@@ -396,14 +402,14 @@ theorem noFun_keyJoinCond {n m : ℕ} {κ : Fin m → ColKind} (posL posR : Fin 
     rw [ih]
     rfl
 
-theorem AggQueryIn.noFun_notInCond :
+private theorem AggQueryIn.noFun_notInCond :
     (AggQueryIn.notInCond (T := T) (c := c) (k := k)).noFun = true := by
   show ((_ : GenPredIn T c (notInKinds k)).noFun && _) = true
   rw [GenPredIn.noFun_substMap, noFun_keyJoinCond]
   rfl
 
 omit [ValueType T] in
-theorem AggQueryIn.noFun_tagCols (a : T) (j : Fin (k + 1)) :
+private theorem AggQueryIn.noFun_tagCols (a : T) (j : Fin (k + 1)) :
     (AggQueryIn.tagCols (T := T) (c := c) (k := k) a j).noFun = true := by
   refine Fin.lastCases ?_ (fun i => ?_) j
   · show (ProjColIn.term (Fin.lastCases (TermGIn.const a)
@@ -415,17 +421,17 @@ theorem AggQueryIn.noFun_tagCols (a : T) (j : Fin (k + 1)) :
     rw [Fin.lastCases_castSucc]
     rfl
 
-theorem AggQueryIn.usesOnly_notInDiffA {S : Set OpKind} (hp : OpKind.proj ∈ S)
+private theorem AggQueryIn.usesOnly_notInDiffA {S : Set OpKind} (hp : OpKind.proj ∈ S)
     (hs : OpKind.sel ∈ S) (ha : OpKind.apply ∈ S) (hu : OpKind.union ∈ S) (hg : OpKind.gamma ∈ S)
     (h₁ : q₁.usesOnly S) (h₂ : q₂.usesOnly S) : (AggQueryIn.notInDiffA cnt q₁ q₂).usesOnly S :=
   ⟨⟨hp, fun _ => rfl⟩, hs, ha, h₁, (AggQueryIn.usesOnly_substMap _ _).mpr
     ⟨hg, hu, ⟨⟨hp, fun _ => rfl⟩, h₁⟩, ⟨⟨hp, fun _ => rfl⟩, h₂⟩⟩⟩
 
-theorem AggQueryIn.hygienic_notInDiffA (h₁ : q₁.hygienic) (h₂ : q₂.hygienic) :
+private theorem AggQueryIn.hygienic_notInDiffA (h₁ : q₁.hygienic) (h₂ : q₂.hygienic) :
     (AggQueryIn.notInDiffA cnt q₁ q₂).hygienic :=
   ⟨h₁, (AggQueryIn.hygienic_substMap _ _).mpr ⟨h₁, h₂⟩⟩
 
-theorem AggQueryIn.inSig_notInDiffA {Θ : Set (SeqAggFunc T)} (hc : cnt ∈ Θ) (h₁ : q₁.inSig Θ)
+private theorem AggQueryIn.inSig_notInDiffA {Θ : Set (SeqAggFunc T)} (hc : cnt ∈ Θ) (h₁ : q₁.inSig Θ)
     (h₂ : q₂.inSig Θ) : (AggQueryIn.notInDiffA cnt q₁ q₂).inSig Θ := by
   refine ⟨fun _ => rfl, AggQueryIn.noFun_notInCond, h₁,
     (AggQueryIn.inSig_substMap _ _).mpr ⟨fun j => ?_, fun j => ?_, fun j => ?_,
@@ -434,11 +440,11 @@ theorem AggQueryIn.inSig_notInDiffA {Θ : Set (SeqAggFunc T)} (hc : cnt ∈ Θ) 
   · rw [Subsingleton.elim j 0]; exact hc
   · rw [Subsingleton.elim j 0]; rfl
 
-theorem AggQueryIn.overSchema_notInDiffA {sch : Schema} (h₁ : q₁.overSchema sch)
+private theorem AggQueryIn.overSchema_notInDiffA {sch : Schema} (h₁ : q₁.overSchema sch)
     (h₂ : q₂.overSchema sch) : (AggQueryIn.notInDiffA cnt q₁ q₂).overSchema sch :=
   ⟨h₁, (AggQueryIn.overSchema_substMap _ _ sch).mpr ⟨h₁, h₂⟩⟩
 
-theorem AggQueryIn.names_notInDiffA :
+private theorem AggQueryIn.names_notInDiffA :
     (AggQueryIn.notInDiffA cnt q₁ q₂).names ⊆ Union.union q₁.names q₂.names := by
   show Union.union q₁.names ((AggQueryIn.tagAgg cnt q₁ q₂).substMap _).names ⊆ _
   rw [AggQueryIn.names_substMap]
@@ -447,17 +453,17 @@ theorem AggQueryIn.names_notInDiffA :
   simp only [Finset.mem_union] at hx ⊢
   tauto
 
-theorem AggQueryIn.noMention_notInDiffA {s : String} (h₁ : q₁.noMention s) (h₂ : q₂.noMention s) :
+private theorem AggQueryIn.noMention_notInDiffA {s : String} (h₁ : q₁.noMention s) (h₂ : q₂.noMention s) :
     (AggQueryIn.notInDiffA cnt q₁ q₂).noMention s :=
   ⟨h₁, (AggQueryIn.noMention_substMap _ _).mpr ⟨h₁, h₂⟩⟩
 
-theorem AggQueryIn.settlesAt_notInDiffA (D : Database T) (γ : Fin c → T) (h₁ : q₁.SettlesAt D γ)
+private theorem AggQueryIn.settlesAt_notInDiffA (D : Database T) (γ : Fin c → T) (h₁ : q₁.SettlesAt D γ)
     (h₂ : q₂.SettlesAt D γ) : (AggQueryIn.notInDiffA cnt q₁ q₂).SettlesAt D γ := by
   refine ⟨h₁, fun u _ => ?_⟩
   rw [AggQueryIn.settlesAt_substMap, substVal_applyOuter]
   exact ⟨h₁, h₂⟩
 
-theorem AggQueryIn.sumsAllReg_notInDiffA (h₁ : q₁.sumsAllReg) (h₂ : q₂.sumsAllReg) :
+private theorem AggQueryIn.sumsAllReg_notInDiffA (h₁ : q₁.sumsAllReg) (h₂ : q₂.sumsAllReg) :
     (AggQueryIn.notInDiffA cnt q₁ q₂).sumsAllReg := by
   refine ⟨h₁, ?_⟩
   show ((AggQueryIn.tagAgg cnt q₁ q₂).substMap _).sumsAllReg
@@ -478,7 +484,7 @@ def AggQueryIn.prodA : AggQueryIn T c (n₁ + n₂) (ColKind.allReg (n₁ + n₂
   (AggQueryIn.Apply q₁ (q₂.substMap (applyOuter T c n₁))).castKind
     (AggQueryIn.append_allReg n₁ n₂)
 
-theorem AggQueryIn.evaluatePlain_prodA (D : Database T) (γ : Fin c → T) :
+private theorem AggQueryIn.evaluatePlain_prodA (D : Database T) (γ : Fin c → T) :
     (AggQueryIn.prodA q₁ q₂).evaluatePlain D γ = q₁.evaluatePlain D γ * q₂.evaluatePlain D γ := by
   rw [AggQueryIn.prodA, AggQueryIn.evaluatePlain_castKind]
   show (AggQueryIn.Apply q₁
@@ -486,7 +492,7 @@ theorem AggQueryIn.evaluatePlain_prodA (D : Database T) (γ : Fin c → T) :
   exact AggQueryIn.apply_plainEquiv_prod q₁ q₂ D γ
 
 /-- The apply form is defined where the two factors are. -/
-theorem AggQueryIn.settlesAt_prodA (D : Database T) (γ : Fin c → T) (h₁ : q₁.SettlesAt D γ)
+private theorem AggQueryIn.settlesAt_prodA (D : Database T) (γ : Fin c → T) (h₁ : q₁.SettlesAt D γ)
     (h₂ : q₂.SettlesAt D γ) : (AggQueryIn.prodA q₁ q₂).SettlesAt D γ := by
   rw [AggQueryIn.prodA, AggQueryIn.settlesAt_castKind]
   refine ⟨h₁, fun u _ => ?_⟩
@@ -494,38 +500,38 @@ theorem AggQueryIn.settlesAt_prodA (D : Database T) (γ : Fin c → T) (h₁ : q
   exact h₂
 
 omit [ValueType T] in
-theorem AggQueryIn.usesOnly_prodA {S : Set OpKind} (ha : OpKind.apply ∈ S) (h₁ : q₁.usesOnly S)
+private theorem AggQueryIn.usesOnly_prodA {S : Set OpKind} (ha : OpKind.apply ∈ S) (h₁ : q₁.usesOnly S)
     (h₂ : q₂.usesOnly S) : (AggQueryIn.prodA q₁ q₂).usesOnly S := by
   rw [AggQueryIn.prodA, AggQueryIn.usesOnly_castKind]
   exact ⟨ha, h₁, (AggQueryIn.usesOnly_substMap _ _).mpr h₂⟩
 
 omit [ValueType T] in
-theorem AggQueryIn.hygienic_prodA (h₁ : q₁.hygienic) (h₂ : q₂.hygienic) :
+private theorem AggQueryIn.hygienic_prodA (h₁ : q₁.hygienic) (h₂ : q₂.hygienic) :
     (AggQueryIn.prodA q₁ q₂).hygienic := by
   rw [AggQueryIn.prodA, AggQueryIn.hygienic_castKind]
   exact ⟨h₁, (AggQueryIn.hygienic_substMap _ _).mpr h₂⟩
 
-theorem AggQueryIn.inSig_prodA {Θ : Set (SeqAggFunc T)} (h₁ : q₁.inSig Θ) (h₂ : q₂.inSig Θ) :
+private theorem AggQueryIn.inSig_prodA {Θ : Set (SeqAggFunc T)} (h₁ : q₁.inSig Θ) (h₂ : q₂.inSig Θ) :
     (AggQueryIn.prodA q₁ q₂).inSig Θ := by
   rw [AggQueryIn.prodA, AggQueryIn.inSig_castKind]
   exact ⟨h₁, (AggQueryIn.inSig_substMap _ _).mpr h₂⟩
 
 omit [ValueType T] in
-theorem AggQueryIn.overSchema_prodA {sch : Schema} (h₁ : q₁.overSchema sch)
+private theorem AggQueryIn.overSchema_prodA {sch : Schema} (h₁ : q₁.overSchema sch)
     (h₂ : q₂.overSchema sch) :
     (AggQueryIn.prodA q₁ q₂).overSchema sch := by
   rw [AggQueryIn.prodA, AggQueryIn.overSchema_castKind]
   exact ⟨h₁, (AggQueryIn.overSchema_substMap _ _ sch).mpr h₂⟩
 
 omit [ValueType T] in
-theorem AggQueryIn.names_prodA :
+private theorem AggQueryIn.names_prodA :
     (AggQueryIn.prodA q₁ q₂).names = Union.union q₁.names q₂.names := by
   rw [AggQueryIn.prodA, AggQueryIn.names_castKind]
   show Union.union q₁.names (q₂.substMap _).names = _
   rw [AggQueryIn.names_substMap]
 
 omit [ValueType T] in
-theorem AggQueryIn.noMention_prodA {s : String} (h₁ : q₁.noMention s) (h₂ : q₂.noMention s) :
+private theorem AggQueryIn.noMention_prodA {s : String} (h₁ : q₁.noMention s) (h₂ : q₂.noMention s) :
     (AggQueryIn.prodA q₁ q₂).noMention s := by
   rw [AggQueryIn.prodA, AggQueryIn.noMention_castKind]
   exact ⟨h₁, (AggQueryIn.noMention_substMap _ _).mpr h₂⟩
@@ -538,7 +544,7 @@ variable {c n₁ n₂ : ℕ} {l : List (String × ℕ)} (q₂ : AggQueryIn T c n
   (q₁ : AggQueryIn T c n₁ (ColKind.allReg n₁))
 
 /-- The swapped form is defined where the two factors are. -/
-theorem AggQueryIn.settlesAt_prodSwap (D : Database T) (γ : Fin c → T) (h₂ : q₂.SettlesAt D γ)
+private theorem AggQueryIn.settlesAt_prodSwap (D : Database T) (γ : Fin c → T) (h₂ : q₂.SettlesAt D γ)
     (h₁ : q₁.SettlesAt D γ) : (AggQueryIn.prodSwap q₂ q₁).SettlesAt D γ := by
   rw [AggQueryIn.prodSwap, AggQueryIn.settlesAt_castKind]
   refine ⟨h₂, fun u _ => ?_⟩
@@ -547,38 +553,38 @@ theorem AggQueryIn.settlesAt_prodSwap (D : Database T) (γ : Fin c → T) (h₂ 
   exact h₁
 
 omit [ValueType T] in
-theorem AggQueryIn.usesOnly_prodSwap {S : Set OpKind} (hp : OpKind.proj ∈ S)
+private theorem AggQueryIn.usesOnly_prodSwap {S : Set OpKind} (hp : OpKind.proj ∈ S)
     (ha : OpKind.apply ∈ S) (h₂ : q₂.usesOnly S) (h₁ : q₁.usesOnly S) :
     (AggQueryIn.prodSwap q₂ q₁).usesOnly S := by
   rw [AggQueryIn.prodSwap, AggQueryIn.usesOnly_castKind]
   exact ⟨⟨hp, fun _ => rfl⟩, ha, h₂, (AggQueryIn.usesOnly_substMap _ _).mpr h₁⟩
 
 omit [ValueType T] in
-theorem AggQueryIn.hygienic_prodSwap (h₂ : q₂.hygienic) (h₁ : q₁.hygienic) :
+private theorem AggQueryIn.hygienic_prodSwap (h₂ : q₂.hygienic) (h₁ : q₁.hygienic) :
     (AggQueryIn.prodSwap q₂ q₁).hygienic := by
   rw [AggQueryIn.prodSwap, AggQueryIn.hygienic_castKind]
   exact ⟨h₂, (AggQueryIn.hygienic_substMap _ _).mpr h₁⟩
 
-theorem AggQueryIn.inSig_prodSwap {Θ : Set (SeqAggFunc T)} (h₂ : q₂.inSig Θ) (h₁ : q₁.inSig Θ) :
+private theorem AggQueryIn.inSig_prodSwap {Θ : Set (SeqAggFunc T)} (h₂ : q₂.inSig Θ) (h₁ : q₁.inSig Θ) :
     (AggQueryIn.prodSwap q₂ q₁).inSig Θ := by
   rw [AggQueryIn.prodSwap, AggQueryIn.inSig_castKind]
   exact ⟨fun _ => rfl, h₂, (AggQueryIn.inSig_substMap _ _).mpr h₁⟩
 
 omit [ValueType T] in
-theorem AggQueryIn.overSchema_prodSwap {sch : Schema} (h₂ : q₂.overSchema sch)
+private theorem AggQueryIn.overSchema_prodSwap {sch : Schema} (h₂ : q₂.overSchema sch)
     (h₁ : q₁.overSchema sch) : (AggQueryIn.prodSwap q₂ q₁).overSchema sch := by
   rw [AggQueryIn.prodSwap, AggQueryIn.overSchema_castKind]
   exact ⟨h₂, (AggQueryIn.overSchema_substMap _ _ sch).mpr h₁⟩
 
 omit [ValueType T] in
-theorem AggQueryIn.names_prodSwap :
+private theorem AggQueryIn.names_prodSwap :
     (AggQueryIn.prodSwap q₂ q₁).names = Union.union q₂.names q₁.names := by
   rw [AggQueryIn.prodSwap, AggQueryIn.names_castKind]
   show Union.union q₂.names (q₁.substMap _).names = _
   rw [AggQueryIn.names_substMap]
 
 omit [ValueType T] in
-theorem AggQueryIn.noMention_prodSwap {s : String} (h₂ : q₂.noMention s) (h₁ : q₁.noMention s) :
+private theorem AggQueryIn.noMention_prodSwap {s : String} (h₂ : q₂.noMention s) (h₁ : q₁.noMention s) :
     (AggQueryIn.prodSwap q₂ q₁).noMention s := by
   rw [AggQueryIn.prodSwap, AggQueryIn.noMention_castKind]
   exact ⟨h₂, (AggQueryIn.noMention_substMap _ _).mpr h₁⟩
@@ -589,7 +595,7 @@ end ProdSwapFacts
 
 omit [ValueType T] in
 /-- With no `⊎` at all, every `⊎` is all-regular. -/
-theorem AggQueryIn.sumsAllReg_of_usesOnly {S : Set OpKind} (hu : OpKind.union ∉ S) :
+private theorem AggQueryIn.sumsAllReg_of_usesOnly {S : Set OpKind} (hu : OpKind.union ∉ S) :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l),
         q.usesOnly S → q.sumsAllReg := by
   intro c n κ l q
@@ -638,34 +644,34 @@ namespace AggQueryIn
 /-- A third of the supply: the names `f (3 i + j)`. -/
 def tri (f : ℕ → String) (j : ℕ) : ℕ → String := fun i => f (3 * i + j)
 
-theorem tri_injective {f : ℕ → String} (hf : Function.Injective f) (j : ℕ) :
+private theorem tri_injective {f : ℕ → String} (hf : Function.Injective f) (j : ℕ) :
     Function.Injective (tri f j) :=
   fun _ _ h => by have := hf h; omega
 
 omit [ValueType T] in
-theorem tri_fresh {f : ℕ → String} {A B : Finset String} (hfr : ∀ i, f i ∉ B)
+private theorem tri_fresh {f : ℕ → String} {A B : Finset String} (hfr : ∀ i, f i ∉ B)
     (hAB : A ⊆ B) (j : ℕ) : ∀ i, tri f j i ∉ A :=
   fun _ h => hfr _ (hAB h)
 
 omit [ValueType T] in
-theorem names_tri {f : ℕ → String} {j : ℕ} {x : String} {A B : Finset String}
+private theorem names_tri {f : ℕ → String} {j : ℕ} {x : String} {A B : Finset String}
     (h : x ∈ A ∨ ∃ i, x = tri f j i) (hAB : A ⊆ B) : x ∈ B ∨ ∃ i, x = f i :=
   h.imp (fun h => hAB h) (fun ⟨i, hi⟩ => ⟨3 * i + j, hi⟩)
 
 omit [ValueType T] in
-theorem ne_tri {f : ℕ → String} {s : String} (hs : ∀ i, s ≠ f i) (j : ℕ) :
+private theorem ne_tri {f : ℕ → String} {s : String} (hs : ∀ i, s ≠ f i) (j : ℕ) :
     ∀ i, s ≠ tri f j i :=
   fun _ => hs _
 
 omit [ValueType T] in
-theorem sch_tri {f : ℕ → String} {sch : Schema} (hsch : ∀ i, sch (f i) = none) (j : ℕ) :
+private theorem sch_tri {f : ℕ → String} {sch : Schema} (hsch : ∀ i, sch (f i) = none) (j : ℕ) :
     ∀ i, sch (tri f j i) = none :=
   fun _ => hsch _
 
 omit [ValueType T] in
 /-- A name of one third of the supply is not among the names a child
 built with another third, nor among the query's. -/
-theorem tri_notMem {f : ℕ → String} (hf : Function.Injective f) {j j' : ℕ} (hj : j < 3)
+private theorem tri_notMem {f : ℕ → String} (hf : Function.Injective f) {j j' : ℕ} (hj : j < 3)
     (hj' : j' < 3) (hne : j ≠ j') {A B : Finset String}
     (hn : ∀ x, x ∈ A → x ∈ B ∨ ∃ i, x = tri f j' i) (hfr : ∀ i, f i ∉ B) :
     ∀ i, tri f j i ∉ A := fun i h => by
@@ -675,12 +681,12 @@ theorem tri_notMem {f : ℕ → String} (hf : Function.Injective f) {j j' : ℕ}
     omega
 
 omit [ValueType T] in
-theorem ne_of_mem_names {f : ℕ → String} {s : String} {B : Finset String}
+private theorem ne_of_mem_names {f : ℕ → String} {s : String} {B : Finset String}
     (hfr : ∀ i, f i ∉ B) (hs : s ∈ B) : ∀ i, s ≠ f i :=
   fun i h => hfr i (h ▸ hs)
 
 omit [ValueType T] in
-theorem update_fresh {f : ℕ → String} {sch : Schema} {s : String} {m : ℕ}
+private theorem update_fresh {f : ℕ → String} {sch : Schema} {s : String} {m : ℕ}
     (hsch : ∀ i, sch (f i) = none) (hs : ∀ i, s ≠ f i) : ∀ i, (sch.update s m) (f i) = none :=
   fun i => by
     show (if f i = s then _ else _) = none
@@ -730,7 +736,7 @@ all-regular columns, keeping what `BasisRecOf` lists
 and defined and equal wherever the query is; and a body reading the name
 `s` once is matched by such a body and a closed query it is the sum of
 (`exists_sumFree_aux`'s shape). -/
-theorem exists_basisRec_aux {S : Set OpKind} (hS : sumMuOps ⊆ S) (hnu : OpKind.union ∉ S)
+private theorem exists_basisRec_aux {S : Set OpKind} (hS : sumMuOps ⊆ S) (hnu : OpKind.union ∉ S)
     {Θ : Set (SeqAggFunc T)} (hms : OpKind.muSet ∈ S ∨ MuSetHandler S Θ)
     (cnt : SeqAggFunc T) (hcnt : cnt ∈ Θ) (hcc : SeqAggFunc.Counts cnt) :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l),

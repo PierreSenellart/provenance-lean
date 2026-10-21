@@ -11,6 +11,23 @@ import Mathlib.Analysis.SpecialFunctions.Pow.NNReal
 import Provenance.AnnotatedDedup
 import Provenance.AnnotatedSum
 import Provenance.HavingQueryCorrectness
+import all Provenance.AggQuery
+import all Provenance.AggQueryAdequacy
+import all Provenance.AggQueryBridges
+import all Provenance.AnnotatedApproxRows
+import all Provenance.AnnotatedDatabase
+import all Provenance.AnnotatedDedup
+import all Provenance.AnnotatedDiffRow
+import all Provenance.AnnotatedMuUnion
+import all Provenance.AnnotatedProd
+import all Provenance.Database
+import all Provenance.Nested
+import all Provenance.OrderSpec
+import all Provenance.PathSum
+import all Provenance.PlainBasis
+import all Provenance.QueryAdequacy
+import all Provenance.RecursionBasis
+import all Provenance.SumByMu
 
 /-!
 # `μ^∪` is necessary in the annotated algebra: the why-provenance semiring
@@ -66,10 +83,10 @@ variable {G : ℕ → K → Prop} (hG : Graded G)
 include hG
 
 omit [ValueType T] [DecidableEq K] [HasAltLinearOrder K] in
-theorem one' (D : ℕ) : G D 1 := hG.mono (Nat.zero_le D) hG.one
+private theorem one' (D : ℕ) : G D 1 := hG.mono (Nat.zero_le D) hG.one
 
 omit [ValueType T] [DecidableEq K] [HasAltLinearOrder K] in
-theorem msum {D : ℕ} : ∀ s : Multiset K, (∀ a ∈ s, G D a) → G D s.sum := by
+private theorem msum {D : ℕ} : ∀ s : Multiset K, (∀ a ∈ s, G D a) → G D s.sum := by
   intro s
   induction s using Multiset.induction_on with
   | empty => intro _; exact hG.zero D
@@ -80,12 +97,12 @@ theorem msum {D : ℕ} : ∀ s : Multiset K, (∀ a ∈ s, G D a) → G D s.sum 
       (ih fun b hb => h b (Multiset.mem_cons_of_mem hb))
 
 omit [ValueType T] [DecidableEq K] [HasAltLinearOrder K] in
-theorem lsum {D : ℕ} (l : List K) (h : ∀ a ∈ l, G D a) : G D l.sum := by
+private theorem lsum {D : ℕ} (l : List K) (h : ∀ a ∈ l, G D a) : G D l.sum := by
   rw [← Multiset.sum_coe]
   exact hG.msum _ fun a ha => h a (Multiset.mem_coe.1 ha)
 
 omit [ValueType T] [DecidableEq K] [HasAltLinearOrder K] in
-theorem fsum {D : ℕ} {ι : Type} (s : Finset ι) (f : ι → K) (h : ∀ i ∈ s, G D (f i)) :
+private theorem fsum {D : ℕ} {ι : Type} (s : Finset ι) (f : ι → K) (h : ∀ i ∈ s, G D (f i)) :
     G D (∑ i ∈ s, f i) := by
   unfold Finset.sum
   exact hG.msum _ fun a ha => by
@@ -94,7 +111,7 @@ theorem fsum {D : ℕ} {ι : Type} (s : Finset ι) (f : ι → K) (h : ∀ i ∈
 
 omit [ValueType T] [DecidableEq K] [HasAltLinearOrder K] in
 /-- A product of `k` factors of grade `D` has grade `k D`. -/
-theorem mprod {D : ℕ} : ∀ s : Multiset K, (∀ a ∈ s, G D a) → G (s.card * D) s.prod := by
+private theorem mprod {D : ℕ} : ∀ s : Multiset K, (∀ a ∈ s, G D a) → G (s.card * D) s.prod := by
   intro s
   induction s using Multiset.induction_on with
   | empty => intro _; simpa using hG.one
@@ -106,7 +123,7 @@ theorem mprod {D : ℕ} : ∀ s : Multiset K, (∀ a ∈ s, G D a) → G (s.card
 
 omit [ValueType T] [DecidableEq K] [HasAltLinearOrder K] in
 /-- A product of factors of grades `D i` has grade their sum. -/
-theorem mprod_sum : ∀ s : Multiset (K × ℕ), (∀ p ∈ s, G p.2 p.1) →
+private theorem mprod_sum : ∀ s : Multiset (K × ℕ), (∀ p ∈ s, G p.2 p.1) →
     G (s.map Prod.snd).sum (s.map Prod.fst).prod := by
   intro s
   induction s using Multiset.induction_on with
@@ -118,7 +135,7 @@ theorem mprod_sum : ∀ s : Multiset (K × ℕ), (∀ p ∈ s, G p.2 p.1) →
       (ih fun b hb => h b (Multiset.mem_cons_of_mem hb))
 
 omit [ValueType T] [DecidableEq K] [HasAltLinearOrder K] in
-theorem fprod {D : ℕ} {ι : Type} (s : Finset ι) (f : ι → K) (h : ∀ i ∈ s, G D (f i)) :
+private theorem fprod {D : ℕ} {ι : Type} (s : Finset ι) (f : ι → K) (h : ∀ i ∈ s, G D (f i)) :
     G (s.card * D) (∏ i ∈ s, f i) := by
   unfold Finset.prod
   have := hG.mprod (s.val.map f) fun a ha => by
@@ -127,18 +144,18 @@ theorem fprod {D : ℕ} {ι : Type} (s : Finset ι) (f : ι → K) (h : ∀ i �
   rwa [Multiset.card_map] at this
 
 omit [DecidableEq K] [HasAltLinearOrder K] in
-theorem chi (op : CompOp) (a b : T) : G 0 (Having.chi op a b : K) := by
+private theorem chi (op : CompOp) (a b : T) : G 0 (Having.chi op a b : K) := by
   unfold Having.chi; split_ifs; exacts [hG.one, hG.zero 0]
 
 omit [ValueType T] [DecidableEq K] [HasAltLinearOrder K] in
-theorem chiOf (P : T → Kleene) (a : T) : G 0 (Having.chiOf P a : K) := by
+private theorem chiOf (P : T → Kleene) (a : T) : G 0 (Having.chiOf P a : K) := by
   unfold Having.chiOf; split_ifs; exacts [hG.one, hG.zero 0]
 
 omit [ValueType T] [DecidableEq K] [HasAltLinearOrder K] in
-theorem one_sub (a : K) : G 0 (1 - a) := hG.sub a hG.one
+private theorem one_sub (a : K) : G 0 (1 - a) := hG.sub a hG.one
 
 omit [ValueType T] [DecidableEq K] [HasAltLinearOrder K] in
-theorem worldAnn {D N : ℕ} (α : Fin N → K) (hα : ∀ i, G D (α i)) (W : Finset (Fin N)) :
+private theorem worldAnn {D N : ℕ} (α : Fin N → K) (hα : ∀ i, G D (α i)) (W : Finset (Fin N)) :
     G (N * D) (Having.worldAnn α W) := by
   have h := hG.mul (hG.fprod W α fun i _ => hα i) (hG.one_sub (∑ i ∈ Wᶜ, α i))
   refine hG.mono ?_ h
@@ -151,7 +168,7 @@ end Graded
 /-! ## The annotations a token carries, counted -/
 
 /-- Counting the factors of a nested world. -/
-theorem card_add_sum_le {α : Type} (s : Multiset α) (g h : α → ℕ) (D : ℕ)
+private theorem card_add_sum_le {α : Type} (s : Multiset α) (g h : α → ℕ) (D : ℕ)
     (hgh : ∀ a ∈ s, g a ≤ h a) :
     s.card * D + (s.map (fun a => g a * D)).sum ≤ (s.map (fun a => 1 + h a)).sum * D := by
   induction s using Multiset.induction_on with
@@ -181,7 +198,7 @@ def AggTok.annCount : AggTok T K → ℕ
   | .nest a => (a.occs.map (fun o => 1 + NestInner.annCount a.lev o.1)).sum
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
-@[simp] theorem AggTok.annCount_setFam (φ : FamId T)
+@[simp] private theorem AggTok.annCount_setFam (φ : FamId T)
     {ids : Option (List (OccId T))} (x : AggTok T K) :
     (x.setFam φ ids).annCount = x.annCount := by
   cases x <;> rfl
@@ -189,7 +206,7 @@ omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 /-- **What an inner value counts is what its families and nodes hold**,
 with repetition. -/
-theorem NestInner.count_eq : ∀ (j : ℕ) (x : NestInner T K j),
+private theorem NestInner.count_eq : ∀ (j : ℕ) (x : NestInner T K j),
     ((NestInner.leaves j x).map (fun κ => κ.2.length)).sum
       + ((NestInner.nodes j x).map (fun κ => Multiset.card κ.2.2)).sum
       = NestInner.annCount j x
@@ -208,7 +225,7 @@ theorem NestInner.count_eq : ∀ (j : ℕ) (x : NestInner T K j),
     omega
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
-theorem sum_map_le_of_le {α : Type} {s t : Multiset α} (h : s ≤ t) (f : α → ℕ) :
+private theorem sum_map_le_of_le {α : Type} {s t : Multiset α} (h : s ≤ t) (f : α → ℕ) :
     (s.map f).sum ≤ (t.map f).sum := by
   obtain ⟨u, rfl⟩ := Multiset.le_iff_exists_add.mp h
   rw [Multiset.map_add, Multiset.sum_add]
@@ -217,7 +234,7 @@ theorem sum_map_le_of_le {α : Type} {s t : Multiset α} (h : s ≤ t) (f : α �
 omit [ValueType T] [CommSemiringWithMonus K] [HasAltLinearOrder K] in
 /-- **A nested value's families and nodes, each once, count no more than
 its occurrences' inner values do.** -/
-theorem NestedValue.count_le [DecidableEq T] (a : NestedValue T K) :
+private theorem NestedValue.count_le [DecidableEq T] (a : NestedValue T K) :
     (a.leaves.map (fun κ => κ.2.length)).sum
       + (a.nodes.map (fun κ => Multiset.card κ.2.2)).sum
       ≤ (a.occs.map (fun o => NestInner.annCount a.lev o.1)).sum := by
@@ -252,7 +269,7 @@ def GenRow.Grade (G : ℕ → K → Prop) (N D : ℕ) {n : ℕ} (r : GenRow T K 
 variable {G : ℕ → K → Prop}
 
 omit [ValueType T] [DecidableEq K] [HasAltLinearOrder K] in
-theorem GenRow.Grade.finalize (hG : Graded G) {N D n : ℕ} {r : GenRow T K n}
+private theorem GenRow.Grade.finalize (hG : Graded G) {N D n : ℕ} {r : GenRow T K n}
     (h : r.Grade G N D) : G D r.snd.finalize := by
   unfold GenAnn.finalize
   have := hG.mul h.1 (hG.mprod (D := 0)
@@ -262,7 +279,7 @@ theorem GenRow.Grade.finalize (hG : Graded G) {N D n : ℕ} {r : GenRow T K n}
   simpa using this
 
 omit [ValueType T] [DecidableEq K] [HasAltLinearOrder K] in
-theorem AggTok.Grade.mono {N N' D D' : ℕ} {x : AggTok T K}
+private theorem AggTok.Grade.mono {N N' D D' : ℕ} {x : AggTok T K}
     (h : x.Grade G N D) (hG : Graded G) (hN : N ≤ N') (hD : D ≤ D') : x.Grade G N' D' := by
   refine ⟨?_, le_trans h.2 hN⟩
   cases x with
@@ -271,13 +288,13 @@ theorem AggTok.Grade.mono {N N' D D' : ℕ} {x : AggTok T K}
   | nest a => exact NestedValue.AnnsIn.mono (Q := G D) (fun _ hk => hG.mono hD hk) h.1
 
 omit [ValueType T] [DecidableEq K] [HasAltLinearOrder K] in
-theorem GenRow.Grade.mono {N N' D D' n : ℕ} {r : GenRow T K n}
+private theorem GenRow.Grade.mono {N N' D D' n : ℕ} {r : GenRow T K n}
     (h : r.Grade G N D) (hG : Graded G) (hN : N ≤ N') (hD : D ≤ D') : r.Grade G N' D' :=
   ⟨hG.mono hD h.1, fun k a hk => (h.2 k a hk).mono hG hN hD⟩
 
 omit [HasAltLinearOrder K] in
 /-- **The worlds of one family multiply at most its count of annotations.** -/
-theorem classWorlds_grade (hG : Graded G) {n N D : ℕ} (u : Tuple (GenValue T K) n)
+private theorem classWorlds_grade (hG : Graded G) {n N D : ℕ} (u : Tuple (GenValue T K) n)
     (M : List (Fin n)) {x₀ : AggTok T K} (h : x₀.Grade G N D) :
     ∀ w ∈ classWorlds u M x₀, G (N * D) w.1 ∧ G D w.2.1 := by
   intro w hw
@@ -383,7 +400,7 @@ theorem classWorlds_grade (hG : Graded G) {n N D : ℕ} (u : Tuple (GenValue T K
 omit [HasAltLinearOrder K] in
 open Classical in
 /-- **The joint worlds of a row multiply at most a count per family.** -/
-theorem jointWorlds_grade (hG : Graded G) {n N D : ℕ} (u : Tuple (GenValue T K) n)
+private theorem jointWorlds_grade (hG : Graded G) {n N D : ℕ} (u : Tuple (GenValue T K) n)
     (cols : List (Fin n)) (hu : ∀ k a, u k = Sum.inr a → a.Grade G N D) :
     ∀ w ∈ jointWorlds u cols, G (cols.length * (N * D)) w.1 ∧ G D w.2.1 := by
   have hlen : ((tokCols u cols).map (fun p => p.2.classKey)).dedup.length ≤ cols.length :=
@@ -420,7 +437,7 @@ theorem jointWorlds_grade (hG : Graded G) {n N D : ℕ} (u : Tuple (GenValue T K
 omit [HasAltLinearOrder K] in
 /-- **A predicate's joint reading multiplies at most a count per compared
 column.** -/
-theorem GenPredIn.grade_predsemJ (hG : Graded G) {c n N D : ℕ} {κ : Fin n → ColKind}
+private theorem GenPredIn.grade_predsemJ (hG : Graded G) {c n N D : ℕ} {κ : Fin n → ColKind}
     (u : Tuple (GenValue T K) n) (γ : Fin c → T)
     (hu : ∀ k a, u k = Sum.inr a → a.Grade G N D) (φ : GenPredIn T c κ) (neg : Bool) :
     G (n * (N * D)) (φ.predsemJ neg u γ) := by
@@ -449,7 +466,7 @@ variable {G : ℕ → K → Prop}
 omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 /-- **A frame is no larger than its relation and the current row**, over
 any listing. -/
-theorem length_frameListOf_le' {α : Type} [LinearOrder α] {n m p : ℕ} (val : α → Tuple T n)
+private theorem length_frameListOf_le' {α : Type} [LinearOrder α] {n m p : ℕ} (val : α → Tuple T n)
     (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p) (w : ValueFrame T p)
     (X : Multiset α) (x : α) :
     (ValueFrame.frameListOf val P O o w X x).length ≤ Multiset.card X + 1 := by
@@ -465,13 +482,13 @@ theorem length_frameListOf_le' {α : Type} [LinearOrder α] {n m p : ℕ} (val :
       (le_trans (Multiset.card_le_card (Multiset.filter_le _ X)) (Nat.le_succ _))
 
 omit [DecidableEq K] [HasAltLinearOrder K] in
-theorem length_mergeOccs_le (l : List (T × K)) : (AggValue.mergeOccs l).length ≤ l.length := by
+private theorem length_mergeOccs_le (l : List (T × K)) : (AggValue.mergeOccs l).length ≤ l.length := by
   unfold AggValue.mergeOccs
   rw [List.length_map, length_sortList, Multiset.coe_card]
   exact le_trans (List.dedup_sublist _).length_le (by rw [List.length_map])
 
 omit [DecidableEq K] [HasAltLinearOrder K] in
-theorem annsIn_mergeOccs_grade (hG : Graded G) {D : ℕ} (l : List (T × K))
+private theorem annsIn_mergeOccs_grade (hG : Graded G) {D : ℕ} (l : List (T × K))
     (hl : ∀ p ∈ l, G D p.2) : ∀ p ∈ AggValue.mergeOccs l, G D p.2 := by
   intro p hp
   obtain ⟨v, -, rfl⟩ := List.mem_map.1 hp
@@ -484,7 +501,7 @@ theorem annsIn_mergeOccs_grade (hG : Graded G) {D : ℕ} (l : List (T × K))
 omit [DecidableEq K] in
 /-- **A window's token over a frame**: its occurrences are those of the
 frame, merged by value under `DISTINCT`. -/
-theorem grade_tokenOfDist (hG : Graded G) {c n m p D : ℕ} (P : Tuple (Fin n) m)
+private theorem grade_tokenOfDist (hG : Graded G) {c n m p D : ℕ} (P : Tuple (Fin n) m)
     (O : Tuple (Fin n) p) (o : OrderSpec p) (w : ValueFrame T p) (t : TermIn T c n)
     (f : SeqAggFunc T) (dist : Bool) (X : AnnotatedRelation T K n) (x : AnnotatedTuple T K n)
     (γ : Fin c → T) (hX : ∀ q ∈ X, G D q.2) (hx : G D x.2) :
@@ -513,7 +530,7 @@ theorem grade_tokenOfDist (hG : Graded G) {c n m p D : ℕ} (P : Tuple (Fin n) m
 omit [DecidableEq K] in
 /-- **A window's expression over a frame**: its occurrences are those of
 the frame, the kept ones merged by value under `DISTINCT`. -/
-theorem grade_exprWhenOf (hG : Graded G) {c n m p D : ℕ} (P : Tuple (Fin n) m)
+private theorem grade_exprWhenOf (hG : Graded G) {c n m p D : ℕ} (P : Tuple (Fin n) m)
     (O : Tuple (Fin n) p) (o : OrderSpec p) (w : ValueFrame T p) (t : TermIn T c n)
     (f : SeqAggFunc T) (dist : Bool) (keep : Tuple T n → Bool) (X : AnnotatedRelation T K n)
     (x : AnnotatedTuple T K n) (γ : Fin c → T) (hX : ∀ q ∈ X, G D q.2) (hx : G D x.2) :
@@ -551,18 +568,18 @@ theorem grade_exprWhenOf (hG : Graded G) {c n m p D : ℕ} (P : Tuple (Fin n) m)
       simpa [AggTok.annCount, AggExpr.ofSeqWhen] using hlen⟩
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
-@[simp] theorem AggTok.annCount_postcomp (gf : T → T) (x : AggTok T K) :
+@[simp] private theorem AggTok.annCount_postcomp (gf : T → T) (x : AggTok T K) :
     (x.postcomp gf).annCount = x.annCount := by
   cases x <;> rfl
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
-theorem AggTok.Grade.postcomp {N D : ℕ} (gf : T → T) {x : AggTok T K} (h : x.Grade G N D) :
+private theorem AggTok.Grade.postcomp {N D : ℕ} (gf : T → T) {x : AggTok T K} (h : x.Grade G N D) :
     (x.postcomp gf).Grade G N D :=
   ⟨AggTok.annsIn_postcomp gf h.1, by rw [AggTok.annCount_postcomp]; exact h.2⟩
 
 omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 /-- A projection column reads a token of the row, perhaps through a term. -/
-theorem ProjColIn.grade_eval {c n N D : ℕ} {κ : Fin n → ColKind} (p : ProjColIn T c κ)
+private theorem ProjColIn.grade_eval {c n N D : ℕ} {κ : Fin n → ColKind} (p : ProjColIn T c κ)
     {u : Tuple (GenValue T K) n} (γ : Fin c → T) (hu : ∀ k a, u k = Sum.inr a → a.Grade G N D)
     {a : AggTok T K} (h : p.eval u γ = Sum.inr a) : a.Grade G N D := by
   cases p with
@@ -590,7 +607,7 @@ theorem ProjColIn.grade_eval {c n N D : ℕ} {κ : Fin n → ColKind} (p : ProjC
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 /-- The inner reading of a column has at most its count of occurrences. -/
-theorem length_innerValue_le {N : ℕ} (x : GenValue T K)
+private theorem length_innerValue_le {N : ℕ} (x : GenValue T K)
     (hx : ∀ a, x = Sum.inr a → a.annCount ≤ N) : (GenValue.innerValue x).occs.length ≤ N := by
   rcases x with v | a
   · simp [GenValue.innerValue, NestedValue.constInner, AggExpr.ofValue]
@@ -604,7 +621,7 @@ theorem length_innerValue_le {N : ℕ} (x : GenValue T K)
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 /-- **The inner reading of a column at any storey has at most its count
 of annotations.** -/
-theorem annCount_innerAt_le {N : ℕ} (x : GenValue T K)
+private theorem annCount_innerAt_le {N : ℕ} (x : GenValue T K)
     (hx : ∀ a, x = Sum.inr a → a.annCount ≤ N) :
     ∀ D : ℕ, NestInner.annCount D (x.innerAt D) ≤ N
   | 0 => length_innerValue_le x hx
@@ -623,7 +640,7 @@ theorem annCount_innerAt_le {N : ℕ} (x : GenValue T K)
       | expr e => exact annCount_innerAt_le _ hx D
 
 omit [CommSemiringWithMonus K] [DecidableEq K] in
-theorem length_havingGroupOrd_le {m n₁ : ℕ} (is : Tuple (Fin m) n₁) (ord : GroupOrder T m)
+private theorem length_havingGroupOrd_le {m n₁ : ℕ} (is : Tuple (Fin m) n₁) (ord : GroupOrder T m)
     (r : AnnotatedRelation T K m) (g : Tuple T n₁) :
     (Having.havingGroupOrd is ord r g).length ≤ Multiset.card r := by
   rw [(Having.havingGroupOrd_perm is ord r g).length_eq, ← Multiset.coe_card,
@@ -632,7 +649,7 @@ theorem length_havingGroupOrd_le {m n₁ : ℕ} (is : Tuple (Fin m) n₁) (ord :
 
 omit [CommSemiringWithMonus K] [DecidableEq K] in
 /-- **A grouping's token over a group** has the group's occurrences. -/
-theorem grade_ofGroupOrd {c m n₁ D : ℕ} (f : SeqAggFunc T) (t : TermIn T c m)
+private theorem grade_ofGroupOrd {c m n₁ D : ℕ} (f : SeqAggFunc T) (t : TermIn T c m)
     (is : Tuple (Fin m) n₁) (ord : GroupOrder T m) (r : AnnotatedRelation T K m)
     (g : Tuple T n₁) (γ : Fin c → T) (keep : Option (Selection T m))
     (hr : ∀ p ∈ r, G D p.2) :
@@ -680,7 +697,7 @@ structure Member (G : ℕ → K → Prop) (N D : ℕ) (P : Database T) {c : ℕ}
   kinded : E.Kinded γ ρc HK
 
 /-- **A member's data part is the plain evaluation of the family's data.** -/
-theorem member_plain {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)}
+private theorem member_plain {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)}
     (q : AggQueryIn T c n κ l) (hx : q.noExplode) (hh : q.hygienic) (hl : l.length ≤ 1)
     (hm : ∀ p ∈ l, q.noMention p.1) {ρc : Fin c → ColKind} {HK : HoleKinds}
     (hwk : q.wellKinded ρc HK) {N D : ℕ} {P : Database T} {γ : Fin c → T}
@@ -707,7 +724,7 @@ theorem member_plain {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × �
       rw [Database.find_assign, hM.holesPlain p (List.mem_singleton_self _)]
 
 omit [ValueType T] [DecidableEq K] [HasAltLinearOrder K] in
-theorem Member.sub {N D : ℕ} {P : Database T} {c : ℕ} {γ : Fin c → T}
+private theorem Member.sub {N D : ℕ} {P : Database T} {c : ℕ} {γ : Fin c → T}
     {H : String → (m : ℕ) → Multiset (Tuple T m)} {ρc : Fin c → ColKind} {HK : HoleKinds}
     {l l' : List (String × ℕ)} {d : AnnotatedDatabase T K} {E : EvalEnv T K}
     (hM : Member G N D P γ H ρc HK l d E) (h : ∀ p ∈ l', p ∈ l) :
@@ -715,19 +732,19 @@ theorem Member.sub {N D : ℕ} {P : Database T} {c : ℕ} {γ : Fin c → T}
   ⟨hM.plain, fun p hp => hM.holesPlain p (h p hp), hM.inst, hM.holes, hM.ctx, hM.kinded⟩
 
 omit [ValueType T] [DecidableEq K] [HasAltLinearOrder K] in
-theorem Member.closed {N D : ℕ} {P : Database T} {c : ℕ} {γ : Fin c → T}
+private theorem Member.closed {N D : ℕ} {P : Database T} {c : ℕ} {γ : Fin c → T}
     {H : String → (m : ℕ) → Multiset (Tuple T m)} {ρc : Fin c → ColKind} {HK : HoleKinds}
     {l : List (String × ℕ)} {d : AnnotatedDatabase T K} {E : EvalEnv T K}
     (hM : Member G N D P γ H ρc HK l d E) : Member G N D P γ H ρc HK [] d E :=
   hM.sub fun _ hp => absurd hp List.not_mem_nil
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
-theorem GenRow.grade_ofAnnotated {N D n : ℕ} {p : AnnotatedTuple T K n} (h : G D p.2) :
+private theorem GenRow.grade_ofAnnotated {N D n : ℕ} {p : AnnotatedTuple T K n} (h : G D p.2) :
     (GenRow.ofAnnotated p).Grade G N D :=
   ⟨h, fun k a hk => by simp [GenRow.ofAnnotated] at hk⟩
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
-theorem EvalEnv.grade_assignHole {N D m : ℕ} (E : EvalEnv T K) (s : String)
+private theorem EvalEnv.grade_assignHole {N D m : ℕ} (E : EvalEnv T K) (s : String)
     {X : Multiset (GenRow T K m)} (hX : ∀ r ∈ X, r.Grade G N D)
     (hE : ∀ s' k, ∀ r ∈ E.holes s' k, r.Grade G N D) :
     ∀ s' k, ∀ r ∈ (E.assignHole s X).holes s' k, r.Grade G N D := by
@@ -1166,7 +1183,7 @@ variable {α : Type}
 `D` variables. -/
 def Why.grade (D : ℕ) (a : Why α) : Prop := ∀ w ∈ a.carrier, w.encard ≤ D
 
-theorem Why.graded : Graded (Why.grade (α := α)) := by
+private theorem Why.graded : Graded (Why.grade (α := α)) := by
   refine ⟨fun {D D' a} hD h w hw => le_trans (h w hw) (by exact_mod_cast hD),
     fun D w hw => absurd hw (Set.notMem_empty w), fun w hw => ?_,
     fun {D a b} ha hb w hw => ?_, fun {D D' a b} ha hb w hw => ?_,
@@ -1193,12 +1210,12 @@ section WhyEdge
 /-- **The edge annotation**: `m` witnesses, one variable each. -/
 def whyEdge (m : ℕ) : Why ℕ := ⟨{s | ∃ i < m, s = {i}}⟩
 
-theorem mem_mul_carrier {a b : Why ℕ} {z : Set ℕ} :
+private theorem mem_mul_carrier {a b : Why ℕ} {z : Set ℕ} :
     z ∈ (a * b).carrier ↔ ∃ x y, x ∈ a.carrier ∧ y ∈ b.carrier ∧ z = x ∪ y := Iff.rfl
 
 /-- **The powers of the edge annotation**: the non-empty sets of at most `j`
 of its variables. -/
-theorem carrier_whyEdge_pow (m : ℕ) : ∀ j, 1 ≤ j →
+private theorem carrier_whyEdge_pow (m : ℕ) : ∀ j, 1 ≤ j →
     ((whyEdge m) ^ j).carrier = {s | s ⊆ {i | i < m} ∧ s.Nonempty ∧ s.ncard ≤ j} := by
   have hfin : ∀ s : Set ℕ, s ⊆ {i | i < m} → s.Finite := fun s hs =>
     (Set.finite_lt_nat m).subset hs
@@ -1240,7 +1257,7 @@ theorem carrier_whyEdge_pow (m : ℕ) : ∀ j, 1 ≤ j →
           · rw [Set.sdiff_union_self, Set.union_eq_left.2 (Set.singleton_subset_iff.2 his)]
 
 /-- **All the variables are one witness of the `m`-th power.** -/
-theorem range_mem_whyEdge_pow {m : ℕ} (hm : 1 ≤ m) :
+private theorem range_mem_whyEdge_pow {m : ℕ} (hm : 1 ≤ m) :
     {i | i < m} ∈ ((whyEdge m) ^ m).carrier := by
   rw [carrier_whyEdge_pow m m hm]
   refine ⟨subset_rfl, ⟨0, hm⟩, ?_⟩
@@ -1248,7 +1265,7 @@ theorem range_mem_whyEdge_pow {m : ℕ} (hm : 1 ≤ m) :
   rw [this, Set.ncard_coe_finset, Finset.card_range]
 
 /-- **The powers stop growing at `m`.** -/
-theorem whyEdge_pow_succ_le {m : ℕ} (hm : 1 ≤ m) :
+private theorem whyEdge_pow_succ_le {m : ℕ} (hm : 1 ≤ m) :
     ((whyEdge m) ^ (m + 1)).carrier ⊆ ((whyEdge m) ^ m).carrier := by
   rw [carrier_whyEdge_pow m m hm, carrier_whyEdge_pow m (m + 1) (by omega)]
   rintro s ⟨hs, hne, -⟩
@@ -1258,13 +1275,13 @@ theorem whyEdge_pow_succ_le {m : ℕ} (hm : 1 ≤ m) :
         Set.ncard_le_ncard hs (Set.finite_lt_nat m)
     _ = m := by rw [this, Set.ncard_coe_finset, Finset.card_range]
 
-theorem carrier_le_sum (f : ℕ → Why ℕ) {k i : ℕ} (hi : i < k) :
+private theorem carrier_le_sum (f : ℕ → Why ℕ) {k i : ℕ} (hi : i < k) :
     (f i).carrier ⊆ (∑ j ∈ Finset.range k, f j).carrier := by
   rw [← Finset.add_sum_erase _ _ (Finset.mem_range.2 hi)]
   exact Set.subset_union_left
 
 /-- **The partial sums of the edge's powers stop growing at `m`.** -/
-theorem sum_whyEdge_pow_succ {m : ℕ} (hm : 1 ≤ m) :
+private theorem sum_whyEdge_pow_succ {m : ℕ} (hm : 1 ≤ m) :
     ∑ j ∈ Finset.range (m + 2), (whyEdge m) ^ j = ∑ j ∈ Finset.range (m + 1), (whyEdge m) ^ j := by
   rw [Finset.sum_range_succ]
   refine Why.ext (Set.union_eq_left.2 ?_)
@@ -1279,21 +1296,21 @@ section Loop
 variable {α R : Type} [DecidableEq α] [CommSemiring R]
 
 omit [DecidableEq α] in
-theorem rounds_loop (z : α) (w : R) :
+private theorem rounds_loop (z : α) (w : R) :
     ∀ j, PathSum.rounds {(z, 1)} (fun _ => {(z, w)}) j = {(z, w ^ j)}
   | 0 => by simp [PathSum.rounds]
   | j + 1 => by
     rw [PathSum.rounds, rounds_loop z w j]
     simp [PathSum.lin, pow_succ]
 
-theorem wt_trunc_loop (z : α) (w : R) (k : ℕ) :
+private theorem wt_trunc_loop (z : α) (w : R) (k : ℕ) :
     PathSum.wt (PathSum.trunc {(z, 1)} (fun _ => {(z, w)}) k) z = ∑ j ∈ Finset.range k, w ^ j := by
   rw [PathSum.wt_trunc]
   refine Finset.sum_congr rfl fun j _ => ?_
   rw [rounds_loop, PathSum.wt, Multiset.filter_singleton, ite_eq_left rfl]
   simp
 
-theorem mem_iterate_loop (z : α) (w : R) {k : ℕ} (hk : 1 ≤ k) :
+private theorem mem_iterate_loop (z : α) (w : R) {k : ℕ} (hk : 1 ≤ k) :
     (z, ∑ j ∈ Finset.range k, w ^ j)
       ∈ (PathSum.stepK {(z, 1)} (fun _ => {(z, w)}))^[k] 0 := by
   rw [PathSum.iterate_stepK_eq, ← wt_trunc_loop z w k]
@@ -1305,7 +1322,7 @@ theorem mem_iterate_loop (z : α) (w : R) {k : ℕ} (hk : 1 ≤ k) :
   rw [Finset.sum_range_succ']
   exact Multiset.mem_add.2 (Or.inr (by simp [PathSum.rounds]))
 
-theorem supp_trunc_loop (z : α) (w : R) {k : ℕ} (hk : 1 ≤ k) :
+private theorem supp_trunc_loop (z : α) (w : R) {k : ℕ} (hk : 1 ≤ k) :
     PathSum.supp (PathSum.trunc {(z, 1)} (fun _ => {(z, w)}) k) = {z} := by
   ext v
   rw [PathSum.mem_supp, Finset.mem_singleton]
@@ -1324,7 +1341,7 @@ theorem supp_trunc_loop (z : α) (w : R) {k : ℕ} (hk : 1 ≤ k) :
     exact Multiset.mem_add.2 (Or.inr (by simp [PathSum.rounds]))
 
 /-- **The loop settles where its partial sums do.** -/
-theorem iterate_loop_succ (z : α) (w : R) {k : ℕ} (hk : 1 ≤ k)
+private theorem iterate_loop_succ (z : α) (w : R) {k : ℕ} (hk : 1 ≤ k)
     (h : ∑ j ∈ Finset.range (k + 1), w ^ j = ∑ j ∈ Finset.range k, w ^ j) :
     (PathSum.stepK {(z, 1)} (fun _ => {(z, w)}))^[k + 1] 0
       = (PathSum.stepK {(z, 1)} (fun _ => {(z, w)}))^[k] 0 := by
@@ -1371,13 +1388,13 @@ def whyBody : AggQueryIn ℕ 0 1 (ColKind.allReg 1) [("X", 1)] :=
 def whyWitness : AggQuery ℕ 1 (ColKind.allReg 1) :=
   AggQueryIn.MuSet "X" (AggQueryIn.Rel 1 "R") whyBody
 
-theorem ann_whyBase (m : ℕ) (γ : Fin 0 → ℕ) (E : EvalEnv ℕ (Why ℕ)) :
+private theorem ann_whyBase (m : ℕ) (γ : Fin 0 → ℕ) (E : EvalEnv ℕ (Why ℕ)) :
     (AggQueryIn.Rel 1 "R" : AggQueryIn ℕ 0 1 (ColKind.allReg 1)).ann (dWhy m) γ E
       = (({(((fun _ => 0) : Tuple ℕ 1), (1 : Why ℕ))} : Multiset (AnnotatedTuple ℕ (Why ℕ) 1))
         : AnnotatedRelation ℕ (Why ℕ) 1) := by
   rw [AggQueryIn.ann_Rel, dWhy, AnnotatedDatabase.find_assign]
 
-theorem ann_whyBody (m : ℕ) (γ : Fin 0 → ℕ) (E : EvalEnv ℕ (Why ℕ)) (u : Tuple ℕ 1) :
+private theorem ann_whyBody (m : ℕ) (γ : Fin 0 → ℕ) (E : EvalEnv ℕ (Why ℕ)) (u : Tuple ℕ 1) :
     whyBody.ann (dWhy m) γ (E.assignHole "X"
         ({GenRow.ofAnnotated (u, 1)} : Multiset (GenRow ℕ (Why ℕ) 1)))
       = (({(((fun _ => 0) : Tuple ℕ 1), whyEdge m)} : Multiset (AnnotatedTuple ℕ (Why ℕ) 1))
@@ -1400,13 +1417,13 @@ theorem ann_whyBody (m : ℕ) (γ : Fin 0 → ℕ) (E : EvalEnv ℕ (Why ℕ)) (
     rfl
   · simp [GenRow.toAnnotated, GenAnn.finalize, GenRow.ofAnnotated]
 
-theorem recLinear_whyBody : whyBody.recLinear "X" 1 :=
+private theorem recLinear_whyBody : whyBody.recLinear "X" 1 :=
   Or.inl ⟨⟨rfl, rfl⟩, rfl, by simp [AggQueryIn.noMention]⟩
 
-theorem noExplode_whyBody : whyBody.noExplode := ⟨trivial, trivial⟩
+private theorem noExplode_whyBody : whyBody.noExplode := ⟨trivial, trivial⟩
 
 /-- **The witness's round function is the self-loop's.** -/
-theorem muSetStep_whyWitness (m : ℕ) (γ : Fin 0 → ℕ) :
+private theorem muSetStep_whyWitness (m : ℕ) (γ : Fin 0 → ℕ) :
     AggQueryIn.muSetStep "X" (AggQueryIn.Rel 1 "R") whyBody (dWhy m) γ {}
       = PathSum.stepK {(((fun _ => 0) : Tuple ℕ 1), (1 : Why ℕ))}
           (fun _ => {(((fun _ => 0) : Tuple ℕ 1), whyEdge m)}) := funext fun X => by
@@ -1419,7 +1436,7 @@ theorem muSetStep_whyWitness (m : ℕ) (γ : Fin 0 → ℕ) :
     funext u
     exact ann_whyBody m γ {} u
 
-theorem evaluate_whyWitness (m : ℕ) (γ : Fin 0 → ℕ) :
+private theorem evaluate_whyWitness (m : ℕ) (γ : Fin 0 → ℕ) :
     whyWitness.evaluate (dWhy m) γ {}
       = (muFix (PathSum.stepK {(((fun _ => 0) : Tuple ℕ 1), (1 : Why ℕ))}
           (fun _ => {(((fun _ => 0) : Tuple ℕ 1), whyEdge m)}))).map GenRow.ofAnnotated := by
@@ -1430,19 +1447,19 @@ theorem evaluate_whyWitness (m : ℕ) (γ : Fin 0 → ℕ) :
   · funext u
     exact ann_whyBody m γ {} u
 
-theorem muSetSettles_why {m : ℕ} (hm : 1 ≤ m) :
+private theorem muSetSettles_why {m : ℕ} (hm : 1 ≤ m) :
     MuSetSettles (PathSum.stepK {(((fun _ => 0) : Tuple ℕ 1), (1 : Why ℕ))}
       (fun _ => {(((fun _ => 0) : Tuple ℕ 1), whyEdge m)})) :=
   ⟨m + 1, iterate_loop_succ _ _ (by omega) (sum_whyEdge_pow_succ hm)⟩
 
-theorem annSettlesAt_whyWitness {m : ℕ} (hm : 1 ≤ m) (γ : Fin 0 → ℕ) :
+private theorem annSettlesAt_whyWitness {m : ℕ} (hm : 1 ≤ m) (γ : Fin 0 → ℕ) :
     whyWitness.AnnSettlesAt (dWhy m) γ {} := by
   refine ⟨trivial, ?_, fun _ => ⟨trivial, trivial⟩⟩
   rw [muSetStep_whyWitness]
   exact muSetSettles_why hm
 
 /-- **The witness's row carries all the variables as one witness.** -/
-theorem exists_mem_evaluateAnnotated_whyWitness {m : ℕ} (hm : 1 ≤ m) (γ : Fin 0 → ℕ) :
+private theorem exists_mem_evaluateAnnotated_whyWitness {m : ℕ} (hm : 1 ≤ m) (γ : Fin 0 → ℕ) :
     ∃ p ∈ whyWitness.evaluateAnnotated (dWhy m) γ, {i | i < m} ∈ p.2.carrier := by
   set step := PathSum.stepK {(((fun _ => 0) : Tuple ℕ 1), (1 : Why ℕ))}
     (fun _ => {(((fun _ => 0) : Tuple ℕ 1), whyEdge m)}) with hstep
@@ -1460,27 +1477,27 @@ theorem exists_mem_evaluateAnnotated_whyWitness {m : ℕ} (hm : 1 ≤ m) (γ : F
   · rfl
   · simp [GenRow.toAnnotated, GenRow.ofAnnotated, GenAnn.finalize]
 
-theorem overSchema_whyWitness : whyWitness.overSchema schemaRS := by
+private theorem overSchema_whyWitness : whyWitness.overSchema schemaRS := by
   simp [whyWitness, whyBody, AggQueryIn.overSchema, AggQueryIn.noMention, schemaRS,
     Schema.ofFn_apply, Schema.update_apply]
 
-theorem usesOnly_whyWitness : whyWitness.usesOnly plainRecOps := by
+private theorem usesOnly_whyWitness : whyWitness.usesOnly plainRecOps := by
   simp [whyWitness, whyBody, AggQueryIn.usesOnly, plainRecOps, plainOps, basisDD, basisOps,
     ProjColIn.sourceCol]
 
-theorem inMinimalSig_whyWitness : whyWitness.inMinimalSig SeqAggFunc.count := by
+private theorem inMinimalSig_whyWitness : whyWitness.inMinimalSig SeqAggFunc.count := by
   simp [whyWitness, whyBody, AggQueryIn.inMinimalSig, AggQueryIn.inSig, ProjColIn.noFun,
     TermGIn.noFun]
 
-theorem wellKinded_whyWitness :
+private theorem wellKinded_whyWitness :
     whyWitness.wellKinded (ColKind.allReg 0) HoleKinds.empty := by
   simp [whyWitness, whyBody, AggQueryIn.wellKinded, ProjColIn.outerOk, TermGIn.outerOk]
   rfl
 
-theorem dWhy_toPlain (m : ℕ) : (dWhy m).toPlain = (dWhy 0).toPlain := by
+private theorem dWhy_toPlain (m : ℕ) : (dWhy m).toPlain = (dWhy 0).toPlain := by
   simp [dWhy, AnnotatedDatabase.toPlain, AnnotatedDatabase.assign, AnnotatedRelation.toPlain]
 
-theorem dWhy_grade (m : ℕ) : ∀ k t (r : AnnotatedRelation ℕ (Why ℕ) k),
+private theorem dWhy_grade (m : ℕ) : ∀ k t (r : AnnotatedRelation ℕ (Why ℕ) k),
     (dWhy m).find k t = some r → ∀ a ∈ r, Why.grade 1 a.2 := by
   intro k t r hr a ha
   unfold dWhy at hr
@@ -1550,7 +1567,7 @@ def annMuOps : Set OpKind :=
 /-- **They generate the annotated algebra over every commutative
 m-semiring**: `ε` is a set recursion, `×` an apply and `⊎` a pair of bag
 recursions (`generatesAnn_dedupProdSumFree`). -/
-theorem generatesAnn_annMuOps {T : Type} [ValueType T] {K : Type} [CommSemiringWithMonus K]
+private theorem generatesAnn_annMuOps {T : Type} [ValueType T] {K : Type} [CommSemiringWithMonus K]
     [DecidableEq K] [HasAltLinearOrder K] (sch : Schema) (cnt : SeqAggFunc T) :
     GeneratesAnn T K sch cnt annMuOps :=
   generatesAnn_dedupProdSumFree sch cnt
@@ -1560,7 +1577,7 @@ together**, with the counting aggregate: `∅`, `Π`, `γ`, `μ^⊎`, `win` and
 `σ` are inherited from the plain rows, the apply because `×` is not in the
 set, `−` by the zero-pattern invariant over `ℕ × ℕ`, and `μ^∪` by the
 witness-size invariant over `Why[X]`. -/
-theorem annMuOps_minimal {S : Set OpKind} (hS : S ⊆ annMuOps)
+private theorem annMuOps_minimal {S : Set OpKind} (hS : S ⊆ annMuOps)
     (hN : ∀ sch : Schema, GeneratesAnn ℕ ℕ sch SeqAggFunc.count S)
     (hP : ∀ sch : Schema, GeneratesAnn ℕ NatPair sch SeqAggFunc.count S)
     (hW : ∀ sch : Schema, GeneratesAnn ℕ (Why ℕ) sch SeqAggFunc.count S) :
@@ -1616,7 +1633,7 @@ section Approx
 annotated algebra up to `≈` over every commutative m-semiring**: each pass
 agrees with its source row by row up to finalization, which is what `≈`
 reads. -/
-theorem generatesAnnZ_annMuOps {T : Type} [ValueType T] {K : Type} [CommSemiringWithMonus K]
+private theorem generatesAnnZ_annMuOps {T : Type} [ValueType T] {K : Type} [CommSemiringWithMonus K]
     [DecidableEq K] [HasAltLinearOrder K] (sch : Schema) (cnt : SeqAggFunc T) :
     GeneratesAnnZ T K sch cnt annMuOps := by
   intro n κ q ho hu hi ha hp
@@ -1662,7 +1679,7 @@ theorem generatesAnnZ_annMuOps {T : Type} [ValueType T] {K : Type} [CommSemiring
     (he₃.symm.trans (he₂.trans (congrArg _ (evaluate_dedupFree q f d γ {}))))⟩
 
 /-- **The witness's row, before finalization.** -/
-theorem exists_mem_evaluate_whyWitness {m : ℕ} (hm : 1 ≤ m) (γ : Fin 0 → ℕ) :
+private theorem exists_mem_evaluate_whyWitness {m : ℕ} (hm : 1 ≤ m) (γ : Fin 0 → ℕ) :
     ∃ r ∈ whyWitness.evaluate (dWhy m) γ {}, {i | i < m} ∈ r.snd.finalize.carrier := by
   set step := PathSum.stepK {(((fun _ => 0) : Tuple ℕ 1), (1 : Why ℕ))}
     (fun _ => {(((fun _ => 0) : Tuple ℕ 1), whyEdge m)}) with hstep
@@ -1716,7 +1733,7 @@ theorem muSet_mem_of_generatesAnnZ {S : Set OpKind}
 up to `≈` over `𝔹`, `ℕ × ℕ` and `Why[X]` together**, with the counting
 aggregate: the six plain rows through the Boolean support, `−` by the
 zero-pattern invariant, `μ^∪` by the witness-size invariant. -/
-theorem annMuOps_minimal_approx {S : Set OpKind} (hS : S ⊆ annMuOps)
+private theorem annMuOps_minimal_approx {S : Set OpKind} (hS : S ⊆ annMuOps)
     (hB : ∀ sch : Schema, GeneratesAnnZ ℕ BoolNone sch SeqAggFunc.count S)
     (hP : ∀ sch : Schema, GeneratesAnnZ ℕ NatPair sch SeqAggFunc.count S)
     (hW : ∀ sch : Schema, GeneratesAnnZ ℕ (Why ℕ) sch SeqAggFunc.count S) :
@@ -1757,7 +1774,7 @@ theorem annMuOps_isBasis_approx :
 
 /-- **Nor up to `≈`**: with `ε` in place of `μ^∪` the classes do not
 generate over `Why[X]` even when rows annotated `𝟘` are dropped. -/
-theorem not_generatesAnnZ_annEpsOps_why :
+private theorem not_generatesAnnZ_annEpsOps_why :
     ¬ GeneratesAnnZ ℕ (Why ℕ) schemaRS SeqAggFunc.count annEpsOps :=
   fun h => absurd (muSet_mem_of_generatesAnnZ h) (by simp [annEpsOps])
 

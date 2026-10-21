@@ -5,6 +5,8 @@ public import Provenance.Semirings.BoolFunc
 
 public import Mathlib.Order.BoundedOrder.Basic
 import Mathlib.Tactic.Bound.Init
+import all Provenance.SemiringWithMonus
+import all Provenance.Semirings.BoolFunc
 
 /-!
 # Min-max semiring
@@ -189,7 +191,7 @@ instance : SemiringWithMonus (MinMax α) where
 /-- On `MinMax α` the identity is an admissible `δ`, so it is the one used
 (ProvSQL's `MinMax::delta`); `delta_absorb` is the lattice law
 `a ⊔ (a ⊓ b) = a`. -/
-theorem MinMax.isDelta_id : IsDelta (id : MinMax α → MinMax α) := isDelta_delta
+private theorem MinMax.isDelta_id : IsDelta (id : MinMax α → MinMax α) := isDelta_delta
 
 instance : CommSemiringWithMonus (MinMax α) where
   mul_comm := mul_comm
@@ -205,7 +207,7 @@ theorem MinMax.absorptive : absorptive (MinMax α) := by
 /-- `MinMax α` is not exclusive as soon as the chain has an element other
 than its two bounds: it is absorptive and totally ordered, so
 `not_exclusive_of_absorptive_of_total` applies. Here `𝟘 = ⊤` and `𝟙 = ⊥`. -/
-theorem MinMax.not_exclusive {a : α} (h0 : a ≠ ⊤) (h1 : a ≠ ⊥) :
+private theorem MinMax.not_exclusive {a : α} (h0 : a ≠ ⊤) (h1 : a ≠ ⊥) :
     ¬ exclusive (MinMax α) :=
   not_exclusive_of_absorptive_of_total MinMax.absorptive le_total
     (a := ⟨a⟩)
@@ -310,7 +312,7 @@ forcing `y.val = bot`. The two are incompatible.
 
 The same obstruction extends to `MinMax α` whenever `α` has at least three
 distinct order values. -/
-theorem TVL.no_hom_from_BoolFunc {Y : Type} [Inhabited Y] :
+private theorem TVL.no_hom_from_BoolFunc {Y : Type} [Inhabited Y] :
     ∃ ν : Y → MaxMin TVL,
       ¬ ∃ φ : BoolFunc Y →+* MaxMin TVL,
         ∀ i : Y, φ (BoolFunc.var i) = ν i := by
@@ -344,42 +346,42 @@ change places, which is worth saying because `𝟙 = ⟨⊥⟩` reads as
 “`𝟙` is the bottom” and means the opposite. -/
 
 /-- `𝟙` is `α`'s bottom, hence the semiring's top. -/
-theorem MinMax.one_eq_bot {α : Type} [LinearOrder α] [BoundedOrder α] :
+private theorem MinMax.one_eq_bot {α : Type} [LinearOrder α] [BoundedOrder α] :
     (1 : MinMax α) = ⟨⊥⟩ := rfl
 
 /-- `𝟘` is `α`'s top, hence the semiring's bottom. -/
-theorem MinMax.zero_eq_top {α : Type} [LinearOrder α] [BoundedOrder α] :
+private theorem MinMax.zero_eq_top {α : Type} [LinearOrder α] [BoundedOrder α] :
     (0 : MinMax α) = ⟨⊤⟩ := rfl
 
 /-- `⊕` is `α`'s `min`. -/
-theorem MinMax.add_eq_min {α : Type} [LinearOrder α] [BoundedOrder α]
+private theorem MinMax.add_eq_min {α : Type} [LinearOrder α] [BoundedOrder α]
     (a b : MinMax α) : a + b = ⟨min a.val b.val⟩ := rfl
 
 /-- `⊗` is `α`'s `max`. -/
-theorem MinMax.mul_eq_max {α : Type} [LinearOrder α] [BoundedOrder α]
+private theorem MinMax.mul_eq_max {α : Type} [LinearOrder α] [BoundedOrder α]
     (a b : MinMax α) : a * b = ⟨max a.val b.val⟩ := rfl
 
 /-- **`𝟙` is additively idempotent**, which is the second clause of
 `isLegalDelta_id_iff` and what makes the identity a legal `δ` here. -/
-theorem MinMax.one_add_one {α : Type} [LinearOrder α] [BoundedOrder α] :
+private theorem MinMax.one_add_one {α : Type} [LinearOrder α] [BoundedOrder α] :
     (1 : MinMax α) + 1 = 1 := by
   rw [MinMax.add_eq_min]
   exact congrArg MinMax.mk (min_self _)
 
 /-- **The semiring order has `𝟘` least**, so the reversal is what keeps
 the semiring canonically ordered. -/
-theorem MinMax.zero_le {α : Type} [LinearOrder α] [BoundedOrder α]
+private theorem MinMax.zero_le {α : Type} [LinearOrder α] [BoundedOrder α]
     (a : MinMax α) : (0 : MinMax α) ≤ a := le_top
 
 /-- **And `𝟙` greatest.** -/
-theorem MinMax.le_one {α : Type} [LinearOrder α] [BoundedOrder α]
+private theorem MinMax.le_one {α : Type} [LinearOrder α] [BoundedOrder α]
     (a : MinMax α) : a ≤ (1 : MinMax α) := bot_le
 
 /-- **The min-max semiring is complemented.** `𝟙 ⊖ a` is `𝟘` where `a`
 is `𝟙` – `𝟙` being `⊥` in the carrier – and `𝟙` elsewhere; `⊕` is `min`
 and `⊗` is `max`, so both sides are `𝟘` exactly when one of the two
 summands is `𝟙`. -/
-theorem MinMax.complemented {α : Type} [LinearOrder α] [BoundedOrder α] :
+private theorem MinMax.complemented {α : Type} [LinearOrder α] [BoundedOrder α] :
     _root_.complemented (MinMax α) := by
   intro a b
   have hsub : ∀ x : MinMax α, (1 : MinMax α) - x

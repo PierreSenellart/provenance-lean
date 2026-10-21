@@ -3,6 +3,12 @@ module
 public import Provenance.BasisAssembly
 import Mathlib.Tactic.NormNum.Inv
 import Mathlib.Tactic.NormNum.Pow
+import all Provenance.AggQuery
+import all Provenance.AggQuerySubst
+import all Provenance.BasisAssembly
+import all Provenance.Database
+import all Provenance.PlainBasis
+import all Provenance.Util.Kleene
 
 /-!
 # `⊎` from `μ^⊎` in the minimal universe
@@ -81,7 +87,7 @@ def AggQueryIn.names : {c n : ℕ} → {κ : Fin n → ColKind} → {l : List (S
 
 omit [ValueType T] in
 /-- A name the query does not mention is not mentioned. -/
-theorem AggQueryIn.noMention_of_not_mem_names {s : String} :
+private theorem AggQueryIn.noMention_of_not_mem_names {s : String} :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l),
       s ∉ q.names → q.noMention s := by
   intro c n κ l q
@@ -122,7 +128,7 @@ theorem AggQueryIn.noMention_of_not_mem_names {s : String} :
   | WinExpr P O o ws ts fs g q keeps ih => exact fun h => ih h
 
 /-- Two declarations of distinct names commute. -/
-theorem Schema.update_comm (sch : Schema) {s s' : String} (h : s ≠ s') (m m' : ℕ) :
+private theorem Schema.update_comm (sch : Schema) {s s' : String} (h : s ≠ s') (m m' : ℕ) :
     (sch.update s m).update s' m' = (sch.update s' m').update s m := by
   refine Schema.ext (fun t => ?_)
   simp only [Schema.update_apply]
@@ -134,7 +140,7 @@ theorem Schema.update_comm (sch : Schema) {s s' : String} (h : s ≠ s') (m m' :
 
 omit [ValueType T] in
 /-- Declaring a name the query does not mention keeps it well-formed. -/
-theorem AggQueryIn.overSchema_update_of_not_mem_names {s : String} {m : ℕ} :
+private theorem AggQueryIn.overSchema_update_of_not_mem_names {s : String} {m : ℕ} :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)}
         (q : AggQueryIn T c n κ l) {sch : Schema},
       q.overSchema sch → s ∉ q.names → q.overSchema (sch.update s m) := by
@@ -198,18 +204,18 @@ theorem AggQueryIn.overSchema_update_of_not_mem_names {s : String} {m : ℕ} :
 /-! ### What a kind cast keeps -/
 
 omit [ValueType T] in
-@[simp] theorem AggQueryIn.names_castKind {c n : ℕ} {κ κ' : Fin n → ColKind} {l : List (String × ℕ)}
+@[simp] private theorem AggQueryIn.names_castKind {c n : ℕ} {κ κ' : Fin n → ColKind} {l : List (String × ℕ)}
     (h : κ = κ') (q : AggQueryIn T c n κ l) : (q.castKind h).names = q.names := by
   cases h; rfl
 
 omit [ValueType T] in
-@[simp] theorem AggQueryIn.hygienic_castKind {c n : ℕ} {κ κ' : Fin n → ColKind} {l : List
+@[simp] private theorem AggQueryIn.hygienic_castKind {c n : ℕ} {κ κ' : Fin n → ColKind} {l : List
     (String × ℕ)}
     (h : κ = κ') (q : AggQueryIn T c n κ l) :
     (q.castKind h).hygienic ↔ q.hygienic := by
   cases h; exact Iff.rfl
 
-@[simp] theorem AggQueryIn.settlesAt_castKind {c n : ℕ} {κ κ' : Fin n → ColKind} {l : List
+@[simp] private theorem AggQueryIn.settlesAt_castKind {c n : ℕ} {κ κ' : Fin n → ColKind} {l : List
     (String × ℕ)}
     (h : κ = κ') (q : AggQueryIn T c n κ l) (D : Database T) (γ : Fin c → T) :
     (q.castKind h).SettlesAt D γ ↔ q.SettlesAt D γ := by
@@ -217,7 +223,7 @@ omit [ValueType T] in
 
 omit [ValueType T] in
 /-- A term with a hole names the hole's relation. -/
-theorem AggQueryIn.mem_names_of_index {s : String} {m : ℕ} :
+private theorem AggQueryIn.mem_names_of_index {s : String} {m : ℕ} :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l),
       (s, m) ∈ l → s ∈ q.names := by
   intro c n κ l q
@@ -255,7 +261,7 @@ theorem AggQueryIn.mem_names_of_index {s : String} {m : ℕ} :
 /-! ## The restriction, the signature and the names, through a substitution -/
 
 omit [ValueType T] in
-theorem TermIn.noFun_substMap {c d n : ℕ} (θ : Fin c → T ⊕ Fin d) (t : TermIn T c n) :
+private theorem TermIn.noFun_substMap {c d n : ℕ} (θ : Fin c → T ⊕ Fin d) (t : TermIn T c n) :
     (t.substMap θ).noFun = t.noFun := by
   cases t <;> try rfl
   rename_i k
@@ -263,7 +269,7 @@ theorem TermIn.noFun_substMap {c d n : ℕ} (θ : Fin c → T ⊕ Fin d) (t : Te
   cases θ k <;> rfl
 
 omit [ValueType T] in
-theorem TermGIn.noFun_substMap {c d n : ℕ} {κ : Fin n → ColKind} (θ : Fin c → T ⊕ Fin d)
+private theorem TermGIn.noFun_substMap {c d n : ℕ} {κ : Fin n → ColKind} (θ : Fin c → T ⊕ Fin d)
     (t : TermGIn T c κ) : (t.substMap θ).noFun = t.noFun := by
   cases t <;> try rfl
   rename_i k
@@ -271,7 +277,7 @@ theorem TermGIn.noFun_substMap {c d n : ℕ} {κ : Fin n → ColKind} (θ : Fin 
   cases θ k <;> rfl
 
 omit [ValueType T] in
-theorem ProjColIn.noFun_substMap {c d n : ℕ} {κ : Fin n → ColKind} (θ : Fin c → T ⊕ Fin d)
+private theorem ProjColIn.noFun_substMap {c d n : ℕ} {κ : Fin n → ColKind} (θ : Fin c → T ⊕ Fin d)
     (p : ProjColIn T c κ) : (p.substMap θ).noFun = p.noFun := by
   cases p with
   | term t => exact TermGIn.noFun_substMap θ t
@@ -279,7 +285,7 @@ theorem ProjColIn.noFun_substMap {c d n : ℕ} {κ : Fin n → ColKind} (θ : Fi
   | _ => rfl
 
 omit [ValueType T] in
-theorem GenPredIn.noFun_substMap {c d n : ℕ} {κ : Fin n → ColKind} (θ : Fin c → T ⊕ Fin d)
+private theorem GenPredIn.noFun_substMap {c d n : ℕ} {κ : Fin n → ColKind} (θ : Fin c → T ⊕ Fin d)
     (φ : GenPredIn T c κ) : (φ.substMap θ).noFun = φ.noFun := by
   induction φ with
   | cmp op t₁ t₂ =>
@@ -299,7 +305,7 @@ theorem GenPredIn.noFun_substMap {c d n : ℕ} {κ : Fin n → ColKind} (θ : Fi
 
 omit [ValueType T] in
 /-- A substitution changes no name. -/
-theorem AggQueryIn.names_substMap :
+private theorem AggQueryIn.names_substMap :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l) {d : ℕ}
       (θ : Fin c → T ⊕ Fin d), (q.substMap θ).names = q.names := by
   intro c n κ l q
@@ -350,7 +356,7 @@ theorem AggQueryIn.names_substMap :
 
 omit [ValueType T] in
 /-- Nor whether the recursions are hygienic. -/
-theorem AggQueryIn.hygienic_substMap :
+private theorem AggQueryIn.hygienic_substMap :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l) {d : ℕ}
       (θ : Fin c → T ⊕ Fin d), (q.substMap θ).hygienic ↔ q.hygienic := by
   intro c n κ l q
@@ -387,7 +393,7 @@ theorem AggQueryIn.hygienic_substMap :
 
 /-- Nor the signature: a substitution puts a constant or a column where
 an outer column was. -/
-theorem AggQueryIn.inSig_substMap {Θ : Set (SeqAggFunc T)} :
+private theorem AggQueryIn.inSig_substMap {Θ : Set (SeqAggFunc T)} :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l) {d : ℕ}
       (θ : Fin c → T ⊕ Fin d), (q.substMap θ).inSig Θ ↔ q.inSig Θ := by
   intro c n κ l q
@@ -429,7 +435,7 @@ theorem AggQueryIn.inSig_substMap {Θ : Set (SeqAggFunc T)} :
 
 /-- **A substituted query is defined where the query is**, under the
 valuation the substitution induces. -/
-theorem AggQueryIn.settlesAt_substMap :
+private theorem AggQueryIn.settlesAt_substMap :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l) {d : ℕ}
       (θ : Fin c → T ⊕ Fin d) (D : Database T) (γ : Fin d → T),
       (q.substMap θ).SettlesAt D γ ↔ q.SettlesAt D (substVal θ γ) := by
@@ -475,7 +481,7 @@ theorem AggQueryIn.settlesAt_substMap :
 
 
 /-- Nor which windows are derivable. -/
-theorem AggQueryIn.winsDerivable_substMap :
+private theorem AggQueryIn.winsDerivable_substMap :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l) {d : ℕ}
       (θ : Fin c → T ⊕ Fin d), (q.substMap θ).WinsDerivable ↔ q.WinsDerivable := by
   intro c n κ l q
@@ -521,7 +527,7 @@ def unitC : AggQueryIn T c 0 (ColKind.allReg 0) :=
       (AggQueryIn.Empty : AggQueryIn T c 0 (ColKind.allReg 0))).castKind
     (funext fun j => j.elim0)
 
-theorem evaluatePlain_unitC (D : Database T) (γ : Fin c → T) (u : Tuple T 0) :
+private theorem evaluatePlain_unitC (D : Database T) (γ : Fin c → T) (u : Tuple T 0) :
     (unitC : AggQueryIn T c 0 _).evaluatePlain D γ = ({u} : Multiset (Tuple T 0)) := by
   show ((AggQueryIn.GammaScalar (fun j : Fin 0 => j.elim0) (fun j : Fin 0 => j.elim0)
     (AggQueryIn.Empty : AggQueryIn T c 0 (ColKind.allReg 0))).castKind
@@ -535,10 +541,10 @@ theorem evaluatePlain_unitC (D : Database T) (γ : Fin c → T) (u : Tuple T 0) 
 def tagRow (t : T) (r : Tuple T k) : Tuple T (k + 1) := Fin.cons t r
 
 omit [ValueType T] in
-@[simp] theorem tagRow_zero (t : T) (r : Tuple T k) : tagRow t r 0 = t := rfl
+@[simp] private theorem tagRow_zero (t : T) (r : Tuple T k) : tagRow t r 0 = t := rfl
 
 omit [ValueType T] in
-@[simp] theorem tagRow_succ (t : T) (r : Tuple T k) (i : Fin k) :
+@[simp] private theorem tagRow_succ (t : T) (r : Tuple T k) (i : Fin k) :
     tagRow t r (Fin.succ i) = r i := rfl
 
 /-- The columns of a row with a constant prepended. -/
@@ -559,7 +565,7 @@ def withTag (t : T) (q : AggQueryIn T c k (ColKind.allReg k)) :
     AggQueryIn T c (k + 1) (ColKind.allReg (k + 1)) :=
   (AggQueryIn.Proj (withTagCols t) q).castKind (withTagCols_kind t)
 
-theorem evaluatePlain_withTag (t : T) (q : AggQueryIn T c k (ColKind.allReg k))
+private theorem evaluatePlain_withTag (t : T) (q : AggQueryIn T c k (ColKind.allReg k))
     (D : Database T) (γ : Fin c → T) :
     (withTag t q).evaluatePlain D γ
       = (show Multiset (Tuple T k) from q.evaluatePlain D γ).map
@@ -576,7 +582,7 @@ def driver (p₀ : T) : AggQueryIn T c (k + 1) (ColKind.allReg (k + 1)) :=
   (AggQueryIn.Proj (fun j => ProjColIn.term (TermGIn.const
       (tagRow p₀ (fun _ => 0) j))) unitC).castKind (funext fun _ => rfl)
 
-theorem evaluatePlain_driver (p₀ : T) (D : Database T) (γ : Fin c → T) :
+private theorem evaluatePlain_driver (p₀ : T) (D : Database T) (γ : Fin c → T) :
     (driver (k := k) p₀).evaluatePlain D γ
       = ({tagRow p₀ (fun _ => 0)} : Multiset (Tuple T (k + 1))) := by
   rw [driver, AggQueryIn.evaluatePlain_castKind]
@@ -662,14 +668,14 @@ namespace AggQueryIn
 
 variable {c k : ℕ}
 
-theorem holdsPlain_sameTag (u : Tuple T ((k + 1) + (k + 1))) (γ : Fin c → T) :
+private theorem holdsPlain_sameTag (u : Tuple T ((k + 1) + (k + 1))) (γ : Fin c → T) :
     (sameTag (c := c) (k := k)).holdsPlain u γ
       ↔ u (Fin.castAdd (k + 1) 0) = u (Fin.natAdd (k + 1) 0) := by
   show CompOp.eval3 CompOp.syneq (u (Fin.castAdd (k + 1) 0)) (u (Fin.natAdd (k + 1) 0))
     = Kleene.true ↔ _
   simp [CompOp.eval3, CompOp.strict, CompOp.eval]
 
-theorem holdsPlain_notTag (p₀ : T) (u : Tuple T (k + 1)) (γ : Fin c → T) :
+private theorem holdsPlain_notTag (p₀ : T) (u : Tuple T (k + 1)) (γ : Fin c → T) :
     (notTag (c := c) (k := k) p₀).holdsPlain u γ ↔ u 0 ≠ p₀ := by
   show (CompOp.eval3 CompOp.syneq (u 0) p₀).not = Kleene.true ↔ _
   rw [Kleene.not_eq_true_iff]
@@ -677,7 +683,7 @@ theorem holdsPlain_notTag (p₀ : T) (u : Tuple T (k + 1)) (γ : Fin c → T) :
 
 omit [ValueType T] in
 /-- Binding a guarded family is binding over the rows kept. -/
-theorem Multiset.bind_ite {α β : Type} (p : α → Prop) [DecidablePred p]
+private theorem Multiset.bind_ite {α β : Type} (p : α → Prop) [DecidablePred p]
     (s : Multiset α) (f : α → Multiset β) :
     (s.bind fun x => if p x then f x else 0) = (s.filter p).bind f := by
   induction s using Multiset.induction_on with
@@ -690,7 +696,7 @@ theorem Multiset.bind_ite {α β : Type} (p : α → Prop) [DecidablePred p]
 
 /-- **A round**: every row of phase `p₀` of the recursive relation reads
 `Z`'s rows, re-tagged `p₁`. -/
-theorem evaluatePlain_phaseBody (s : String) (p₀ p₁ : T)
+private theorem evaluatePlain_phaseBody (s : String) (p₀ p₁ : T)
     (Z : AggQueryIn T c (k + 1) (ColKind.allReg (k + 1))) (hZ : Z.noMention s)
     (D : Database T) (γ : Fin c → T) (R : Multiset (Tuple T k))
     (hZv : Z.evaluatePlain D γ = R.map (tagRow p₀))
@@ -741,7 +747,7 @@ theorem evaluatePlain_phaseBody (s : String) (p₀ p₁ : T)
 
 omit [ValueType T] in
 /-- The rows a round emits all carry the phase `p₁`. -/
-theorem mem_round_phase {p₁ : T} {R : Multiset (Tuple T k)} {X : Multiset (Tuple T (k + 1))}
+private theorem mem_round_phase {p₁ : T} {R : Multiset (Tuple T k)} {X : Multiset (Tuple T (k + 1))}
     {p : Tuple T (k + 1) → Prop} [DecidablePred p] {x : Tuple T (k + 1)}
     (hx : x ∈ (X.filter p).bind
       (fun _ => R.map (tagRow p₁))) : x 0 = p₁ := by
@@ -751,7 +757,7 @@ theorem mem_round_phase {p₁ : T} {R : Multiset (Tuple T k)} {X : Multiset (Tup
 
 /-- **A phase recursion runs two rounds**: its value is its base plus one
 round read from the base's rows of phase `p₀`. -/
-theorem evaluatePlain_phaseMu (s : String) {p₀ p₁ : T} (hp : p₁ ≠ p₀)
+private theorem evaluatePlain_phaseMu (s : String) {p₀ p₁ : T} (hp : p₁ ≠ p₀)
     (base Z : AggQueryIn T c (k + 1) (ColKind.allReg (k + 1))) (hZ : Z.noMention s)
     (D : Database T) (γ : Fin c → T) (R : Multiset (Tuple T k))
     (hZv : Z.evaluatePlain D γ = R.map (tagRow p₀)) :
@@ -783,7 +789,7 @@ theorem evaluatePlain_phaseMu (s : String) {p₀ p₁ : T} (hp : p₁ ≠ p₀)
 
 /-- **The construction settles**, on every instance where its two
 operands do. -/
-theorem settlesAt_phaseMu (s : String) {p₀ p₁ : T} (hp : p₁ ≠ p₀)
+private theorem settlesAt_phaseMu (s : String) {p₀ p₁ : T} (hp : p₁ ≠ p₀)
     (base Z : AggQueryIn T c (k + 1) (ColKind.allReg (k + 1))) (hZ : Z.noMention s)
     (D : Database T) (γ : Fin c → T) (R : Multiset (Tuple T k))
     (hZv : Z.evaluatePlain D γ = R.map (tagRow p₀))
@@ -810,20 +816,20 @@ theorem settlesAt_phaseMu (s : String) {p₀ p₁ : T} (hp : p₁ ≠ p₀)
         (fun hc => hs'.elim (fun h => h hc.2) (fun h => by simp at h))).symm) γ hZs
 
 /-- The driver names no relation. -/
-theorem noMention_driver (p₀ : T) (s : String) : (driver (c := c) (k := k) p₀).noMention s := by
+private theorem noMention_driver (p₀ : T) (s : String) : (driver (c := c) (k := k) p₀).noMention s := by
   rw [driver, AggQueryIn.noMention_castKind]
   show (unitC : AggQueryIn T c 0 _).noMention s
   rw [unitC, AggQueryIn.noMention_castKind]
   trivial
 
 omit [ValueType T] in
-theorem noMention_withTag (t : T) (q : AggQueryIn T c k (ColKind.allReg k)) (s : String) :
+private theorem noMention_withTag (t : T) (q : AggQueryIn T c k (ColKind.allReg k)) (s : String) :
     (withTag t q).noMention s ↔ q.noMention s := by
   rw [withTag, AggQueryIn.noMention_castKind]
   exact Iff.rfl
 
 omit [ValueType T] in
-theorem noMention_phaseBody (s' : String) (p₁ : T)
+private theorem noMention_phaseBody (s' : String) (p₁ : T)
     (Z : AggQueryIn T c (k + 1) (ColKind.allReg (k + 1))) {s : String}
     (hZ : Z.noMention s) : (phaseBody s' p₁ Z).noMention s := by
   rw [phaseBody, AggQueryIn.noMention_castKind]
@@ -899,7 +905,7 @@ theorem evaluatePlain_sumByMu (s₁ s₂ : String) (q₁ q₂ : AggQueryIn T c k
   simp only [huntag, Multiset.map_id]
 
 /-- **The construction settles wherever its operands do.** -/
-theorem settlesAt_sumByMu (s₁ s₂ : String) (q₁ q₂ : AggQueryIn T c k (ColKind.allReg k))
+private theorem settlesAt_sumByMu (s₁ s₂ : String) (q₁ q₂ : AggQueryIn T c k (ColKind.allReg k))
     (h₁ : q₁.noMention s₁) (h₂₂ : q₂.noMention s₂)
     (D : Database T) (γ : Fin c → T) (hs₁ : q₁.SettlesAt D γ) (hs₂ : q₂.SettlesAt D γ) :
     (sumByMu s₁ s₂ q₁ q₂).SettlesAt D γ := by
@@ -926,26 +932,26 @@ def sumMuOps : Set OpKind :=
   {OpKind.empty, OpKind.proj, OpKind.sel, OpKind.apply, OpKind.gamma, OpKind.muBag}
 
 omit [ValueType T] in
-theorem usesOnly_unitC {S : Set OpKind} (hS : sumMuOps ⊆ S) :
+private theorem usesOnly_unitC {S : Set OpKind} (hS : sumMuOps ⊆ S) :
     (unitC : AggQueryIn T c 0 _).usesOnly S := by
   rw [unitC, AggQueryIn.usesOnly_castKind]
   exact ⟨hS (by simp [sumMuOps]), hS (by simp [sumMuOps])⟩
 
 omit [ValueType T] in
-theorem usesOnly_withTag {S : Set OpKind} (hS : sumMuOps ⊆ S) (t : T)
+private theorem usesOnly_withTag {S : Set OpKind} (hS : sumMuOps ⊆ S) (t : T)
     (q : AggQueryIn T c k (ColKind.allReg k)) (hq : q.usesOnly S) :
     (withTag t q).usesOnly S := by
   rw [withTag, AggQueryIn.usesOnly_castKind]
   refine ⟨⟨hS (by simp [sumMuOps]), fun j => ?_⟩, hq⟩
   refine Fin.cases ?_ (fun i => ?_) j <;> rfl
 
-theorem usesOnly_driver {S : Set OpKind} (hS : sumMuOps ⊆ S) (p₀ : T) :
+private theorem usesOnly_driver {S : Set OpKind} (hS : sumMuOps ⊆ S) (p₀ : T) :
     (driver (c := c) (k := k) p₀).usesOnly S := by
   rw [driver, AggQueryIn.usesOnly_castKind]
   exact ⟨⟨hS (by simp [sumMuOps]), fun _ => rfl⟩, usesOnly_unitC hS⟩
 
 omit [ValueType T] in
-theorem usesOnly_phaseBody {S : Set OpKind} (hS : sumMuOps ⊆ S) (s : String) (p₁ : T)
+private theorem usesOnly_phaseBody {S : Set OpKind} (hS : sumMuOps ⊆ S) (s : String) (p₁ : T)
     (Z : AggQueryIn T c (k + 1) (ColKind.allReg (k + 1))) (hZ : Z.usesOnly S) :
     (phaseBody s p₁ Z).usesOnly S := by
   rw [phaseBody, AggQueryIn.usesOnly_castKind]
@@ -954,7 +960,7 @@ theorem usesOnly_phaseBody {S : Set OpKind} (hS : sumMuOps ⊆ S) (s : String) (
   refine Fin.cases ?_ (fun i => ?_) j <;> rfl
 
 /-- **The construction uses the classes of `sumMuOps`** and its operands'. -/
-theorem usesOnly_sumByMu {S : Set OpKind} (hS : sumMuOps ⊆ S) (s₁ s₂ : String)
+private theorem usesOnly_sumByMu {S : Set OpKind} (hS : sumMuOps ⊆ S) (s₁ s₂ : String)
     (q₁ q₂ : AggQueryIn T c k (ColKind.allReg k)) (h₁ : q₁.usesOnly S) (h₂ : q₂.usesOnly S) :
     (sumByMu s₁ s₂ q₁ q₂).usesOnly S := by
   rw [sumByMu, AggQueryIn.usesOnly_castKind]
@@ -964,20 +970,20 @@ theorem usesOnly_sumByMu {S : Set OpKind} (hS : sumMuOps ⊆ S) (s₁ s₂ : Str
       usesOnly_phaseBody hS _ _ _ (usesOnly_withTag hS 0 q₁ h₁)⟩,
     usesOnly_phaseBody hS _ _ _ (usesOnly_withTag hS 0 q₂ h₂)⟩
 
-theorem hygienic_driver (p₀ : T) : (driver (c := c) (k := k) p₀).hygienic := by
+private theorem hygienic_driver (p₀ : T) : (driver (c := c) (k := k) p₀).hygienic := by
   rw [driver, AggQueryIn.hygienic_castKind]
   show (unitC : AggQueryIn T c 0 _).hygienic
   rw [unitC, AggQueryIn.hygienic_castKind]
   trivial
 
 omit [ValueType T] in
-theorem hygienic_withTag (t : T) (q : AggQueryIn T c k (ColKind.allReg k)) :
+private theorem hygienic_withTag (t : T) (q : AggQueryIn T c k (ColKind.allReg k)) :
     (withTag t q).hygienic ↔ q.hygienic := by
   rw [withTag, AggQueryIn.hygienic_castKind]
   exact Iff.rfl
 
 omit [ValueType T] in
-theorem hygienic_phaseBody (s : String) (p₁ : T)
+private theorem hygienic_phaseBody (s : String) (p₁ : T)
     (Z : AggQueryIn T c (k + 1) (ColKind.allReg (k + 1))) :
     (phaseBody s p₁ Z).hygienic ↔ Z.hygienic := by
   rw [phaseBody, AggQueryIn.hygienic_castKind]
@@ -986,7 +992,7 @@ theorem hygienic_phaseBody (s : String) (p₁ : T)
 
 /-- **The construction's recursions are hygienic**, given fresh names:
 neither operand mentions the name bound over it. -/
-theorem hygienic_sumByMu (s₁ s₂ : String) (q₁ q₂ : AggQueryIn T c k (ColKind.allReg k))
+private theorem hygienic_sumByMu (s₁ s₂ : String) (q₁ q₂ : AggQueryIn T c k (ColKind.allReg k))
     (h₁ : q₁.noMention s₁) (h₂₁ : q₁.noMention s₂) (h₂₂ : q₂.noMention s₂)
     (hr₁ : q₁.hygienic) (hr₂ : q₂.hygienic) :
     (sumByMu s₁ s₂ q₁ q₂).hygienic := by
@@ -999,22 +1005,22 @@ theorem hygienic_sumByMu (s₁ s₂ : String) (q₁ q₂ : AggQueryIn T c k (Col
         ((hygienic_withTag 0 q₁).mpr hr₁)⟩,
     (hygienic_phaseBody _ _ _).mpr ((hygienic_withTag 0 q₂).mpr hr₂)⟩
 
-theorem inSig_unitC (Θ : Set (SeqAggFunc T)) : (unitC : AggQueryIn T c 0 _).inSig Θ := by
+private theorem inSig_unitC (Θ : Set (SeqAggFunc T)) : (unitC : AggQueryIn T c 0 _).inSig Θ := by
   rw [unitC, AggQueryIn.inSig_castKind]
   exact ⟨fun j => j.elim0, fun j => j.elim0, trivial⟩
 
-theorem inSig_driver (Θ : Set (SeqAggFunc T)) (p₀ : T) :
+private theorem inSig_driver (Θ : Set (SeqAggFunc T)) (p₀ : T) :
     (driver (c := c) (k := k) p₀).inSig Θ := by
   rw [driver, AggQueryIn.inSig_castKind]
   exact ⟨fun _ => rfl, inSig_unitC Θ⟩
 
-theorem inSig_withTag (Θ : Set (SeqAggFunc T)) (t : T) (q : AggQueryIn T c k (ColKind.allReg k))
+private theorem inSig_withTag (Θ : Set (SeqAggFunc T)) (t : T) (q : AggQueryIn T c k (ColKind.allReg k))
     (hq : q.inSig Θ) : (withTag t q).inSig Θ := by
   rw [withTag, AggQueryIn.inSig_castKind]
   refine ⟨fun j => ?_, hq⟩
   refine Fin.cases ?_ (fun i => ?_) j <;> rfl
 
-theorem inSig_phaseBody (Θ : Set (SeqAggFunc T)) (s : String) (p₁ : T)
+private theorem inSig_phaseBody (Θ : Set (SeqAggFunc T)) (s : String) (p₁ : T)
     (Z : AggQueryIn T c (k + 1) (ColKind.allReg (k + 1))) (hZ : Z.inSig Θ) :
     (phaseBody s p₁ Z).inSig Θ := by
   rw [phaseBody, AggQueryIn.inSig_castKind]
@@ -1023,25 +1029,25 @@ theorem inSig_phaseBody (Θ : Set (SeqAggFunc T)) (s : String) (p₁ : T)
 
 /-- **The construction applies no function and adds no aggregate**: it
 is in every signature its operands are in. -/
-theorem inSig_sumByMu (Θ : Set (SeqAggFunc T)) (s₁ s₂ : String)
+private theorem inSig_sumByMu (Θ : Set (SeqAggFunc T)) (s₁ s₂ : String)
     (q₁ q₂ : AggQueryIn T c k (ColKind.allReg k)) (h₁ : q₁.inSig Θ) (h₂ : q₂.inSig Θ) :
     (sumByMu s₁ s₂ q₁ q₂).inSig Θ := by
   rw [sumByMu, AggQueryIn.inSig_castKind]
   exact ⟨fun _ => rfl, rfl, ⟨inSig_driver Θ 0, inSig_phaseBody Θ _ _ _ (inSig_withTag Θ 0 q₁ h₁)⟩,
     inSig_phaseBody Θ _ _ _ (inSig_withTag Θ 0 q₂ h₂)⟩
 
-theorem winsDerivable_driver (p₀ : T) : (driver (c := c) (k := k) p₀).WinsDerivable := by
+private theorem winsDerivable_driver (p₀ : T) : (driver (c := c) (k := k) p₀).WinsDerivable := by
   rw [driver, AggQueryIn.winsDerivable_castKind]
   show (unitC : AggQueryIn T c 0 _).WinsDerivable
   rw [unitC, AggQueryIn.winsDerivable_castKind]
   trivial
 
-theorem winsDerivable_withTag (t : T) (q : AggQueryIn T c k (ColKind.allReg k)) :
+private theorem winsDerivable_withTag (t : T) (q : AggQueryIn T c k (ColKind.allReg k)) :
     (withTag t q).WinsDerivable ↔ q.WinsDerivable := by
   rw [withTag, AggQueryIn.winsDerivable_castKind]
   exact Iff.rfl
 
-theorem winsDerivable_phaseBody (s : String) (p₁ : T)
+private theorem winsDerivable_phaseBody (s : String) (p₁ : T)
     (Z : AggQueryIn T c (k + 1) (ColKind.allReg (k + 1))) :
     (phaseBody s p₁ Z).WinsDerivable ↔ Z.WinsDerivable := by
   rw [phaseBody, AggQueryIn.winsDerivable_castKind]
@@ -1049,7 +1055,7 @@ theorem winsDerivable_phaseBody (s : String) (p₁ : T)
     fun h => ⟨trivial, (AggQueryIn.winsDerivable_substMap Z _).mpr h⟩⟩
 
 /-- The construction has no window of its own. -/
-theorem winsDerivable_sumByMu (s₁ s₂ : String) (q₁ q₂ : AggQueryIn T c k (ColKind.allReg k))
+private theorem winsDerivable_sumByMu (s₁ s₂ : String) (q₁ q₂ : AggQueryIn T c k (ColKind.allReg k))
     (h₁ : q₁.WinsDerivable) (h₂ : q₂.WinsDerivable) :
     (sumByMu s₁ s₂ q₁ q₂).WinsDerivable := by
   rw [sumByMu, AggQueryIn.winsDerivable_castKind]
@@ -1058,23 +1064,23 @@ theorem winsDerivable_sumByMu (s₁ s₂ : String) (q₁ q₂ : AggQueryIn T c k
     (winsDerivable_phaseBody _ _ _).mpr ((winsDerivable_withTag 0 q₂).mpr h₂)⟩
 
 omit [ValueType T] in
-theorem overSchema_unitC (sch : Schema) : (unitC : AggQueryIn T c 0 _).overSchema sch := by
+private theorem overSchema_unitC (sch : Schema) : (unitC : AggQueryIn T c 0 _).overSchema sch := by
   rw [unitC, AggQueryIn.overSchema_castKind]
   trivial
 
-theorem overSchema_driver (sch : Schema) (p₀ : T) :
+private theorem overSchema_driver (sch : Schema) (p₀ : T) :
     (driver (c := c) (k := k) p₀).overSchema sch := by
   rw [driver, AggQueryIn.overSchema_castKind]
   exact overSchema_unitC sch
 
 omit [ValueType T] in
-theorem overSchema_withTag (sch : Schema) (t : T) (q : AggQueryIn T c k (ColKind.allReg k)) :
+private theorem overSchema_withTag (sch : Schema) (t : T) (q : AggQueryIn T c k (ColKind.allReg k)) :
     (withTag t q).overSchema sch ↔ q.overSchema sch := by
   rw [withTag, AggQueryIn.overSchema_castKind]
   exact Iff.rfl
 
 omit [ValueType T] in
-theorem overSchema_phaseBody {sch : Schema} {s : String} (hs : sch s = some (k + 1)) (p₁ : T)
+private theorem overSchema_phaseBody {sch : Schema} {s : String} (hs : sch s = some (k + 1)) (p₁ : T)
     (Z : AggQueryIn T c (k + 1) (ColKind.allReg (k + 1))) (hZ : Z.overSchema sch) :
     (phaseBody s p₁ Z).overSchema sch := by
   rw [phaseBody, AggQueryIn.overSchema_castKind]
@@ -1082,14 +1088,14 @@ theorem overSchema_phaseBody {sch : Schema} {s : String} (hs : sch s = some (k +
 
 omit [ValueType T] in
 /-- A declaration reads back. -/
-theorem Schema.update_self (sch : Schema) (s : String) (m : ℕ) :
+private theorem Schema.update_self (sch : Schema) (s : String) (m : ℕ) :
     (sch.update s m) s = some m := by
   show (if s = s then some m else sch s) = some m
   rw [ite_eq_left rfl]
 
 /-- **The construction is well-formed over a schema declaring neither
 bound name**, its operands being so and naming neither. -/
-theorem overSchema_sumByMu (sch : Schema) (s₁ s₂ : String)
+private theorem overSchema_sumByMu (sch : Schema) (s₁ s₂ : String)
     (q₁ q₂ : AggQueryIn T c k (ColKind.allReg k))
     (hs₁ : sch s₁ = none) (hs₂ : sch s₂ = none) (hn₁ : s₁ ∉ q₁.names) (hn₂ : s₂ ∉ q₂.names)
     (h₁ : q₁.overSchema sch) (h₂ : q₂.overSchema sch) :
@@ -1108,7 +1114,7 @@ theorem overSchema_sumByMu (sch : Schema) (s₁ s₂ : String)
         (AggQueryIn.overSchema_update_of_not_mem_names q₂ h₂ hn₂))⟩
 
 /-- **The construction names its two bound names and its operands'.** -/
-theorem names_sumByMu (s₁ s₂ : String) (q₁ q₂ : AggQueryIn T c k (ColKind.allReg k)) :
+private theorem names_sumByMu (s₁ s₂ : String) (q₁ q₂ : AggQueryIn T c k (ColKind.allReg k)) :
     (sumByMu s₁ s₂ q₁ q₂).names ⊆ insert s₁ (insert s₂ (Union.union q₁.names q₂.names)) := by
   intro x hx
   rw [sumByMu, AggQueryIn.names_castKind] at hx
@@ -1121,7 +1127,7 @@ theorem names_sumByMu (s₁ s₂ : String) (q₁ q₂ : AggQueryIn T c k (ColKin
 
 /-- The construction names nothing its operands do not, its two bound
 names aside. -/
-theorem noMention_sumByMu (s₁ s₂ : String) (q₁ q₂ : AggQueryIn T c k (ColKind.allReg k))
+private theorem noMention_sumByMu (s₁ s₂ : String) (q₁ q₂ : AggQueryIn T c k (ColKind.allReg k))
     {s : String} (h₁ : q₁.noMention s) (h₂ : q₂.noMention s) :
     (sumByMu s₁ s₂ q₁ q₂).noMention s := by
   rw [sumByMu, AggQueryIn.noMention_castKind]
@@ -1155,45 +1161,45 @@ def emptyRel (n : ℕ) : AggQueryIn T c n (ColKind.allReg n) :=
   (AggQueryIn.Proj (fun _ : Fin n => ProjColIn.term (TermGIn.const 0))
     (AggQueryIn.Empty : AggQueryIn T c 0 (ColKind.allReg 0))).castKind (funext fun _ => rfl)
 
-theorem evaluatePlain_emptyRel (n : ℕ) (D : Database T) (γ : Fin c → T) :
+private theorem evaluatePlain_emptyRel (n : ℕ) (D : Database T) (γ : Fin c → T) :
     (emptyRel (T := T) (c := c) n).evaluatePlain D γ = 0 := by
   rw [emptyRel, AggQueryIn.evaluatePlain_castKind]
   simp only [AggQueryIn.evaluatePlain]
   exact Multiset.map_zero _
 
-theorem settlesAt_emptyRel (n : ℕ) (D : Database T) (γ : Fin c → T) :
+private theorem settlesAt_emptyRel (n : ℕ) (D : Database T) (γ : Fin c → T) :
     (emptyRel (T := T) (c := c) n).SettlesAt D γ := by
   rw [emptyRel, AggQueryIn.settlesAt_castKind]
   trivial
 
-theorem usesOnly_emptyRel {S : Set OpKind} (hS : sumMuOps ⊆ S) (n : ℕ) :
+private theorem usesOnly_emptyRel {S : Set OpKind} (hS : sumMuOps ⊆ S) (n : ℕ) :
     (emptyRel (T := T) (c := c) n).usesOnly S := by
   rw [emptyRel, AggQueryIn.usesOnly_castKind]
   exact ⟨⟨hS (by simp [sumMuOps]), fun _ => rfl⟩, hS (by simp [sumMuOps])⟩
 
-theorem hygienic_emptyRel (n : ℕ) : (emptyRel (T := T) (c := c) n).hygienic := by
+private theorem hygienic_emptyRel (n : ℕ) : (emptyRel (T := T) (c := c) n).hygienic := by
   rw [emptyRel, AggQueryIn.hygienic_castKind]
   trivial
 
-theorem inSig_emptyRel (Θ : Set (SeqAggFunc T)) (n : ℕ) :
+private theorem inSig_emptyRel (Θ : Set (SeqAggFunc T)) (n : ℕ) :
     (emptyRel (T := T) (c := c) n).inSig Θ := by
   rw [emptyRel, AggQueryIn.inSig_castKind]
   exact ⟨fun _ => rfl, trivial⟩
 
-theorem winsDerivable_emptyRel (n : ℕ) : (emptyRel (T := T) (c := c) n).WinsDerivable := by
+private theorem winsDerivable_emptyRel (n : ℕ) : (emptyRel (T := T) (c := c) n).WinsDerivable := by
   rw [emptyRel, AggQueryIn.winsDerivable_castKind]
   trivial
 
-theorem overSchema_emptyRel (sch : Schema) (n : ℕ) :
+private theorem overSchema_emptyRel (sch : Schema) (n : ℕ) :
     (emptyRel (T := T) (c := c) n).overSchema sch := by
   rw [emptyRel, AggQueryIn.overSchema_castKind]
   trivial
 
-theorem names_emptyRel (n : ℕ) : (emptyRel (T := T) (c := c) n).names = ∅ := by
+private theorem names_emptyRel (n : ℕ) : (emptyRel (T := T) (c := c) n).names = ∅ := by
   rw [emptyRel, AggQueryIn.names_castKind]
   rfl
 
-theorem noMention_emptyRel (n : ℕ) (s : String) : (emptyRel (T := T) (c := c) n).noMention s := by
+private theorem noMention_emptyRel (n : ℕ) (s : String) : (emptyRel (T := T) (c := c) n).noMention s := by
   rw [emptyRel, AggQueryIn.noMention_castKind]
   trivial
 
@@ -1204,7 +1210,7 @@ def emptyOf {n : ℕ} (κ : Fin n → ColKind) : AggQueryIn T c n κ :=
   AggQueryIn.Sel (GenPredIn.cmp CompOp.syneq (.const 0) (.const ValueType.nonzero))
     (AggQueryIn.Param (fun _ => _root_.Sum.inl 0) κ)
 
-theorem evaluatePlain_emptyOf {n : ℕ} (κ : Fin n → ColKind) (D : Database T) (γ : Fin c → T) :
+private theorem evaluatePlain_emptyOf {n : ℕ} (κ : Fin n → ColKind) (D : Database T) (γ : Fin c → T) :
     (emptyOf (c := c) κ).evaluatePlain D γ = 0 := by
   simp only [emptyOf, AggQueryIn.evaluatePlain]
   refine Multiset.filter_eq_nil.mpr (fun u _ => ?_)
@@ -1212,30 +1218,30 @@ theorem evaluatePlain_emptyOf {n : ℕ} (κ : Fin n → ColKind) (D : Database T
   rw [CompOp.syneq_eval3_eq_true_iff]
   exact fun h => ValueType.nonzero_ne_zero h.symm
 
-theorem settlesAt_emptyOf {n : ℕ} (κ : Fin n → ColKind) (D : Database T) (γ : Fin c → T) :
+private theorem settlesAt_emptyOf {n : ℕ} (κ : Fin n → ColKind) (D : Database T) (γ : Fin c → T) :
     (emptyOf (c := c) κ).SettlesAt D γ := trivial
 
-theorem usesOnly_emptyOf {S : Set OpKind} (hS : sumMuOps ⊆ S) {n : ℕ} (κ : Fin n → ColKind) :
+private theorem usesOnly_emptyOf {S : Set OpKind} (hS : sumMuOps ⊆ S) {n : ℕ} (κ : Fin n → ColKind) :
     (emptyOf (T := T) (c := c) κ).usesOnly S :=
   ⟨hS (by simp [sumMuOps]), hS (by simp [sumMuOps]), hS (by simp [sumMuOps]),
     hS (by simp [sumMuOps])⟩
 
-theorem hygienic_emptyOf {n : ℕ} (κ : Fin n → ColKind) :
+private theorem hygienic_emptyOf {n : ℕ} (κ : Fin n → ColKind) :
     (emptyOf (T := T) (c := c) κ).hygienic := trivial
 
-theorem inSig_emptyOf (Θ : Set (SeqAggFunc T)) {n : ℕ} (κ : Fin n → ColKind) :
+private theorem inSig_emptyOf (Θ : Set (SeqAggFunc T)) {n : ℕ} (κ : Fin n → ColKind) :
     (emptyOf (T := T) (c := c) κ).inSig Θ := ⟨rfl, trivial⟩
 
-theorem winsDerivable_emptyOf {n : ℕ} (κ : Fin n → ColKind) :
+private theorem winsDerivable_emptyOf {n : ℕ} (κ : Fin n → ColKind) :
     (emptyOf (T := T) (c := c) κ).WinsDerivable := trivial
 
-theorem overSchema_emptyOf (sch : Schema) {n : ℕ} (κ : Fin n → ColKind) :
+private theorem overSchema_emptyOf (sch : Schema) {n : ℕ} (κ : Fin n → ColKind) :
     (emptyOf (T := T) (c := c) κ).overSchema sch := trivial
 
-theorem names_emptyOf {n : ℕ} (κ : Fin n → ColKind) :
+private theorem names_emptyOf {n : ℕ} (κ : Fin n → ColKind) :
     (emptyOf (T := T) (c := c) κ).names = ∅ := rfl
 
-theorem noMention_emptyOf {n : ℕ} (κ : Fin n → ColKind) (s : String) :
+private theorem noMention_emptyOf {n : ℕ} (κ : Fin n → ColKind) (s : String) :
     (emptyOf (T := T) (c := c) κ).noMention s := trivial
 
 end AggQueryIn
@@ -1243,7 +1249,7 @@ end AggQueryIn
 /-! ### The two recursions, given a split body -/
 
 /-- Two steps whose iterates agree sum alike. -/
-theorem muSum_congr_of_iterate {α : Type} {step step' : Multiset α → Multiset α} :
+private theorem muSum_congr_of_iterate {α : Type} {step step' : Multiset α → Multiset α} :
     ∀ (b : ℕ) {M M' : Multiset α}, (∀ i, i ≤ b → step^[i] M = step'^[i] M') →
       muSum step b M = muSum step' b M'
   | 0, M, M', h => h 0 (le_refl 0)
@@ -1255,7 +1261,7 @@ theorem muSum_congr_of_iterate {α : Type} {step step' : Multiset α → Multise
     rwa [Function.iterate_succ_apply, Function.iterate_succ_apply, hM] at this
 
 /-- Two steps whose rounds agree settle at the same value. -/
-theorem muFix_congr_of_iterate {α : Type} {step step' : Multiset α → Multiset α}
+private theorem muFix_congr_of_iterate {α : Type} {step step' : Multiset α → Multiset α}
     (hs : MuSetSettles step) (h : ∀ k, muIter step k = muIter step' k) :
     muFix step = muFix step' := by
   obtain ⟨j, hj⟩ := hs
@@ -1269,11 +1275,11 @@ theorem muFix_congr_of_iterate {α : Type} {step step' : Multiset α → Multise
   rw [muFix_eq_of_fix hfix, muFix_eq_of_fix hfix', h]
 
 /-- One summand of an empty sum is empty. -/
-theorem Multiset.eq_zero_of_add_eq_zero_left {α : Type} {a b : Multiset α} (h : a + b = 0) :
+private theorem Multiset.eq_zero_of_add_eq_zero_left {α : Type} {a b : Multiset α} (h : a + b = 0) :
     a = 0 :=
   Multiset.le_zero.mp (by rw [← h]; exact Multiset.le_add_right _ _)
 
-theorem Multiset.eq_zero_of_add_eq_zero_right {α : Type} {a b : Multiset α} (h : a + b = 0) :
+private theorem Multiset.eq_zero_of_add_eq_zero_right {α : Type} {a b : Multiset α} (h : a + b = 0) :
     b = 0 :=
   Multiset.le_zero.mp (by rw [← h]; exact Multiset.le_add_left _ _)
 
@@ -1281,7 +1287,7 @@ theorem Multiset.eq_zero_of_add_eq_zero_right {α : Type} {a b : Multiset α} (h
 the recursive name: where it settles, `qC` is empty – it would be in
 every round – so `q₁'` is the body at every round, and the recursion
 over `q₁'` and a base agreeing with its own is the same recursion. -/
-theorem AggQueryIn.mu_of_split {c n : ℕ} {κ κ' : Fin n → ColKind} (s : String)
+private theorem AggQueryIn.mu_of_split {c n : ℕ} {κ κ' : Fin n → ColKind} (s : String)
     (q₀ : AggQueryIn T c n κ) (q₀' : AggQueryIn T c n κ')
     (q₁ : AggQueryIn T c n κ [(s, n)]) (q₁' : AggQueryIn T c n κ' [(s, n)])
     (qC : AggQueryIn T c n κ') (hC : qC.noMention s)
@@ -1337,7 +1343,7 @@ theorem AggQueryIn.mu_of_split {c n : ℕ} {κ κ' : Fin n → ColKind} (s : Str
 moves into the base – a round is the duplicate elimination of
 `q₀ ⊎ q₁' ⊎ qC` either way – so the recursion over a base computing
 `q₀ ⊎ qC` and the body `q₁'` is the same recursion. -/
-theorem AggQueryIn.muSet_of_split {c n : ℕ} (s : String)
+private theorem AggQueryIn.muSet_of_split {c n : ℕ} (s : String)
     (q₀ q₀' : AggQueryIn T c n (ColKind.allReg n))
     (q₁ q₁' : AggQueryIn T c n (ColKind.allReg n) [(s, n)])
     (qC base' : AggQueryIn T c n (ColKind.allReg n)) (hC : qC.noMention s)
@@ -1417,14 +1423,14 @@ def AggQueryIn.sumsAllReg : {c n : ℕ} → {κ : Fin n → ColKind} → {l : Li
   | _, _, _, _, .WinExpr _ _ _ _ _ _ _ q _ => q.sumsAllReg
 
 omit [ValueType T] in
-@[simp] theorem AggQueryIn.sumsAllReg_castKind {c n : ℕ} {κ κ' : Fin n → ColKind} {l : List
+@[simp] private theorem AggQueryIn.sumsAllReg_castKind {c n : ℕ} {κ κ' : Fin n → ColKind} {l : List
     (String × ℕ)}
     (h : κ = κ') (q : AggQueryIn T c n κ l) : (q.castKind h).sumsAllReg ↔ q.sumsAllReg := by
   cases h; exact Iff.rfl
 
 omit [ValueType T] in
 /-- A substitution changes no `⊎`. -/
-theorem AggQueryIn.sumsAllReg_substMap :
+private theorem AggQueryIn.sumsAllReg_substMap :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l) {d : ℕ}
       (θ : Fin c → T ⊕ Fin d), (q.substMap θ).sumsAllReg ↔ q.sumsAllReg := by
   intro c n κ l q
@@ -1474,7 +1480,7 @@ structure AggQueryIn.SumFreeOf (S : Set OpKind) (Θ : Set (SeqAggFunc T)) (f : �
 omit [ValueType T] in
 /-- Reading a schema with a name it does not mention declared is reading
 the schema – for a query whose holes do not carry that name. -/
-theorem AggQueryIn.overSchema_of_update_of_noMention {s : String} {m : ℕ} :
+private theorem AggQueryIn.overSchema_of_update_of_noMention {s : String} {m : ℕ} :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l)
       {sch : Schema}, (∀ k, (s, k) ∉ l) →
       q.noMention s → q.overSchema (sch.update s m) → q.overSchema sch := by
@@ -2188,7 +2194,7 @@ theorem exists_sumFree {S : Set OpKind} (hS : sumMuOps ⊆ S) {Θ : Set (SeqAggF
 
 /-- **A supply of fresh names exists** for a schema declaring finitely
 many names and a finite set of names to avoid, `String` being infinite. -/
-theorem exists_freshSupply (sch : Schema) (N : Finset String) :
+private theorem exists_freshSupply (sch : Schema) (N : Finset String) :
     ∃ f : ℕ → String, Function.Injective f ∧ (∀ i, sch (f i) = none) ∧ ∀ i, f i ∉ N := by
   have hinf : ({s | sch s ≠ none} ∪ (↑N : Set String))ᶜ.Infinite :=
     (sch.finite.union N.finite_toSet).infinite_compl

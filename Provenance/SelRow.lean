@@ -5,6 +5,11 @@ import Mathlib.Tactic.FinCases
 import Mathlib.Tactic.NormNum.Inv
 import Mathlib.Tactic.NormNum.Pow
 import Provenance.NestedPres
+import all Provenance.AggQuery
+import all Provenance.Database
+import all Provenance.Genericity
+import all Provenance.NestedPres
+import all Provenance.PlainBasis
 
 /-!
 # The selection row: `σ` is the only operator reading the order
@@ -38,7 +43,7 @@ variable {T : Type} [ValueType T]
 
 /-! ## The regular reading of a row -/
 
-theorem ColKind.readTuple_append {n₁ n₂ : ℕ} (κ₁ : Fin n₁ → ColKind) (κ₂ : Fin n₂ → ColKind)
+private theorem ColKind.readTuple_append {n₁ n₂ : ℕ} (κ₁ : Fin n₁ → ColKind) (κ₂ : Fin n₂ → ColKind)
     (u : Tuple T n₁) (v : Tuple T n₂) :
     ColKind.readTuple (Fin.append κ₁ κ₂) (Fin.append u v : Tuple T (n₁ + n₂))
       = Fin.append (ColKind.readTuple κ₁ u) (ColKind.readTuple κ₂ v) := by
@@ -51,7 +56,7 @@ theorem ColKind.readTuple_append {n₁ n₂ : ℕ} (κ₁ : Fin n₁ → ColKind
       | ColKind.agg => 0 | _ => Fin.append u v (Fin.natAdd n₁ j)) = _
     rw [Fin.append_right, Fin.append_right, Fin.append_right]; rfl
 
-theorem ColKind.readTuple_snoc_agg {n : ℕ} (κ : Fin n → ColKind) (u : Tuple T n) (x : T) :
+private theorem ColKind.readTuple_snoc_agg {n : ℕ} (κ : Fin n → ColKind) (u : Tuple T n) (x : T) :
     ColKind.readTuple (Fin.snoc κ ColKind.agg) (Fin.snoc u x : Tuple T (n + 1))
       = (Fin.snoc (ColKind.readTuple κ u) 0 : Tuple T (n + 1)) := by
   funext i
@@ -64,7 +69,7 @@ theorem ColKind.readTuple_snoc_agg {n : ℕ} (κ : Fin n → ColKind) (u : Tuple
     rw [Fin.snoc_castSucc, Fin.snoc_castSucc, Fin.snoc_castSucc]; rfl
 
 /-- Two kind vectors with the same value arms read a row alike. -/
-theorem ColKind.readTuple_congr_base {n : ℕ} {κ κ' : Fin n → ColKind}
+private theorem ColKind.readTuple_congr_base {n : ℕ} {κ κ' : Fin n → ColKind}
     (h : ∀ k, (κ k).base = (κ' k).base) (u : Tuple T n) :
     ColKind.readTuple κ' u = ColKind.readTuple κ u := by
   funext k
@@ -73,7 +78,7 @@ theorem ColKind.readTuple_congr_base {n : ℕ} {κ κ' : Fin n → ColKind}
   rw [h k]
 
 /-- A kind vector with no aggregate column reads a row as itself. -/
-theorem ColKind.readTuple_of_ne_agg {n : ℕ} {κ : Fin n → ColKind}
+private theorem ColKind.readTuple_of_ne_agg {n : ℕ} {κ : Fin n → ColKind}
     (h : ∀ k, κ k ≠ ColKind.agg) (u : Tuple T n) : ColKind.readTuple κ u = u := by
   funext k
   show (match (κ k).base with | ColKind.agg => 0 | _ => u k) = u k
@@ -81,7 +86,7 @@ theorem ColKind.readTuple_of_ne_agg {n : ℕ} {κ : Fin n → ColKind}
 
 /-- A function-free term reads regular and provenance columns only, so it
 reads the regular reading of a row as the row. -/
-theorem TermGIn.evalPlain_readTuple {c k : ℕ} {κ : Fin k → ColKind} (t : TermGIn T c κ)
+private theorem TermGIn.evalPlain_readTuple {c k : ℕ} {κ : Fin k → ColKind} (t : TermGIn T c κ)
     (ht : t.noFun = true) (u : Tuple T k) (γ : Fin c → T) :
     t.evalPlain (ColKind.readTuple κ u) γ = t.evalPlain u γ := by
   cases t with
@@ -103,7 +108,7 @@ theorem TermGIn.evalPlain_readTuple {c k : ℕ} {κ : Fin k → ColKind} (t : Te
 
 /-- A function-free projection column of regular or provenance kind reads
 the regular reading of a row as the row. -/
-theorem ProjColIn.evalPlain_readTuple {c k : ℕ} {κ : Fin k → ColKind} (p : ProjColIn T c κ)
+private theorem ProjColIn.evalPlain_readTuple {c k : ℕ} {κ : Fin k → ColKind} (p : ProjColIn T c κ)
     (hp : p.noFun = true) (hk : p.kind.base ≠ ColKind.agg) (u : Tuple T k) (γ : Fin c → T) :
     p.evalPlain (ColKind.readTuple κ u) γ = p.evalPlain u γ := by
   cases p with
@@ -116,7 +121,7 @@ theorem ProjColIn.evalPlain_readTuple {c k : ℕ} {κ : Fin k → ColKind} (p : 
 /-- The regular reading of a projected row is a function of the regular
 reading of the row: an aggregate output column reads as `0`, a regular
 one as its term over the regular reading. -/
-theorem ColKind.readTuple_proj {c k m : ℕ} {κ : Fin k → ColKind} (ps : Tuple (ProjColIn T c κ) m)
+private theorem ColKind.readTuple_proj {c k m : ℕ} {κ : Fin k → ColKind} (ps : Tuple (ProjColIn T c κ) m)
     (hps : ∀ j, (ps j).noFun = true) (u : Tuple T k) (γ : Fin c → T) :
     ColKind.readTuple (fun j => (ps j).kind) (fun j => (ps j).evalPlain u γ)
       = fun j => match ((ps j).kind).base with
@@ -133,13 +138,13 @@ theorem ColKind.readTuple_proj {c k m : ℕ} {κ : Fin k → ColKind} (ps : Tupl
 
 omit [ValueType T] in
 /-- An injective map of values is injective on rows. -/
-theorem Tuple.comp_injective {τ : T → T} (hτ : Function.Injective τ) (k : ℕ) :
+private theorem Tuple.comp_injective {τ : T → T} (hτ : Function.Injective τ) (k : ℕ) :
     Function.Injective (fun u : Tuple T k => (τ ∘ u : Tuple T k)) :=
   fun _ _ h => funext (fun i => hτ (congrFun h i))
 
 /-- A bind over rows read through their regular readings, carried along
 the commutation of those readings. -/
-theorem bind_reg {α : Type} {n : ℕ} {κ : Fin n → ColKind} {τ : T → T}
+private theorem bind_reg {α : Type} {n : ℕ} {κ : Fin n → ColKind} {τ : T → T}
     {X X' : Multiset (Tuple T n)}
     (hX : X'.map (ColKind.readTuple κ)
       = (X.map (ColKind.readTuple κ)).map (fun u => (τ ∘ u : Tuple T n)))
@@ -148,12 +153,12 @@ theorem bind_reg {α : Type} {n : ℕ} {κ : Fin n → ColKind} {τ : T → T}
       = X.bind (fun u => F (τ ∘ ColKind.readTuple κ u)) := by
   rw [← Multiset.bind_map, hX, Multiset.bind_map, Multiset.bind_map]
 
-theorem ColKind.readTuple_apply_agg {n : ℕ} {κ : Fin n → ColKind} (u : Tuple T n) {k : Fin n}
+private theorem ColKind.readTuple_apply_agg {n : ℕ} {κ : Fin n → ColKind} (u : Tuple T n) {k : Fin n}
     (h : (κ k).base = ColKind.agg) : ColKind.readTuple κ u k = 0 := by
   show (match (κ k).base with | ColKind.agg => 0 | _ => u k) = 0
   rw [h]
 
-theorem ColKind.readTuple_apply_ne {n : ℕ} {κ : Fin n → ColKind} (u : Tuple T n) {k : Fin n}
+private theorem ColKind.readTuple_apply_ne {n : ℕ} {κ : Fin n → ColKind} (u : Tuple T n) {k : Fin n}
     (h : (κ k).base ≠ ColKind.agg) : ColKind.readTuple κ u k = u k := by
   show (match (κ k).base with | ColKind.agg => 0 | _ => u k) = u k
   cases hb : (κ k).base with
@@ -162,26 +167,26 @@ theorem ColKind.readTuple_apply_ne {n : ℕ} {κ : Fin n → ColKind} (u : Tuple
   | prov => rfl
 
 omit [ValueType T] in
-theorem HoleKinds.assign_self (HK : HoleKinds) (s : String) {n : ℕ} (κ : Fin n → ColKind) :
+private theorem HoleKinds.assign_self (HK : HoleKinds) (s : String) {n : ℕ} (κ : Fin n → ColKind) :
     HK.assign s κ s n = κ := by
   funext k
   simp [HoleKinds.assign]
 
 omit [ValueType T] in
 /-- Two multisets whose readings agree up to a map are related row by row. -/
-theorem rel_of_map_eq {α β γ' : Type} {X' : Multiset α} {X : Multiset β} {f : α → γ'}
+private theorem rel_of_map_eq {α β γ' : Type} {X' : Multiset α} {X : Multiset β} {f : α → γ'}
     {g : β → γ'} (h : X'.map f = X.map g) : Multiset.Rel (fun a b => f a = g b) X' X :=
   Multiset.rel_map.mp (Multiset.rel_eq.mpr h)
 
 omit [ValueType T] in
-theorem map_eq_of_rel' {α β γ' : Type} {X' : Multiset α} {X : Multiset β} {f : α → γ'}
+private theorem map_eq_of_rel' {α β γ' : Type} {X' : Multiset α} {X : Multiset β} {f : α → γ'}
     {g : β → γ'} (h : Multiset.Rel (fun a b => f a = g b) X' X) : X'.map f = X.map g :=
   Multiset.rel_eq.mp (Multiset.rel_map.mpr h)
 
 omit [ValueType T] in
 /-- A bind over two related multisets, each related pair giving images
 that agree up to a map. -/
-theorem bind_eq_of_rel {α β γ' δ : Type} {R : α → β → Prop} {X' : Multiset α}
+private theorem bind_eq_of_rel {α β γ' δ : Type} {R : α → β → Prop} {X' : Multiset α}
     {X : Multiset β} (h : Multiset.Rel R X' X) {G' : α → Multiset δ} {G : β → Multiset γ'}
     {φ : γ' → δ} (hG : ∀ a b, R a b → G' a = (G b).map φ) :
     X'.bind G' = (X.bind G).map φ := by
@@ -192,7 +197,7 @@ theorem bind_eq_of_rel {α β γ' δ : Type} {R : α → β → Prop} {X' : Mult
 omit [ValueType T] in
 /-- A leaf of a child that is not one of the child's holes is no hole of
 its siblings either, when the child does not mention their names. -/
-theorem AggQueryIn.leaf_not_hole {c n : ℕ} {κ : Fin n → ColKind} {l L : List (String × ℕ)}
+private theorem AggQueryIn.leaf_not_hole {c n : ℕ} {κ : Fin n → ColKind} {l L : List (String × ℕ)}
     {q : AggQueryIn T c n κ l} (hN : ∀ p ∈ L, q.noMention p.1) {p : ℕ × String}
     (hp : p ∈ q.leaves) (hl : (p.2, p.1) ∉ l) : (p.2, p.1) ∉ L :=
   fun hL => hl (AggQueryIn.mem_index_of_mem_leaves q (hN _ hL) p hp rfl)
@@ -711,11 +716,11 @@ theorem AggQueryIn.evaluatePlain_orderBlind {Θ : Set (SeqAggFunc T)} {S : Set O
 /-- The one-row instance `S = {(a, b)}`. -/
 def dPair (a b : ℕ) : Database ℕ := [("S", ⟨2, ({![a, b]} : Multiset (Tuple ℕ 2))⟩)]
 
-theorem find_dPair (a b : ℕ) :
+private theorem find_dPair (a b : ℕ) :
     (dPair a b).find 2 "S" = some ({![a, b]} : Multiset (Tuple ℕ 2)) :=
   Database.find_assign "S" _ []
 
-theorem find_dPair_ne (a b : ℕ) {k : ℕ} {t : String} (h : ¬ (k = 2 ∧ t = "S")) :
+private theorem find_dPair_ne (a b : ℕ) {k : ℕ} {t : String} (h : ¬ (k = 2 ∧ t = "S")) :
     (dPair a b).find k t = none :=
   Database.find_assign_of_ne "S" t _ [] h
 
@@ -724,18 +729,18 @@ def ltWitness : AggQuery ℕ 2 (ColKind.allReg 2) :=
   AggQueryIn.Sel (GenPredIn.cmp CompOp.lt (TermGIn.index 0 rfl) (TermGIn.index 1 rfl))
     (AggQueryIn.Rel 2 "S")
 
-theorem usesOnly_ltWitness : ltWitness.usesOnly plainRecOps :=
+private theorem usesOnly_ltWitness : ltWitness.usesOnly plainRecOps :=
   ⟨by simp [plainRecOps, plainOps, basisDD, basisOps], trivial⟩
 
-theorem overSchema_ltWitness : ltWitness.overSchema schemaS := rfl
+private theorem overSchema_ltWitness : ltWitness.overSchema schemaS := rfl
 
-theorem inSig_ltWitness (Θ : Set (SeqAggFunc ℕ)) : ltWitness.inSig Θ := ⟨rfl, trivial⟩
+private theorem inSig_ltWitness (Θ : Set (SeqAggFunc ℕ)) : ltWitness.inSig Θ := ⟨rfl, trivial⟩
 
-theorem settlesAt_ltWitness (D : Database ℕ) (γ : Fin 0 → ℕ) : ltWitness.SettlesAt D γ :=
+private theorem settlesAt_ltWitness (D : Database ℕ) (γ : Fin 0 → ℕ) : ltWitness.SettlesAt D γ :=
   trivial
 
 /-- On `{(a, b)}` the witness keeps the row iff `a < b`. -/
-theorem evaluatePlain_ltWitness (a b : ℕ) :
+private theorem evaluatePlain_ltWitness (a b : ℕ) :
     (ltWitness.evaluatePlain (dPair a b) : Multiset (Tuple ℕ 2))
       = if LT.lt a b then ({![a, b]} : Multiset (Tuple ℕ 2)) else 0 := by
   simp only [ltWitness, AggQueryIn.evaluatePlain, find_dPair]
@@ -758,7 +763,7 @@ theorem ltWitness_breaks {a b : ℕ} (hab : LT.lt a b) :
   exact absurd (congrArg Multiset.card h) (by simp)
 
 /-- Two values outside a finite set of naturals, in order, neither zero. -/
-theorem exists_two_fresh (A : Finset ℕ) :
+private theorem exists_two_fresh (A : Finset ℕ) :
     ∃ a b : ℕ, LT.lt a b ∧ a ∉ A ∧ b ∉ A ∧ a ≠ 0 ∧ b ≠ 0 := by
   obtain ⟨a, ha, ha0⟩ : ∃ a, a ∉ A ∧ a ≠ 0 := by
     obtain ⟨a, ha⟩ := (insert 0 A).exists_notMem
@@ -838,7 +843,7 @@ def GeneratesOnRecNoExplode (T : Type) [ValueType T] (sch : Schema)
     (cnt : SeqAggFunc T) (S : Set OpKind) : Prop :=
   ∀ {n : ℕ} {κ : Fin n → ColKind} (q : AggQuery T n κ), GeneratesAtNoExplode T sch cnt S q
 
-theorem GeneratesOnRecNoExplode.toGeneratesOnRec {sch : Schema} {cnt : SeqAggFunc T}
+private theorem GeneratesOnRecNoExplode.toGeneratesOnRec {sch : Schema} {cnt : SeqAggFunc T}
     {S : Set OpKind} (h : GeneratesOnRecNoExplode T sch cnt S) : GeneratesOnRec T sch cnt S := by
   intro n κ q ho hq hi
   obtain ⟨κ', q', h₁, h₂, h₃, -, -, h₅⟩ := h q ho hq hi

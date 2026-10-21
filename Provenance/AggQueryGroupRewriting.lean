@@ -9,6 +9,13 @@ import Mathlib.Algebra.BigOperators.Group.Finset.Basic
 import Mathlib.Tactic.NormNum.Inv
 import Mathlib.Tactic.NormNum.Pow
 import Provenance.AggQueryAdequacy
+import all Provenance.AggExpr
+import all Provenance.AggQuery
+import all Provenance.AggQueryAdequacy
+import all Provenance.AggQueryHavingRewriting
+import all Provenance.AggValue
+import all Provenance.Query
+import all Provenance.Util.ValueTypeNull
 
 /-!
 # Rewriting a bare grouping: aggregate results as output values
@@ -73,7 +80,7 @@ def FamId.paramsToComposite : List (T ⊕ FamId T) → List ((T ⊕ K) ⊕ FamId
 end
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
-@[simp] theorem FamId.toComposite_addTerm (t : TermIn T 1 0) (φ : FamId T) :
+@[simp] private theorem FamId.toComposite_addTerm (t : TermIn T 1 0) (φ : FamId T) :
     (φ.addTerm t).toComposite (K := K) = φ.toComposite := by
   cases φ; rfl
 
@@ -88,7 +95,7 @@ omit [DecidableEq K] in
 /-- The token of a group transports to the token of the composite
 embedding of that group – the token the rewritten world's
 `AggQueryIn.GammaTok` builds. -/
-theorem AggValue.ofGroup_toComposite {m : ℕ} (f : SeqAggFunc T)
+private theorem AggValue.ofGroup_toComposite {m : ℕ} (f : SeqAggFunc T)
     (t : Term T m) (U : List (AnnotatedTuple T K m)) :
     (AggValue.ofGroup f t U).toComposite
       = AggValue.ofGroup f.liftComposite t.castToAnnotatedTuple
@@ -105,7 +112,7 @@ omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 /-- **The deterministic reading of a transported token** is the transport
 of its reading: the lifted aggregate function agrees with the original on
 embedded values. -/
-theorem AggValue.collapse_toComposite (a : AggValue T K) :
+private theorem AggValue.collapse_toComposite (a : AggValue T K) :
     a.toComposite.collapse = Sum.inl a.collapse := by
   unfold AggValue.toComposite AggValue.collapse
   rw [List.map_map,
@@ -124,7 +131,7 @@ def AggExprFun.liftComposite {p : ℕ} (g : (Fin p → T) → T) :
 
 omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 /-- The lifted function on `inl`-embedded arguments. -/
-theorem AggExprFun.liftComposite_inl {p : ℕ} (g : (Fin p → T) → T)
+private theorem AggExprFun.liftComposite_inl {p : ℕ} (g : (Fin p → T) → T)
     (v : Fin p → T) :
     AggExprFun.liftComposite (K := K) g (fun j => Sum.inl (v j))
       = Sum.inl (g v) := rfl
@@ -154,7 +161,7 @@ def AggExpr.toComposite (a : AggExpr T K) : AggExpr (T ⊕ K) K where
 
 omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 /-- Each leaf reads the embedding of the sequence it read. -/
-theorem AggExpr.leafSeq_toComposite (a : AggExpr T K) (j : Fin a.arity)
+private theorem AggExpr.leafSeq_toComposite (a : AggExpr T K) (j : Fin a.arity)
     (W : Finset (Fin a.occs.length)) :
     a.toComposite.leafSeq j (W.map (finCongr a.length_inl_occs).toEmbedding)
       = (a.leafSeq j W).map Sum.inl := by
@@ -186,7 +193,7 @@ theorem AggExpr.valOn_toComposite (a : AggExpr T K)
 
 omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 /-- And the deterministic reading with it. -/
-@[simp] theorem AggExpr.collapse_toComposite (a : AggExpr T K) :
+@[simp] private theorem AggExpr.collapse_toComposite (a : AggExpr T K) :
     a.toComposite.collapse = Sum.inl a.collapse := by
   unfold AggExpr.collapse
   rw [← a.valOn_toComposite Finset.univ]
@@ -220,7 +227,7 @@ theorem AggExpr.ofGroupWhen_toComposite {m : ℕ} (f : SeqAggFunc T)
     rw [Selection.castToAnnotatedTuple_eval3 φ p.fst p.snd]
 
 omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
-@[simp] theorem AggExpr.annList_toComposite (a : AggExpr T K) :
+@[simp] private theorem AggExpr.annList_toComposite (a : AggExpr T K) :
     a.toComposite.annList = a.annList := by
   simp [AggExpr.annList, AggExpr.toComposite, List.map_map]
 
@@ -241,13 +248,13 @@ def NestedValue.toComposite (a : NestedValue T K) : NestedValue (T ⊕ K) K :=
     FamId.toComposite a.fam⟩
 
 omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
-@[simp] theorem NestedValue.occs_toComposite (a : NestedValue T K) :
+@[simp] private theorem NestedValue.occs_toComposite (a : NestedValue T K) :
     a.toComposite.occs = a.occs.map (fun o => (NestInner.toComposite a.lev o.1, o.2)) := rfl
 
 omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 /-- The deterministic reading of an inner value commutes with the
 transport. -/
-theorem NestInner.collapse_toComposite : ∀ (j : ℕ) (x : NestInner T K j),
+private theorem NestInner.collapse_toComposite : ∀ (j : ℕ) (x : NestInner T K j),
     NestInner.collapse j (NestInner.toComposite j x) = Sum.inl (NestInner.collapse j x)
   | 0, e => AggExpr.collapse_toComposite (K := K) e
   | j + 1, Sum.inl x => NestInner.collapse_toComposite j x
@@ -263,7 +270,7 @@ theorem NestInner.collapse_toComposite : ∀ (j : ℕ) (x : NestInner T K j),
 omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 /-- The deterministic reading of a nested value commutes with the
 transport. -/
-theorem NestedValue.collapse_toComposite (a : NestedValue T K) :
+private theorem NestedValue.collapse_toComposite (a : NestedValue T K) :
     a.toComposite.collapse = Sum.inl a.collapse := by
   obtain ⟨lev, agg, occs, sc, φ⟩ := a
   show NestedValue.liftComposite agg
@@ -287,7 +294,7 @@ def AggTok.toComposite : AggTok T K → AggTok (T ⊕ K) K
 
 omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 /-- The transport carries a stamped family to the transported family. -/
-@[simp] theorem AggTok.toComposite_setFam (φ : FamId T)
+@[simp] private theorem AggTok.toComposite_setFam (φ : FamId T)
     {ids : Option (List (OccId T))} (x : AggTok T K) :
     (x.setFam φ ids).toComposite = x.toComposite.setFam (FamId.toComposite φ) := by
   cases x <;> rfl
@@ -333,13 +340,13 @@ theorem GenRow.toCompositeRow_of_reg {n : ℕ} (r : GenRow T K n)
 /-! ## Coordinates of the token-aware embedding -/
 
 omit [DecidableEq K] [HasAltLinearOrder K] in
-@[simp] theorem GenRow.toCompositeRow_castAdd {n : ℕ} (r : GenRow T K n)
+@[simp] private theorem GenRow.toCompositeRow_castAdd {n : ℕ} (r : GenRow T K n)
     (k : Fin n) :
     r.toCompositeRow (Fin.castAdd 1 k) = GenValue.toComposite (r.fst k) :=
   Fin.append_left _ _ k
 
 omit [DecidableEq K] [HasAltLinearOrder K] in
-@[simp] theorem GenRow.toCompositeRow_last {n : ℕ} (r : GenRow T K n) :
+@[simp] private theorem GenRow.toCompositeRow_last {n : ℕ} (r : GenRow T K n) :
     r.toCompositeRow (Fin.last n) = Sum.inl (Sum.inr r.snd.finalize) := by
   show Fin.append _ _ (Fin.last n) = _
   rw [show (Fin.last n) = Fin.natAdd n (0 : Fin 1) from Fin.ext (by simp),
@@ -347,7 +354,7 @@ omit [DecidableEq K] [HasAltLinearOrder K] in
 
 omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 /-- The deterministic reading commutes with the token transport. -/
-@[simp] theorem AggValue.collapseSum_toComposite (x : GenValue T K) :
+@[simp] private theorem AggValue.collapseSum_toComposite (x : GenValue T K) :
     AggValue.collapseSum (GenValue.toComposite x)
       = Sum.inl (AggValue.collapseSum x) := by
   cases x with
@@ -360,7 +367,7 @@ omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 
 omit [DecidableEq K] [HasAltLinearOrder K] in
 /-- Coordinates of the token-aware embedding, in `dite` form. -/
-theorem GenRow.toCompositeRow_coord {n : ℕ} (r : GenRow T K n)
+private theorem GenRow.toCompositeRow_coord {n : ℕ} (r : GenRow T K n)
     (j : Fin (n + 1)) :
     r.toCompositeRow j
       = if h : ((j : ℕ) < n : Prop) then GenValue.toComposite (r.fst ⟨j, h⟩)
@@ -375,7 +382,7 @@ theorem GenRow.toCompositeRow_coord {n : ℕ} (r : GenRow T K n)
 
 omit [DecidableEq K] [HasAltLinearOrder K] in
 /-- A key column of the embedding of a grouping row. -/
-theorem GenRow.toCompositeRow_gammaRow_left {n₁ n₂ : ℕ} (g : Tuple T n₁)
+private theorem GenRow.toCompositeRow_gammaRow_left {n₁ n₂ : ℕ} (g : Tuple T n₁)
     (h : Fin n₂ → AggTok T K) (a : GenAnn K) (i : Fin n₁) :
     GenRow.toCompositeRow
         ((Fin.append (fun k => (Sum.inl (g k) : GenValue T K))
@@ -389,7 +396,7 @@ theorem GenRow.toCompositeRow_gammaRow_left {n₁ n₂ : ℕ} (g : Tuple T n₁)
 
 omit [DecidableEq K] [HasAltLinearOrder K] in
 /-- A token column of the embedding of a grouping row. -/
-theorem GenRow.toCompositeRow_gammaRow_right {n₁ n₂ : ℕ} (g : Tuple T n₁)
+private theorem GenRow.toCompositeRow_gammaRow_right {n₁ n₂ : ℕ} (g : Tuple T n₁)
     (h : Fin n₂ → AggTok T K) (a : GenAnn K) (i : Fin n₂) :
     GenRow.toCompositeRow
         ((Fin.append (fun k => (Sum.inl (g k) : GenValue T K))
@@ -442,7 +449,7 @@ theorem ColKind.gammaTok_rew_kinds_of {m n₁ n₂ : ℕ}
     rw [Fin.append_right]
 
 /-- The classical rewriting's own schema is one such. -/
-theorem ColKind.gammaTok_rew_kinds {m n₁ n₂ : ℕ} (is : Tuple (Fin m) n₁) :
+private theorem ColKind.gammaTok_rew_kinds {m n₁ n₂ : ℕ} (is : Tuple (Fin m) n₁) :
     Fin.append
         (Fin.append
           (fun k => ColKind.rewKinds m ((is k).castLE (Nat.le_succ m)))
@@ -638,7 +645,7 @@ theorem AggQueryIn.gammaRew_valid {lab : ℕ} {rd} {m n₁ n₂ : ℕ}
 
 /-- The composite transport preserves the scalar reading too: it moves the
 values, not the worlds. -/
-theorem AggValue.predProvScalar_toComposite (a : AggValue T K) (op : CompOp)
+private theorem AggValue.predProvScalar_toComposite (a : AggValue T K) (op : CompOp)
     (c : T) :
     a.toComposite.predProvScalar op (Sum.inl c) = a.predProvScalar op c := by
   have hlen : a.occs.length = a.toComposite.occs.length := by
@@ -724,7 +731,7 @@ theorem AggExpr.length_toComposite (a : AggExpr T K) :
 
 omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 /-- The transport leaves an occurrence's annotation where it was. -/
-theorem AggExpr.anns_toComposite (a : AggExpr T K)
+private theorem AggExpr.anns_toComposite (a : AggExpr T K)
     (i : Fin a.occs.length) :
     a.toComposite.anns (finCongr a.length_toComposite i) = a.anns i := by
   show (a.toComposite.occs.get _).snd.fst = (a.occs.get i).snd.fst
@@ -733,7 +740,7 @@ theorem AggExpr.anns_toComposite (a : AggExpr T K)
 omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 /-- And an occurrence's membership of a leaf's group, the flags being
 carried along with it. -/
-theorem AggExpr.mem_inFrame_toComposite (a : AggExpr T K) (j : Fin a.arity)
+private theorem AggExpr.mem_inFrame_toComposite (a : AggExpr T K) (j : Fin a.arity)
     (i : Fin a.occs.length) :
     finCongr a.length_toComposite i ∈ a.toComposite.inFrame j
       ↔ i ∈ a.inFrame j := by
@@ -766,7 +773,7 @@ theorem AggExpr.isWorld_toComposite (a : AggExpr T K)
 is a world of the original, carrying the same annotation and reading the
 embedding of the value read there, so a test that restricts along `inl`
 sees the same thing. -/
-theorem AggExpr.predProvWith_toComposite (a : AggExpr T K) (P : T → Kleene)
+private theorem AggExpr.predProvWith_toComposite (a : AggExpr T K) (P : T → Kleene)
     (Q : T ⊕ K → Kleene) (hQ : ∀ v, Q (Sum.inl v) = P v) :
     a.toComposite.predProvWith Q = a.predProvWith P := by
   unfold AggExpr.predProvWith
@@ -800,7 +807,7 @@ theorem AggExpr.predProv_toComposite (a : AggExpr T K) (op : CompOp)
 /-- **The gate reads a transported token unchanged**, nested tokens
 apart: an ordinary token by `AggValue.predProvOf_toComposite`, an
 expression by `AggExpr.predProv_toComposite`. -/
-theorem AggTok.predProvOf_toComposite (x : AggTok T K) (hx : x.isNested = false)
+private theorem AggTok.predProvOf_toComposite (x : AggTok T K) (hx : x.isNested = false)
     (op : CompOp) (c : T) :
     x.toComposite.predProvOf op (Sum.inl c) = x.predProvOf op c := by
   cases x with

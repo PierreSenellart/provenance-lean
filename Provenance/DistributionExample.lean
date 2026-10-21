@@ -7,6 +7,7 @@ module
 public import Provenance.Derived
 public import Provenance.QueryAdequacy
 import Mathlib.Tactic.Bound.Init
+import all Provenance.Derived
 
 /-!
 # The distribution functions, and the two ranks, on a worked relation
@@ -78,7 +79,7 @@ abbrev two : ℕ → ℕ → ℕ := fun N r => (r - 1) * 2 / N + 1
 
 /-! **`percent_rank` on three distinct rows**: `(r-1)/(N-1)`, so `0`,
 `1/2`, `1` – printed as `0, 50, 100`. -/
-theorem percentRank_distinct :
+private theorem percentRank_distinct :
     ((AggQueryIn.percentRank SeqAggFunc.count pct noP ![0] ord
         base).evaluatePlain D3).map (fun u => (u 0, u 1))
       = (([(10, 0), (20, 50), (30, 100)] : List (ℕ × ℕ)) : Multiset _) := by
@@ -86,14 +87,14 @@ theorem percentRank_distinct :
 
 /-! **`cume_dist` on the same**: `c/N` with `c` over the rows up to the
 current one and its peers, so `1/3`, `2/3`, `1` – `33, 66, 100`. -/
-theorem cumeDist_distinct :
+private theorem cumeDist_distinct :
     ((AggQueryIn.cumeDist SeqAggFunc.count pct noP ![0] ord
         base).evaluatePlain D3).map (fun u => (u 0, u 1))
       = (([(10, 33), (20, 66), (30, 100)] : List (ℕ × ℕ)) : Multiset _) := by
   decide
 
 /-! **`ntile(2)` on three rows**: buckets `1, 1, 2`. -/
-theorem ntile_distinct :
+private theorem ntile_distinct :
     ((AggQueryIn.ntile SeqAggFunc.count two noP ![0] ord
         base).evaluatePlain D3).map (fun u => (u 0, u 1))
       = (([(10, 1), (20, 1), (30, 2)] : List (ℕ × ℕ)) : Multiset _) := by
@@ -102,7 +103,7 @@ theorem ntile_distinct :
 /-! **`percent_rank` on one row is `0`**, by its own clause for `N = 1`
 and not by a division. This is the case a reading of the two frames as
 separate aggregates would have to invent a value for. -/
-theorem percentRank_one :
+private theorem percentRank_one :
     ((AggQueryIn.percentRank SeqAggFunc.count pct noP ![0] ord
         base).evaluatePlain D1).map (fun u => (u 0, u 1))
       = (([(7, 0)] : List (ℕ × ℕ)) : Multiset _) := by
@@ -110,7 +111,7 @@ theorem percentRank_one :
 
 /-! **`percent_rank` keeps a class of peers together**: the two rows
 tied at `10` both have rank `1`, so both are `0` – `0, 0, 100`. -/
-theorem percentRank_peers :
+private theorem percentRank_peers :
     ((AggQueryIn.percentRank SeqAggFunc.count pct noP ![0] ord
         base).evaluatePlain D4).map (fun u => (u 0, u 1))
       = (([(10, 0), (10, 0), (30, 100)] : List (ℕ × ℕ)) : Multiset _) := by
@@ -118,7 +119,7 @@ theorem percentRank_peers :
 
 /-! **`cume_dist` counts the peers in**: both tied rows are `2/3` –
 `66, 66, 100`. -/
-theorem cumeDist_peers :
+private theorem cumeDist_peers :
     ((AggQueryIn.cumeDist SeqAggFunc.count pct noP ![0] ord
         base).evaluatePlain D4).map (fun u => (u 0, u 1))
       = (([(10, 66), (10, 66), (30, 100)] : List (ℕ × ℕ)) : Multiset _) := by
@@ -129,7 +130,7 @@ theorem cumeDist_peers :
 before gives `0, 1, 2` and the whole partition gives `3` on every row.
 That pair is what `percent_rank` divides, and reading the two
 separately would allow `2` beside `1`. -/
-theorem winExpr_both_frames :
+private theorem winExpr_both_frames :
     ((AggQueryIn.WinExpr (hsql := sql_frame%) (lab := 0) (rd := fun _ => false) noP ![0] ord
         ![ValueFrame.rangeBefore ord, ValueFrame.whole]
         ![TermIn.const 1, TermIn.const 1]
@@ -145,7 +146,7 @@ two rows before it – while the dense ranks are `1, 1, 2`, counting the
 one distinct order value before `30`. That is the whole difference
 between the two, and it is why `drank` counts values and `rank` counts
 rows. -/
-theorem rank_peers :
+private theorem rank_peers :
     ((AggQueryIn.rank SeqAggFunc.count noP ![0] ord base
       (winReadsReg_allReg _ _ _)).evaluatePlain
         D4).map (fun u => (u 0, u 1))
@@ -153,7 +154,7 @@ theorem rank_peers :
   rw [AggQueryIn.evaluatePlain_rank]
   decide
 
-theorem denseRank_peers :
+private theorem denseRank_peers :
     ((AggQueryIn.denseRank SeqAggFunc.count noP ![0] ord
         base
       (winReadsReg_allReg _ _ _)).evaluatePlain D4).map (fun u => (u 0, u 1))
@@ -162,7 +163,7 @@ theorem denseRank_peers :
   decide
 
 /-! And on three distinct values the two agree, at `1, 2, 3`. -/
-theorem rank_distinct :
+private theorem rank_distinct :
     ((AggQueryIn.rank SeqAggFunc.count noP ![0] ord base
       (winReadsReg_allReg _ _ _)).evaluatePlain
         D3).map (fun u => (u 0, u 1))
@@ -170,7 +171,7 @@ theorem rank_distinct :
   rw [AggQueryIn.evaluatePlain_rank]
   decide
 
-theorem denseRank_distinct :
+private theorem denseRank_distinct :
     ((AggQueryIn.denseRank SeqAggFunc.count noP ![0] ord
         base
       (winReadsReg_allReg _ _ _)).evaluatePlain D3).map (fun u => (u 0, u 1))

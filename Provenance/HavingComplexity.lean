@@ -12,6 +12,7 @@ public import Provenance.Semirings.How
 public import DescriptiveComplexity.Hierarchy
 import DescriptiveComplexity.Problems.Knapsack
 import DescriptiveComplexity.Problems.Knapsack.Membership
+import all Provenance.Semirings.How
 
 /-!
 # NP-completeness of deciding non-zero `HAVING` provenance
@@ -109,7 +110,7 @@ annotation `A_W` is the monomial with this exponent. -/
 noncomputable def expo (x : ι → X) (W : Finset ι) : X →₀ ℕ :=
   ∑ i ∈ W, Finsupp.single (x i) 1
 
-theorem expo_apply (x : ι → X) (hx : Function.Injective x) (W : Finset ι) (j : ι) :
+private theorem expo_apply (x : ι → X) (hx : Function.Injective x) (W : Finset ι) (j : ι) :
     (expo x W) (x j) = if j ∈ W then 1 else 0 := by
   classical
   unfold expo
@@ -117,7 +118,7 @@ theorem expo_apply (x : ι → X) (hx : Function.Injective x) (W : Finset ι) (j
   simp [Finsupp.single_apply, hx.eq_iff, Finset.sum_ite_eq']
 
 /-- Distinct worlds carry distinct exponent vectors. -/
-theorem expo_inj (x : ι → X) (hx : Function.Injective x) :
+private theorem expo_inj (x : ι → X) (hx : Function.Injective x) :
     Function.Injective (expo x) := by
   intro W W' h
   ext j
@@ -126,7 +127,7 @@ theorem expo_inj (x : ι → X) (hx : Function.Injective x) :
   by_cases hj : j ∈ W <;> by_cases hj' : j ∈ W' <;> simp_all
 
 /-- With pairwise distinct variables, `A_W` is a single monomial. -/
-theorem A_eq_monomial (x : ι → X) (W : Finset ι) :
+private theorem A_eq_monomial (x : ι → X) (W : Finset ι) :
     Having.A (fun i => (MvPolynomial.X (x i) : MvPolynomial X ℕ)) W
       = monomial (expo x W) 1 := by
   classical
@@ -142,7 +143,7 @@ theorem A_eq_monomial (x : ι → X) (W : Finset ι) :
 /-- The monus factor of a world annotation collapses: the subtracted
 one-step extensions of `W` are monomials of degree `|W| + 1`, so they do not
 meet the support of `A_W`. -/
-theorem T_eq_A (x : ι → X) (hx : Function.Injective x) (U W : Finset ι) :
+private theorem T_eq_A (x : ι → X) (hx : Function.Injective x) (U W : Finset ι) :
     Having.T (fun i => (MvPolynomial.X (x i) : MvPolynomial X ℕ)) U W
       = Having.A (fun i => (MvPolynomial.X (x i) : MvPolynomial X ℕ)) W := by
   classical
@@ -389,7 +390,7 @@ noncomputable def zeroItemF : Language.binWeights.Sentence :=
 
 noncomputable def hsnSentence : Language.binWeights.Sentence := targetNonzeroF ⊔ zeroItemF
 
-theorem realize_hsnSentence (A : Type) [Language.binWeights.Structure A] :
+private theorem realize_hsnSentence (A : Type) [Language.binWeights.Structure A] :
     Sentence.Realize (M := A) hsnSentence ↔
       ((∃ p : A, BWPosn p ∧ BWTgt p) ∨
         ∃ i : A, BWItem i ∧ ∀ p : A, BWPosn p → ¬BWBit i p) := by
@@ -408,7 +409,7 @@ open DescriptiveComplexity FirstOrder Language Structure
 
 variable {A : Type} [Language.binWeights.Structure A]
 
-theorem binNum_eq_zero_iff [Finite A] (hlin : IsLinOrd (BWLe (A := A))) (b : A → Prop) :
+private theorem binNum_eq_zero_iff [Finite A] (hlin : IsLinOrd (BWLe (A := A))) (b : A → Prop) :
     binNum (BWLe (A := A)) BWPosn b = 0 ↔ ∀ p, BWPosn p → ¬b p := by
   constructor
   · intro h p hp hb
@@ -418,7 +419,7 @@ theorem binNum_eq_zero_iff [Finite A] (hlin : IsLinOrd (BWLe (A := A))) (b : A �
       binNum_bot]
 
 /-- A single selected item's weight is at most the total. -/
-theorem weight_le_sum [Finite A] {S : A → Prop} {i₀ : A} (hi₀ : S i₀) :
+private theorem weight_le_sum [Finite A] {S : A → Prop} {i₀ : A} (hi₀ : S i₀) :
     BWWeight i₀ ≤ ∑ᶠ i ∈ {i | S i}, BWWeight i := by
   classical
   have hset : {i : A | S i} = {i₀} ∪ {i : A | S i ∧ i ≠ i₀} := by
@@ -437,7 +438,7 @@ theorem weight_le_sum [Finite A] {S : A → Prop} {i₀ : A} (hi₀ : S i₀) :
 a solution can be taken non-empty exactly when the target is non-zero (any
 solution is then non-empty) or some item has weight zero (which can be added
 to a solution). -/
-theorem hasNonemptySubsetSum_iff [Finite A] :
+private theorem hasNonemptySubsetSum_iff [Finite A] :
     HasNonemptySubsetSum A ↔ (Sentence.Realize (M := A) hsnSentence ∧ HasSubsetSum A) := by
   rw [realize_hsnSentence]
   constructor
@@ -525,7 +526,7 @@ variable {A : Type} [Language.binWeights.Structure A]
 def hPt (t : HTag) (a : A) : hInterp.Map A := (t, fun _ => a)
 
 omit [Language.binWeights.Structure A] in
-theorem hPt_surj (q : hInterp.Map A) : ∃ t a, q = hPt t a := by
+private theorem hPt_surj (q : hInterp.Map A) : ∃ t a, q = hPt t a := by
   obtain ⟨t, w⟩ := q
   refine ⟨t, w 0, ?_⟩
   simp only [hPt]
@@ -533,63 +534,63 @@ theorem hPt_surj (q : hInterp.Map A) : ∃ t a, q = hPt t a := by
   exact funext fun i => by fin_cases i; rfl
 
 omit [Language.binWeights.Structure A] in
-theorem hPt_inj {t t' : HTag} {a a' : A} : hPt t a = hPt t' a' ↔ t = t' ∧ a = a' := by
+private theorem hPt_inj {t t' : HTag} {a a' : A} : hPt t a = hPt t' a' ↔ t = t' ∧ a = a' := by
   constructor
   · intro h
     rw [hPt, hPt, Prod.mk.injEq] at h
     exact ⟨h.1, congrFun h.2 0⟩
   · rintro ⟨rfl, rfl⟩; rfl
 
-@[simp] theorem bwItem_orig (a : A) : BWItem (hPt .orig a) ↔ BWItem a := by
+@[simp] private theorem bwItem_orig (a : A) : BWItem (hPt .orig a) ↔ BWItem a := by
   rw [BWItem, hPt, FOInterpretation.relMap_map]; simp [hInterp, hItemF, BWItem]
 
-@[simp] theorem bwItem_pad (a : A) : BWItem (hPt .pad a) := by
+@[simp] private theorem bwItem_pad (a : A) : BWItem (hPt .pad a) := by
   rw [BWItem, hPt, FOInterpretation.relMap_map]; simp [hInterp, hItemF]
 
-@[simp] theorem bwPosn_orig (a : A) : BWPosn (hPt .orig a) ↔ BWPosn a := by
+@[simp] private theorem bwPosn_orig (a : A) : BWPosn (hPt .orig a) ↔ BWPosn a := by
   rw [BWPosn, hPt, FOInterpretation.relMap_map]; simp [hInterp, hPosnF, BWPosn]
 
-@[simp] theorem bwPosn_pad (a : A) : ¬BWPosn (hPt .pad a) := by
+@[simp] private theorem bwPosn_pad (a : A) : ¬BWPosn (hPt .pad a) := by
   rw [BWPosn, hPt, FOInterpretation.relMap_map]; simp [hInterp, hPosnF]
 
-@[simp] theorem bwTgt_orig (a : A) : BWTgt (hPt .orig a) ↔ BWTgt a := by
+@[simp] private theorem bwTgt_orig (a : A) : BWTgt (hPt .orig a) ↔ BWTgt a := by
   rw [BWTgt, hPt, FOInterpretation.relMap_map]; simp [hInterp, hTgtF, BWTgt]
 
-@[simp] theorem bwTgt_pad (a : A) : ¬BWTgt (hPt .pad a) := by
+@[simp] private theorem bwTgt_pad (a : A) : ¬BWTgt (hPt .pad a) := by
   rw [BWTgt, hPt, FOInterpretation.relMap_map]; simp [hInterp, hTgtF]
 
-@[simp] theorem bwBit_orig_orig (a b : A) :
+@[simp] private theorem bwBit_orig_orig (a b : A) :
     BWBit (hPt .orig a) (hPt .orig b) ↔ BWBit a b := by
   rw [BWBit, hPt, hPt, FOInterpretation.relMap_map]; simp [hInterp, hBitF, BWBit]
 
-@[simp] theorem bwBit_pad_left (t : HTag) (a b : A) : ¬BWBit (hPt .pad a) (hPt t b) := by
+@[simp] private theorem bwBit_pad_left (t : HTag) (a b : A) : ¬BWBit (hPt .pad a) (hPt t b) := by
   rw [BWBit, hPt, hPt, FOInterpretation.relMap_map]; cases t <;> simp [hInterp, hBitF]
 
-@[simp] theorem bwBit_orig_pad (a b : A) : ¬BWBit (hPt .orig a) (hPt .pad b) := by
+@[simp] private theorem bwBit_orig_pad (a b : A) : ¬BWBit (hPt .orig a) (hPt .pad b) := by
   rw [BWBit, hPt, hPt, FOInterpretation.relMap_map]; simp [hInterp, hBitF]
 
 
 
-@[simp] theorem bwLe_orig_orig (a b : A) :
+@[simp] private theorem bwLe_orig_orig (a b : A) :
     BWLe (hPt .orig a) (hPt .orig b) ↔ BWLe a b := by
   rw [BWLe, hPt, hPt, FOInterpretation.relMap_map]; simp [hInterp, hLeF, BWLe]
 
-@[simp] theorem bwLe_pad_pad (a b : A) :
+@[simp] private theorem bwLe_pad_pad (a b : A) :
     BWLe (hPt .pad a) (hPt .pad b) ↔ BWLe a b := by
   rw [BWLe, hPt, hPt, FOInterpretation.relMap_map]; simp [hInterp, hLeF, BWLe]
 
-@[simp] theorem bwLe_orig_pad (a b : A) : BWLe (hPt .orig a) (hPt .pad b) := by
+@[simp] private theorem bwLe_orig_pad (a b : A) : BWLe (hPt .orig a) (hPt .pad b) := by
   rw [BWLe, hPt, hPt, FOInterpretation.relMap_map]; simp [hInterp, hLeF]
 
-@[simp] theorem bwLe_pad_orig (a b : A) : ¬BWLe (hPt .pad a) (hPt .orig b) := by
+@[simp] private theorem bwLe_pad_orig (a b : A) : ¬BWLe (hPt .pad a) (hPt .orig b) := by
   rw [BWLe, hPt, hPt, FOInterpretation.relMap_map]; simp [hInterp, hLeF]
 
 omit [Language.binWeights.Structure A] in
-theorem hPt_orig_inj : Function.Injective (hPt (A := A) .orig) :=
+private theorem hPt_orig_inj : Function.Injective (hPt (A := A) .orig) :=
   fun _ _ h => (hPt_inj.mp h).2
 
 /-- Positions live only in the original copy. -/
-theorem posn_image (bm : hInterp.Map A → Prop) :
+private theorem posn_image (bm : hInterp.Map A → Prop) :
     {q : hInterp.Map A | BWPosn q ∧ bm q}
       = hPt .orig '' {a : A | BWPosn a ∧ bm (hPt .orig a)} := by
   ext q
@@ -606,7 +607,7 @@ theorem posn_image (bm : hInterp.Map A → Prop) :
     · rintro ⟨hp, -⟩; exact absurd hp (bwPosn_pad a)
     · rintro ⟨c, -, hEq⟩; exact absurd (hPt_inj.mp hEq).1 (by simp)
 
-theorem bitRank_orig (p : A) :
+private theorem bitRank_orig (p : A) :
     bitRank (BWLe (A := hInterp.Map A)) BWPosn (hPt .orig p)
       = bitRank (BWLe (A := A)) BWPosn p := by
   unfold bitRank
@@ -631,23 +632,23 @@ theorem bitRank_orig (p : A) :
 
 /-- Any binary number read off the interpreted structure is the number read
 off the original one. -/
-theorem binNum_map (bm : hInterp.Map A → Prop) :
+private theorem binNum_map (bm : hInterp.Map A → Prop) :
     binNum (BWLe (A := hInterp.Map A)) BWPosn bm
       = binNum (BWLe (A := A)) BWPosn (fun a => bm (hPt .orig a)) := by
   unfold binNum
   rw [posn_image bm, finsum_mem_image hPt_orig_inj.injOn]
   exact finsum_mem_congr rfl fun a _ => by rw [bitRank_orig]
 
-@[simp] theorem bwWeight_orig (a : A) : BWWeight (hPt .orig a) = BWWeight a := by
+@[simp] private theorem bwWeight_orig (a : A) : BWWeight (hPt .orig a) = BWWeight a := by
   rw [BWWeight, binNum_map]
   exact binNum_congr fun p => bwBit_orig_orig a p
 
-@[simp] theorem bwWeight_pad (a : A) : BWWeight (hPt (A := A) .pad a) = 0 := by
+@[simp] private theorem bwWeight_pad (a : A) : BWWeight (hPt (A := A) .pad a) = 0 := by
   rw [BWWeight, binNum_map]
   rw [binNum_congr (b' := fun _ => False) fun p =>
     ⟨fun h => absurd h (bwBit_pad_left .orig a p), False.elim⟩, binNum_bot]
 
-@[simp] theorem bwTarget_map : BWTarget (hInterp.Map A) = BWTarget A := by
+@[simp] private theorem bwTarget_map : BWTarget (hInterp.Map A) = BWTarget A := by
   rw [BWTarget, BWTarget, binNum_map]
   exact binNum_congr fun p => bwTgt_orig p
 
@@ -655,7 +656,7 @@ theorem binNum_map (bm : hInterp.Map A → Prop) :
 
 /-- The padded order is the lexicographic order: linear exactly when the
 original one is. -/
-theorem isLinOrd_map_iff :
+private theorem isLinOrd_map_iff :
     IsLinOrd (BWLe (A := hInterp.Map A)) ↔ IsLinOrd (BWLe (A := A)) := by
   constructor
   · rintro ⟨hrefl, htrans, hanti, htot⟩
@@ -687,7 +688,7 @@ theorem isLinOrd_map_iff :
 
 /-- Padded items weigh nothing, so a selection's total weight is that of its
 original part. -/
-theorem weights_split [Finite A] (S' : hInterp.Map A → Prop) :
+private theorem weights_split [Finite A] (S' : hInterp.Map A → Prop) :
     (∑ᶠ q ∈ {q : hInterp.Map A | S' q}, BWWeight q)
       = ∑ᶠ a ∈ {a : A | S' (hPt .orig a)}, BWWeight a := by
   classical
@@ -762,7 +763,7 @@ def knapsack_fo_reduction_havingSumNonzero : Knapsack ≤ᶠᵒ HavingSumNonzero
   toInterpretation := hInterp
   correct A _ _ := hasSubsetSum_iff_map A
 
-theorem havingSumNonzero_NP_hard : NP.Hard HavingSumNonzero :=
+private theorem havingSumNonzero_NP_hard : NP.Hard HavingSumNonzero :=
   NP.hard_of_foReduction knapsack_fo_reduction_havingSumNonzero knapsack_NP_hard
 
 /-- **NP-completeness of non-zero `HAVING SUM` provenance**, in data
@@ -829,11 +830,11 @@ private theorem subsetSum_univ_iff (i : HavingSumInstance) :
   · rintro ⟨J, hne, hsum⟩
     exact ⟨J, Finset.subset_univ J, hne, hsum⟩
 
-theorem havingSumNonzeroHow_iff (i : HavingSumInstance) :
+private theorem havingSumNonzeroHow_iff (i : HavingSumInstance) :
     HavingSumNonzeroHow i ↔ ConcreteNonemptySubsetSum i :=
   (havingSumProv_ne_zero_iff id Function.injective_id _ _ _).trans (subsetSum_univ_iff i)
 
-theorem havingSumNonzeroBool_iff (i : HavingSumInstance) :
+private theorem havingSumNonzeroBool_iff (i : HavingSumInstance) :
     HavingSumNonzeroBool i ↔ ConcreteNonemptySubsetSum i :=
   (havingSumProvBool_ne_zero_iff id Function.injective_id _ _ _).trans (subsetSum_univ_iff i)
 
@@ -851,7 +852,7 @@ private theorem hasNonemptySubsetSum_iff_selection {A : Type} [Language.binWeigh
 `exists_selection_iff_index`: a selection of items is a set of indices, and
 conversely, with the same total and the same emptiness. This serves the
 decoding, indexing by a listing of a presented structure's items. -/
-theorem hasNonemptySubsetSum_iff_index {A : Type} [Language.binWeights.Structure A] [Finite A]
+private theorem hasNonemptySubsetSum_iff_index {A : Type} [Language.binWeights.Structure A] [Finite A]
     {n : ℕ} (f : Fin n → A) (hf : Function.Injective f)
     (hrange : ∀ a, BWItem a ↔ ∃ j, f j = a) (hlin : IsLinOrd (BWLe (A := A))) :
     HasNonemptySubsetSum A
@@ -862,7 +863,7 @@ theorem hasNonemptySubsetSum_iff_index {A : Type} [Language.binWeights.Structure
 /-- The encoding side is the concrete-instance bridge
 `BinarySubsetSum.exists_selection_iff`, for the condition “non-empty, and
 summing to the target”. -/
-theorem concreteNonemptySubsetSum_iff (i : HavingSumInstance) :
+private theorem concreteNonemptySubsetSum_iff (i : HavingSumInstance) :
     ConcreteNonemptySubsetSum i ↔ HasNonemptySubsetSum (binarySubsetSumEncoding.Univ i) := by
   rw [hasNonemptySubsetSum_iff_selection BinarySubsetSum.isLinOrd,
     BinarySubsetSum.exists_selection_iff i
@@ -904,7 +905,7 @@ section Decoding
 open DescriptiveComplexity
 
 /-- Reindexing a decoded weight list, for the non-empty variant. -/
-theorem concreteNonemptySubsetSum_map {α : Type} (l : List α) (g : α → ℕ) (t : ℕ) :
+private theorem concreteNonemptySubsetSum_map {α : Type} (l : List α) (g : α → ℕ) (t : ℕ) :
     ConcreteNonemptySubsetSum (l.map g, t)
       ↔ ∃ J : Finset (Fin l.length), J.Nonempty ∧ ∑ j ∈ J, g (l.get j) = t := by
   have h : (l.map g).length = l.length := l.length_map g
@@ -924,7 +925,7 @@ theorem concreteNonemptySubsetSum_map {α : Type} (l : List α) (g : α → ℕ)
 /-- A group with no occurrences cannot aggregate to a positive constant – what
 the decoder returns on a structure that is a no-instance for lack of a linear
 order. -/
-theorem not_concreteNonemptySubsetSum_empty : ¬ ConcreteNonemptySubsetSum ([], 1) := by
+private theorem not_concreteNonemptySubsetSum_empty : ¬ ConcreteNonemptySubsetSum ([], 1) := by
   rintro ⟨J, hne, -⟩
   obtain ⟨j, -⟩ := hne
   exact j.elim0
@@ -962,7 +963,7 @@ def havingSumNonzeroDecoding : Decoding Language.binWeights
 binary-weighted structure is decided by `HavingSumNonzero` exactly as some
 concrete group is by the non-empty subset-sum condition – equivalently, by the
 two bridges, as some concrete group's provenance is non-`𝟘`. -/
-theorem exists_concreteNonemptySubsetSum_iff (A : Type) [Language.binWeights.Structure A]
+private theorem exists_concreteNonemptySubsetSum_iff (A : Type) [Language.binWeights.Structure A]
     [Finite A] [Nonempty A] : ∃ i, ConcreteNonemptySubsetSum i ↔ HavingSumNonzero A :=
   havingSumNonzeroDecoding.exists_conc_iff A (by simp)
 

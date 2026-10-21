@@ -130,7 +130,7 @@ example : φexactlyTwo.aggOnly = true := rfl
 
 /- Plain semantics: a `HAVING` selection filters, so Paris (3 persons) is
 gone. -/
-theorem having_plain :
+private theorem having_plain :
     ((AggQueryIn.Sel φexactlyTwo qgCount).evaluatePlain d).map
         (fun u => (u 0, u 1))
       = ((([("New York", "2"), ("Berlin", "2")] : List (String × String)))
@@ -141,7 +141,7 @@ theorem having_plain :
 count, and the row *survives* with annotation `𝟘` – exactly as ProvSQL
 emits it, since in other possible worlds Paris may well have two
 persons. -/
-theorem having_annotated :
+private theorem having_annotated :
     (((AggQueryIn.Sel φexactlyTwo qgCount).evaluateAnnotated d_count
         : AnnotatedRelation String ℕ 2)).map
         (fun p => ((p.fst 0, p.fst 1), p.snd))
@@ -162,21 +162,21 @@ def qgBigCities : AggQuery String 1 (ColKind.allReg 1) :=
   AggQueryIn.Proj cityCols (AggQueryIn.Sel φatLeastThree qgCount)
 def qgSmallCities := AggQueryIn.Diff qgAllCities qgBigCities
 
-theorem allCities_annotated :
+private theorem allCities_annotated :
     ((qgAllCities.evaluateAnnotated d_count : AnnotatedRelation String ℕ 1)).map
         (fun p => (p.fst 0, p.snd))
       = ((([("Berlin", 1), ("New York", 1), ("Paris", 1)]
           : List (String × ℕ))) : Multiset _) := by
   decide
 
-theorem bigCities_annotated :
+private theorem bigCities_annotated :
     ((qgBigCities.evaluateAnnotated d_count : AnnotatedRelation String ℕ 1)).map
         (fun p => (p.fst 0, p.snd))
       = ((([("Berlin", 0), ("New York", 0), ("Paris", 1)]
           : List (String × ℕ))) : Multiset _) := by
   decide
 
-theorem smallCities_annotated :
+private theorem smallCities_annotated :
     ((qgSmallCities.evaluateAnnotated d_count
         : AnnotatedRelation String ℕ 1)).map (fun p => (p.fst 0, p.snd))
       = ((([("Berlin", 1), ("New York", 1), ("Paris", 0)]
@@ -197,7 +197,7 @@ def qgHavingRew : AggQuery (String ⊕ ℕ) 3 (ColKind.gammaRewKinds 1 1) :=
   AggQueryIn.havingPredRew ![3] ![TermIn.const "1"] ![SeqAggFunc.sum]
     φexactlyTwo qgPersonnel trivial
 
-theorem gammaRew_rewritten :
+private theorem gammaRew_rewritten :
     (qgCountRew.evaluateRew d_count.toComposite).map
         (fun u => (AggValue.collapseSum (u 0), AggValue.collapseSum (u 1),
           AggValue.collapseSum (u 2)))
@@ -209,7 +209,7 @@ theorem gammaRew_rewritten :
   decide
 
 set_option maxHeartbeats 1000000 in
-theorem havingRew_rewritten :
+private theorem havingRew_rewritten :
     (qgHavingRew.evaluateRew d_count.toComposite).map
         (fun u => (AggValue.collapseSum (u 0), AggValue.collapseSum (u 1),
           AggValue.collapseSum (u 2)))
@@ -243,7 +243,7 @@ def qgMixedRew : AggQuery (String ⊕ ℕ) 3 (ColKind.gammaRewKinds 1 1) :=
   AggQueryIn.havingPredRew ![3] ![TermIn.const "1"] ![SeqAggFunc.sum]
     φbigOrBerlin qgPersonnel trivial
 
-theorem mixed_annotated :
+private theorem mixed_annotated :
     (((AggQueryIn.Sel φbigOrBerlin qgCount).evaluateAnnotated d_count
         : AnnotatedRelation String ℕ 2)).map
         (fun p => ((p.fst 0, p.fst 1), p.snd))
@@ -252,7 +252,7 @@ theorem mixed_annotated :
   decide
 
 set_option maxHeartbeats 1000000 in
-theorem mixedRew_rewritten :
+private theorem mixedRew_rewritten :
     (qgMixedRew.evaluateRew d_count.toComposite).map
         (fun u => (AggValue.collapseSum (u 0), AggValue.collapseSum (u 1),
           AggValue.collapseSum (u 2)))
@@ -293,7 +293,7 @@ def qwCity := RA[String |
   ⊞[#3 ; ; OrderSpec.unordered ; ValueFrame.whole ;
     `("1") : SeqAggFunc.sum] rel 4 "Personnel" ]
 
-theorem window_plain :
+private theorem window_plain :
     (qwCity.evaluatePlain d).map (fun u => (u 0, u 1, u 2, u 3, u 4))
       = ((([("1", "John", "Director", "New York", "2"),
             ("2", "Paul", "Janitor", "New York", "2"),
@@ -306,7 +306,7 @@ theorem window_plain :
           : Multiset _) := by
   decide
 
-theorem window_annotated :
+private theorem window_annotated :
     ((qwCity.evaluateAnnotated d_count : AnnotatedRelation String ℕ 5)).map
         (fun p => ((p.fst 0, p.fst 1, p.fst 2, p.fst 3, p.fst 4), p.snd))
       = ((([(("1", "John", "Director", "New York", "2"), 1),
@@ -330,7 +330,7 @@ def qwRunning := RA[String |
   ⊞[#3 ; #0 ; OrderSpec.asc 1 ; ValueFrame.rangeBefore (OrderSpec.asc 1) ;
     `("1") : SeqAggFunc.sum] rel 4 "Personnel" ]
 
-theorem running_plain :
+private theorem running_plain :
     (qwRunning.evaluatePlain d).map (fun u => (u 0, u 1, u 2, u 3, u 4))
       = ((([("1", "John", "Director", "New York", "0"),
             ("2", "Paul", "Janitor", "New York", "1"),
@@ -360,7 +360,7 @@ def qwRunningNull := RA[WithNull String |
   ⊞[#3 ; #0 ; OrderSpec.asc 1 ; ValueFrame.rangeBefore (OrderSpec.asc 1) ;
     `(WithNull.val "1") : SeqAggFunc.sum.sqlOf] rel 4 "Personnel" ]
 
-theorem runningNull_plain :
+private theorem runningNull_plain :
     (qwRunningNull.evaluatePlain dNull).map
         (fun u => (u 0, u 1, u 2, u 3, u 4))
       = ((([(WithNull.val "1", WithNull.val "John", WithNull.val "Director",
@@ -420,7 +420,7 @@ def qwNullsFirst := RA[WithNull String |
   ⊞[#3 ; #0 ; ascNullsFirst ; ValueFrame.rangeBefore ascNullsFirst ;
     `(WithNull.val "1") : SeqAggFunc.sum.sqlOf] rel 4 "Personnel" ]
 
-theorem nullsLast_plain :
+private theorem nullsLast_plain :
     (qwNullsLast.evaluatePlain dOrdNull).map
         (fun u => (u 0, u 1, u 2, u 3, u 4))
       = ((([(WithNull.nil, WithNull.val "Paul", WithNull.val "Janitor",
@@ -433,7 +433,7 @@ theorem nullsLast_plain :
               × WithNull String × WithNull String))) : Multiset _) := by
   decide
 
-theorem nullsFirst_plain :
+private theorem nullsFirst_plain :
     (qwNullsFirst.evaluatePlain dOrdNull).map
         (fun u => (u 0, u 1, u 2, u 3, u 4))
       = ((([(WithNull.nil, WithNull.val "Paul", WithNull.val "Janitor",

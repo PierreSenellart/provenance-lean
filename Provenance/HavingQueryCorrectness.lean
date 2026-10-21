@@ -11,6 +11,11 @@ import Mathlib.Tactic.NormNum.Inv
 import Mathlib.Tactic.NormNum.Pow
 import Provenance.QueryAnnotatedDatabaseHom
 import Provenance.QueryRewriting
+import all Provenance.HavingSemantics
+import all Provenance.Query
+import all Provenance.QueryAnnotatedDatabaseHom
+import all Provenance.QueryRewriting
+import all Provenance.Util.KeyAccValueList
 
 /-!
 # Query-level correctness of the fused HAVING operator vs the JOIN rewriting
@@ -204,11 +209,11 @@ is the position-free form of the join-side provenance `Having.S`
 def esymm (s : Multiset K) (C : ℕ) : K :=
   ((Multiset.powersetCard C s).map Multiset.prod).sum
 
-@[simp] theorem esymm_zero (s : Multiset K) : esymm s 0 = 1 := by
+@[simp] private theorem esymm_zero (s : Multiset K) : esymm s 0 = 1 := by
   rw [esymm, Multiset.powersetCard_zero_left]
   simp
 
-theorem esymm_cons (a : K) (s : Multiset K) (C : ℕ) :
+private theorem esymm_cons (a : K) (s : Multiset K) (C : ℕ) :
     esymm (a ::ₘ s) (C + 1) = esymm s (C + 1) + a * esymm s C := by
   rw [esymm, Multiset.powersetCard_cons, Multiset.map_add, Multiset.sum_add]
   congr 1
@@ -221,7 +226,7 @@ theorem esymm_cons (a : K) (s : Multiset K) (C : ℕ) :
 /-- `Having.S` over a full position space is the elementary symmetric sum
 of the annotation multiset: the join-side provenance only depends on the
 multiset of the annotations, not on the position space carrying them. -/
-theorem S_eq_esymm {ι : Type} [DecidableEq ι] [Fintype ι] (α : ι → K) (C : ℕ) :
+private theorem S_eq_esymm {ι : Type} [DecidableEq ι] [Fintype ι] (α : ι → K) (C : ℕ) :
     S α Finset.univ C = esymm (Multiset.map α Finset.univ.val) C := by
   unfold S esymm
   rw [Finset.sum_eq_multiset_sum, Multiset.powersetCard_map, Multiset.map_map,
@@ -239,13 +244,13 @@ def chainAgg (G : Multiset (V × K)) : ℕ → Multiset (V × K)
       ((chainAgg G C ×ˢ G).filter (fun x => x.1.1 < x.2.1)).map
         (fun x => (x.2.1, x.1.2 * x.2.2))
 
-theorem chainAgg_zero : ∀ C : ℕ, chainAgg (0 : Multiset (V × K)) C = 0
+private theorem chainAgg_zero : ∀ C : ℕ, chainAgg (0 : Multiset (V × K)) C = 0
   | 0 => rfl
   | C + 1 => by
     rw [chainAgg, Multiset.product_zero, Multiset.filter_zero, Multiset.map_zero]
 
 /-- The last value of a chain is one of the input values. -/
-theorem chainAgg_fst_mem (G : Multiset (V × K)) :
+private theorem chainAgg_fst_mem (G : Multiset (V × K)) :
     ∀ (C : ℕ), ∀ x ∈ chainAgg G C, x.1 ∈ G.map Prod.fst
   | 0, x, hx => Multiset.mem_map_of_mem _ hx
   | C + 1, x, hx => by
@@ -255,7 +260,7 @@ theorem chainAgg_fst_mem (G : Multiset (V × K)) :
     exact Multiset.mem_map_of_mem _
       (Multiset.mem_product.mp (Multiset.mem_filter.mp hy).1).2
 
-theorem product_singleton_right {α β : Type} (s : Multiset α) (b : β) :
+private theorem product_singleton_right {α β : Type} (s : Multiset α) (b : β) :
     s ×ˢ ({b} : Multiset β) = s.map (fun a => (a, b)) := by
   induction s using Multiset.induction_on with
   | empty => rw [Multiset.zero_product, Multiset.map_zero]
@@ -266,7 +271,7 @@ theorem product_singleton_right {α β : Type} (s : Multiset α) (b : β) :
 /-- Appending an occurrence whose value dominates every value of `G`: the
 chains over `G + {u}` are the chains over `G` together with the chains
 ending at `u` (a `u`-free chain extended by `u`, or `u` alone). -/
-theorem chainAgg_add_of_max (G : Multiset (V × K)) (u : V × K)
+private theorem chainAgg_add_of_max (G : Multiset (V × K)) (u : V × K)
     (hmax : ∀ v ∈ G.map Prod.fst, v < u.1) :
     ∀ C : ℕ, chainAgg (G + {u}) C
       = chainAgg G C
@@ -328,7 +333,7 @@ theorem chainAgg_add_of_max (G : Multiset (V × K)) (u : V × K)
 (value, annotation) pairs with strictly increasing values, the `⊕`-sum of
 the annotations of the strictly increasing chains of length `C + 1` is
 the elementary symmetric sum of degree `C + 1` of the annotations. -/
-theorem chainAgg_sum_of_sorted :
+private theorem chainAgg_sum_of_sorted :
     ∀ (U : List (V × K)), U.Pairwise (fun p q => p.1 < q.1) → ∀ (C : ℕ),
     ((chainAgg (↑U : Multiset (V × K)) C).map Prod.snd).sum
       = esymm (↑(U.map Prod.snd) : Multiset K) (C + 1) := by
@@ -376,24 +381,24 @@ theorem chainAgg_sum_of_sorted :
         Multiset.sum_map_mul_right, ih hU₀ C', mul_comm]
 
 /-- Left coordinate of an appended tuple. -/
-theorem append_coord_left {m n : ℕ} (x : Tuple ℕ m) (y : Tuple ℕ n)
+private theorem append_coord_left {m n : ℕ} (x : Tuple ℕ m) (y : Tuple ℕ n)
     (i : ℕ) (h : i < m) (h' : i < m + n) :
     Fin.append x y ⟨i, h'⟩ = x ⟨i, h⟩ := by
   rw [show (⟨i, h'⟩ : Fin (m + n)) = Fin.castAdd n ⟨i, h⟩ from rfl, Fin.append_left]
 
 /-- Right coordinate of an appended tuple, at offset `m + i`. -/
-theorem append_coord_right {m n : ℕ} (x : Tuple ℕ m) (y : Tuple ℕ n)
+private theorem append_coord_right {m n : ℕ} (x : Tuple ℕ m) (y : Tuple ℕ n)
     (i : ℕ) (h : i < n) (h' : m + i < m + n) :
     Fin.append x y ⟨m + i, h'⟩ = y ⟨i, h⟩ := by
   rw [show (⟨m + i, h'⟩ : Fin (m + n)) = Fin.natAdd m ⟨i, h⟩ from rfl, Fin.append_right]
 
 /-- Right coordinate of an appended tuple, at offset `m`. -/
-theorem append_coord_right₀ {m n : ℕ} (x : Tuple ℕ m) (y : Tuple ℕ n)
+private theorem append_coord_right₀ {m n : ℕ} (x : Tuple ℕ m) (y : Tuple ℕ n)
     (h : 0 < n) (h' : m < m + n) :
     Fin.append x y ⟨m, h'⟩ = y ⟨0, h⟩ := by
   rw [show (⟨m, h'⟩ : Fin (m + n)) = Fin.natAdd m ⟨0, h⟩ from rfl, Fin.append_right]
 
-theorem singleton_product {α β : Type} (a : α) (t : Multiset β) :
+private theorem singleton_product {α β : Type} (a : α) (t : Multiset β) :
     ({a} : Multiset α) ×ˢ t = t.map (fun b => (a, b)) := by
   induction t using Multiset.induction_on with
   | empty => rw [Multiset.product_zero, Multiset.map_zero]
@@ -401,7 +406,7 @@ theorem singleton_product {α β : Type} (a : α) (t : Multiset β) :
     rw [← Multiset.singleton_add, Multiset.product_add, Multiset.product_singleton,
       ih, Multiset.map_add, Multiset.map_singleton]
 
-theorem product_map_map {α β γ δ : Type} (f : α → γ) (g : β → δ)
+private theorem product_map_map {α β γ δ : Type} (f : α → γ) (g : β → δ)
     (s : Multiset α) (t : Multiset β) :
     (s.map f) ×ˢ (t.map g) = (s ×ˢ t).map (Prod.map f g) := by
   induction s using Multiset.induction_on with
@@ -414,7 +419,7 @@ theorem product_map_map {α β γ δ : Type} (f : α → γ) (g : β → δ)
       singleton_product, ih, Multiset.map_add, Multiset.map_map, Multiset.map_map]
     rfl
 
-theorem filter_product {α β : Type} (p : α → Prop) [DecidablePred p]
+private theorem filter_product {α β : Type} (p : α → Prop) [DecidablePred p]
     (q : β → Prop) [DecidablePred q] (s : Multiset α) (t : Multiset β) :
     (s.filter p) ×ˢ (t.filter q)
       = (s ×ˢ t).filter (fun z => p z.1 ∧ q z.2) := by
@@ -583,13 +588,13 @@ open Having
 variable {K : Type} [CommSemiringWithMonus K] [DecidableEq K]
 
 /-- Mapping to the annotation ignores a rebuilt data part. -/
-theorem map_snd_map_pair {α β γ : Type} (f : α × β → γ) (s : Multiset (α × β)) :
+private theorem map_snd_map_pair {α β γ : Type} (f : α × β → γ) (s : Multiset (α × β)) :
     Multiset.map Prod.snd (s.map (fun p => (f p, p.snd))) = s.map Prod.snd := by
   rw [Multiset.map_map]
   rfl
 
 /-- Per-key sums over a keyed rebuild of the distinct keys. -/
-theorem perKeySum_dedup_map {α β : Type} [DecidableEq α] [AddCommMonoid β]
+private theorem perKeySum_dedup_map {α β : Type} [DecidableEq α] [AddCommMonoid β]
     (s : Multiset α) (F : α → β) (u : α) :
     (Multiset.map Prod.snd (Multiset.filter (fun p => p.fst = u)
         ((Multiset.dedup s).map (fun v => (v, F v))))).sum
@@ -607,7 +612,7 @@ theorem perKeySum_dedup_map {α β : Type} [DecidableEq α] [AddCommMonoid β]
       Multiset.map_zero, Multiset.map_zero, Multiset.sum_zero]
 
 /-- Per-key annotation sums are invariant under duplicate elimination. -/
-theorem perKeySum_groupByKey {T : Type} [ValueType T] {n : ℕ}
+private theorem perKeySum_groupByKey {T : Type} [ValueType T] {n : ℕ}
     (r : AnnotatedRelation T K n) (u : Tuple T n) :
     (Multiset.map Prod.snd (Multiset.filter (fun p => p.fst = u)
         (Multiset.ofList (groupByKey r).val))).sum
@@ -625,7 +630,7 @@ theorem perKeySum_groupByKey {T : Type} [ValueType T] {n : ℕ}
 omit [CommSemiringWithMonus K] [DecidableEq K] in
 /-- Under global row-distinctness, the group sequence is strictly
 increasing on its tuple part. -/
-theorem havingGroup_pairwise_fst_lt {T : Type} [ValueType T] [HasAltLinearOrder K]
+private theorem havingGroup_pairwise_fst_lt {T : Type} [ValueType T] [HasAltLinearOrder K]
     {m n₁ : ℕ} (is : Tuple (Fin m) n₁) (r : AnnotatedRelation T K m)
     (g : Tuple T n₁) (hnodup : (r.map Prod.fst).Nodup) :
     (havingGroup is r g).Pairwise (fun p q => p.fst < q.fst) := by
@@ -645,7 +650,7 @@ theorem havingGroup_pairwise_fst_lt {T : Type} [ValueType T] [HasAltLinearOrder 
 /-- A strict tuple inequality between arity-3 tuples with equal first
 column is a strict lexicographic inequality on the (second, third)
 column pairs. -/
-theorem tuple3_lt_pairLt {p q : Tuple ℕ 3} (h0 : p ⟨0, by omega⟩ = q ⟨0, by omega⟩)
+private theorem tuple3_lt_pairLt {p q : Tuple ℕ 3} (h0 : p ⟨0, by omega⟩ = q ⟨0, by omega⟩)
     (h : p < q) :
     toLex (p ⟨1, by omega⟩, p ⟨2, by omega⟩)
       < toLex (q ⟨1, by omega⟩, q ⟨2, by omega⟩) := by
@@ -662,7 +667,7 @@ theorem tuple3_lt_pairLt {p q : Tuple ℕ 3} (h0 : p ⟨0, by omega⟩ = q ⟨0,
 omit [CommSemiringWithMonus K] [DecidableEq K] in
 /-- The chain-algebra view of a group is the (value, identifier) image of
 the group sequence. -/
-theorem groupPairs_eq_havingGroup [HasAltLinearOrder K]
+private theorem groupPairs_eq_havingGroup [HasAltLinearOrder K]
     (r : AnnotatedRelation ℕ K 3) (g : Tuple ℕ 1) :
     groupPairs r (g 0)
       = ↑((havingGroup (fun _ : Fin 1 => (⟨0, by omega⟩ : Fin 3)) r g).map
@@ -677,7 +682,7 @@ theorem groupPairs_eq_havingGroup [HasAltLinearOrder K]
   · intro h
     exact h 0
 
-theorem piChain_source (q : Query ℕ 3) (hq : q.source) (C : ℕ) :
+private theorem piChain_source (q : Query ℕ 3) (hq : q.source) (C : ℕ) :
     ((Π (fun _ : Fin 1 => TermIn.index ⟨0, by omega⟩) (joinChain q C))).source := by
   exact joinChain_source q hq C
 
@@ -839,7 +844,7 @@ theorem Query.joinChain_count_correct [HasAltLinearOrder K]
 
 /-- One row per distinct key, at the multiset level: filtering a keyed
 rebuild of the distinct keys by a key. -/
-theorem filter_fst_dedup_map {α β : Type} [DecidableEq α]
+private theorem filter_fst_dedup_map {α β : Type} [DecidableEq α]
     (s : Multiset α) (F : α → β) (u : α) :
     Multiset.filter (fun p => p.fst = u)
         ((Multiset.dedup s).map (fun v => (v, F v)))
@@ -857,7 +862,7 @@ theorem filter_fst_dedup_map {α β : Type} [DecidableEq α]
       Multiset.map_zero]
 
 /-- Per-key sums through a key-preserving rebuild of the annotations. -/
-theorem perKeySum_map_pair {α β γ : Type} [DecidableEq α] [AddCommMonoid γ]
+private theorem perKeySum_map_pair {α β γ : Type} [DecidableEq α] [AddCommMonoid γ]
     (G : α × β → γ) (s : Multiset (α × β)) (u : α) :
     (Multiset.map Prod.snd (Multiset.filter (fun p => p.fst = u)
         (s.map (fun p => (p.fst, G p))))).sum
@@ -1123,7 +1128,7 @@ theorem Query.joinCountQuery_source (q : Query ℕ 3) (hq : q.source) :
   | .gt, C => q2_source q hq (C + 1)
 
 /-- Per-key annotation sums are additive across `Query.Sum`. -/
-theorem sum_perKeySum {T : Type} [ValueType T] {n : ℕ}
+private theorem sum_perKeySum {T : Type} [ValueType T] {n : ℕ}
     (q₁ q₂ : Query T n) (h₁ : q₁.source) (h₂ : q₂.source)
     (hs : (Query.Sum q₁ q₂).source)
     (d : AnnotatedDatabase T K) (u : Tuple T n) :

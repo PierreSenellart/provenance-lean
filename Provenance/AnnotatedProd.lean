@@ -7,6 +7,16 @@ import Provenance.AggQueryBridges
 import Provenance.AggQueryHom
 import Provenance.AggQueryProbability
 import Provenance.AnnotatedDedup
+import all Provenance.AggQuery
+import all Provenance.AggQueryProbability
+import all Provenance.AggQuerySubst
+import all Provenance.AnnotatedBasis
+import all Provenance.AnnotatedDedup
+import all Provenance.MuUnion
+import all Provenance.PlainBasis
+import all Provenance.RecursionBasisPass
+import all Provenance.SelRow
+import all Provenance.SumByMu
 
 /-!
 # The product from the apply, annotated
@@ -51,14 +61,14 @@ namespace EvalEnv.FinRel
 variable {c : ℕ} {γ : Fin c → T}
 
 omit [ValueType T] [DecidableEq K] [HasAltLinearOrder K] in
-theorem refl (E : EvalEnv T K) : E.FinRel γ E := ⟨rfl, fun _ _ => rfl⟩
+private theorem refl (E : EvalEnv T K) : E.FinRel γ E := ⟨rfl, fun _ _ => rfl⟩
 
 omit [ValueType T] [DecidableEq K] [HasAltLinearOrder K] in
-theorem symm {E E' : EvalEnv T K} (h : E.FinRel γ E') : E'.FinRel γ E :=
+private theorem symm {E E' : EvalEnv T K} (h : E.FinRel γ E') : E'.FinRel γ E :=
   ⟨h.1.symm, fun s n => (h.2 s n).symm⟩
 
 omit [ValueType T] [DecidableEq K] [HasAltLinearOrder K] in
-theorem assignHole {E E' : EvalEnv T K} (h : E.FinRel γ E') (s : String) {n : ℕ}
+private theorem assignHole {E E' : EvalEnv T K} (h : E.FinRel γ E') (s : String) {n : ℕ}
     {X X' : Multiset (GenRow T K n)} (hX : X.map GenRow.fin = X'.map GenRow.fin) :
     (E.assignHole s X).FinRel γ (E'.assignHole s X') := by
   refine ⟨h.1, fun s' m => ?_⟩
@@ -72,7 +82,7 @@ theorem assignHole {E E' : EvalEnv T K} (h : E.FinRel γ E') (s : String) {n : �
 
 omit [ValueType T] [DecidableEq K] [HasAltLinearOrder K] in
 /-- Entering an apply's right side at the same left row. -/
-theorem enter {E E' : EvalEnv T K} (h : E.FinRel γ E') {n₁ : ℕ}
+private theorem enter {E E' : EvalEnv T K} (h : E.FinRel γ E') {n₁ : ℕ}
     {x x' : Tuple (GenValue T K) n₁} (hx : x = x') (γ₁ : Fin (n₁ + c) → T) :
     (E.withCtx (Fin.append x (E.ctxAt c γ))).FinRel γ₁
       (E'.withCtx (Fin.append x' (E'.ctxAt c γ))) :=
@@ -92,13 +102,13 @@ namespace AggQueryIn.FinEq
 
 variable {c n : ℕ} {κ : Fin n → ColKind} {l l' l'' : List (String × ℕ)}
 
-theorem symm {q : AggQueryIn T c n κ l} {q' : AggQueryIn T c n κ l'}
+private theorem symm {q : AggQueryIn T c n κ l} {q' : AggQueryIn T c n κ l'}
     (h : AggQueryIn.FinEq (K := K) q q') : AggQueryIn.FinEq (K := K) q' q :=
   fun d γ E E' hE => (h d γ E' E hE.symm).symm
 
 /-- What the annotated reading reads of a row is determined by its
 finalization. -/
-theorem toAnnotated {q : AggQueryIn T c n κ l} {q' : AggQueryIn T c n κ l'}
+private theorem toAnnotated {q : AggQueryIn T c n κ l} {q' : AggQueryIn T c n κ l'}
     (h : AggQueryIn.FinEq (K := K) q q') (d : AnnotatedDatabase T K) (γ : Fin c → T)
     {E E' : EvalEnv T K} (hE : E.FinRel γ E') :
     (q.evaluate d γ E).map GenRow.toAnnotated = (q'.evaluate d γ E').map GenRow.toAnnotated :=
@@ -107,13 +117,13 @@ theorem toAnnotated {q : AggQueryIn T c n κ l} {q' : AggQueryIn T c n κ l'}
     unfold GenRow.toAnnotated
     rw [h₁, h₂]) (h d γ E E' hE)
 
-theorem evaluateAnnotated {q : AggQueryIn T c n κ l} {q' : AggQueryIn T c n κ l'}
+private theorem evaluateAnnotated {q : AggQueryIn T c n κ l} {q' : AggQueryIn T c n κ l'}
     (h : AggQueryIn.FinEq (K := K) q q') (d : AnnotatedDatabase T K) (γ : Fin c → T)
     {E E' : EvalEnv T K} (hE : E.FinRel γ E') :
     q.evaluateAnnotated d γ E = q'.evaluateAnnotated d γ E' :=
   h.toAnnotated d γ hE
 
-theorem readAnnotated (κ' : Fin n → ColKind) {q : AggQueryIn T c n κ l}
+private theorem readAnnotated (κ' : Fin n → ColKind) {q : AggQueryIn T c n κ l}
     {q' : AggQueryIn T c n κ l'}
     (h : AggQueryIn.FinEq (K := K) q q') (d : AnnotatedDatabase T K) (γ : Fin c → T)
     {E E' : EvalEnv T K} (hE : E.FinRel γ E') :
@@ -131,7 +141,7 @@ end AggQueryIn.FinEq
 omit [ValueType T] [HasAltLinearOrder K] in
 /-- A projection cashes the pending factors it does not keep, which leaves
 the finalized annotation alone. -/
-theorem GenAnn.finalize_cash' (g : GenAnn K) (N : Multiset (List K)) (hN : N ≤ g.pending) :
+private theorem GenAnn.finalize_cash' (g : GenAnn K) (N : Multiset (List K)) (hN : N ≤ g.pending) :
     (⟨g.base * ((g.pending - N).map (fun l => SemiringWithMonus.delta l.sum)).prod, N⟩
       : GenAnn K).finalize = g.finalize := by
   unfold GenAnn.finalize
@@ -139,13 +149,13 @@ theorem GenAnn.finalize_cash' (g : GenAnn K) (N : Multiset (List K)) (hN : N ≤
   rw [Multiset.map_add, Multiset.prod_add, mul_assoc]
 
 omit [ValueType T] [DecidableEq K] [HasAltLinearOrder K] in
-theorem GenAnn.finalize_mul_base (g : GenAnn K) (x : K) :
+private theorem GenAnn.finalize_mul_base (g : GenAnn K) (x : K) :
     (⟨g.base * x, g.pending⟩ : GenAnn K).finalize = g.finalize * x := by
   unfold GenAnn.finalize
   exact mul_right_comm _ _ _
 
 omit [ValueType T] [DecidableEq K] [HasAltLinearOrder K] in
-theorem GenAnn.finalize_mul' (a₁ a₂ : GenAnn K) :
+private theorem GenAnn.finalize_mul' (a₁ a₂ : GenAnn K) :
     (GenAnn.mk (a₁.base * a₂.base) (a₁.pending + a₂.pending)).finalize
       = a₁.finalize * a₂.finalize := by
   unfold GenAnn.finalize
@@ -166,7 +176,7 @@ namespace AggQueryIn.FinAt
 /-! Agreement up to finalization at two given environments: what each
 operator makes of it, operator by operator. -/
 
-theorem toAnnotated {c n : ℕ} {κ : Fin n → ColKind} {l l' : List (String × ℕ)}
+private theorem toAnnotated {c n : ℕ} {κ : Fin n → ColKind} {l l' : List (String × ℕ)}
     {q : AggQueryIn T c n κ l} {q' : AggQueryIn T c n κ l'} {d : AnnotatedDatabase T K}
     {γ : Fin c → T} {E E' : EvalEnv T K}
     (h : (q.evaluate d γ E).map GenRow.fin = (q'.evaluate d γ E').map GenRow.fin) :
@@ -176,7 +186,7 @@ theorem toAnnotated {c n : ℕ} {κ : Fin n → ColKind} {l l' : List (String ×
     unfold GenRow.toAnnotated
     rw [h₁, h₂]) h
 
-theorem readAnnotated {c n : ℕ} (κ' : Fin n → ColKind) {κ : Fin n → ColKind}
+private theorem readAnnotated {c n : ℕ} (κ' : Fin n → ColKind) {κ : Fin n → ColKind}
     {l l' : List (String × ℕ)}
     {q : AggQueryIn T c n κ l} {q' : AggQueryIn T c n κ l'} {d : AnnotatedDatabase T K}
     {γ : Fin c → T} {E E' : EvalEnv T K}
@@ -188,7 +198,7 @@ theorem readAnnotated {c n : ℕ} (κ' : Fin n → ColKind) {κ : Fin n → ColK
     unfold GenRow.readAnnotated
     rw [h₁, h₂]) h
 
-theorem proj {c n m : ℕ} {d : AnnotatedDatabase T K} {γ : Fin c → T} {E E' : EvalEnv T K}
+private theorem proj {c n m : ℕ} {d : AnnotatedDatabase T K} {γ : Fin c → T} {E E' : EvalEnv T K}
     {κ : Fin n → ColKind} {l l' : List (String × ℕ)} (ps : Tuple (ProjColIn T c κ) m)
     {q : AggQueryIn T c n κ l} {q' : AggQueryIn T c n κ l'}
     (h : (q.evaluate d γ E).map GenRow.fin = (q'.evaluate d γ E').map GenRow.fin) :
@@ -201,7 +211,7 @@ theorem proj {c n m : ℕ} {d : AnnotatedDatabase T K} {γ : Fin c → T} {E E' 
   rw [GenAnn.finalize_cash' _ _ Multiset.inter_le_left,
     GenAnn.finalize_cash' _ _ Multiset.inter_le_left, h₁, h₂]
 
-theorem sel {c n : ℕ} {d : AnnotatedDatabase T K} {γ : Fin c → T} {E E' : EvalEnv T K}
+private theorem sel {c n : ℕ} {d : AnnotatedDatabase T K} {γ : Fin c → T} {E E' : EvalEnv T K}
     {κ : Fin n → ColKind} {l l' : List (String × ℕ)} (φ : GenPredIn T c κ)
     {q : AggQueryIn T c n κ l} {q' : AggQueryIn T c n κ l'} (hφ : SelOK l φ) (hφ' : SelOK l' φ)
     (h : (q.evaluate d γ E).map GenRow.fin = (q'.evaluate d γ E').map GenRow.fin) :
@@ -236,7 +246,7 @@ theorem sel {c n : ℕ} {d : AnnotatedDatabase T K} {γ : Fin c → T} {E E' : E
       rfl
     rw [hF, hF, h]
 
-theorem prod {c n₁ n₂ : ℕ} {d : AnnotatedDatabase T K} {γ : Fin c → T} {E E' : EvalEnv T K}
+private theorem prod {c n₁ n₂ : ℕ} {d : AnnotatedDatabase T K} {γ : Fin c → T} {E E' : EvalEnv T K}
     {κ₁ : Fin n₁ → ColKind} {κ₂ : Fin n₂ → ColKind} {l₁ l₂ l₁' l₂' : List (String × ℕ)}
     {q₁ : AggQueryIn T c n₁ κ₁ l₁} {q₁' : AggQueryIn T c n₁ κ₁ l₁'} {q₂ : AggQueryIn T c n₂ κ₂ l₂}
     {q₂' : AggQueryIn T c n₂ κ₂ l₂'}
@@ -260,7 +270,7 @@ theorem prod {c n₁ n₂ : ℕ} {d : AnnotatedDatabase T K} {γ : Fin c → T} 
   simp only at h11 h12 h21 h22
   rw [h11, h12, h21, h22]
 
-theorem apply {c n₁ n₂ : ℕ} {d : AnnotatedDatabase T K} {γ : Fin c → T} {E E' : EvalEnv T K}
+private theorem apply {c n₁ n₂ : ℕ} {d : AnnotatedDatabase T K} {γ : Fin c → T} {E E' : EvalEnv T K}
     {κ₁ : Fin n₁ → ColKind} {κ₂ : Fin n₂ → ColKind} {l₁ l₁' : List (String × ℕ)}
     {q₁ : AggQueryIn T c n₁ κ₁ l₁} {q₁' : AggQueryIn T c n₁ κ₁ l₁'}
     {q₂ q₂' : AggQueryIn T (n₁ + c) n₂ κ₂}
@@ -288,7 +298,7 @@ theorem apply {c n₁ n₂ : ℕ} {d : AnnotatedDatabase T K} {γ : Fin c → T}
     simp only [Function.comp, GenRow.fin]
     rw [GenAnn.finalize_mul', GenAnn.finalize_mul', h2]
 
-theorem sum {c n : ℕ} {d : AnnotatedDatabase T K} {γ : Fin c → T} {E E' : EvalEnv T K}
+private theorem sum {c n : ℕ} {d : AnnotatedDatabase T K} {γ : Fin c → T} {E E' : EvalEnv T K}
     {κ : Fin n → ColKind} {l₁ l₂ l₁' l₂' : List (String × ℕ)} {q₁ : AggQueryIn T c n κ l₁}
     {q₁' : AggQueryIn T c n κ l₁'} {q₂ : AggQueryIn T c n κ l₂} {q₂' : AggQueryIn T c n κ l₂'}
     (h₁ : (q₁.evaluate d γ E).map GenRow.fin = (q₁'.evaluate d γ E').map GenRow.fin)
@@ -298,14 +308,14 @@ theorem sum {c n : ℕ} {d : AnnotatedDatabase T K} {γ : Fin c → T} {E E' : E
   simp only [AggQueryIn.evaluate]
   rw [Multiset.map_add, Multiset.map_add, h₁, h₂]
 
-theorem dedup {c n : ℕ} {d : AnnotatedDatabase T K} {γ : Fin c → T} {E E' : EvalEnv T K}
+private theorem dedup {c n : ℕ} {d : AnnotatedDatabase T K} {γ : Fin c → T} {E E' : EvalEnv T K}
     {q q' : AggQueryIn T c n (ColKind.allReg n)}
     (h : (q.evaluate d γ E).map GenRow.fin = (q'.evaluate d γ E').map GenRow.fin) :
     ((AggQueryIn.Dedup q).evaluate d γ E).map GenRow.fin
       = ((AggQueryIn.Dedup q').evaluate d γ E').map GenRow.fin := by
   simp only [AggQueryIn.evaluate, toAnnotated h]
 
-theorem diff {c n : ℕ} {d : AnnotatedDatabase T K} {γ : Fin c → T} {E E' : EvalEnv T K}
+private theorem diff {c n : ℕ} {d : AnnotatedDatabase T K} {γ : Fin c → T} {E E' : EvalEnv T K}
     {q₁ q₁' q₂ q₂' : AggQueryIn T c n (ColKind.allReg n)}
     (h₁ : (q₁.evaluate d γ E).map GenRow.fin = (q₁'.evaluate d γ E').map GenRow.fin)
     (h₂ : (q₂.evaluate d γ E).map GenRow.fin = (q₂'.evaluate d γ E').map GenRow.fin) :
@@ -313,7 +323,7 @@ theorem diff {c n : ℕ} {d : AnnotatedDatabase T K} {γ : Fin c → T} {E E' : 
       = ((AggQueryIn.Diff q₁' q₂').evaluate d γ E').map GenRow.fin := by
   simp only [AggQueryIn.evaluate, (toAnnotated h₁), (toAnnotated h₂)]
 
-theorem explode {c n : ℕ} {d : AnnotatedDatabase T K} {γ : Fin c → T} {E E' : EvalEnv T K}
+private theorem explode {c n : ℕ} {d : AnnotatedDatabase T K} {γ : Fin c → T} {E E' : EvalEnv T K}
     {κ : Fin n → ColKind} {l l' : List (String × ℕ)} (k : Fin n) (hk : κ k = ColKind.agg)
     {q : AggQueryIn T c n κ l} {q' : AggQueryIn T c n κ l'}
     (h : (q.evaluate d γ E).map GenRow.fin = (q'.evaluate d γ E').map GenRow.fin) :
@@ -331,7 +341,7 @@ theorem explode {c n : ℕ} {d : AnnotatedDatabase T K} {γ : Fin c → T} {E E'
     simp only [Function.comp, GenRow.fin]
     rw [GenAnn.finalize_mul_base, GenAnn.finalize_mul_base, h2]
 
-theorem retag {c n : ℕ} {d : AnnotatedDatabase T K} {γ : Fin c → T} {E E' : EvalEnv T K}
+private theorem retag {c n : ℕ} {d : AnnotatedDatabase T K} {γ : Fin c → T} {E E' : EvalEnv T K}
     {κ κ' : Fin n → ColKind} {l l' : List (String × ℕ)} (hk : ∀ k, (κ k).base = (κ' k).base)
     {q : AggQueryIn T c n κ l} {q' : AggQueryIn T c n κ l'}
     (h : (q.evaluate d γ E).map GenRow.fin = (q'.evaluate d γ E').map GenRow.fin) :
@@ -340,7 +350,7 @@ theorem retag {c n : ℕ} {d : AnnotatedDatabase T K} {γ : Fin c → T} {E E' :
   simp only [AggQueryIn.evaluate]
   exact h
 
-theorem gamma {lab : ℕ} {c m n₁ n₂ : ℕ} {rd : Fin c → Bool} {d : AnnotatedDatabase T K}
+private theorem gamma {lab : ℕ} {c m n₁ n₂ : ℕ} {rd : Fin c → Bool} {d : AnnotatedDatabase T K}
     {γ : Fin c → T}
     {E E' : EvalEnv T K}
     (is : Tuple (Fin m) n₁) (ts : Tuple (TermIn T c m) n₂) (fs : Tuple (SeqAggFunc T) n₂)
@@ -355,7 +365,7 @@ theorem gamma {lab : ℕ} {c m n₁ n₂ : ℕ} {rd : Fin c → Bool} {d : Annot
     simp only [EvalEnv.paramKey, hc]
   simp only [AggQueryIn.evaluate, hk, toAnnotated h]
 
-theorem gammaScalar {lab : ℕ} {c m n₂ : ℕ} {rd : Fin c → Bool} {d : AnnotatedDatabase T K}
+private theorem gammaScalar {lab : ℕ} {c m n₂ : ℕ} {rd : Fin c → Bool} {d : AnnotatedDatabase T K}
     {γ : Fin c → T}
     {E E' : EvalEnv T K}
     (ts : Tuple (TermIn T c m) n₂) (fs : Tuple (SeqAggFunc T) n₂) (ord : GroupOrder T m)
@@ -369,7 +379,7 @@ theorem gammaScalar {lab : ℕ} {c m n₂ : ℕ} {rd : Fin c → Bool} {d : Anno
     simp only [EvalEnv.paramKey, hc]
   simp only [AggQueryIn.evaluate, hk, toAnnotated h]
 
-theorem provSum {c m n₁ : ℕ} {d : AnnotatedDatabase T K} {γ : Fin c → T} {E E' : EvalEnv T K}
+private theorem provSum {c m n₁ : ℕ} {d : AnnotatedDatabase T K} {γ : Fin c → T} {E E' : EvalEnv T K}
     {κ : Fin m → ColKind} (is : Tuple (Fin m) n₁) (his : ∀ k, κ (is k) ≠ ColKind.agg)
     (t : TermGIn T c κ) {q q' : AggQueryIn T c m κ}
     (h : (q.evaluate d γ E).map GenRow.fin = (q'.evaluate d γ E').map GenRow.fin) :
@@ -377,7 +387,7 @@ theorem provSum {c m n₁ : ℕ} {d : AnnotatedDatabase T K} {γ : Fin c → T} 
       = ((AggQueryIn.ProvSum is his t q').evaluate d γ E').map GenRow.fin := by
   simp only [AggQueryIn.evaluate, toAnnotated h]
 
-theorem gammaTok {lab : ℕ} {c m n₁ n₂ : ℕ} {rd : Fin c → Bool} {d : AnnotatedDatabase T K}
+private theorem gammaTok {lab : ℕ} {c m n₁ n₂ : ℕ} {rd : Fin c → Bool} {d : AnnotatedDatabase T K}
     {γ : Fin c → T}
     {E E' : EvalEnv T K}
     {κ : Fin m → ColKind} (is : Tuple (Fin m) n₁) (his : ∀ k, κ (is k) ≠ ColKind.agg)
@@ -393,7 +403,7 @@ theorem gammaTok {lab : ℕ} {c m n₁ n₂ : ℕ} {rd : Fin c → Bool} {d : An
     simp only [EvalEnv.paramKey, hc]
   simp only [AggQueryIn.evaluate, hk, toAnnotated h]
 
-theorem win {lab : ℕ} {c n m p : ℕ} {rd : Fin c → Bool} {d : AnnotatedDatabase T K} {γ : Fin c → T}
+private theorem win {lab : ℕ} {c n m p : ℕ} {rd : Fin c → Bool} {d : AnnotatedDatabase T K} {γ : Fin c → T}
     {E E' : EvalEnv T K}
     {κ : Fin n → ColKind} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
     (w : ValueFrame T p) {hsql : w.IsSQL o} (t : TermIn T c n) (f : SeqAggFunc T) {q q' :
@@ -416,7 +426,7 @@ theorem win {lab : ℕ} {c n m p : ℕ} {rd : Fin c → Bool} {d : AnnotatedData
   simp only [Function.comp, GenRow.fin, ValueFrame.windowGenRow, GenRow.readAnnotated]
   rw [h1, h2]
 
-theorem winExpr {lab : ℕ} {c n m p qn : ℕ} {rd : Fin c → Bool} {d : AnnotatedDatabase T K}
+private theorem winExpr {lab : ℕ} {c n m p qn : ℕ} {rd : Fin c → Bool} {d : AnnotatedDatabase T K}
     {γ : Fin c → T}
     {E E' : EvalEnv T K}
     (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p) (ws : Fin qn → ValueFrame T p)
@@ -436,7 +446,7 @@ theorem winExpr {lab : ℕ} {c n m p qn : ℕ} {rd : Fin c → Bool} {d : Annota
   simp only [AggQueryIn.evaluate, hk]
   rw [toAnnotated h]
 
-theorem gammaNest {lab : ℕ} {c m n₁ : ℕ} {rd : Fin c → Bool} {d : AnnotatedDatabase T K}
+private theorem gammaNest {lab : ℕ} {c m n₁ : ℕ} {rd : Fin c → Bool} {d : AnnotatedDatabase T K}
     {γ : Fin c → T}
     {E E' : EvalEnv T K}
     {κ : Fin m → ColKind} (is : Tuple (Fin m) n₁) (his : ∀ k, κ (is k) ≠ ColKind.agg)
@@ -484,13 +494,13 @@ theorem proj {c n m : ℕ} {κ : Fin n → ColKind} {l l' : List (String × ℕ)
     AggQueryIn.FinEq (K := K) (AggQueryIn.Proj ps q) (AggQueryIn.Proj ps q')  :=
   fun d γ E E' hE => AggQueryIn.FinAt.proj ps (h d γ E E' hE)
 
-theorem sel {c n : ℕ} {κ : Fin n → ColKind} {l l' : List (String × ℕ)}
+private theorem sel {c n : ℕ} {κ : Fin n → ColKind} {l l' : List (String × ℕ)}
     (φ : GenPredIn T c κ) {q : AggQueryIn T c n κ l} {q' : AggQueryIn T c n κ l'}
     (hφ : SelOK l φ) (hφ' : SelOK l' φ) (h : AggQueryIn.FinEq (K := K) q q') :
     AggQueryIn.FinEq (K := K) (AggQueryIn.Sel φ q hφ) (AggQueryIn.Sel φ q' hφ')  :=
   fun d γ E E' hE => AggQueryIn.FinAt.sel φ hφ hφ' (h d γ E E' hE)
 
-theorem prod {c n₁ n₂ : ℕ} {κ₁ : Fin n₁ → ColKind} {κ₂ : Fin n₂ → ColKind}
+private theorem prod {c n₁ n₂ : ℕ} {κ₁ : Fin n₁ → ColKind} {κ₂ : Fin n₂ → ColKind}
     {l₁ l₂ l₁' l₂' : List (String × ℕ)}
     {q₁ : AggQueryIn T c n₁ κ₁ l₁} {q₁' : AggQueryIn T c n₁ κ₁ l₁'}
     {q₂ : AggQueryIn T c n₂ κ₂ l₂} {q₂' : AggQueryIn T c n₂ κ₂ l₂'}
@@ -498,7 +508,7 @@ theorem prod {c n₁ n₂ : ℕ} {κ₁ : Fin n₁ → ColKind} {κ₂ : Fin n�
     AggQueryIn.FinEq (K := K) (AggQueryIn.Prod q₁ q₂) (AggQueryIn.Prod q₁' q₂')  :=
   fun d γ E E' hE => AggQueryIn.FinAt.prod (h₁ d γ E E' hE) (h₂ d γ E E' hE)
 
-theorem apply {c n₁ n₂ : ℕ} {κ₁ : Fin n₁ → ColKind} {κ₂ : Fin n₂ → ColKind}
+private theorem apply {c n₁ n₂ : ℕ} {κ₁ : Fin n₁ → ColKind} {κ₂ : Fin n₂ → ColKind}
     {l₁ l₁' : List (String × ℕ)}
     {q₁ : AggQueryIn T c n₁ κ₁ l₁} {q₁' : AggQueryIn T c n₁ κ₁ l₁'}
     {q₂ q₂' : AggQueryIn T (n₁ + c) n₂ κ₂}
@@ -507,36 +517,36 @@ theorem apply {c n₁ n₂ : ℕ} {κ₁ : Fin n₁ → ColKind} {κ₂ : Fin n�
   fun d γ E E' hE =>
     AggQueryIn.FinAt.apply (h₁ d γ E E' hE) (fun _ _ => h₂ d _ _ _ (hE.enter rfl _))
 
-theorem sum {c n : ℕ} {κ : Fin n → ColKind} {l₁ l₂ l₁' l₂' : List (String × ℕ)}
+private theorem sum {c n : ℕ} {κ : Fin n → ColKind} {l₁ l₂ l₁' l₂' : List (String × ℕ)}
     {q₁ : AggQueryIn T c n κ l₁} {q₁' : AggQueryIn T c n κ l₁'}
     {q₂ : AggQueryIn T c n κ l₂} {q₂' : AggQueryIn T c n κ l₂'}
     (h₁ : AggQueryIn.FinEq (K := K) q₁ q₁') (h₂ : AggQueryIn.FinEq (K := K) q₂ q₂') :
     AggQueryIn.FinEq (K := K) (AggQueryIn.Sum q₁ q₂) (AggQueryIn.Sum q₁' q₂')  :=
   fun d γ E E' hE => AggQueryIn.FinAt.sum (h₁ d γ E E' hE) (h₂ d γ E E' hE)
 
-theorem dedup {c n : ℕ} {q q' : AggQueryIn T c n (ColKind.allReg n)}
+private theorem dedup {c n : ℕ} {q q' : AggQueryIn T c n (ColKind.allReg n)}
     (h : AggQueryIn.FinEq (K := K) q q') :
     AggQueryIn.FinEq (K := K) (AggQueryIn.Dedup q) (AggQueryIn.Dedup q')  :=
   fun d γ E E' hE => AggQueryIn.FinAt.dedup (h d γ E E' hE)
 
-theorem diff {c n : ℕ} {q₁ q₁' q₂ q₂' : AggQueryIn T c n (ColKind.allReg n)}
+private theorem diff {c n : ℕ} {q₁ q₁' q₂ q₂' : AggQueryIn T c n (ColKind.allReg n)}
     (h₁ : AggQueryIn.FinEq (K := K) q₁ q₁') (h₂ : AggQueryIn.FinEq (K := K) q₂ q₂') :
     AggQueryIn.FinEq (K := K) (AggQueryIn.Diff q₁ q₂) (AggQueryIn.Diff q₁' q₂')  :=
   fun d γ E E' hE => AggQueryIn.FinAt.diff (h₁ d γ E E' hE) (h₂ d γ E E' hE)
 
-theorem explode {c n : ℕ} {κ : Fin n → ColKind} {l l' : List (String × ℕ)} (k : Fin n)
+private theorem explode {c n : ℕ} {κ : Fin n → ColKind} {l l' : List (String × ℕ)} (k : Fin n)
     (hk : κ k = ColKind.agg) {q : AggQueryIn T c n κ l} {q' : AggQueryIn T c n κ l'}
     (h : AggQueryIn.FinEq (K := K) q q') :
     AggQueryIn.FinEq (K := K) (AggQueryIn.Explode k hk q) (AggQueryIn.Explode k hk q')  :=
   fun d γ E E' hE => AggQueryIn.FinAt.explode k hk (h d γ E E' hE)
 
-theorem retag {c n : ℕ} {κ κ' : Fin n → ColKind} {l l' : List (String × ℕ)}
+private theorem retag {c n : ℕ} {κ κ' : Fin n → ColKind} {l l' : List (String × ℕ)}
     (hk : ∀ k, (κ k).base = (κ' k).base) {q : AggQueryIn T c n κ l}
     {q' : AggQueryIn T c n κ l'} (h : AggQueryIn.FinEq (K := K) q q') :
     AggQueryIn.FinEq (K := K) (AggQueryIn.Retag hk q) (AggQueryIn.Retag hk q')  :=
   fun d γ E E' hE => AggQueryIn.FinAt.retag hk (h d γ E E' hE)
 
-theorem mu {c n : ℕ} {κ : Fin n → ColKind} (s : String) {q₀ q₀' : AggQueryIn T c n κ}
+private theorem mu {c n : ℕ} {κ : Fin n → ColKind} (s : String) {q₀ q₀' : AggQueryIn T c n κ}
     {q₁ q₁' : AggQueryIn T c n κ [(s, n)]}
     (h₀ : AggQueryIn.FinEq (K := K) q₀ q₀') (h₁ : AggQueryIn.FinEq (K := K) q₁ q₁') :
     AggQueryIn.FinEq (K := K) (AggQueryIn.Mu s q₀ q₁) (AggQueryIn.Mu s q₀' q₁') := by
@@ -546,7 +556,7 @@ theorem mu {c n : ℕ} {κ : Fin n → ColKind} (s : String) {q₀ q₀' : AggQu
     (rel_of_map_eq (h₀ d γ E E' hE))
     (fun k X hX => rel_of_map_eq (h₁ d γ _ _ (hE.assignHole s (map_eq_of_rel' hX)))))
 
-theorem muSet {c n : ℕ} (s : String) {q₀ q₀' : AggQueryIn T c n (ColKind.allReg n)}
+private theorem muSet {c n : ℕ} (s : String) {q₀ q₀' : AggQueryIn T c n (ColKind.allReg n)}
     {q₁ q₁' : AggQueryIn T c n (ColKind.allReg n) [(s, n)]}
     (h₀ : AggQueryIn.FinEq (K := K) q₀ q₀') (h₁ : AggQueryIn.FinEq (K := K) q₁ q₁') :
     AggQueryIn.FinEq (K := K) (AggQueryIn.MuSet s q₀ q₁) (AggQueryIn.MuSet s q₀' q₁') := by
@@ -559,7 +569,7 @@ theorem muSet {c n : ℕ} (s : String) {q₀ q₀' : AggQueryIn T c n (ColKind.a
     = ((muFix (AggQueryIn.muSetStep s q₀' q₁' d γ E')).map GenRow.ofAnnotated).map GenRow.fin
   rw [hst]
 
-theorem gamma {lab : ℕ} {c m n₁ n₂ : ℕ} {rd : Fin c → Bool} (is : Tuple (Fin m) n₁)
+private theorem gamma {lab : ℕ} {c m n₁ n₂ : ℕ} {rd : Fin c → Bool} (is : Tuple (Fin m) n₁)
     (ts : Tuple (TermIn T c m) n₂)
     (fs : Tuple (SeqAggFunc T) n₂) (keep : Fin n₂ → Option (Selection T m))
     (ord : GroupOrder T m) {q q' : AggQueryIn T c m (ColKind.allReg m)}
@@ -568,20 +578,20 @@ theorem gamma {lab : ℕ} {c m n₁ n₂ : ℕ} {rd : Fin c → Bool} (is : Tupl
       (AggQueryIn.Gamma (lab := lab) (rd := rd) is ts fs q' keep ord)  :=
   fun d γ E E' hE => AggQueryIn.FinAt.gamma is ts fs keep ord (h d γ E E' hE) hE.1
 
-theorem gammaScalar {lab : ℕ} {c m n₂ : ℕ} {rd : Fin c → Bool} (ts : Tuple (TermIn T c m) n₂)
+private theorem gammaScalar {lab : ℕ} {c m n₂ : ℕ} {rd : Fin c → Bool} (ts : Tuple (TermIn T c m) n₂)
     (fs : Tuple (SeqAggFunc T) n₂) (ord : GroupOrder T m)
     {q q' : AggQueryIn T c m (ColKind.allReg m)} (h : AggQueryIn.FinEq (K := K) q q') :
     AggQueryIn.FinEq (K := K) (AggQueryIn.GammaScalar (lab := lab) (rd := rd) ts fs q ord)
       (AggQueryIn.GammaScalar (lab := lab) (rd := rd) ts fs q' ord)  :=
   fun d γ E E' hE => AggQueryIn.FinAt.gammaScalar ts fs ord (h d γ E E' hE) hE.1
 
-theorem provSum {c m n₁ : ℕ} {κ : Fin m → ColKind} (is : Tuple (Fin m) n₁)
+private theorem provSum {c m n₁ : ℕ} {κ : Fin m → ColKind} (is : Tuple (Fin m) n₁)
     (his : ∀ k, κ (is k) ≠ ColKind.agg) (t : TermGIn T c κ) {q q' : AggQueryIn T c m κ}
     (h : AggQueryIn.FinEq (K := K) q q') :
     AggQueryIn.FinEq (K := K) (AggQueryIn.ProvSum is his t q) (AggQueryIn.ProvSum is his t q')  :=
   fun d γ E E' hE => AggQueryIn.FinAt.provSum is his t (h d γ E E' hE)
 
-theorem gammaTok {lab : ℕ} {c m n₁ n₂ : ℕ} {rd : Fin c → Bool} {κ : Fin m → ColKind}
+private theorem gammaTok {lab : ℕ} {c m n₁ n₂ : ℕ} {rd : Fin c → Bool} {κ : Fin m → ColKind}
     (is : Tuple (Fin m) n₁)
     (his : ∀ k, κ (is k) ≠ ColKind.agg) (ts : Tuple (TermIn T c m) n₂)
     (fs : Tuple (SeqAggFunc T) n₂) (a : TermGIn T c κ)
@@ -591,7 +601,7 @@ theorem gammaTok {lab : ℕ} {c m n₁ n₂ : ℕ} {rd : Fin c → Bool} {κ : F
       (AggQueryIn.GammaTok (lab := lab) (rd := rd) is his ts fs a q' keep)  :=
   fun d γ E E' hE => AggQueryIn.FinAt.gammaTok is his ts fs a keep (h d γ E E' hE) hE.1
 
-theorem win {lab : ℕ} {c n m p : ℕ} {rd : Fin c → Bool} {κ : Fin n → ColKind} (P : Tuple (Fin n) m)
+private theorem win {lab : ℕ} {c n m p : ℕ} {rd : Fin c → Bool} {κ : Fin n → ColKind} (P : Tuple (Fin n) m)
     (O : Tuple (Fin n) p)
     (o : OrderSpec p) (w : ValueFrame T p) {hsql : w.IsSQL o} (t : TermIn T c n) (f : SeqAggFunc T)
     {q q' : AggQueryIn T c n κ} (hrr : WinReadsReg κ P O t) (dist : Bool)
@@ -601,7 +611,7 @@ theorem win {lab : ℕ} {c n m p : ℕ} {rd : Fin c → Bool} {κ : Fin n → Co
       (AggQueryIn.Win (hsql := sql_frame%) (lab := lab) (rd := rd) P O o w t f q' hrr dist keep)  :=
   fun d γ E E' hE => AggQueryIn.FinAt.win P O o w t f hrr dist keep (h d γ E E' hE) hE.1
 
-theorem winExpr {lab : ℕ} {c n m p qn : ℕ} {rd : Fin c → Bool} (P : Tuple (Fin n) m)
+private theorem winExpr {lab : ℕ} {c n m p qn : ℕ} {rd : Fin c → Bool} (P : Tuple (Fin n) m)
     (O : Tuple (Fin n) p)
     (o : OrderSpec p)
     (ws : Fin qn → ValueFrame T p) {hsql : ∀ l, (ws l).IsSQL o} (ts : Fin qn → TermIn T c n) (fs :
@@ -614,7 +624,7 @@ theorem winExpr {lab : ℕ} {c n m p qn : ℕ} {rd : Fin c → Bool} (P : Tuple 
         :=
   fun d γ E E' hE => AggQueryIn.FinAt.winExpr P O o ws ts fs g keeps (h d γ E E' hE) hE.1
 
-theorem gammaNest {lab : ℕ} {c m n₁ : ℕ} {rd : Fin c → Bool} {κ : Fin m → ColKind}
+private theorem gammaNest {lab : ℕ} {c m n₁ : ℕ} {rd : Fin c → Bool} {κ : Fin m → ColKind}
     (is : Tuple (Fin m) n₁)
     (his : ∀ k, κ (is k) ≠ ColKind.agg) (p : ProjColIn T c κ) (f : Multiset T → T)
     {q q' : AggQueryIn T c m κ} (h : AggQueryIn.FinEq (K := K) q q') :
@@ -624,7 +634,7 @@ theorem gammaNest {lab : ℕ} {c m n₁ : ℕ} {rd : Fin c → Bool} {κ : Fin m
 
 /-- **Every query agrees with itself up to finalization**, in two
 environments agreeing up to finalization. -/
-theorem refl : ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)}
+private theorem refl : ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)}
     (q : AggQueryIn T c n κ l), AggQueryIn.FinEq (K := K) q q := by
   intro c n κ l q
   induction q with
@@ -659,7 +669,7 @@ theorem refl : ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ
   | Win P O o w t g q hrr dist keep ih => exact win P O o w t g hrr dist keep ih
   | WinExpr P O o ws ts fs g q keeps ih => exact winExpr P O o ws ts fs g keeps ih
 
-theorem trans {c n : ℕ} {κ : Fin n → ColKind} {l l' l'' : List (String × ℕ)}
+private theorem trans {c n : ℕ} {κ : Fin n → ColKind} {l l' l'' : List (String × ℕ)}
     {q : AggQueryIn T c n κ l} {q' : AggQueryIn T c n κ l'}
     {q'' : AggQueryIn T c n κ l''} (h : AggQueryIn.FinEq (K := K) q q')
     (h' : AggQueryIn.FinEq (K := K) q' q'') : AggQueryIn.FinEq (K := K) q q'' :=
@@ -667,7 +677,7 @@ theorem trans {c n : ℕ} {κ : Fin n → ColKind} {l l' l'' : List (String × �
 
 /-- Two queries reading alike in every environment agree up to
 finalization. -/
-theorem of_eq {c n : ℕ} {κ : Fin n → ColKind} {l l' : List (String × ℕ)}
+private theorem of_eq {c n : ℕ} {κ : Fin n → ColKind} {l l' : List (String × ℕ)}
     {q : AggQueryIn T c n κ l} {q' : AggQueryIn T c n κ l'}
     (h : ∀ d γ E, q.evaluate (K := K) d γ E = q'.evaluate d γ E) :
     AggQueryIn.FinEq (K := K) q q' :=
@@ -676,7 +686,7 @@ theorem of_eq {c n : ℕ} {κ : Fin n → ColKind} {l l' : List (String × ℕ)}
 end AggQueryIn.FinEq
 
 /-- **Settling depends on the environment only up to finalization.** -/
-theorem AggQueryIn.annSettlesAt_finRel :
+private theorem AggQueryIn.annSettlesAt_finRel :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l)
       (d : AnnotatedDatabase T K) (γ : Fin c → T) {E E' : EvalEnv T K},
       E.FinRel γ E' → q.AnnSettlesAt d γ E → q.AnnSettlesAt d γ E' := by
@@ -750,11 +760,11 @@ theorem AggQueryIn.annSettlesAt_finRel :
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 /-- The substitution an apply's right side reads its ambient context
 through is a renaming. -/
-theorem isRenaming_applyOuter (c n : ℕ) : IsRenaming (applyOuter T c n) :=
+private theorem isRenaming_applyOuter (c n : ℕ) : IsRenaming (applyOuter T c n) :=
   ⟨Fin.natAdd n, fun a b h => by simp only [Fin.lt_def, Fin.val_natAdd] at h ⊢; omega,
     fun _ => rfl⟩
 
-theorem AggQueryIn.evaluateAnnotated_substMap {c n : ℕ} {κ : Fin n → ColKind}
+private theorem AggQueryIn.evaluateAnnotated_substMap {c n : ℕ} {κ : Fin n → ColKind}
     {l : List (String × ℕ)} (q : AggQueryIn T c n κ l) {d : ℕ} (θ : Fin c → T ⊕ Fin d) (hθ :
         IsRenaming θ)
     (dB : AnnotatedDatabase T K) (γ : Fin d → T) (E : EvalEnv T K) :
@@ -763,7 +773,7 @@ theorem AggQueryIn.evaluateAnnotated_substMap {c n : ℕ} {κ : Fin n → ColKin
   unfold AggQueryIn.evaluateAnnotated
   rw [AggQueryIn.evaluate_substMap _ _ hθ]
 
-theorem AggQueryIn.muStep_substMap {c n : ℕ} {κ : Fin n → ColKind} (s : String)
+private theorem AggQueryIn.muStep_substMap {c n : ℕ} {κ : Fin n → ColKind} (s : String)
     (q₁ : AggQueryIn T c n κ [(s, n)]) {d : ℕ} (θ : Fin c → T ⊕ Fin d) (hθ : IsRenaming θ)
     (dB : AnnotatedDatabase T K) (γ : Fin d → T) (E : EvalEnv T K) :
     AggQueryIn.muStep s (q₁.substMap θ) dB γ E
@@ -771,7 +781,7 @@ theorem AggQueryIn.muStep_substMap {c n : ℕ} {κ : Fin n → ColKind} (s : Str
   funext X
   exact AggQueryIn.evaluate_substMap q₁ θ hθ dB γ _
 
-theorem AggQueryIn.muSetStep_substMap {c n : ℕ} (s : String)
+private theorem AggQueryIn.muSetStep_substMap {c n : ℕ} (s : String)
     (q₀ : AggQueryIn T c n (ColKind.allReg n))
     (q₁ : AggQueryIn T c n (ColKind.allReg n) [(s, n)]) {d : ℕ} (θ : Fin c → T ⊕ Fin d) (hθ :
         IsRenaming θ)
@@ -783,45 +793,45 @@ theorem AggQueryIn.muSetStep_substMap {c n : ℕ} (s : String)
   rw [AggQueryIn.evaluateAnnotated_substMap _ _ hθ, AggQueryIn.evaluateAnnotated_substMap _ _ hθ,
     EvalEnv.substEnv_assignHole]
 
-theorem AggQueryIn.annSettlesAt_castKind {c n : ℕ} {κ κ' : Fin n → ColKind}
+private theorem AggQueryIn.annSettlesAt_castKind {c n : ℕ} {κ κ' : Fin n → ColKind}
     {l : List (String × ℕ)} (h : κ = κ') (q : AggQueryIn T c n κ l)
     (dB : AnnotatedDatabase T K) (γ : Fin c → T) (E : EvalEnv T K) :
     (q.castKind h).AnnSettlesAt dB γ E ↔ q.AnnSettlesAt dB γ E := by
   subst h; exact Iff.rfl
 
-theorem AggQueryIn.annSettlesAt_castIdx {c n : ℕ} {κ : Fin n → ColKind}
+private theorem AggQueryIn.annSettlesAt_castIdx {c n : ℕ} {κ : Fin n → ColKind}
     {l l' : List (String × ℕ)} (h : l = l') (q : AggQueryIn T c n κ l)
     (dB : AnnotatedDatabase T K) (γ : Fin c → T) (E : EvalEnv T K) :
     (q.castIdx h).AnnSettlesAt dB γ E ↔ q.AnnSettlesAt dB γ E := by
   subst h; exact Iff.rfl
 
-theorem AggQueryIn.evaluate_castIdx {c n : ℕ} {κ : Fin n → ColKind}
+private theorem AggQueryIn.evaluate_castIdx {c n : ℕ} {κ : Fin n → ColKind}
     {l l' : List (String × ℕ)} (h : l = l') (q : AggQueryIn T c n κ l)
     (dB : AnnotatedDatabase T K) (γ : Fin c → T) (E : EvalEnv T K) :
     (q.castIdx h).evaluate dB γ E = q.evaluate dB γ E := by
   subst h; rfl
 
 omit [ValueType T] in
-theorem AggQueryIn.stripAgg_castIdx {c n : ℕ} {κ : Fin n → ColKind}
+private theorem AggQueryIn.stripAgg_castIdx {c n : ℕ} {κ : Fin n → ColKind}
     {l l' : List (String × ℕ)} (h : l = l') (q : AggQueryIn T c n κ l) :
     (q.castIdx h).stripAgg = q.stripAgg.castIdx h := by
   subst h; rfl
 
 omit [ValueType T] in
-theorem AggQueryIn.noExplode_castIdx {c n : ℕ} {κ : Fin n → ColKind}
+private theorem AggQueryIn.noExplode_castIdx {c n : ℕ} {κ : Fin n → ColKind}
     {l l' : List (String × ℕ)} (h : l = l') (q : AggQueryIn T c n κ l) :
     (q.castIdx h).noExplode ↔ q.noExplode := by
   subst h; exact Iff.rfl
 
 omit [ValueType T] in
-theorem AggQueryIn.wellKinded_castIdx {c n : ℕ} {κ : Fin n → ColKind}
+private theorem AggQueryIn.wellKinded_castIdx {c n : ℕ} {κ : Fin n → ColKind}
     {l l' : List (String × ℕ)} (h : l = l') (q : AggQueryIn T c n κ l) {ρc : Fin c → ColKind}
     {HK : HoleKinds} : (q.castIdx h).wellKinded ρc HK ↔ q.wellKinded ρc HK := by
   subst h; exact Iff.rfl
 
 /-- **A substituted query settles where the query does**, under the
 valuation and the environment the substitution induces. -/
-theorem AggQueryIn.annSettlesAt_substMap :
+private theorem AggQueryIn.annSettlesAt_substMap :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l) {d : ℕ}
       (θ : Fin c → T ⊕ Fin d) (_hθ : IsRenaming θ) (dB : AnnotatedDatabase T K) (γ : Fin d → T) (E
           : EvalEnv T K),
@@ -870,7 +880,7 @@ theorem AggQueryIn.annSettlesAt_substMap :
   | WinExpr P O o ws ts fs g q keeps ih => exact fun θ hθ dB γ E => ih θ hθ dB γ E
 
 omit [ValueType T] in
-theorem AggQueryIn.noExplode_substMap :
+private theorem AggQueryIn.noExplode_substMap :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l) {d : ℕ}
       (θ : Fin c → T ⊕ Fin d), (q.substMap θ).noExplode ↔ q.noExplode := by
   intro c n κ l q
@@ -912,7 +922,7 @@ def carryColIn {c n : ℕ} (κ : Fin n → ColKind) (k : Fin n) : ProjColIn T c 
   | ColKind.prov => .provTerm (TermGIn.provIndex k h)
 
 omit [ValueType T] in
-@[simp] theorem carryColIn_kind {c n : ℕ} (κ : Fin n → ColKind) (k : Fin n) :
+@[simp] private theorem carryColIn_kind {c n : ℕ} (κ : Fin n → ColKind) (k : Fin n) :
     (carryColIn (T := T) (c := c) κ k).kind = κ k := by
   unfold carryColIn
   split
@@ -921,18 +931,18 @@ omit [ValueType T] in
   · next h => exact h.symm
 
 omit [ValueType T] in
-@[simp] theorem carryColIn_sourceCol {c n : ℕ} (κ : Fin n → ColKind) (k : Fin n) :
+@[simp] private theorem carryColIn_sourceCol {c n : ℕ} (κ : Fin n → ColKind) (k : Fin n) :
     (carryColIn (T := T) (c := c) κ k).sourceCol = true := by
   unfold carryColIn
   split <;> rfl
 
 omit [ValueType T] in
-@[simp] theorem carryColIn_noFun {c n : ℕ} (κ : Fin n → ColKind) (k : Fin n) :
+@[simp] private theorem carryColIn_noFun {c n : ℕ} (κ : Fin n → ColKind) (k : Fin n) :
     (carryColIn (T := T) (c := c) κ k).noFun = true := by
   unfold carryColIn
   split <;> rfl
 
-theorem evalPlain_carryColIn {c n : ℕ} (κ : Fin n → ColKind) (k : Fin n) (u : Tuple T n)
+private theorem evalPlain_carryColIn {c n : ℕ} (κ : Fin n → ColKind) (k : Fin n) (u : Tuple T n)
     (γ : Fin c → T) : (carryColIn κ k).evalPlain u γ = u k := by
   unfold carryColIn
   split <;> rfl
@@ -940,7 +950,7 @@ theorem evalPlain_carryColIn {c n : ℕ} (κ : Fin n → ColKind) (k : Fin n) (u
 omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 /-- A column carried through reads the row's own value, on a row whose
 values have the kinds the column says. -/
-theorem eval_carryColIn {c n : ℕ} (κ : Fin n → ColKind) (k : Fin n)
+private theorem eval_carryColIn {c n : ℕ} (κ : Fin n → ColKind) (k : Fin n)
     (u : Tuple (GenValue T K) n) (γ : Fin c → T) (hu : GenValue.kindOf (u k) = (κ k).base) :
     (carryColIn κ k).eval u γ = u k := by
   unfold carryColIn
@@ -988,7 +998,7 @@ def prodAnn {c n₁ n₂ : ℕ} {κ₁ : Fin n₁ → ColKind} {κ₂ : Fin n₂
   else AggQueryIn.Prod q₁ q₂
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
-theorem kindOf_append {n₁ n₂ : ℕ} {κ₁ : Fin n₁ → ColKind} {κ₂ : Fin n₂ → ColKind}
+private theorem kindOf_append {n₁ n₂ : ℕ} {κ₁ : Fin n₁ → ColKind} {κ₂ : Fin n₂ → ColKind}
     {u : Tuple (GenValue T K) n₁} {v : Tuple (GenValue T K) n₂}
     (hu : ∀ k, GenValue.kindOf (u k) = (κ₁ k).base)
     (hv : ∀ k, GenValue.kindOf (v k) = (κ₂ k).base) (k : Fin (n₁ + n₂)) :
@@ -1001,7 +1011,7 @@ theorem kindOf_append {n₁ n₂ : ℕ} {κ₁ : Fin n₁ → ColKind} {κ₂ : 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 /-- The ambient context, read through the apply's outer columns, is the
 ambient context. -/
-theorem ctxAt_substEnv_applyOuter {c n₁ : ℕ} (E : EvalEnv T K) (γ : Fin c → T)
+private theorem ctxAt_substEnv_applyOuter {c n₁ : ℕ} (E : EvalEnv T K) (γ : Fin c → T)
     (x : Tuple (GenValue T K) n₁) (u : Fin n₁ → T) :
     ((E.withCtx (Fin.append x (E.ctxAt c γ))).substEnv (applyOuter T c n₁)
         (Fin.append u γ)).ctxAt c γ = E.ctxAt c γ := by
@@ -1012,7 +1022,7 @@ theorem ctxAt_substEnv_applyOuter {c n₁ : ℕ} (E : EvalEnv T K) (γ : Fin c �
 
 /-- **A factor read under an apply's outer columns** reads as under the
 ambient context. -/
-theorem AggQueryIn.evaluate_applyOuter {c n₁ n₂ : ℕ} {κ₂ : Fin n₂ → ColKind}
+private theorem AggQueryIn.evaluate_applyOuter {c n₁ n₂ : ℕ} {κ₂ : Fin n₂ → ColKind}
     {l : List (String × ℕ)} (q₂ : AggQueryIn T c n₂ κ₂ l) (dB : AnnotatedDatabase T K)
     (γ : Fin c → T) (E : EvalEnv T K) (x : Tuple (GenValue T K) n₁) (u : Fin n₁ → T) :
     (q₂.substMap (applyOuter T c n₁)).evaluate dB (Fin.append u γ)
@@ -1067,14 +1077,14 @@ theorem finEq_prodSwap {c n₁ n₂ : ℕ} {κ₁ : Fin n₁ → ColKind} {κ₂
       = (GenAnn.mk (x.snd.base * y.snd.base) (x.snd.pending + y.snd.pending)).finalize
     rw [GenAnn.finalize_mul', GenAnn.finalize_mul', mul_comm]
 
-theorem AggQueryIn.FinEq.castIdx {c n : ℕ} {κ : Fin n → ColKind} {l l' : List (String × ℕ)}
+private theorem AggQueryIn.FinEq.castIdx {c n : ℕ} {κ : Fin n → ColKind} {l l' : List (String × ℕ)}
     (h : l = l') (q : AggQueryIn T c n κ l) :
     AggQueryIn.FinEq (K := K) (q.castIdx h) q :=
   AggQueryIn.FinEq.of_eq fun dB γ E => AggQueryIn.evaluate_castIdx h q dB γ E
 
 /-- **The product as an apply agrees with the product** up to finalization,
 exactly when no swap is needed. -/
-theorem finEq_prodAnn {c n₁ n₂ : ℕ} {κ₁ : Fin n₁ → ColKind} {κ₂ : Fin n₂ → ColKind}
+private theorem finEq_prodAnn {c n₁ n₂ : ℕ} {κ₁ : Fin n₁ → ColKind} {κ₂ : Fin n₂ → ColKind}
     {l₁ l₂ : List (String × ℕ)} (q₁ : AggQueryIn T c n₁ κ₁ l₁) (q₂ : AggQueryIn T c n₂ κ₂ l₂) :
     AggQueryIn.FinEq (K := K) (prodAnn q₁ q₂) (AggQueryIn.Prod q₁ q₂) := by
   unfold prodAnn
@@ -1086,7 +1096,7 @@ theorem finEq_prodAnn {c n₁ n₂ : ℕ} {κ₁ : Fin n₁ → ColKind} {κ₂ 
       (AggQueryIn.FinEq.prod (AggQueryIn.FinEq.castIdx h₁ q₁) (AggQueryIn.FinEq.refl q₂))
   · exact AggQueryIn.FinEq.refl _
 
-theorem evaluatePlain_prodApply {c n₁ n₂ : ℕ} {κ₁ : Fin n₁ → ColKind} {κ₂ : Fin n₂ → ColKind}
+private theorem evaluatePlain_prodApply {c n₁ n₂ : ℕ} {κ₁ : Fin n₁ → ColKind} {κ₂ : Fin n₂ → ColKind}
     {l₁ : List (String × ℕ)} (q₁ : AggQueryIn T c n₁ κ₁ l₁) (q₂ : AggQueryIn T c n₂ κ₂)
     (D : Database T) (γ : Fin c → T) :
     (AggQueryIn.Apply q₁ (q₂.substMap (applyOuter T c n₁))).evaluatePlain D γ
@@ -1099,7 +1109,7 @@ theorem evaluatePlain_prodApply {c n₁ n₂ : ℕ} {κ₁ : Fin n₁ → ColKin
   rw [AggQueryIn.evaluatePlain_substMap, substVal_applyOuter]
 
 /-- And so does it in the plain semantics, exactly. -/
-theorem evaluatePlain_prodAnn {c n₁ n₂ : ℕ} {κ₁ : Fin n₁ → ColKind} {κ₂ : Fin n₂ → ColKind}
+private theorem evaluatePlain_prodAnn {c n₁ n₂ : ℕ} {κ₁ : Fin n₁ → ColKind} {κ₂ : Fin n₂ → ColKind}
     {l₁ l₂ : List (String × ℕ)} (q₁ : AggQueryIn T c n₁ κ₁ l₁) (q₂ : AggQueryIn T c n₂ κ₂ l₂)
     (D : Database T) (γ : Fin c → T) :
     (prodAnn q₁ q₂).evaluatePlain D γ = (AggQueryIn.Prod q₁ q₂).evaluatePlain D γ := by
@@ -1124,7 +1134,7 @@ theorem evaluatePlain_prodAnn {c n₁ n₂ : ℕ} {κ₁ : Fin n₁ → ColKind}
   · rfl
 
 omit [ValueType T] in
-theorem stripAgg_prodAnn {c n₁ n₂ : ℕ} {κ₁ : Fin n₁ → ColKind} {κ₂ : Fin n₂ → ColKind}
+private theorem stripAgg_prodAnn {c n₁ n₂ : ℕ} {κ₁ : Fin n₁ → ColKind} {κ₂ : Fin n₂ → ColKind}
     {l₁ l₂ : List (String × ℕ)} (q₁ : AggQueryIn T c n₁ κ₁ l₁) (q₂ : AggQueryIn T c n₂ κ₂ l₂) :
     (prodAnn q₁ q₂).stripAgg = prodAnn q₁.stripAgg q₂.stripAgg := by
   unfold prodAnn
@@ -1135,7 +1145,7 @@ theorem stripAgg_prodAnn {c n₁ n₂ : ℕ} {κ₁ : Fin n₁ → ColKind} {κ�
       AggQueryIn.stripAgg, AggQueryIn.stripAgg_substMap, AggQueryIn.stripAgg_castIdx]
   · rfl
 
-theorem annSettlesAt_prodAnn {c n₁ n₂ : ℕ} {κ₁ : Fin n₁ → ColKind} {κ₂ : Fin n₂ → ColKind}
+private theorem annSettlesAt_prodAnn {c n₁ n₂ : ℕ} {κ₁ : Fin n₁ → ColKind} {κ₂ : Fin n₂ → ColKind}
     {l₁ l₂ : List (String × ℕ)} (q₁ : AggQueryIn T c n₁ κ₁ l₁) (q₂ : AggQueryIn T c n₂ κ₂ l₂)
     (dB : AnnotatedDatabase T K) (γ : Fin c → T) (E : EvalEnv T K)
     (h₁ : q₁.AnnSettlesAt dB γ E) (h₂ : q₂.AnnSettlesAt dB γ E) :
@@ -1157,7 +1167,7 @@ theorem annSettlesAt_prodAnn {c n₁ n₂ : ℕ} {κ₁ : Fin n₁ → ColKind} 
   · exact ⟨h₁, h₂⟩
 
 omit [ValueType T] in
-theorem usesOnly_prodAnn {S : Set OpKind} (hap : OpKind.apply ∈ S) (hpr : OpKind.proj ∈ S)
+private theorem usesOnly_prodAnn {S : Set OpKind} (hap : OpKind.apply ∈ S) (hpr : OpKind.proj ∈ S)
     {c n₁ n₂ : ℕ} {κ₁ : Fin n₁ → ColKind} {κ₂ : Fin n₂ → ColKind}
     {l₁ l₂ : List (String × ℕ)} (q₁ : AggQueryIn T c n₁ κ₁ l₁) (q₂ : AggQueryIn T c n₂ κ₂ l₂)
     (hlen : (l₁ ++ l₂).length ≤ 1) (h₁ : q₁.usesOnly S) (h₂ : q₂.usesOnly S) :
@@ -1176,7 +1186,7 @@ theorem usesOnly_prodAnn {S : Set OpKind} (hap : OpKind.apply ∈ S) (hpr : OpKi
     rw [List.length_append] at hlen
     omega
 
-theorem inSig_prodAnn {Θ : Set (SeqAggFunc T)} {c n₁ n₂ : ℕ} {κ₁ : Fin n₁ → ColKind}
+private theorem inSig_prodAnn {Θ : Set (SeqAggFunc T)} {c n₁ n₂ : ℕ} {κ₁ : Fin n₁ → ColKind}
     {κ₂ : Fin n₂ → ColKind} {l₁ l₂ : List (String × ℕ)} (q₁ : AggQueryIn T c n₁ κ₁ l₁)
     (q₂ : AggQueryIn T c n₂ κ₂ l₂) (h₁ : q₁.inSig Θ) (h₂ : q₂.inSig Θ) :
     (prodAnn q₁ q₂).inSig Θ := by
@@ -1190,7 +1200,7 @@ theorem inSig_prodAnn {Θ : Set (SeqAggFunc T)} {c n₁ n₂ : ℕ} {κ₁ : Fin
   · exact ⟨h₁, h₂⟩
 
 omit [ValueType T] in
-theorem overSchema_prodAnn {sch : Schema} {c n₁ n₂ : ℕ} {κ₁ : Fin n₁ → ColKind}
+private theorem overSchema_prodAnn {sch : Schema} {c n₁ n₂ : ℕ} {κ₁ : Fin n₁ → ColKind}
     {κ₂ : Fin n₂ → ColKind} {l₁ l₂ : List (String × ℕ)} (q₁ : AggQueryIn T c n₁ κ₁ l₁)
     (q₂ : AggQueryIn T c n₂ κ₂ l₂) (h₁ : q₁.overSchema sch) (h₂ : q₂.overSchema sch) :
     (prodAnn q₁ q₂).overSchema sch := by
@@ -1205,7 +1215,7 @@ theorem overSchema_prodAnn {sch : Schema} {c n₁ n₂ : ℕ} {κ₁ : Fin n₁ 
   · exact ⟨h₁, h₂⟩
 
 omit [ValueType T] in
-theorem noExplode_prodAnn {c n₁ n₂ : ℕ} {κ₁ : Fin n₁ → ColKind}
+private theorem noExplode_prodAnn {c n₁ n₂ : ℕ} {κ₁ : Fin n₁ → ColKind}
     {κ₂ : Fin n₂ → ColKind} {l₁ l₂ : List (String × ℕ)} (q₁ : AggQueryIn T c n₁ κ₁ l₁)
     (q₂ : AggQueryIn T c n₂ κ₂ l₂) (h₁ : q₁.noExplode) (h₂ : q₂.noExplode) :
     (prodAnn q₁ q₂).noExplode := by
@@ -1220,13 +1230,13 @@ theorem noExplode_prodAnn {c n₁ n₂ : ℕ} {κ₁ : Fin n₁ → ColKind}
   · exact ⟨h₁, h₂⟩
 
 omit [ValueType T] in
-theorem carryColIn_outerOk {c n : ℕ} (κ : Fin n → ColKind) (k : Fin n) (ok : Fin c → Prop) :
+private theorem carryColIn_outerOk {c n : ℕ} (κ : Fin n → ColKind) (k : Fin n) (ok : Fin c → Prop) :
     (carryColIn (T := T) (c := c) κ k).outerOk ok := by
   unfold carryColIn
   split <;> trivial
 
 omit [ValueType T] in
-theorem wellKinded_prodAnn {c n₁ n₂ : ℕ} {κ₁ : Fin n₁ → ColKind}
+private theorem wellKinded_prodAnn {c n₁ n₂ : ℕ} {κ₁ : Fin n₁ → ColKind}
     {κ₂ : Fin n₂ → ColKind} {l₁ l₂ : List (String × ℕ)} (q₁ : AggQueryIn T c n₁ κ₁ l₁)
     (q₂ : AggQueryIn T c n₂ κ₂ l₂) {ρc : Fin c → ColKind} {HK : HoleKinds}
     (h₁ : q₁.wellKinded ρc HK) (h₂ : q₂.wellKinded ρc HK) :
@@ -1281,7 +1291,7 @@ def prodFree : {c n : ℕ} → {κ : Fin n → ColKind} → {l : List (String ×
       .WinExpr (hsql := sql_frame%) (lab := lab) (rd := rd) P O o ws ts fs g (prodFree q) keeps
 
 /-- **The pass agrees with the query up to finalization.** -/
-theorem finEq_prodFree :
+private theorem finEq_prodFree :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l),
       AggQueryIn.FinEq (K := K) (prodFree q) q := by
   intro c n κ l q
@@ -1313,7 +1323,7 @@ theorem finEq_prodFree :
     exact AggQueryIn.FinEq.winExpr P O o ws ts fs g keeps ih
 
 /-- **And reads exactly as the query in the plain semantics.** -/
-theorem evaluatePlain_prodFree :
+private theorem evaluatePlain_prodFree :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l)
       (D : Database T) (γ : Fin c → T),
       (prodFree q).evaluatePlain D γ = q.evaluatePlain D γ := by
@@ -1352,7 +1362,7 @@ theorem evaluatePlain_prodFree :
 
 omit [ValueType T] in
 /-- Stripping and the pass commute. -/
-theorem stripAgg_prodFree :
+private theorem stripAgg_prodFree :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l),
       (prodFree q).stripAgg = prodFree q.stripAgg := by
   intro c n κ l q
@@ -1386,7 +1396,7 @@ theorem stripAgg_prodFree :
 
 /-- **The pass settles wherever the query does**, in any environment
 agreeing up to finalization. -/
-theorem annSettlesAt_prodFree :
+private theorem annSettlesAt_prodFree :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l)
       (d : AnnotatedDatabase T K) (γ : Fin c → T) (E E' : EvalEnv T K), E.FinRel γ E' →
       q.AnnSettlesAt d γ E → (prodFree q).AnnSettlesAt d γ E' := by
@@ -1468,7 +1478,7 @@ theorem annSettlesAt_prodFree :
 
 omit [ValueType T] in
 /-- A class of the source other than `×` is a class of the target. -/
-theorem mem_diff_prod {S : Set OpKind} {op : OpKind} (h : op ∈ S) (hne : op ≠ OpKind.prod) :
+private theorem mem_diff_prod {S : Set OpKind} {op : OpKind} (h : op ∈ S) (hne : op ≠ OpKind.prod) :
     op ∈ S \ {OpKind.prod} :=
   ⟨h, fun h' => hne (Set.mem_singleton_iff.mp h')⟩
 
@@ -1479,7 +1489,7 @@ private theorem length_le_one_of_append {l₁ l₂ : List (String × ℕ)}
   omega
 
 omit [ValueType T] in
-theorem usesOnly_prodFree {S : Set OpKind} (hap : OpKind.apply ∈ S) (hpr : OpKind.proj ∈ S) :
+private theorem usesOnly_prodFree {S : Set OpKind} (hap : OpKind.apply ∈ S) (hpr : OpKind.proj ∈ S) :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l),
       l.length ≤ 1 → q.usesOnly S → (prodFree q).usesOnly (S \ {OpKind.prod}) := by
   intro c n κ l q
@@ -1524,7 +1534,7 @@ theorem usesOnly_prodFree {S : Set OpKind} (hap : OpKind.apply ∈ S) (hpr : OpK
   | WinExpr P O o ws ts fs g q keeps ih =>
     exact fun _ h => ⟨mem_diff_prod h.1 (by decide), ih (by simp) h.2⟩
 
-theorem inSig_prodFree {Θ : Set (SeqAggFunc T)} :
+private theorem inSig_prodFree {Θ : Set (SeqAggFunc T)} :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l),
       q.inSig Θ → (prodFree q).inSig Θ := by
   intro c n κ l q
@@ -1554,7 +1564,7 @@ theorem inSig_prodFree {Θ : Set (SeqAggFunc T)} :
   | WinExpr P O o ws ts fs g q keeps ih => exact fun h => h.elim
 
 omit [ValueType T] in
-theorem noExplode_prodFree :
+private theorem noExplode_prodFree :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l),
       q.noExplode → (prodFree q).noExplode := by
   intro c n κ l q
@@ -1583,7 +1593,7 @@ theorem noExplode_prodFree :
   | WinExpr P O o ws ts fs g q keeps ih => exact fun h => ih h
 
 omit [ValueType T] in
-theorem noMention_prodAnn {s : String} {c n₁ n₂ : ℕ} {κ₁ : Fin n₁ → ColKind}
+private theorem noMention_prodAnn {s : String} {c n₁ n₂ : ℕ} {κ₁ : Fin n₁ → ColKind}
     {κ₂ : Fin n₂ → ColKind} {l₁ l₂ : List (String × ℕ)} (q₁ : AggQueryIn T c n₁ κ₁ l₁)
     (q₂ : AggQueryIn T c n₂ κ₂ l₂) (h₁ : q₁.noMention s) (h₂ : q₂.noMention s) :
     (prodAnn q₁ q₂).noMention s := by
@@ -1598,7 +1608,7 @@ theorem noMention_prodAnn {s : String} {c n₁ n₂ : ℕ} {κ₁ : Fin n₁ →
   · exact ⟨h₁, h₂⟩
 
 omit [ValueType T] in
-theorem noMention_prodFree {s : String} :
+private theorem noMention_prodFree {s : String} :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l),
       q.noMention s → (prodFree q).noMention s := by
   intro c n κ l q
@@ -1627,7 +1637,7 @@ theorem noMention_prodFree {s : String} :
   | WinExpr P O o ws ts fs g q keeps ih => exact fun h => ih h
 
 omit [ValueType T] in
-theorem overSchema_prodFree :
+private theorem overSchema_prodFree :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l)
       (sch : Schema), q.overSchema sch → (prodFree q).overSchema sch := by
   intro c n κ l q
@@ -1659,7 +1669,7 @@ theorem overSchema_prodFree :
 
 omit [ValueType T] in
 /-- **The pass keeps the query well-kinded.** -/
-theorem wellKinded_prodFree :
+private theorem wellKinded_prodFree :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l)
       {ρc : Fin c → ColKind} {HK : HoleKinds},
       q.wellKinded ρc HK → (prodFree q).wellKinded ρc HK := by

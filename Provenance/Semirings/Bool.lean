@@ -3,6 +3,8 @@ module
 public import Provenance.SemiringWithMonus
 public import Provenance.Semirings.BoolFunc
 import Mathlib.Tactic.Bound.Init
+import all Provenance.SemiringWithMonus
+import all Provenance.Semirings.BoolFunc
 
 /-!
 # Boolean m-semiring
@@ -61,7 +63,7 @@ instance : SemiringWithMonus Bool where
 /-- On `𝔹` the identity *is* an admissible `δ`, so it is the one used – the
 positive half of the choice recorded by the `not_isDelta_id` theorems of the
 indicator semirings. -/
-theorem Bool.isDelta_id : IsDelta (id : Bool → Bool) := isDelta_delta
+private theorem Bool.isDelta_id : IsDelta (id : Bool → Bool) := isDelta_delta
 
 instance : CommSemiringWithMonus Bool where
   mul_comm := mul_comm
@@ -75,7 +77,7 @@ theorem Bool.mul_sub_left_distributive : mul_sub_left_distributive Bool := by de
 
 /-- `𝔹` is exclusive: `a ∧ ¬a = ⊥`. Here `𝟙 ⊖ a` is a genuine complement
 of `a`, which is the stronger of the two ways a semiring can be exclusive. -/
-theorem Bool.exclusive : exclusive Bool := by decide
+private theorem Bool.exclusive : exclusive Bool := by decide
 
 /-- `Bool` has characteristic 0 in the `CharP` sense: it is idempotent and nontrivial
 (`true ≠ false`), so every positive natural-number cast equals `1 = true`. It is not
@@ -83,7 +85,7 @@ theorem Bool.exclusive : exclusive Bool := by decide
 instance Bool.instCharPZero : CharP Bool 0 := CharP.zero_of_idempotent Bool.idempotent
 
 /-- Injective m-semiring homomorphism from Bool to Bool[X] -/
-theorem Bool.homomorphism_from_BoolFunc :
+private theorem Bool.homomorphism_from_BoolFunc :
   ∃ ν: SemiringWithMonusHom Bool (BoolFunc X), Function.Injective ν := by
     use {
       toFun     := fun b => fun _ => b
@@ -125,7 +127,7 @@ injective m-semiring homomorphism), and a sub-m-semiring of an exclusive one
 is exclusive, the property being an equation. This reproves `Bool.exclusive`,
 which `decide` settles directly, and explains it: `Bool` has no more choice
 about the property than any other subalgebra of `BoolFunc` has. -/
-theorem Bool.exclusive_of_boolFunc : _root_.exclusive Bool := by
+private theorem Bool.exclusive_of_boolFunc : _root_.exclusive Bool := by
   obtain ⟨ν, hinj⟩ := Bool.homomorphism_from_BoolFunc (X := Unit)
   exact exclusive_of_injective_homomorphism_exclusive ν hinj BoolFunc.exclusive
 
@@ -133,7 +135,7 @@ end Bool
 
 /-- **`𝔹` is complemented**: `𝟙 ⊖ ·` is negation, and De Morgan turns
 `⊕` into `⊗`. -/
-theorem Bool.complemented : _root_.complemented Bool := by decide
+private theorem Bool.complemented : _root_.complemented Bool := by decide
 
 /-- **`𝔹` is multiplicatively idempotent**: `⊗` is conjunction. -/
 theorem Bool.mulIdempotent : _root_.mulIdempotent Bool := by decide

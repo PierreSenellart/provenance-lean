@@ -6,6 +6,8 @@ public import Provenance.SemiringWithMonus
 public import Provenance.Semirings.BoolFunc
 public import Mathlib.Basic.NNReal.Defs
 import Mathlib.Basic.NNReal.Basic
+import all Provenance.SemiringWithMonus
+import all Provenance.Semirings.BoolFunc
 
 @[expose] public section
 
@@ -40,7 +42,7 @@ instance : Coe Viterbi NNReal := ⟨Subtype.val⟩
 @[ext] theorem ext {a b : Viterbi} (h : (a: NNReal) = (b: NNReal)) : a = b :=
   Subtype.ext h
 
-@[simp] theorem coe_mk (p : NNReal) (hp : p ≤ 1) : ((⟨p, hp⟩ : Viterbi) : NNReal) = p := rfl
+@[simp] private theorem coe_mk (p : NNReal) (hp : p ≤ 1) : ((⟨p, hp⟩ : Viterbi) : NNReal) = p := rfl
 
 instance : Zero Viterbi := ⟨⟨0, by simp⟩⟩
 instance : One  Viterbi := ⟨⟨1, le_rfl⟩⟩
@@ -56,16 +58,16 @@ instance : Mul Viterbi :=
         exact mul_le_mul a.property b.property (by simp) (by simp)
       _ = (1 : NNReal) := by simp⟩⟩
 
-@[simp] theorem zero_def :
+@[simp] private theorem zero_def :
     ((0: Viterbi) : NNReal) = 0 := rfl
 
-@[simp] theorem one_def :
+@[simp] private theorem one_def :
     ((1: Viterbi) : NNReal) = 1 := rfl
 
-@[simp] theorem add_def (a b : Viterbi) :
+@[simp] private theorem add_def (a b : Viterbi) :
     ((a + b : Viterbi) : NNReal) = max (a : NNReal) (b : NNReal) := rfl
 
-@[simp] theorem mul_def (a b : Viterbi) :
+@[simp] private theorem mul_def (a b : Viterbi) :
     ((a * b : Viterbi) : NNReal) = (a : NNReal) * (b : NNReal) := rfl
 
 instance : CommSemiring Viterbi where
@@ -94,7 +96,7 @@ instance : CommSemiring Viterbi where
   nsmul_zero := by intro a; rfl
   nsmul_succ := by intro n a; rfl
 
-theorem viterbi_order_le : ∀ a b : Viterbi, (a : NNReal) ≤ (b : NNReal) ↔ a + b = b := by
+private theorem viterbi_order_le : ∀ a b : Viterbi, (a : NNReal) ≤ (b : NNReal) ↔ a + b = b := by
   intro a b
   constructor
   · intro hab
@@ -114,7 +116,7 @@ instance : PartialOrder Viterbi where
     apply Subtype.ext
     exact le_antisymm hab hba
 
-@[simp] theorem le_def (a b : Viterbi) :
+@[simp] private theorem le_def (a b : Viterbi) :
     a ≤ b ↔ (a: NNReal) ≤ (b: NNReal) := Iff.rfl
 
 noncomputable instance : Sub Viterbi :=
@@ -188,7 +190,7 @@ instance : CommSemiringWithMonus Viterbi where
   mul_comm := mul_comm
 
 /-- Viterbi multiplication is not idempotent: `(1/2) * (1/2) = 1/4 ≠ 1/2`. -/
-theorem not_mul_idempotent : ¬ ∀ a : Viterbi, a * a = a := by
+private theorem not_mul_idempotent : ¬ ∀ a : Viterbi, a * a = a := by
   push Not
   have hle : ((1 : NNReal) / 2) ≤ 1 := by
     rw [div_le_iff₀ (by norm_num : (0 : NNReal) < 2)]; norm_num
@@ -203,7 +205,7 @@ theorem not_mul_idempotent : ¬ ∀ a : Viterbi, a * a = a := by
 is absorptive (`Viterbi.absorptive`): what `delta_absorb` asks of `δ := id` is the
 lattice law `a ⊗ (a ⊕ b) = a`, which at `a = b = 1/2` reads `1/2 ⊗ 1/2 = 1/4 ≠ 1/2`.
 This is why the instance takes the support indicator (ProvSQL's `Viterbi::delta`). -/
-theorem not_isDelta_id : ¬ IsDelta (id : Viterbi → Viterbi) :=
+private theorem not_isDelta_id : ¬ IsDelta (id : Viterbi → Viterbi) :=
   not_isDelta_id_of_not_mul_idempotent Viterbi.idempotent Viterbi.not_mul_idempotent
 
 /-- There is no semiring homomorphism from `BoolFunc Y` to `Viterbi` sending the
@@ -221,7 +223,7 @@ strictly between `0` and `1`; concretely `½ ⊗ (𝟙 ⊖ ½) = ½ ⊗ 𝟙 = �
 `𝟙 ⊖ ½ = 𝟙` on a chain. As Viterbi is also left-distributive
 (`Viterbi.mul_sub_left_distributive`), exclusivity follows from neither
 absorptivity nor distributivity. -/
-theorem not_exclusive : ¬ exclusive Viterbi :=
+private theorem not_exclusive : ¬ exclusive Viterbi :=
   not_exclusive_of_absorptive_of_total absorptive
     (fun a b => le_total (a : NNReal) (b : NNReal))
     (a := ⟨1/2, by norm_num⟩)
@@ -245,7 +247,7 @@ theorem mul_sub_left_distributive : mul_sub_left_distributive Viterbi := by
 /-- **Viterbi is complemented.** `𝟙 ⊖ a` is `𝟘` when `a` is `𝟙` and `𝟙`
 otherwise, `𝟙` being the top of the order, and `⊕` is `max`, so both
 sides are `𝟘` exactly when one of the two summands is `𝟙`. -/
-theorem complemented : _root_.complemented Viterbi := by
+private theorem complemented : _root_.complemented Viterbi := by
   intro a b
   have hsub : ∀ x : Viterbi, (1 : Viterbi) - x
       = if (1 : NNReal) ≤ (x : NNReal) then 0 else 1 := by

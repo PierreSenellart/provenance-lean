@@ -6,6 +6,14 @@ import Mathlib.Algebra.Order.Sub.Basic
 import Mathlib.Data.Sym.Basic
 import Mathlib.Tactic.NormNum.Inv
 import Mathlib.Tactic.NormNum.Pow
+import all Provenance.Frame
+import all Provenance.OrderSpec
+import all Provenance.SymCells
+import all Provenance.SymCode
+import all Provenance.SymGamma
+import all Provenance.SymOps
+import all Provenance.SymRel
+import all Provenance.SymTerms
 
 /-!
 # The order of cells, and the symbolic window
@@ -25,7 +33,7 @@ variable {T : Type} [ValueType T]
 omit [ValueType T] in
 /-- **The indices before `j`**: `finRange` split at `j`, every index of the
 first part below it. -/
-theorem List.finRange_split {k : ℕ} (j : Fin k) :
+private theorem List.finRange_split {k : ℕ} (j : Fin k) :
     ∃ s t : List (Fin k), List.finRange k = s ++ j :: t ∧ ∀ x ∈ s, LT.lt x j := by
   obtain ⟨s, t, h⟩ := List.append_of_mem (List.mem_finRange j)
   refine ⟨s, t, h, fun x hx => ?_⟩
@@ -48,7 +56,7 @@ namespace OrderSpec
 variable {p : ℕ}
 
 /-- **Peers all along, the comparison holds.** -/
-theorem leOn_of_peers (o : OrderSpec p) (x y : Tuple T p) :
+private theorem leOn_of_peers (o : OrderSpec p) (x y : Tuple T p) :
     ∀ (l : List (Fin p)), (∀ j ∈ l, (o j).peer (x j) (y j) = true) → o.leOn l x y = true
   | [], _ => rfl
   | j :: l, h => by
@@ -57,7 +65,7 @@ theorem leOn_of_peers (o : OrderSpec p) (x y : Tuple T p) :
     exact leOn_of_peers o x y l (fun i hi => h i (List.mem_cons_of_mem _ hi))
 
 /-- **The first column whose values are not peers decides.** -/
-theorem leOn_of_first (o : OrderSpec p) (x y : Tuple T p) (j₀ : Fin p) (l₂ : List (Fin p)) :
+private theorem leOn_of_first (o : OrderSpec p) (x y : Tuple T p) (j₀ : Fin p) (l₂ : List (Fin p)) :
     ∀ (l₁ : List (Fin p)), (∀ j ∈ l₁, (o j).peer (x j) (y j) = true) →
       (o j₀).peer (x j₀) (y j₀) = false →
       o.leOn (l₁ ++ j₀ :: l₂) x y = (o j₀).le (x j₀) (y j₀)
@@ -70,7 +78,7 @@ theorem leOn_of_first (o : OrderSpec p) (x y : Tuple T p) (j₀ : Fin p) (l₂ :
     exact leOn_of_first o x y j₀ l₂ l₁ (fun i hi => h i (List.mem_cons_of_mem _ hi)) h₀
 
 /-- **The first column whose values are not peers decides the clause.** -/
-theorem le_of_first_idx (o : OrderSpec p) (x y : Tuple T p) (j₀ : Fin p)
+private theorem le_of_first_idx (o : OrderSpec p) (x y : Tuple T p) (j₀ : Fin p)
     (hb : ∀ j : Fin p, LT.lt j j₀ → (o j).peer (x j) (y j) = true)
     (h₀ : (o j₀).peer (x j₀) (y j₀) = false) : o.le x y = (o j₀).le (x j₀) (y j₀) := by
   obtain ⟨s, t, hst, hs⟩ := List.finRange_split j₀
@@ -79,7 +87,7 @@ theorem le_of_first_idx (o : OrderSpec p) (x y : Tuple T p) (j₀ : Fin p)
   exact leOn_of_first o x y j₀ t s (fun j hj => hb j (hs j hj)) h₀
 
 /-- Peers in every column, the clause holds. -/
-theorem le_of_all_peers (o : OrderSpec p) (x y : Tuple T p)
+private theorem le_of_all_peers (o : OrderSpec p) (x y : Tuple T p)
     (h : ∀ j : Fin p, (o j).peer (x j) (y j) = true) : o.le x y = true :=
   leOn_of_peers o x y _ (fun j _ => h j)
 
@@ -87,7 +95,7 @@ end OrderSpec
 
 omit [ValueType T] in
 /-- The indices of `a + b` columns: the first `a`, then the last `b`. -/
-theorem List.finRange_add_eq (a b : ℕ) :
+private theorem List.finRange_add_eq (a b : ℕ) :
     List.finRange (a + b) = (List.finRange a).map (Fin.castAdd b)
       ++ (List.finRange b).map (Fin.natAdd a) := by
   apply List.ext_getElem
@@ -113,13 +121,13 @@ def keyIdx (k : ℕ) : Fin (3 + k) → Fin (7 + k) :=
 
 /-! ## Order columns on non-null values -/
 
-theorem OrderCol.le_of_nonNull (cl : OrderCol) {a b : T} (ha : ValueType.isNull a = false)
+private theorem OrderCol.le_of_nonNull (cl : OrderCol) {a b : T} (ha : ValueType.isNull a = false)
     (hb : ValueType.isNull b = false) :
     cl.le a b = if cl.desc then decide (LE.le b a) else decide (LE.le a b) := by
   simp [OrderCol.le, ha, hb]
 
 /-- **Two pairs of non-null values ordered alike compare alike.** -/
-theorem OrderCol.le_congr_of_order (cl : OrderCol) {a b a' b' : T}
+private theorem OrderCol.le_congr_of_order (cl : OrderCol) {a b a' b' : T}
     (ha : ValueType.isNull a = false) (hb : ValueType.isNull b = false)
     (ha' : ValueType.isNull a' = false) (hb' : ValueType.isNull b' = false)
     (hlt : LT.lt a b ↔ LT.lt a' b') (heq : a = b ↔ a' = b') : cl.le a b = cl.le a' b' := by
@@ -133,7 +141,7 @@ theorem OrderCol.le_congr_of_order (cl : OrderCol) {a b a' b' : T}
   · exact decide_eq_decide.mpr hle
 
 /-- Two non-null values are peers exactly when equal. -/
-theorem OrderCol.peer_iff_of_nonNull (cl : OrderCol) {a b : T} (ha : ValueType.isNull a = false)
+private theorem OrderCol.peer_iff_of_nonNull (cl : OrderCol) {a b : T} (ha : ValueType.isNull a = false)
     (hb : ValueType.isNull b = false) : cl.peer a b = true ↔ a = b := by
   unfold OrderCol.peer
   rw [Bool.and_eq_true, OrderCol.le_of_nonNull cl ha hb, OrderCol.le_of_nonNull cl hb ha]
@@ -152,7 +160,7 @@ abbrev q1 (k : ℕ) : Fin (3 + k) := Fin.castAdd k 1
 /-- The key column placing a code second. -/
 abbrev q2 (k : ℕ) : Fin (3 + k) := Fin.castAdd k 2
 
-theorem finRange_key :
+private theorem finRange_key :
     List.finRange (3 + k) = [q0 k, q1 k, q2 k] ++ (List.finRange k).map (Fin.natAdd 3) := by
   rw [List.finRange_add_eq]
   rfl
@@ -161,19 +169,19 @@ section Keys
 
 variable (C : Finset T)
 
-theorem keyOf_conc_0 (a : T) : keyOf (enc C k (.conc a)) (q0 k) = a := rfl
-theorem keyOf_conc_1 (a : T) : keyOf (enc C k (.conc a)) (q1 k) = sLo := rfl
-theorem keyOf_conc_2 (a : T) : keyOf (enc C k (.conc a)) (q2 k) = sHi := rfl
-theorem keyOf_conc_R (a : T) (j : Fin k) :
+private theorem keyOf_conc_0 (a : T) : keyOf (enc C k (.conc a)) (q0 k) = a := rfl
+private theorem keyOf_conc_1 (a : T) : keyOf (enc C k (.conc a)) (q1 k) = sLo := rfl
+private theorem keyOf_conc_2 (a : T) : keyOf (enc C k (.conc a)) (q2 k) = sHi := rfl
+private theorem keyOf_conc_R (a : T) (j : Fin k) :
     keyOf (enc C k (.conc a)) (Fin.natAdd 3 j) = 0 := by
   simp [keyOf, keyIdx, Fin.append_right, enc]
-theorem keyOf_fresh_0 (l : WithBot T) (r : ℕ) :
+private theorem keyOf_fresh_0 (l : WithBot T) (r : ℕ) :
     keyOf (enc C k (.fresh l r)) (q0 k) = lval C l := rfl
-theorem keyOf_fresh_1 (l : WithBot T) (r : ℕ) :
+private theorem keyOf_fresh_1 (l : WithBot T) (r : ℕ) :
     keyOf (enc C k (.fresh l r)) (q1 k) = posA (.fresh l r) := rfl
-theorem keyOf_fresh_2 (l : WithBot T) (r : ℕ) :
+private theorem keyOf_fresh_2 (l : WithBot T) (r : ℕ) :
     keyOf (enc C k (.fresh l r)) (q2 k) = sLo := rfl
-theorem keyOf_fresh_R (l : WithBot T) (r : ℕ) (j : Fin k) :
+private theorem keyOf_fresh_R (l : WithBot T) (r : ℕ) (j : Fin k) :
     keyOf (enc C k (.fresh l r)) (Fin.natAdd 3 j) = therm k r j := by
   simp [keyOf, keyIdx, Fin.append_right, enc]
 
@@ -181,7 +189,7 @@ end Keys
 
 /-! ## The ranks, read lexicographically -/
 
-theorem leOn_map {p p' : ℕ} (o : OrderSpec p) (f : Fin p' → Fin p) (x y : Tuple T p) :
+private theorem leOn_map {p p' : ℕ} (o : OrderSpec p) (f : Fin p' → Fin p) (x y : Tuple T p) :
     ∀ l : List (Fin p'), o.leOn (l.map f) x y = OrderSpec.leOn (fun j => o (f j) : OrderSpec p') l
       (fun j => x (f j)) (fun j => y (f j))
   | List.nil => rfl
@@ -189,7 +197,7 @@ theorem leOn_map {p p' : ℕ} (o : OrderSpec p) (f : Fin p' → Fin p) (x y : Tu
     simp only [List.map_cons, OrderSpec.leOn]
     rw [leOn_map o f x y l]
 
-theorem therm_peer (cl : OrderCol) (r r' : ℕ) (j : Fin k) :
+private theorem therm_peer (cl : OrderCol) (r r' : ℕ) (j : Fin k) :
     cl.peer (therm (T := T) k r j) (therm (T := T) k r' j) = true
       ↔ therm (T := T) k r j = therm (T := T) k r' j := by
   have hn : ∀ r j, ValueType.isNull (therm (T := T) k r j) = false := fun r j => by
@@ -199,7 +207,7 @@ theorem therm_peer (cl : OrderCol) (r r' : ℕ) (j : Fin k) :
   exact OrderCol.peer_iff_of_nonNull cl (hn r j) (hn r' j)
 
 /-- **Two unary ranks compare as the ranks**, in the column's direction. -/
-theorem leOn_therm (cl : OrderCol) {r r' : ℕ} (hr : r < k) (hr' : r' < k) :
+private theorem leOn_therm (cl : OrderCol) {r r' : ℕ} (hr : r < k) (hr' : r' < k) :
     OrderSpec.leOn (fun _ => cl) (List.finRange k) (therm (T := T) k r) (therm k r')
       = if cl.desc then decide (LE.le r' r) else decide (LE.le r r') := by
   rcases lt_trichotomy r r' with h | rfl | h
@@ -232,7 +240,7 @@ theorem leOn_therm (cl : OrderCol) {r r' : ℕ} (hr : r < k) (hr' : r' < k) :
 
 /-! ## The key read lexicographically -/
 
-theorem leOn_append_of_peers {p : ℕ} (o : OrderSpec p) (x y : Tuple T p) (l₂ : List (Fin p)) :
+private theorem leOn_append_of_peers {p : ℕ} (o : OrderSpec p) (x y : Tuple T p) (l₂ : List (Fin p)) :
     ∀ l₁ : List (Fin p), (∀ j ∈ l₁, (o j).peer (x j) (y j) = true) →
       o.leOn (l₁ ++ l₂) x y = o.leOn l₂ x y
   | List.nil, _ => rfl
@@ -245,14 +253,14 @@ theorem leOn_append_of_peers {p : ℕ} (o : OrderSpec p) (x y : Tuple T p) (l₂
 abbrev leKey (cl : OrderCol) (X Y : Tuple T (3 + k)) : Bool :=
   OrderSpec.leOn (fun _ => cl) (List.finRange (3 + k)) X Y
 
-theorem leKey_0 (cl : OrderCol) (X Y : Tuple T (3 + k))
+private theorem leKey_0 (cl : OrderCol) (X Y : Tuple T (3 + k))
     (h : cl.peer (X (q0 k)) (Y (q0 k)) = false) :
     leKey cl X Y = cl.le (X (q0 k)) (Y (q0 k)) := by
   unfold leKey
   rw [finRange_key]
   exact OrderSpec.leOn_of_first _ _ _ _ _ [] (fun j hj => absurd hj List.not_mem_nil) h
 
-theorem leKey_1 (cl : OrderCol) (X Y : Tuple T (3 + k)) (h₀ : cl.peer (X (q0 k)) (Y (q0 k)) = true)
+private theorem leKey_1 (cl : OrderCol) (X Y : Tuple T (3 + k)) (h₀ : cl.peer (X (q0 k)) (Y (q0 k)) = true)
     (h : cl.peer (X (q1 k)) (Y (q1 k)) = false) :
     leKey cl X Y = cl.le (X (q1 k)) (Y (q1 k)) := by
   unfold leKey
@@ -260,7 +268,7 @@ theorem leKey_1 (cl : OrderCol) (X Y : Tuple T (3 + k)) (h₀ : cl.peer (X (q0 k
   exact OrderSpec.leOn_of_first _ _ _ _ _ [q0 k]
     (fun j hj => by rw [List.mem_singleton.mp hj]; exact h₀) h
 
-theorem leKey_2 (cl : OrderCol) (X Y : Tuple T (3 + k)) (h₀ : cl.peer (X (q0 k)) (Y (q0 k)) = true)
+private theorem leKey_2 (cl : OrderCol) (X Y : Tuple T (3 + k)) (h₀ : cl.peer (X (q0 k)) (Y (q0 k)) = true)
     (h₁ : cl.peer (X (q1 k)) (Y (q1 k)) = true) (h : cl.peer (X (q2 k)) (Y (q2 k)) = false) :
     leKey cl X Y = cl.le (X (q2 k)) (Y (q2 k)) := by
   unfold leKey
@@ -272,7 +280,7 @@ theorem leKey_2 (cl : OrderCol) (X Y : Tuple T (3 + k)) (h₀ : cl.peer (X (q0 k
       · exact h₀
       · rw [List.mem_singleton.mp hj]; exact h₁) h
 
-theorem leKey_3 (cl : OrderCol) (X Y : Tuple T (3 + k)) (h₀ : cl.peer (X (q0 k)) (Y (q0 k)) = true)
+private theorem leKey_3 (cl : OrderCol) (X Y : Tuple T (3 + k)) (h₀ : cl.peer (X (q0 k)) (Y (q0 k)) = true)
     (h₁ : cl.peer (X (q1 k)) (Y (q1 k)) = true) (h₂ : cl.peer (X (q2 k)) (Y (q2 k)) = true) :
     leKey cl X Y = OrderSpec.leOn (fun _ => cl) (List.finRange k)
       (fun j => X (Fin.natAdd 3 j)) (fun j => Y (Fin.natAdd 3 j)) := by
@@ -292,7 +300,7 @@ variable {C : Finset T}
 
 /-- **The least non-null value of the cut** is the bound of the gap below
 everything, and is below every non-null value of the cut. -/
-theorem lval_bot_le {a : T} (ha : a ∈ C) (han : ValueType.isNull a = false) :
+private theorem lval_bot_le {a : T} (ha : a ∈ C) (han : ValueType.isNull a = false) :
     lval C ⊥ ∈ C ∧ ValueType.isNull (lval C ⊥) = false
       ∧ ∀ b ∈ C, ValueType.isNull b = false → LE.le (lval C ⊥) b := by
   have hne : (C.filter (fun t : T => ValueType.isNull t = false
@@ -311,7 +319,7 @@ theorem lval_bot_le {a : T} (ha : a ∈ C) (han : ValueType.isNull a = false) :
 
 /-- A fresh value with no lower bound is below every non-null value of the
 cut. -/
-theorem lt_of_lo_bot {u : T} (hu : IsFresh C u) (hl : lo C u = ⊥) {b : T} (hb : b ∈ C)
+private theorem lt_of_lo_bot {u : T} (hu : IsFresh C u) (hl : lo C u = ⊥) {b : T} (hb : b ∈ C)
     (hbn : ValueType.isNull b = false) : LT.lt u b := by
   rcases lt_or_gt_of_ne (ne_of_fresh hu hb) with h | h
   · have := (lt_iff_le_lo hb hbn).mp h
@@ -327,13 +335,13 @@ section KeyOrder
 
 variable {C : Finset T}
 
-theorem isNull_posA (x : Code T) : ValueType.isNull (posA x) = false := by
+private theorem isNull_posA (x : Code T) : ValueType.isNull (posA x) = false := by
   cases x with
   | conc a => exact isNull_sLo
   | fresh l r => cases l <;> first | exact isNull_sLo | exact isNull_sHi
 
 /-- **Two concrete cells' keys compare as their values.** -/
-theorem leKey_conc_conc (cl : OrderCol) (a b : T) :
+private theorem leKey_conc_conc (cl : OrderCol) (a b : T) :
     leKey cl (keyOf (enc C k (.conc a))) (keyOf (enc C k (.conc b))) = cl.le a b := by
   by_cases hp : cl.peer a b = true
   · rw [leKey_3 cl _ _ hp (by rw [keyOf_conc_1, keyOf_conc_1]; exact OrderCol.peer_rfl _ _)
@@ -344,33 +352,33 @@ theorem leKey_conc_conc (cl : OrderCol) (a b : T) :
     exact ((Bool.and_eq_true _ _).mp hp).1.symm
   · exact leKey_0 cl _ _ (by rw [keyOf_conc_0, keyOf_conc_0]; simpa using hp)
 
-theorem le_null_left (cl : OrderCol) {a b b' : T} (ha : ValueType.isNull a = true)
+private theorem le_null_left (cl : OrderCol) {a b b' : T} (ha : ValueType.isNull a = true)
     (hb : ValueType.isNull b = false) (hb' : ValueType.isNull b' = false) :
     cl.le a b = cl.le a b' := by
   simp [OrderCol.le, ha, hb, hb']
 
-theorem le_null_right (cl : OrderCol) {a a' b : T} (hb : ValueType.isNull b = true)
+private theorem le_null_right (cl : OrderCol) {a a' b : T} (hb : ValueType.isNull b = true)
     (ha : ValueType.isNull a = false) (ha' : ValueType.isNull a' = false) :
     cl.le a b = cl.le a' b := by
   simp [OrderCol.le, ha, hb, ha']
 
-theorem peer_null_nonNull (cl : OrderCol) {a b : T} (ha : ValueType.isNull a = true)
+private theorem peer_null_nonNull (cl : OrderCol) {a b : T} (ha : ValueType.isNull a = true)
     (hb : ValueType.isNull b = false) : cl.peer a b = false :=
   OrderCol.not_peer_isNull cl ha hb
 
-theorem peer_nonNull_null (cl : OrderCol) {a b : T} (ha : ValueType.isNull a = false)
+private theorem peer_nonNull_null (cl : OrderCol) {a b : T} (ha : ValueType.isNull a = false)
     (hb : ValueType.isNull b = true) : cl.peer a b = false := by
   rw [OrderCol.peer_comm]; exact OrderCol.not_peer_isNull cl hb ha
 
-theorem peer_false_of_ne (cl : OrderCol) {a b : T} (ha : ValueType.isNull a = false)
+private theorem peer_false_of_ne (cl : OrderCol) {a b : T} (ha : ValueType.isNull a = false)
     (hb : ValueType.isNull b = false) (h : a ≠ b) : cl.peer a b = false := by
   rw [← Bool.not_eq_true, OrderCol.peer_iff_of_nonNull cl ha hb]; exact h
 
-theorem peer_true_of_eq (cl : OrderCol) {a b : T} (h : a = b) : cl.peer a b = true := by
+private theorem peer_true_of_eq (cl : OrderCol) {a b : T} (h : a = b) : cl.peer a b = true := by
   subst h; exact OrderCol.peer_rfl _ _
 
 /-- **A concrete cell's key against a fresh cell's compares as the values.** -/
-theorem leKey_conc_fresh (cl : OrderCol) {par : Fin k → T} {i : Fin k} (hi : IsFresh C (par i))
+private theorem leKey_conc_fresh (cl : OrderCol) {par : Fin k → T} {i : Fin k} (hi : IsFresh C (par i))
     {a : T} (ha : a ∈ C ∨ ValueType.isNull a = true) :
     leKey cl (keyOf (enc C k (.conc a))) (keyOf (enc C k (code C par i))) = cl.le a (par i) := by
   rw [code_of_fresh hi]
@@ -428,7 +436,7 @@ theorem leKey_conc_fresh (cl : OrderCol) {par : Fin k → T} {i : Fin k} (hi : I
       · exact ⟨fun h => absurd h hal, fun h => absurd h hne⟩
 
 /-- **A fresh cell's key against a concrete cell's compares as the values.** -/
-theorem leKey_fresh_conc (cl : OrderCol) {par : Fin k → T} {i : Fin k} (hi : IsFresh C (par i))
+private theorem leKey_fresh_conc (cl : OrderCol) {par : Fin k → T} {i : Fin k} (hi : IsFresh C (par i))
     {a : T} (ha : a ∈ C ∨ ValueType.isNull a = true) :
     leKey cl (keyOf (enc C k (code C par i))) (keyOf (enc C k (.conc a))) = cl.le (par i) a := by
   rw [code_of_fresh hi]
@@ -488,7 +496,7 @@ theorem leKey_fresh_conc (cl : OrderCol) {par : Fin k → T} {i : Fin k} (hi : I
       · exact ⟨fun h => absurd h.symm hal, fun h => absurd h hne⟩
 
 /-- **Two fresh cells' keys compare as their values.** -/
-theorem leKey_fresh_fresh (cl : OrderCol) {par : Fin k → T} {i j : Fin k}
+private theorem leKey_fresh_fresh (cl : OrderCol) {par : Fin k → T} {i j : Fin k}
     (hi : IsFresh C (par i)) (hj : IsFresh C (par j)) :
     leKey cl (keyOf (enc C k (code C par i))) (keyOf (enc C k (code C par j)))
       = cl.le (par i) (par j) := by
@@ -577,7 +585,7 @@ theorem leKey_fresh_fresh (cl : OrderCol) {par : Fin k → T} {i j : Fin k}
 
 /-- **The keys of two cells compare as the values they stand for**, in
 every column direction and null placement. -/
-theorem leKey_dec (cl : OrderCol) {par : Fin k → T} {x y : Code T} (hx : CodeOK C par x)
+private theorem leKey_dec (cl : OrderCol) {par : Fin k → T} {x y : Code T} (hx : CodeOK C par x)
     (hy : CodeOK C par y) :
     leKey cl (keyOf (enc C k x)) (keyOf (enc C k y)) = cl.le (dec C par x) (dec C par y) := by
   rcases hx with ⟨i, hi, rfl⟩ | ⟨a, ha, rfl⟩ <;> rcases hy with ⟨j, hj, rfl⟩ | ⟨b, hb, rfl⟩
@@ -588,7 +596,7 @@ theorem leKey_dec (cl : OrderCol) {par : Fin k → T} {x y : Code T} (hx : CodeO
 
 /-- **The key columns of two cells are peers throughout exactly when the
 values they stand for are peers.** -/
-theorem keyPeer_iff (cl : OrderCol) {par : Fin k → T} {x y : Code T} (hx : CodeOK C par x)
+private theorem keyPeer_iff (cl : OrderCol) {par : Fin k → T} {x y : Code T} (hx : CodeOK C par x)
     (hy : CodeOK C par y) :
     (∀ q, cl.peer (keyOf (enc C k x) q) (keyOf (enc C k y) q) = true)
       ↔ cl.peer (dec C par x) (dec C par y) = true := by
@@ -662,7 +670,7 @@ def flatKey (X : Fin p → Tuple T (7 + k)) : Tuple T (p * (3 + k)) :=
   fun z => keyOf (X (finProdFinEquiv.symm z).1) (finProdFinEquiv.symm z).2
 
 omit [ValueType T] in
-theorem lt_pair_of_lt {w : ℕ} {ℓ ℓ₀ : Fin p} {q q₀ : Fin w}
+private theorem lt_pair_of_lt {w : ℕ} {ℓ ℓ₀ : Fin p} {q q₀ : Fin w}
     (h : LT.lt (finProdFinEquiv (ℓ, q)) (finProdFinEquiv (ℓ₀, q₀))) :
     LT.lt ℓ ℓ₀ ∨ (ℓ = ℓ₀ ∧ LT.lt q q₀) := by
   rw [Fin.lt_def, finProdFinEquiv_apply_val, finProdFinEquiv_apply_val] at h
@@ -683,7 +691,7 @@ theorem lt_pair_of_lt {w : ℕ} {ℓ ℓ₀ : Fin p} {q q₀ : Fin w}
 
 /-- **The clause over the keys orders the rows as the clause orders the
 values the cells stand for.** -/
-theorem le_expand (o : OrderSpec p) {par : Fin k → T} (cx cy : Fin p → Code T)
+private theorem le_expand (o : OrderSpec p) {par : Fin k → T} (cx cy : Fin p → Code T)
     (hx : ∀ ℓ, CodeOK C par (cx ℓ)) (hy : ∀ ℓ, CodeOK C par (cy ℓ)) :
     (expandSpec o).le (flatKey (fun ℓ => enc C k (cx ℓ))) (flatKey (fun ℓ => enc C k (cy ℓ)))
       = o.le (fun ℓ => dec C par (cx ℓ)) (fun ℓ => dec C par (cy ℓ)) := by
@@ -763,7 +771,7 @@ def expandCond : FrameCond T p → FrameCond T (p * (3 + k))
   | .geOff .. | .leOff .. => .whole
 
 /-- **A frame condition over the keys holds as it does over the values.** -/
-theorem holds_expandCond {par : Fin k → T} (cx cy : Fin p → Code T)
+private theorem holds_expandCond {par : Fin k → T} (cx cy : Fin p → Code T)
     (hx : ∀ ℓ, CodeOK C par (cx ℓ)) (hy : ∀ ℓ, CodeOK C par (cy ℓ)) :
     ∀ c : FrameCond T p, c.noOff = true →
       (expandCond (k := k) c).holds (flatKey (fun ℓ => enc C k (cx ℓ)))
@@ -805,7 +813,7 @@ end Expand
 /-! ## The window over symbolic rows -/
 
 omit [ValueType T] in
-theorem Multiset.mem_of_mem_erase_any {α : Type} (i : DecidableEq α) {s : Multiset α} {a b : α}
+private theorem Multiset.mem_of_mem_erase_any {α : Type} (i : DecidableEq α) {s : Multiset α} {a b : α}
     (h : b ∈ @Multiset.erase α i s a) : b ∈ s := by
   let := i
   exact Multiset.mem_of_mem_erase h
@@ -813,7 +821,7 @@ theorem Multiset.mem_of_mem_erase_any {α : Type} (i : DecidableEq α) {s : Mult
 omit [ValueType T] in
 /-- **Erasing an image is imaging the erasure**, an injective map, whatever
 decidable equality each side is read with. -/
-theorem Multiset.map_erase_inj' {α β : Type} (i₁ : DecidableEq β) (i₂ : DecidableEq α)
+private theorem Multiset.map_erase_inj' {α β : Type} (i₁ : DecidableEq β) (i₂ : DecidableEq α)
     {f : α → β} (hf : Function.Injective f) (s : Multiset α) (a : α) :
     @Multiset.erase β i₁ (s.map f) (f a) = (@Multiset.erase α i₂ s a).map f := by
   have := (@Multiset.map_erase α β i₂ i₁ f hf a s).symm
@@ -825,7 +833,7 @@ variable {C : Finset T} {c n m p : ℕ}
 
 /-- A counting aggregate over a frame reads how many of its kept values are
 not null. -/
-theorem windowValueOpt_readsCount {c' n' : ℕ} {f : SeqAggFunc T} (hf : f.ReadsCount)
+private theorem windowValueOpt_readsCount {c' n' : ℕ} {f : SeqAggFunc T} (hf : f.ReadsCount)
     (P : Tuple (Fin n') m) (O : Tuple (Fin n') p) (o : OrderSpec p) (w : ValueFrame T p)
     (t : TermIn T c' n') (keep : Option (Selection T n')) (R : Multiset (Tuple T n'))
     (u : Tuple T n') (γ : Fin c' → T) :
@@ -853,7 +861,7 @@ cells the clause reads. -/
 def winOIdx (O : Tuple (Fin n) p) : Tuple (Fin ((k + n) * (7 + k))) (p * (3 + k)) :=
   fun z => ci (Fin.natAdd k (O (finProdFinEquiv.symm z).1)) (keyIdx k (finProdFinEquiv.symm z).2)
 
-theorem key_winOIdx (C : Finset T) (O : Tuple (Fin n) p) (par : Fin k → T) (v : Tuple T n) :
+private theorem key_winOIdx (C : Finset T) (O : Tuple (Fin n) p) (par : Fin k → T) (v : Tuple T n) :
     Tuple.key (winOIdx O) (rowEnc C par v)
       = flatKey (fun ℓ => enc C k (vcode C par (v (O ℓ)))) := by
   funext z
@@ -868,7 +876,7 @@ def expandFrame (w : ValueFrame T p) : ValueFrame T (p * (3 + k)) :=
 
 omit [ValueType T] in
 /-- A condition read over the keys names no offset. -/
-theorem noOff_expandCond : ∀ c : FrameCond T p, (expandCond (k := k) c).noOff = true
+private theorem noOff_expandCond : ∀ c : FrameCond T p, (expandCond (k := k) c).noOff = true
   | .whole | .le _ | .lt _ | .ge _ | .gt _ | .geOff .. | .leOff .. => rfl
   | .and a b | .or a b => by
     simp only [expandCond, FrameCond.noOff, noOff_expandCond a, noOff_expandCond b, Bool.and_self]
@@ -879,21 +887,21 @@ theorem noOff_expandCond : ∀ c : FrameCond T p, (expandCond (k := k) c).noOff 
 omit [ValueType T] in
 /-- So does a frame read over the keys: it is in the signature whatever the
 frame it reads. -/
-theorem noOff_expandFrame (w : ValueFrame T p) : (expandFrame (k := k) w).cond.noOff = true := by
+private theorem noOff_expandFrame (w : ValueFrame T p) : (expandFrame (k := k) w).cond.noOff = true := by
   unfold expandFrame
   split
   · exact noOff_expandCond _
   · rfl
 
 omit [ValueType T] in
-theorem expandFrame_of_noOff {w : ValueFrame T p} (hw : w.cond.noOff = true) :
+private theorem expandFrame_of_noOff {w : ValueFrame T p} (hw : w.cond.noOff = true) :
     expandFrame (k := k) w = ⟨expandCond w.cond, w.self⟩ := by
   rw [expandFrame, ite_eq_left hw]
 
 omit [ValueType T] in
 /-- **A frame of SQL read over the keys is one**, under the clause read over
 the keys: each comparison is the same comparison under the expanded clause. -/
-theorem isSQLUnder_expandFrame {o : OrderSpec p} {w : ValueFrame T p}
+private theorem isSQLUnder_expandFrame {o : OrderSpec p} {w : ValueFrame T p}
     (h : w.IsSQLUnder o) : (expandFrame (k := k) w).IsSQLUnder (expandSpec o) := by
   unfold expandFrame
   split
@@ -921,7 +929,7 @@ macro_rules
   | `(tactic| sql_frame) => `(tactic| (apply Sym.isSQL_expandFrame; sql_frame))
 
 /-- **The frame of an encoded row is the encoding of the frame.** -/
-theorem frameOf_slice (par : Fin k → T) (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
+private theorem frameOf_slice (par : Fin k → T) (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
     (w : ValueFrame T p) (hw : w.cond.noOff = true) {Q : Multiset (Tuple T ((k + n) * (7 + k)))}
       {R : Multiset (Tuple T n)}
     (hsl : Q.filter (fun r => descP (P := 0) r = descEnc C par) = R.map (rowEnc C par))
@@ -979,7 +987,7 @@ theorem frameOf_slice (par : Fin k → T) (P : Tuple (Fin n) m) (O : Tuple (Fin 
   · rfl
 
 /-- **The window's value at an encoded row is its value at the row.** -/
-theorem windowValue_slice (par : Fin k → T) (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
+private theorem windowValue_slice (par : Fin k → T) (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
     (o : OrderSpec p) (w : ValueFrame T p) (hw : w.cond.noOff = true) (t : TermIn T (k + c) n) (ht
       : t.noFun = true)
     {f : SeqAggFunc T} (hf : f.ReadsCount) (keep : Option (Selection T n))
@@ -1019,7 +1027,7 @@ def wOutSA (n : ℕ) : Fin ((k + (n + 1)) * (7 + k) + 0) → SA T c ((k + n) * (
       (fun t' => .col (Fin.castAdd 1 (ci (Fin.natAdd k t') (finProdFinEquiv.symm x).2))) t)
     (finProdFinEquiv.symm x).1
 
-theorem wOutSA_eval (C : Finset T) (par : Fin k → T) (v : Tuple T n) (a : T) (γ : Fin c → T)
+private theorem wOutSA_eval (C : Finset T) (par : Fin k → T) (v : Tuple T n) (a : T) (γ : Fin c → T)
     (ha : CG C a) :
     (fun x => (wOutSA (k := k) n x).eval (Fin.snoc (rowEnc C par v) a) γ)
       = rowEncP C par (Fin.snoc v a : Tuple T (n + 1)) (Fin.elim0 : Tuple T 0) := by
@@ -1045,7 +1053,7 @@ theorem wOutSA_eval (C : Finset T) (par : Fin k → T) (v : Tuple T n) (a : T) (
       show cellOf (rowEnc C par v) (Fin.natAdd k t') j = _
       rw [rowEnc, cellOf_ofCells, Fin.append_right]
 
-theorem descP_wOutSA (r : Tuple T ((k + n) * (7 + k))) (a : T) (γ : Fin c → T) :
+private theorem descP_wOutSA (r : Tuple T ((k + n) * (7 + k))) (a : T) (γ : Fin c → T) :
     descP (P := 0) (fun y => (wOutSA (k := k) n y).eval (Fin.snoc r a) γ) = descP (P := 0) r := by
   funext y
   obtain ⟨⟨i, j⟩, rfl⟩ := finProdFinEquiv.surjective y

@@ -51,23 +51,23 @@ def lo (a : T) : WithBot T := (below C a).max
 
 variable {C}
 
-theorem mem_below {a t : T} : t ∈ below C a ↔ t ∈ C ∧ ValueType.isNull t = false ∧ t < a := by
+private theorem mem_below {a t : T} : t ∈ below C a ↔ t ∈ C ∧ ValueType.isNull t = false ∧ t < a := by
   unfold below; rw [Finset.mem_filter]
 
 /-- A non-null value of the cut below a value is at most its bound. -/
-theorem le_lo {a t : T} (ht : t ∈ C) (hn : ValueType.isNull t = false) (hlt : t < a) :
+private theorem le_lo {a t : T} (ht : t ∈ C) (hn : ValueType.isNull t = false) (hlt : t < a) :
     (t : WithBot T) ≤ lo C a :=
   Finset.le_max (mem_below.mpr ⟨ht, hn, hlt⟩)
 
 /-- The bound is a non-null value of the cut below the value, if any. -/
-theorem lo_eq_coe {a b : T} (h : lo C a = (b : WithBot T)) :
+private theorem lo_eq_coe {a b : T} (h : lo C a = (b : WithBot T)) :
     b ∈ C ∧ ValueType.isNull b = false ∧ b < a :=
   mem_below.mp (Finset.mem_of_max h)
 
 /-- **A value's position against a non-null value of the cut** is
 read off its bound: the value of the cut is below exactly when it is at
 most the bound. -/
-theorem lt_iff_le_lo {a t : T} (ht : t ∈ C) (hn : ValueType.isNull t = false) :
+private theorem lt_iff_le_lo {a t : T} (ht : t ∈ C) (hn : ValueType.isNull t = false) :
     LT.lt t a ↔ LE.le (t : WithBot T) (lo C a) := by
   constructor
   · exact le_lo ht hn
@@ -79,18 +79,18 @@ theorem lt_iff_le_lo {a t : T} (ht : t ∈ C) (hn : ValueType.isNull t = false) 
       obtain ⟨-, -, hb⟩ := lo_eq_coe hlo
       exact lt_of_le_of_lt (WithBot.coe_le_coe.mp h) hb
 
-theorem ne_of_fresh {a t : T} (ha : IsFresh C a) (ht : t ∈ C) : t ≠ a :=
+private theorem ne_of_fresh {a t : T} (ha : IsFresh C a) (ht : t ∈ C) : t ≠ a :=
   fun h => ha.1 (h ▸ ht)
 
 /-- Two fresh values in increasing order have increasing bounds. -/
-theorem lo_mono {a b : T} (hab : a ≤ b) : lo C a ≤ lo C b := by
+private theorem lo_mono {a b : T} (hab : a ≤ b) : lo C a ≤ lo C b := by
   unfold lo
   exact Finset.max_mono (fun t ht => by
     obtain ⟨h₁, h₂, h₃⟩ := mem_below.mp ht
     exact mem_below.mpr ⟨h₁, h₂, lt_of_lt_of_le h₃ hab⟩)
 
 /-- **Two fresh values with different bounds** are ordered as their bounds. -/
-theorem lt_of_lo_lt {a b : T} (h : lo C a < lo C b) : a < b := by
+private theorem lt_of_lo_lt {a b : T} (h : lo C a < lo C b) : a < b := by
   by_contra hc
   exact absurd (lo_mono (not_lt.mp hc)) (not_le.mpr h)
 
@@ -104,7 +104,7 @@ def rank {k : ℕ} (u : Fin k → T) (a : T) : ℕ :=
 variable {C}
 
 /-- In one gap, the rank orders the components as their values. -/
-theorem rank_lt_rank {k : ℕ} {u : Fin k → T} {a b : T} (ha : a ∈ Finset.univ.image u)
+private theorem rank_lt_rank {k : ℕ} {u : Fin k → T} {a b : T} (ha : a ∈ Finset.univ.image u)
     (haf : IsFresh C a) (hab : a < b) (hlo : lo C a = lo C b) :
     rank C u a < rank C u b := by
   unfold rank
@@ -115,7 +115,7 @@ theorem rank_lt_rank {k : ℕ} {u : Fin k → T} {a b : T} (ha : a ∈ Finset.un
     exact lt_irrefl a (Finset.mem_filter.mp this).2.2.2
 
 /-- **In one gap, the rank decides the order.** -/
-theorem lt_iff_rank_lt {k : ℕ} {u : Fin k → T} {a b : T} (ha : a ∈ Finset.univ.image u)
+private theorem lt_iff_rank_lt {k : ℕ} {u : Fin k → T} {a b : T} (ha : a ∈ Finset.univ.image u)
     (hb : b ∈ Finset.univ.image u) (haf : IsFresh C a) (hbf : IsFresh C b)
     (hlo : lo C a = lo C b) : LT.lt a b ↔ LT.lt (rank C u a) (rank C u b) := by
   refine ⟨fun h => rank_lt_rank ha haf h hlo, fun h => ?_⟩
@@ -125,7 +125,7 @@ theorem lt_iff_rank_lt {k : ℕ} {u : Fin k → T} {a b : T} (ha : a ∈ Finset.
   · exact absurd (rank_lt_rank hb hbf h' hlo.symm) (not_lt.mpr h.le)
 
 /-- **In one gap, the rank decides equality.** -/
-theorem eq_iff_rank_eq {k : ℕ} {u : Fin k → T} {a b : T} (ha : a ∈ Finset.univ.image u)
+private theorem eq_iff_rank_eq {k : ℕ} {u : Fin k → T} {a b : T} (ha : a ∈ Finset.univ.image u)
     (hb : b ∈ Finset.univ.image u) (haf : IsFresh C a) (hbf : IsFresh C b)
     (hlo : lo C a = lo C b) : a = b ↔ rank C u a = rank C u b := by
   refine ⟨fun h => h ▸ rfl, fun h => ?_⟩
@@ -135,7 +135,7 @@ theorem eq_iff_rank_eq {k : ℕ} {u : Fin k → T} {a b : T} (ha : a ∈ Finset.
   · exact absurd h (ne_of_gt (rank_lt_rank hb hbf h' hlo.symm))
 
 /-- A rank is less than the number of components. -/
-theorem rank_lt {k : ℕ} {u : Fin k → T} {a : T} (ha : a ∈ Finset.univ.image u) :
+private theorem rank_lt {k : ℕ} {u : Fin k → T} {a : T} (ha : a ∈ Finset.univ.image u) :
     rank C u a < k := by
   unfold rank
   have hsub : (Finset.univ.image u).filter (fun b => IsFresh C b ∧ lo C b = lo C a ∧ b < a)
@@ -161,15 +161,15 @@ variable (C) in
 def code {k : ℕ} (u : Fin k → T) (i : Fin k) : Code T :=
   if IsFresh C (u i) then Code.fresh (lo C (u i)) (rank C u (u i)) else Code.conc (u i)
 
-theorem code_of_fresh {k : ℕ} {u : Fin k → T} {i : Fin k} (h : IsFresh C (u i)) :
+private theorem code_of_fresh {k : ℕ} {u : Fin k → T} {i : Fin k} (h : IsFresh C (u i)) :
     code C u i = Code.fresh (lo C (u i)) (rank C u (u i)) := by
   unfold code; rw [ite_eq_left h]
 
-theorem code_of_not_fresh {k : ℕ} {u : Fin k → T} {i : Fin k} (h : ¬ IsFresh C (u i)) :
+private theorem code_of_not_fresh {k : ℕ} {u : Fin k → T} {i : Fin k} (h : ¬ IsFresh C (u i)) :
     code C u i = Code.conc (u i) := by
   unfold code; rw [ite_eq_right h]
 
-theorem mem_image {k : ℕ} (u : Fin k → T) (i : Fin k) : u i ∈ Finset.univ.image u :=
+private theorem mem_image {k : ℕ} (u : Fin k → T) (i : Fin k) : u i ∈ Finset.univ.image u :=
   Finset.mem_image_of_mem u (Finset.mem_univ i)
 
 /-- **Two components have the same code exactly when they are equal.** -/
@@ -218,7 +218,7 @@ noncomputable def dec {k : ℕ} (u : Fin k → T) : Code T → T
     if h : ∃ i, IsFresh C (u i) ∧ lo C (u i) = l ∧ rank C u (u i) = r then u h.choose else 0
 
 /-- **A code decodes to the component it is the code of.** -/
-theorem dec_code {k : ℕ} (u : Fin k → T) (i : Fin k) : dec C u (code C u i) = u i := by
+private theorem dec_code {k : ℕ} (u : Fin k → T) (i : Fin k) : dec C u (code C u i) = u i := by
   by_cases hi : IsFresh C (u i)
   · rw [code_of_fresh hi]
     have hex : ∃ j, IsFresh C (u j) ∧ lo C (u j) = lo C (u i) ∧ rank C u (u j) = rank C u (u i) :=
@@ -259,7 +259,7 @@ theorem Code.lt_iff {k : ℕ} {u : Fin k → T} {x y : Code T} (hx : Valid C u x
   · exact Iff.rfl
 
 /-- **Valid codes are equal exactly when the values they stand for are.** -/
-theorem Code.eq_iff {k : ℕ} {u : Fin k → T} {x y : Code T} (hx : Valid C u x) (hy : Valid C u y) :
+private theorem Code.eq_iff {k : ℕ} {u : Fin k → T} {x y : Code T} (hx : Valid C u x) (hy : Valid C u y) :
     x = y ↔ dec C u x = dec C u y := by
   rcases hx with ⟨i, hi, rfl⟩ | ⟨a, ha, han, rfl⟩ <;>
     rcases hy with ⟨j, hj, rfl⟩ | ⟨b, hb, hbn, rfl⟩
@@ -271,7 +271,7 @@ theorem Code.eq_iff {k : ℕ} {u : Fin k → T} {x y : Code T} (hx : Valid C u x
   · exact ⟨fun h => by injection h, fun h => congrArg Code.conc h⟩
 
 /-- A valid code stands for a non-null value. -/
-theorem isNull_dec {k : ℕ} {u : Fin k → T} {x : Code T} (hx : Valid C u x) :
+private theorem isNull_dec {k : ℕ} {u : Fin k → T} {x : Code T} (hx : Valid C u x) :
     ValueType.isNull (dec C u x) = false := by
   rcases hx with ⟨i, hi, rfl⟩ | ⟨a, -, han, rfl⟩
   · rw [dec_code]; exact hi.2

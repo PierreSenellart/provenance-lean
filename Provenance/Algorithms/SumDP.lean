@@ -74,7 +74,7 @@ weighted sum equal to `j`. The Nodup hypothesis is used in the
 inductive step to guarantee that the head `u` does not appear later in
 `rest`, so that `insert u S'` with `S' ⊆ rest.toFinset` genuinely adds
 `t u` to the sum (rather than collapsing to `S'`). -/
-theorem sumExact_mem :
+private theorem sumExact_mem :
     ∀ (occs : List α), occs.Nodup →
     ∀ (t : α → ℕ) (j : ℕ) (S : Finset α),
       S ∈ sumExact occs t j ↔ S ⊆ occs.toFinset ∧ S.sum t = j := by
@@ -177,7 +177,7 @@ theorem sumExact_mem :
 `occs` guarantees that the head `u` is absent from the subsets produced by
 the recursive calls, so the `insert u` copies are pairwise distinct and
 disjoint from the `u`-free part of the output. -/
-theorem sumExact_nodup (occs : List α) (hnodup : occs.Nodup) (t : α → ℕ) (j : ℕ) :
+private theorem sumExact_nodup (occs : List α) (hnodup : occs.Nodup) (t : α → ℕ) (j : ℕ) :
     (sumExact occs t j).Nodup := by
   induction occs generalizing j with
   | nil => cases j <;> simp [sumExact]
@@ -212,7 +212,7 @@ bucket `j` has weighted sum exactly `j`. This is not cosmetic: the
 provenance attached to the enumeration is the `⊕`-sum of the world
 annotations over the returned list, and in a non-idempotent m-semiring a
 duplicated world would change the value. -/
-theorem sumDP_nodup (occs : List α) (hnodup : occs.Nodup) (t : α → ℕ)
+private theorem sumDP_nodup (occs : List α) (hnodup : occs.Nodup) (t : α → ℕ)
     (C : ℕ) (op : CompOp) : (sumDP occs t C op).Nodup := by
   unfold sumDP
   rw [List.nodup_flatMap]
@@ -285,7 +285,7 @@ private theorem filter_range_eq (p : ℕ → Bool) {J T : ℕ} (hJT : J ≤ T)
 /-- **Operator-specific bound on the `dp` table.** For `op ∈ {=, ≤, <}`, no
 sum above `C` satisfies the comparison, so the enumeration may range over
 `{0, …, min(C, T)}` instead of `{0, …, T}` and return the same list. -/
-theorem sumDP_eq_bounded (occs : List α) (t : α → ℕ) (C : ℕ) {op : CompOp}
+private theorem sumDP_eq_bounded (occs : List α) (t : α → ℕ) (C : ℕ) {op : CompOp}
     (hop : op = .eq ∨ op = .le ∨ op = .lt) :
     sumDP occs t C op
       = ((List.range (min C (occs.toFinset.sum t) + 1)).filter
@@ -306,7 +306,7 @@ theorem sumDP_eq_bounded (occs : List α) (t : α → ℕ) (C : ℕ) {op : CompO
 (in the imperative formulation: above the running prefix sum at each step
 of the recursion), the `dp` cells are empty: `sumExact occs t j = []` as
 soon as `j` exceeds `(occs.map t).sum`. No `Nodup` hypothesis is needed. -/
-theorem sumExact_eq_nil_of_lt_sum (occs : List α) (t : α → ℕ) :
+private theorem sumExact_eq_nil_of_lt_sum (occs : List α) (t : α → ℕ) :
     ∀ {j : ℕ}, (occs.map t).sum < j → sumExact occs t j = [] := by
   induction occs with
   | nil =>
@@ -325,7 +325,7 @@ theorem sumExact_eq_nil_of_lt_sum (occs : List α) (t : α → ℕ) :
 
 /-- Under `Nodup`, the reachability bound can be read on the total weight
 `T = ∑_{u ∈ occs} t u` of the distinct occurrences. -/
-theorem sumExact_eq_nil_of_lt_sum' (occs : List α) (hnodup : occs.Nodup)
+private theorem sumExact_eq_nil_of_lt_sum' (occs : List α) (hnodup : occs.Nodup)
     (t : α → ℕ) {j : ℕ} (h : occs.toFinset.sum t < j) :
     sumExact occs t j = [] := by
   refine sumExact_eq_nil_of_lt_sum occs t ?_
@@ -334,7 +334,7 @@ theorem sumExact_eq_nil_of_lt_sum' (occs : List α) (hnodup : occs.Nodup)
 /-- **Range check, unsatisfiable side.** If no achievable sum satisfies the
 comparison, the enumeration is empty (and the associated provenance is
 `𝟘`, an empty `⊕`-sum). -/
-theorem sumDP_eq_nil_of_unsat (occs : List α) (t : α → ℕ) (C : ℕ) (op : CompOp)
+private theorem sumDP_eq_nil_of_unsat (occs : List α) (t : α → ℕ) (C : ℕ) (op : CompOp)
     (h : ∀ j ≤ occs.toFinset.sum t, ¬ op.eval j C) :
     sumDP occs t C op = [] := by
   show ((List.range (occs.toFinset.sum t + 1)).filter

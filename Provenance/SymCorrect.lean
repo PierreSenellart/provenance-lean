@@ -6,6 +6,19 @@ import Mathlib.Algebra.Order.Ring.Nat
 import Mathlib.Tactic.NormNum.Inv
 import Mathlib.Tactic.NormNum.Pow
 import Provenance.RoundBound
+import all Provenance.AggQuery
+import all Provenance.AllRegular
+import all Provenance.Database
+import all Provenance.PlainBasis
+import all Provenance.RecursionBasisPass
+import all Provenance.RoundBound
+import all Provenance.SumByMu
+import all Provenance.SumByProd
+import all Provenance.SymCells
+import all Provenance.SymGamma
+import all Provenance.SymMu
+import all Provenance.SymOps
+import all Provenance.SymTerms
 
 /-!
 # The symbolic evaluation is correct
@@ -120,14 +133,14 @@ def EnvNoMention {k c : ℕ} (env : SymEnv T k c) (s : String) : Prop :=
   env.CQ.noMention s ∧ env.Desc.noMention s ∧ ∀ n, (env.Lq n).noMention s ∧ (env.Sq n).noMention s
 
 omit [ValueType T] in
-theorem noMention_prodR {c a b : ℕ} {l₁ l₂ : List (String × ℕ)} {s : String}
+private theorem noMention_prodR {c a b : ℕ} {l₁ l₂ : List (String × ℕ)} {s : String}
     (q₁ : AggQueryIn T c a (ColKind.allReg a) l₁) (q₂ : AggQueryIn T c b (ColKind.allReg b) l₂) :
     (prodR q₁ q₂).noMention s ↔ q₁.noMention s ∧ q₂.noMention s := by
   rw [prodR, AggQueryIn.noMention_castKind]; exact Iff.rfl
 
 /-- **The symbolic evaluation names only the relations the query and the
 environment name.** -/
-theorem noMention_sym_aux {k c : ℕ} (env : SymEnv T k c) {s : String}
+private theorem noMention_sym_aux {k c : ℕ} (env : SymEnv T k c) {s : String}
     (henv : EnvNoMention env s) :
     ∀ (N : ℕ) (f : ℕ → String) {n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)}
       (q : AggQueryIn T (k + c) n κ l), sizeOf q ≤ N → q.noMention s →
@@ -257,7 +270,7 @@ theorem noMention_sym_aux {k c : ℕ} (env : SymEnv T k c) {s : String}
 /-! ## A symbolic recursive term keeps each row's further columns -/
 
 /-- The rows of the empty recursive term: none. -/
-theorem evaluatePlain_junkB {c N M : ℕ} (s : String) (D : Database T) (γ : Fin c → T) :
+private theorem evaluatePlain_junkB {c N M : ℕ} (s : String) (D : Database T) (γ : Fin c → T) :
     (junkB (T := T) (c := c) N M s).evaluatePlain D γ = 0 := by
   rw [junkB, AggQueryIn.evaluatePlain_castKind]
   show Multiset.map _ (Multiset.filter _ _) = 0
@@ -267,7 +280,7 @@ theorem evaluatePlain_junkB {c N M : ℕ} (s : String) (D : Database T) (γ : Fi
     exact ValueType.nonzero_ne_zero this.symm)]
   rfl
 
-theorem descP_symProjSA_suf {k c n m P : ℕ} (srcs : Fin m → CS T k c n) (γ : Fin c → T)
+private theorem descP_symProjSA_suf {k c n m P : ℕ} (srcs : Fin m → CS T k c n) (γ : Fin c → T)
     (r : Tuple T ((k + n) * (7 + k) + P)) :
     suf (N := (k + m) * (7 + k)) (fun x => (symProjSA P srcs x).eval r γ) = suf r := by
   funext z
@@ -277,7 +290,7 @@ theorem descP_symProjSA_suf {k c n m P : ℕ} (srcs : Fin m → CS T k c n) (γ 
 
 /-- **Every row a symbolic recursive term emits carries the further columns
 of a row it reads.** -/
-theorem symB_pres_aux {k c : ℕ} (env : SymEnv T k c) :
+private theorem symB_pres_aux {k c : ℕ} (env : SymEnv T k c) :
     ∀ (N : ℕ) (f : ℕ → String) (P : ℕ) (s : String) (m : ℕ) {n : ℕ} {κ : Fin n → ColKind}
       {l : List (String × ℕ)} (q : AggQueryIn T (k + c) n κ l), sizeOf q ≤ N →
       ∀ (D : Database T) (γ : Fin c → T) (Y : Multiset (Tuple T ((k + m) * (7 + k) + P)))
@@ -370,7 +383,7 @@ theorem symB_pres_aux {k c : ℕ} (env : SymEnv T k c) :
 
 /-- **The environment reads the same off an instance with a recursive name
 bound**, naming no such relation. -/
-theorem envOK_assign {k c : ℕ} (env : SymEnv T k c) {s : String} (henv : EnvNoMention env s)
+private theorem envOK_assign {k c : ℕ} (env : SymEnv T k c) {s : String} (henv : EnvNoMention env s)
     {m : ℕ} (X : Relation T m) (D : Database T) (γ : Fin c → T) :
     cutAt env (D.assign s X) γ = cutAt env D γ ∧ (EnvOK env D γ → EnvOK env (D.assign s X) γ) := by
   have hcut : cutAt env (D.assign s X) γ = cutAt env D γ := by
@@ -386,7 +399,7 @@ theorem envOK_assign {k c : ℕ} (env : SymEnv T k c) {s : String} (henv : EnvNo
     · rw [AggQueryIn.evaluatePlain_assign_of_noMention X (env.Sq n) (henv.2.2 n).2 D γ]; exact hS
 
 /-- **A projection by arguments, read.** -/
-theorem evaluatePlain_projSA {c N M : ℕ} {l : List (String × ℕ)}
+private theorem evaluatePlain_projSA {c N M : ℕ} {l : List (String × ℕ)}
     (F : Fin M → SA T c N) (q : AggQueryIn T c N (ColKind.allReg N) l)
     (h : (fun j => (projSA F j).kind) = ColKind.allReg M) (D : Database T) (γ : Fin c → T) :
     ((AggQueryIn.Proj (projSA F) q).castKind h).evaluatePlain D γ
@@ -396,7 +409,7 @@ theorem evaluatePlain_projSA {c N M : ℕ} {l : List (String × ℕ)}
   exact Multiset.map_congr rfl (fun x _ => funext fun i => Sym.evalPlain_projSA F x γ i)
 
 omit [ValueType T] in
-theorem pvCS_val {k c m : ℕ} (pv : Fin m → T ⊕ Fin (k + c)) (par : Fin k → T) (γ : Fin c → T) :
+private theorem pvCS_val {k c m : ℕ} (pv : Fin m → T ⊕ Fin (k + c)) (par : Fin k → T) (γ : Fin c → T) :
     (fun j => (pvCS pv j).val par γ (Fin.elim0 : Tuple T 0))
       = (fun j => _root_.Sum.elim id (Fin.append par γ) (pv j)) := by
   funext j
@@ -409,7 +422,7 @@ theorem pvCS_val {k c m : ℕ} (pv : Fin m → T ⊕ Fin (k + c)) (par : Fin k �
     · simp only [Fin.addCases_right, CS.val, _root_.Sum.elim_inr, Fin.append_right]
 
 omit [ValueType T] in
-theorem pvCS_const {k c m : ℕ} (pv : Fin m → T ⊕ Fin (k + c)) (j : Fin m) {a : T}
+private theorem pvCS_const {k c m : ℕ} (pv : Fin m → T ⊕ Fin (k + c)) (j : Fin m) {a : T}
     (h : pvCS pv j = .const a) : pv j = .inl a := by
   unfold pvCS at h
   cases hp : pv j with
@@ -421,7 +434,7 @@ theorem pvCS_const {k c m : ℕ} (pv : Fin m → T ⊕ Fin (k + c)) (j : Fin m) 
     · simp at hi
 
 /-- The value of a source is good where the row is. -/
-theorem goodVal_cs {k c n : ℕ} {C : Finset T} (s : CS T k c n) (par : Fin k → T) (γ : Fin c → T)
+private theorem goodVal_cs {k c n : ℕ} {C : Finset T} (s : CS T k c n) (par : Fin k → T) (γ : Fin c → T)
     (v : Tuple T n) (hv : ∀ i, GoodVal (C := C) par (v i)) (hamb : ∀ j, CG C (γ j))
     (hc : ∀ a, s = .const a → CG C a) : GoodVal (C := C) par (s.val par γ v) :=
   goodVal_val s par γ v hv hamb hc
@@ -432,7 +445,7 @@ def padRow {k : ℕ} (m : ℕ) (d : Tuple T (k * (7 + k))) : Tuple T ((k + m) * 
   fun x => Fin.addCases (motive := fun _ => T) (fun i₀ => d (ci i₀ (finProdFinEquiv.symm x).2))
     (fun _ => 0) (finProdFinEquiv.symm x).1
 
-theorem eval_padSA {k c : ℕ} (m : ℕ) (d : Tuple T (k * (7 + k))) (γ : Fin c → T) :
+private theorem eval_padSA {k c : ℕ} (m : ℕ) (d : Tuple T (k * (7 + k))) (γ : Fin c → T) :
     (fun i => (padSA (T := T) (c := c) m i).eval d γ)
       = Fin.append (padRow m d) (fun _ : Fin 1 => (0 : T)) := by
   funext x
@@ -452,7 +465,7 @@ theorem eval_padSA {k c : ℕ} (m : ℕ) (d : Tuple T (k * (7 + k))) (γ : Fin c
     rw [Fin.lastCases_last]
     rfl
 
-theorem descP_padRow {k : ℕ} (m : ℕ) (d : Tuple T (k * (7 + k))) :
+private theorem descP_padRow {k : ℕ} (m : ℕ) (d : Tuple T (k * (7 + k))) :
     descP (n := m) (P := 0) (padRow m d) = d := by
   funext x
   obtain ⟨⟨i, j⟩, rfl⟩ := finProdFinEquiv.surjective x
@@ -467,7 +480,7 @@ theorem descP_padRow {k : ℕ} (m : ℕ) (d : Tuple T (k * (7 + k))) :
   rfl
 
 omit [ValueType T] in
-theorem eval_tagSA {c N : ℕ} (a : T) (r : Tuple T N) (γ : Fin c → T) :
+private theorem eval_tagSA {c N : ℕ} (a : T) (r : Tuple T N) (γ : Fin c → T) :
     (fun i => (tagSA (c := c) a i).eval r γ) = Fin.append r (fun _ : Fin 1 => a) := by
   funext x
   refine Fin.addCases (fun y => ?_) (fun z => ?_) x
@@ -483,7 +496,7 @@ theorem eval_tagSA {c N : ℕ} (a : T) (r : Tuple T N) (γ : Fin c → T) :
     rfl
 
 /-- The encodings of a relation are their own slice. -/
-theorem sliceIs_encAll {k n P : ℕ} (C : Finset T) (par : Fin k → T)
+private theorem sliceIs_encAll {k n P : ℕ} (C : Finset T) (par : Fin k → T)
     (R : Multiset (Tuple T n × Tuple T P)) : SliceIs C par (encAll C par R) R := by
   unfold SliceIs slice
   exact Multiset.filter_eq_self.mpr (fun r hr => by
@@ -494,7 +507,7 @@ theorem sliceIs_encAll {k n P : ℕ} (C : Finset T) (par : Fin k → T)
 noncomputable def goodSet {k : ℕ} (C : Finset T) (par : Fin k → T) : Finset T :=
   Union.union (Union.union C (Finset.univ.image par)) (ValueType.nullVal : Option T).toFinset
 
-theorem mem_goodSet {k : ℕ} {C : Finset T} {par : Fin k → T} {b : T}
+private theorem mem_goodSet {k : ℕ} {C : Finset T} {par : Fin k → T} {b : T}
     (h : GoodVal (C := C) par b) : b ∈ goodSet C par := by
   unfold goodSet
   rcases h with ⟨i, rfl⟩ | h | h
@@ -504,7 +517,7 @@ theorem mem_goodSet {k : ℕ} {C : Finset T} {par : Fin k → T} {b : T}
   · exact Finset.mem_union_right _ (Option.mem_toFinset.mpr
       ((ValueType.isNull_iff_nullVal b).mp h))
 
-theorem card_goodSet_le {k : ℕ} (C : Finset T) (par : Fin k → T) :
+private theorem card_goodSet_le {k : ℕ} (C : Finset T) (par : Fin k → T) :
     LE.le (goodSet C par).card (C.card + k + 1) := by
   unfold goodSet
   refine (Finset.card_union_le _ _).trans (Nat.add_le_add ?_ ?_)
@@ -523,7 +536,7 @@ def SymSrc {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (Θ :
 /-! ## Goodness depends on the instance only where the query reads it -/
 
 /-- **Two instances agreeing where a query reads make it good alike.** -/
-theorem good_congr_of_noMention (G : T → Prop) {s : String} :
+private theorem good_congr_of_noMention (G : T → Prop) {s : String} :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l),
       q.noMention s → ∀ {D D' : Database T}, Database.AgreeOff s l D D' →
       ∀ γ : Fin c → T, Good G q D γ ↔ Good G q D' γ := by
@@ -588,7 +601,7 @@ theorem good_congr_of_noMention (G : T → Prop) {s : String} :
     rw [AggQueryIn.evaluatePlain_congr_of_noMention _ hq h γ]
   | WinExpr P O o ws ts fs g q keeps _ => intro _ _ _ _ _; exact Iff.rfl
 
-theorem good_assign_of_noMention (G : T → Prop) {s : String} {m : ℕ} (X : Relation T m)
+private theorem good_assign_of_noMention (G : T → Prop) {s : String} {m : ℕ} (X : Relation T m)
     {c n : ℕ} {κ : Fin n → ColKind} (q : AggQueryIn T c n κ) (hq : q.noMention s) (D : Database T)
     (γ : Fin c → T) : Good G q (D.assign s X) γ ↔ Good G q D γ :=
   good_congr_of_noMention G q hq
@@ -599,7 +612,7 @@ theorem good_assign_of_noMention (G : T → Prop) {s : String} {m : ℕ} (X : Re
 symbolic relation holds, under the descriptor of a parameter row, the
 encodings of the rows the query computes there; a recursive term's maps a
 round holding the encodings of a round to the encodings of the next. -/
-theorem sym_correct_aux {k c : ℕ} (env : SymEnv T k c) (Θ : Set (SeqAggFunc T)) :
+private theorem sym_correct_aux {k c : ℕ} (env : SymEnv T k c) (Θ : Set (SeqAggFunc T)) :
     ∀ (N : ℕ) (f : ℕ → String) {n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)}
       (q : AggQueryIn T (k + c) n κ l), sizeOf q ≤ N → SymSrc Θ q →
       (∀ i, q.noMention (f i) ∧ EnvNoMention env (f i)) →

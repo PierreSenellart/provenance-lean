@@ -9,6 +9,8 @@ import Mathlib.Tactic.NormNum.Inv
 import Mathlib.Tactic.NormNum.Pow
 import Provenance.AggQueryHom
 import Provenance.QueryRewriting
+import all Provenance.AggQuery
+import all Provenance.AggQueryHom
 
 /-!
 # Embedding the classical query syntax into the general evaluator
@@ -57,7 +59,7 @@ def TermIn.toGenReg {n : ℕ} : Term T n → TermG T (ColKind.allReg n)
 omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 /-- The embedded term evaluates on a regular-values row as the original
 term on the underlying tuple. -/
-theorem TermIn.toGenReg_eval {n : ℕ} (t : Term T n) (x : Tuple T n) :
+private theorem TermIn.toGenReg_eval {n : ℕ} (t : Term T n) (x : Tuple T n) :
     (t.toGenReg).eval (fun k => (Sum.inl (x k) : GenValue T K)) = t.eval x := by
   induction t with
   | const a => rfl
@@ -96,7 +98,7 @@ def Selection.toGenPred {n : ℕ} : Selection T n →
 omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 /-- Embedded selections have no aggregate atoms: the evaluator filters
 classically. -/
-theorem Selection.toGenPred_hasAggAtom {n : ℕ} : ∀ (φ : Selection T n),
+private theorem Selection.toGenPred_hasAggAtom {n : ℕ} : ∀ (φ : Selection T n),
     (φ.toGenPred).hasAggAtom = false
   | .BT b => by cases b <;> rfl
   | .Not φ => toGenPred_hasAggAtom φ
@@ -114,7 +116,7 @@ omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 /-- The embedded predicate evaluates on a regular-values row exactly as the
 original selection does on the underlying tuple – three-valuedly, both sides
 being read in Kleene's logic. -/
-theorem Selection.toGenPred_eval3 {n : ℕ} : ∀ (φ : Selection T n)
+private theorem Selection.toGenPred_eval3 {n : ℕ} : ∀ (φ : Selection T n)
     (x : Tuple T n),
     (φ.toGenPred).eval3 (K := K) (fun k => Sum.inl (x k)) = φ.eval3 x
   | .BT b, x => by
@@ -143,7 +145,7 @@ theorem Selection.toGenPred_eval3 {n : ℕ} : ∀ (φ : Selection T n)
 omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 /-- The embedded predicate holds on a regular-values row exactly when the
 original selection accepts the underlying tuple. -/
-theorem Selection.toGenPred_holds {n : ℕ} (φ : Selection T n) (x : Tuple T n) :
+private theorem Selection.toGenPred_holds {n : ℕ} (φ : Selection T n) (x : Tuple T n) :
     (φ.toGenPred).holds (K := K) (fun k => Sum.inl (x k)) ↔ φ.eval x := by
   unfold GenPredIn.holds Selection.eval
   rw [Selection.toGenPred_eval3 φ x]
@@ -201,7 +203,7 @@ def GenRow.Inv {n : ℕ} (r : GenRow T K n) (p : AnnotatedTuple T K n) :
 
 omit [ValueType T] [DecidableEq K] [HasAltLinearOrder K] in
 /-- Invariant rows finalize to their classical counterparts. -/
-theorem GenRow.Inv.toAnnotated_eq {n : ℕ} {r : GenRow T K n}
+private theorem GenRow.Inv.toAnnotated_eq {n : ℕ} {r : GenRow T K n}
     {p : AnnotatedTuple T K n} (h : GenRow.Inv r p) :
     GenRow.toAnnotated r = p := by
   refine Prod.ext ?_ h.2.1
@@ -212,7 +214,7 @@ theorem GenRow.Inv.toAnnotated_eq {n : ℕ} {r : GenRow T K n}
 
 omit [ValueType T] [DecidableEq K] [HasAltLinearOrder K] in
 /-- Embedded classical rows satisfy the invariant. -/
-theorem rel_inv_ofAnnotated {n : ℕ} (X : AnnotatedRelation T K n) :
+private theorem rel_inv_ofAnnotated {n : ℕ} (X : AnnotatedRelation T K n) :
     Multiset.Rel GenRow.Inv (X.map GenRow.ofAnnotated) X := by
   rw [show X = X.map id from (Multiset.map_id X).symm, Multiset.map_map]
   refine rel_map_of_forall (fun p _ => ⟨rfl, ?_, rfl⟩)
@@ -222,7 +224,7 @@ theorem rel_inv_ofAnnotated {n : ℕ} (X : AnnotatedRelation T K n) :
 /-- **Faithfulness of the embedding, row for row**: the general evaluator
 on the embedded query produces rows satisfying the invariant against the
 classical annotated evaluation. -/
-theorem Query.toAgg_rel :
+private theorem Query.toAgg_rel :
     ∀ {n : ℕ} (q : Query T n) (hq : q.source) (d : AnnotatedDatabase T K),
       Multiset.Rel GenRow.Inv ((q.toAgg hq).evaluate d)
         (q.evaluateAnnotated hq d)
@@ -333,7 +335,7 @@ omit [ValueType T] [DecidableEq K] [HasAltLinearOrder K] in
 /-- An invariant row *is* the embedding of its classical counterpart: the
 pending multiset is empty, so the base coincides with the finalized
 annotation. -/
-theorem GenRow.Inv.row_eq {n : ℕ} {r : GenRow T K n}
+private theorem GenRow.Inv.row_eq {n : ℕ} {r : GenRow T K n}
     {p : AnnotatedTuple T K n} (h : GenRow.Inv r p) :
     r = GenRow.ofAnnotated p := by
   obtain ⟨h1, h2, h3⟩ := h

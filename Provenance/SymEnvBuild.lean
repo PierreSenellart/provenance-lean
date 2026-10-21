@@ -4,6 +4,17 @@ public import Provenance.SymOrder
 public import Provenance.SymCorrect
 import Mathlib.Algebra.Group.Action.Defs
 import Mathlib.Tactic.Ring.RingNF
+import all Provenance.MuUnion
+import all Provenance.OrderSpec
+import all Provenance.PlainBasis
+import all Provenance.SumByMu
+import all Provenance.SumByProd
+import all Provenance.SymCells
+import all Provenance.SymCode
+import all Provenance.SymCorrect
+import all Provenance.SymMu
+import all Provenance.SymOrder
+import all Provenance.SymRel
 
 /-!
 # The environment of the symbolic evaluation, built from a cut
@@ -28,7 +39,7 @@ namespace Sym
 
 /-- **On non-null values, the ascending order of one column is the
 domain's.** -/
-theorem ascLt_one {x y : Tuple T 1} (hx : ValueType.isNull (x 0) = false)
+private theorem ascLt_one {x y : Tuple T 1} (hx : ValueType.isNull (x 0) = false)
     (hy : ValueType.isNull (y 0) = false) : ascLt 1 x y ↔ x 0 < y 0 := by
   unfold ascLt
   rw [OrderSpec.lt_iff]
@@ -54,24 +65,24 @@ def constQ (a : T) : AggQueryIn T c 1 (ColKind.allReg 1) :=
   AggQueryIn.Param (fun _ => _root_.Sum.inl a) (ColKind.allReg 1)
 
 omit [ValueType T] in
-theorem noMention_constQ (a : T) (s : String) : (constQ (c := c) a).noMention s := by
+private theorem noMention_constQ (a : T) (s : String) : (constQ (c := c) a).noMention s := by
   unfold constQ; trivial
 
-theorem holdsPlain_eq_self (x : Tuple T 1) (γ : Fin c → T) :
+private theorem holdsPlain_eq_self (x : Tuple T 1) (γ : Fin c → T) :
     (GenPredIn.cmp CompOp.eq (TermGIn.index (κ := ColKind.allReg 1) 0 rfl)
       (TermGIn.index 0 rfl)).holdsPlain x γ ↔ ValueType.isNull (x 0) = false := by
   show CompOp.eq.eval3 (x 0) (x 0) = Kleene.true ↔ _
   unfold CompOp.eval3
   cases h : ValueType.isNull (x 0) <;> simp [CompOp.strict, CompOp.eval, Kleene.ofBool]
 
-theorem mem_nnQ (CQ : AggQueryIn T c 1 (ColKind.allReg 1)) (D : Database T) (γ : Fin c → T)
+private theorem mem_nnQ (CQ : AggQueryIn T c 1 (ColKind.allReg 1)) (D : Database T) (γ : Fin c → T)
     (x : Tuple T 1) : Multiset.Mem ((nnQ CQ).evaluatePlain D γ) x ↔
       Multiset.Mem (CQ.evaluatePlain D γ) x ∧ ValueType.isNull (x 0) = false := by
   show x ∈ Multiset.filter _ _ ↔ _
   rw [Multiset.mem_filter, holdsPlain_eq_self]
   rfl
 
-theorem evaluatePlain_constQ (a : T) (D : Database T) (γ : Fin c → T) :
+private theorem evaluatePlain_constQ (a : T) (D : Database T) (γ : Fin c → T) :
     @Eq (Multiset (Tuple T 1)) ((constQ a).evaluatePlain D γ) {fun _ => a} := rfl
 
 /-! ## The alphabet of the counters -/
@@ -87,7 +98,7 @@ def alphaQ (f : ℕ → String) (CQ : AggQueryIn T c 1 (ColKind.allReg 1)) :
 def FreshFor {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (f : ℕ → String)
     (q : AggQueryIn T c n κ l) : Prop := ∀ i, q.noMention (f i)
 
-theorem mem_alphaQ (f : ℕ → String) (CQ : AggQueryIn T c 1 (ColKind.allReg 1))
+private theorem mem_alphaQ (f : ℕ → String) (CQ : AggQueryIn T c 1 (ColKind.allReg 1))
     (hf : FreshFor f CQ) (D : Database T) (γ : Fin c → T) (x : Tuple T 1) :
     Multiset.Mem ((alphaQ f CQ).evaluatePlain D γ) x ↔
       (Multiset.Mem (CQ.evaluatePlain D γ) x ∧ ValueType.isNull (x 0) = false)
@@ -108,13 +119,13 @@ theorem mem_alphaQ (f : ℕ → String) (CQ : AggQueryIn T c 1 (ColKind.allReg 1
   rw [h1, h1, ← mem_nnQ CQ D γ x]
   rfl
 
-theorem nodup_alphaQ (f : ℕ → String) (CQ : AggQueryIn T c 1 (ColKind.allReg 1))
+private theorem nodup_alphaQ (f : ℕ → String) (CQ : AggQueryIn T c 1 (ColKind.allReg 1))
     (D : Database T) (γ : Fin c → T) :
     ((alphaQ f CQ).evaluatePlain D γ : Multiset (Tuple T 1)).Nodup := by
   rw [alphaQ, AggQueryIn.evaluatePlain_dedupG]
   exact Multiset.nodup_dedup _
 
-theorem nonNull_alphaQ (f : ℕ → String) (CQ : AggQueryIn T c 1 (ColKind.allReg 1))
+private theorem nonNull_alphaQ (f : ℕ → String) (CQ : AggQueryIn T c 1 (ColKind.allReg 1))
     (hf : FreshFor f CQ) (D : Database T) (γ : Fin c → T) :
     NonNullRows (alphaQ f CQ) D γ := fun x hx i => by
   rw [Subsingleton.elim i 0]
@@ -130,7 +141,7 @@ def powU (EQ : AggQueryIn T c 1 (ColKind.allReg 1)) : (K : ℕ) → AggQueryIn T
   | 0 => AggQueryIn.unitC
   | K + 1 => prodR (powU EQ K) EQ
 
-theorem mem_powU (EQ : AggQueryIn T c 1 (ColKind.allReg 1)) (D : Database T) (γ : Fin c → T) :
+private theorem mem_powU (EQ : AggQueryIn T c 1 (ColKind.allReg 1)) (D : Database T) (γ : Fin c → T) :
     ∀ (K : ℕ) (x : Tuple T K), Multiset.Mem ((powU EQ K).evaluatePlain D γ) x ↔
       ∀ i, Multiset.Mem (EQ.evaluatePlain D γ) (fun _ => x i)
   | 0, x => by
@@ -159,7 +170,7 @@ theorem mem_powU (EQ : AggQueryIn T c 1 (ColKind.allReg 1)) (D : Database T) (γ
       · exact (Fin.append_right (fun j => x (Fin.castSucc j)) (fun _ => x (Fin.last K)) 0).symm
       · exact (Fin.append_left (fun j => x (Fin.castSucc j)) (fun _ => x (Fin.last K)) j).symm
 
-theorem nodup_powU (EQ : AggQueryIn T c 1 (ColKind.allReg 1)) (D : Database T) (γ : Fin c → T)
+private theorem nodup_powU (EQ : AggQueryIn T c 1 (ColKind.allReg 1)) (D : Database T) (γ : Fin c → T)
     (h : (EQ.evaluatePlain D γ : Multiset (Tuple T 1)).Nodup) :
     ∀ K, ((powU EQ K).evaluatePlain D γ : Multiset (Tuple T K)).Nodup
   | 0 => by
@@ -170,7 +181,7 @@ theorem nodup_powU (EQ : AggQueryIn T c 1 (ColKind.allReg 1)) (D : Database T) (
     rw [powU]
     exact nodup_prodR _ _ D γ (nodup_powU EQ D γ h K) h
 
-theorem card_powU (EQ : AggQueryIn T c 1 (ColKind.allReg 1)) (D : Database T) (γ : Fin c → T) :
+private theorem card_powU (EQ : AggQueryIn T c 1 (ColKind.allReg 1)) (D : Database T) (γ : Fin c → T) :
     ∀ K, Multiset.card ((powU EQ K).evaluatePlain D γ : Multiset (Tuple T K))
       = Multiset.card (EQ.evaluatePlain D γ : Multiset (Tuple T 1)) ^ K
   | 0 => by
@@ -182,7 +193,7 @@ theorem card_powU (EQ : AggQueryIn T c 1 (ColKind.allReg 1)) (D : Database T) (�
     simp only [Multiset.card_map, Function.comp_def]
     rw [Multiset.map_const', Multiset.sum_replicate, smul_eq_mul]
 
-theorem nonNull_powU (EQ : AggQueryIn T c 1 (ColKind.allReg 1)) (D : Database T) (γ : Fin c → T)
+private theorem nonNull_powU (EQ : AggQueryIn T c 1 (ColKind.allReg 1)) (D : Database T) (γ : Fin c → T)
     (h : NonNullRows EQ D γ) (K : ℕ) : NonNullRows (powU EQ K) D γ := fun x hx i =>
   h _ ((mem_powU EQ D γ K x).mp hx i) 0
 
@@ -208,26 +219,26 @@ def sqQ (f : ℕ → String) (cnt : SeqAggFunc T) (CQ : AggQueryIn T c 1 (ColKin
   succQ (f 6) (f 7) cnt (ctrQ f CQ K)
 
 omit [ValueType T] in
-theorem noMention_nnQ (CQ : AggQueryIn T c 1 (ColKind.allReg 1)) {s : String}
+private theorem noMention_nnQ (CQ : AggQueryIn T c 1 (ColKind.allReg 1)) {s : String}
     (h : CQ.noMention s) : (nnQ CQ).noMention s := h
 
-theorem noMention_alphaQ (f : ℕ → String) (CQ : AggQueryIn T c 1 (ColKind.allReg 1)) {s : String}
+private theorem noMention_alphaQ (f : ℕ → String) (CQ : AggQueryIn T c 1 (ColKind.allReg 1)) {s : String}
     (h : CQ.noMention s) : (alphaQ f CQ).noMention s :=
   AggQueryIn.noMention_dedupG _ _ (AggQueryIn.noMention_sumByMuX _ _ _ _ (noMention_nnQ CQ h)
     (AggQueryIn.noMention_sumByMuX _ _ _ _ (noMention_constQ _ _) (noMention_constQ _ _)))
 
 omit [ValueType T] in
-theorem noMention_powU (EQ : AggQueryIn T c 1 (ColKind.allReg 1)) {s : String}
+private theorem noMention_powU (EQ : AggQueryIn T c 1 (ColKind.allReg 1)) {s : String}
     (h : EQ.noMention s) : ∀ K, (powU EQ K).noMention s
   | 0 => by rw [powU]; exact AggQueryIn.noMention_unitC s
   | K + 1 => by rw [powU]; exact (noMention_prodR _ _).mpr ⟨noMention_powU EQ h K, h⟩
 
-theorem noMention_ctrQ (f : ℕ → String) (CQ : AggQueryIn T c 1 (ColKind.allReg 1)) {s : String}
+private theorem noMention_ctrQ (f : ℕ → String) (CQ : AggQueryIn T c 1 (ColKind.allReg 1)) {s : String}
     (h : CQ.noMention s) (K : ℕ) : (ctrQ f CQ K).noMention s :=
   noMention_powU _ (noMention_alphaQ f CQ h) K
 
 /-- Arithmetic of the counter width. -/
-theorem card_le_ctr {A m k : ℕ} (hA : 2 ≤ A) (hm : m ≤ A + 1) (n : ℕ) :
+private theorem card_le_ctr {A m k : ℕ} (hA : 2 ≤ A) (hm : m ≤ A + 1) (n : ℕ) :
     (m + k + 1) ^ n ≤ A ^ ctrW k n := by
   unfold ctrW
   rw [pow_mul]
@@ -251,7 +262,7 @@ noncomputable def valsU (R : Multiset (Tuple T 1)) : Finset T := (R.map (fun y =
 /-- **The counters are as many as the rounds a recursion can run**: a list
 of them in increasing order, its least element and its successor
 relation, of length at least `(|C| + k + 1)^n`. -/
-theorem ctr_ok (f : ℕ → String) {cnt : SeqAggFunc T}
+private theorem ctr_ok (f : ℕ → String) {cnt : SeqAggFunc T}
     (hc : SeqAggFunc.Counts cnt) (CQ : AggQueryIn T c 1 (ColKind.allReg 1)) (hfr : FreshFor f CQ)
     (D : Database T) (γ : Fin c → T) (k n : ℕ) :
     ∃ cs : List (Tuple T (ctrW k n)), cs.Nodup ∧ ∃ h : 0 < cs.length,
@@ -315,7 +326,7 @@ theorem ctr_ok (f : ℕ → String) {cnt : SeqAggFunc T}
 
 variable (C : Finset T)
 
-theorem upOf_eq_coe_iff (l : WithBot T) (b : T) :
+private theorem upOf_eq_coe_iff (l : WithBot T) (b : T) :
     upOf C l = (b : WithTop T) ↔ (b ∈ C ∧ ValueType.isNull b = false ∧ LT.lt l (b : WithBot T))
       ∧ ∀ t ∈ C, ValueType.isNull t = false → LT.lt l (t : WithBot T) → b ≤ t := by
   unfold upOf
@@ -334,7 +345,7 @@ theorem upOf_eq_coe_iff (l : WithBot T) (b : T) :
     obtain ⟨ht, htn, hlt'⟩ := Finset.mem_filter.mp ht
     exact WithTop.coe_le_coe.mpr (hmin t ht htn hlt')
 
-theorem upOf_eq_top_iff (l : WithBot T) :
+private theorem upOf_eq_top_iff (l : WithBot T) :
     upOf C l = ⊤ ↔ ∀ t ∈ C, ValueType.isNull t = false → ¬ LT.lt l (t : WithBot T) := by
   unfold upOf
   rw [Finset.min_eq_top, Finset.filter_eq_empty_iff]
@@ -354,7 +365,7 @@ def cellSA {N k : ℕ} (v : Fin 7 → SA T c N) (th : Fin k → SA T c N) : Fin 
   Fin.addCases (motive := fun _ => SA T c N) v th
 
 omit [ValueType T] in
-theorem eval_cellSA {N k : ℕ} (v : Fin 7 → SA T c N) (th : Fin k → SA T c N) (x : Tuple T N)
+private theorem eval_cellSA {N k : ℕ} (v : Fin 7 → SA T c N) (th : Fin k → SA T c N) (x : Tuple T N)
     (γ : Fin c → T) :
     (fun j => (cellSA v th j).eval x γ)
       = Fin.append (fun j => (v j).eval x γ) (fun j => (th j).eval x γ) := by
@@ -365,7 +376,7 @@ theorem eval_cellSA {N k : ℕ} (v : Fin 7 → SA T c N) (th : Fin k → SA T c 
 
 omit [ValueType T] in
 /-- Seven arguments read on a row. -/
-theorem eval_vec7 {N : ℕ} (a₀ a₁ a₂ a₃ a₄ a₅ a₆ : SA T c N) (x : Tuple T N) (γ : Fin c → T) :
+private theorem eval_vec7 {N : ℕ} (a₀ a₁ a₂ a₃ a₄ a₅ a₆ : SA T c N) (x : Tuple T N) (γ : Fin c → T) :
     (fun j => (![a₀, a₁, a₂, a₃, a₄, a₅, a₆] j).eval x γ)
       = ![a₀.eval x γ, a₁.eval x γ, a₂.eval x γ, a₃.eval x γ, a₄.eval x γ, a₅.eval x γ,
           a₆.eval x γ] := by
@@ -388,15 +399,15 @@ def thQ (f : ℕ → String) (k : ℕ) : ℕ → AggQueryIn T c k (ColKind.allRe
   | 0 => thRowQ k 0
   | r + 1 => AggQueryIn.sumByMuX (f (2 * r)) (f (2 * r + 1)) (thQ f k r) (thRowQ k (r + 1))
 
-theorem noMention_thRowQ (k r : ℕ) (s : String) : (thRowQ (T := T) (c := c) k r).noMention s := by
+private theorem noMention_thRowQ (k r : ℕ) (s : String) : (thRowQ (T := T) (c := c) k r).noMention s := by
   unfold thRowQ; trivial
 
-theorem noMention_thQ (f : ℕ → String) (k : ℕ) (s : String) :
+private theorem noMention_thQ (f : ℕ → String) (k : ℕ) (s : String) :
     ∀ r, (thQ (T := T) (c := c) f k r).noMention s
   | 0 => noMention_thRowQ k 0 s
   | r + 1 => AggQueryIn.noMention_sumByMuX _ _ _ _ (noMention_thQ f k s r) (noMention_thRowQ _ _ s)
 
-theorem mem_thQ (f : ℕ → String) (k : ℕ) (D : Database T) (γ : Fin c → T) :
+private theorem mem_thQ (f : ℕ → String) (k : ℕ) (D : Database T) (γ : Fin c → T) :
     ∀ (r : ℕ) (x : Tuple T k), Multiset.Mem ((thQ f k r).evaluatePlain D γ) x ↔
       ∃ r' ≤ r, x = therm k r'
   | 0, x => by
@@ -426,12 +437,12 @@ theorem mem_thQ (f : ℕ → String) (k : ℕ) (D : Database T) (γ : Fin c → 
 /-! ## The five kinds of cells -/
 
 /-- The value of a unary row. -/
-theorem mem_valsU {R : Multiset (Tuple T 1)} {a : T} :
+private theorem mem_valsU {R : Multiset (Tuple T 1)} {a : T} :
     a ∈ valsU R ↔ ∃ y ∈ R, y 0 = a := by
   rw [valsU, Multiset.mem_toFinset, Multiset.mem_map]
 
 omit [ValueType T] in
-theorem unary_eq (y : Tuple T 1) : y = fun _ => y 0 :=
+private theorem unary_eq (y : Tuple T 1) : y = fun _ => y 0 :=
   funext fun i => by rw [Subsingleton.elim i 0]
 
 /-- **A concrete cell for each value of the cut.** -/
@@ -440,7 +451,7 @@ def concP (k : ℕ) (CQ : AggQueryIn T c 1 (ColKind.allReg 1)) : AggQueryIn T c 
   projQ (cellSA ![.const 0, .col 0, .const 0, .const 0, .const 0, .const sLo, .const sHi]
     (fun _ => .const 0)) CQ
 
-theorem mem_concP (k : ℕ) (CQ : AggQueryIn T c 1 (ColKind.allReg 1)) (D : Database T)
+private theorem mem_concP (k : ℕ) (CQ : AggQueryIn T c 1 (ColKind.allReg 1)) (D : Database T)
     (γ : Fin c → T) (x : Tuple T (7 + k)) :
     Multiset.Mem ((concP k CQ).evaluatePlain D γ) x ↔
       ∃ a ∈ valsU (CQ.evaluatePlain D γ), x = enc (valsU (CQ.evaluatePlain D γ)) k (.conc a) := by
@@ -458,7 +469,7 @@ theorem mem_concP (k : ℕ) (CQ : AggQueryIn T c 1 (ColKind.allReg 1)) (D : Data
     rw [eval_cellSA, eval_vec7]
     rfl
 
-theorem mem_nnQ_iff (CQ : AggQueryIn T c 1 (ColKind.allReg 1)) (D : Database T) (γ : Fin c → T)
+private theorem mem_nnQ_iff (CQ : AggQueryIn T c 1 (ColKind.allReg 1)) (D : Database T) (γ : Fin c → T)
     (y : Tuple T 1) : Multiset.Mem ((nnQ CQ).evaluatePlain D γ) y ↔
       y 0 ∈ valsU (CQ.evaluatePlain D γ) ∧ ValueType.isNull (y 0) = false := by
   rw [mem_nnQ]
@@ -471,7 +482,7 @@ theorem mem_nnQ_iff (CQ : AggQueryIn T c 1 (ColKind.allReg 1)) (D : Database T) 
     rw [unary_eq y, ← he, ← unary_eq y']
     exact hy'
 
-theorem nonNull_nnQ (CQ : AggQueryIn T c 1 (ColKind.allReg 1)) (D : Database T) (γ : Fin c → T) :
+private theorem nonNull_nnQ (CQ : AggQueryIn T c 1 (ColKind.allReg 1)) (D : Database T) (γ : Fin c → T) :
     NonNullRows (nnQ CQ) D γ := fun y hy i => by
   rw [Subsingleton.elim i 0]; exact ((mem_nnQ CQ D γ y).mp hy).2
 
@@ -479,7 +490,7 @@ theorem nonNull_nnQ (CQ : AggQueryIn T c 1 (ColKind.allReg 1)) (D : Database T) 
 def thP (f : ℕ → String) (k : ℕ) : AggQueryIn T c k (ColKind.allReg k) :=
   thQ (fun i => f (i + 16)) k k
 
-theorem mem_thP (f : ℕ → String) (k : ℕ) (D : Database T) (γ : Fin c → T) (x : Tuple T k) :
+private theorem mem_thP (f : ℕ → String) (k : ℕ) (D : Database T) (γ : Fin c → T) (x : Tuple T k) :
     Multiset.Mem ((thP f k).evaluatePlain (c := c) D γ) x ↔ ∃ r ≤ k, x = therm k r :=
   mem_thQ _ k D γ k x
 
@@ -492,7 +503,7 @@ def succP (f : ℕ → String) (cnt : SeqAggFunc T) (k : ℕ) (CQ : AggQueryIn T
       (fun r => .col (Fin.natAdd (1 + 1) r)))
     (prodR (succQ (f 8) (f 9) cnt (nnQ CQ)) (thP f k))
 
-theorem mem_succP (f : ℕ → String) {cnt : SeqAggFunc T} (hc : SeqAggFunc.Counts cnt) (k : ℕ)
+private theorem mem_succP (f : ℕ → String) {cnt : SeqAggFunc T} (hc : SeqAggFunc.Counts cnt) (k : ℕ)
     (CQ : AggQueryIn T c 1 (ColKind.allReg 1)) (hfr : FreshFor f CQ) (D : Database T)
     (γ : Fin c → T) (x : Tuple T (7 + k)) :
     Multiset.Mem ((succP f cnt k CQ).evaluatePlain D γ) x ↔
@@ -558,7 +569,7 @@ def topP (f : ℕ → String) (cnt : SeqAggFunc T) (k : ℕ) (CQ : AggQueryIn T 
       .const ValueType.nonzero, .const sHi, .const sLo] (fun r => .col (Fin.natAdd 1 r)))
     (prodR (greatestQ (f 10) (f 11) cnt (nnQ CQ)) (thP f k))
 
-theorem mem_topP (f : ℕ → String) {cnt : SeqAggFunc T} (hc : SeqAggFunc.Counts cnt) (k : ℕ)
+private theorem mem_topP (f : ℕ → String) {cnt : SeqAggFunc T} (hc : SeqAggFunc.Counts cnt) (k : ℕ)
     (CQ : AggQueryIn T c 1 (ColKind.allReg 1)) (hfr : FreshFor f CQ) (D : Database T)
     (γ : Fin c → T) (x : Tuple T (7 + k)) :
     Multiset.Mem ((topP f cnt k CQ).evaluatePlain D γ) x ↔
@@ -613,7 +624,7 @@ def botP (f : ℕ → String) (cnt : SeqAggFunc T) (k : ℕ) (CQ : AggQueryIn T 
       .col (Fin.castAdd k 0), .const 0, .const sLo, .const sLo] (fun r => .col (Fin.natAdd 1 r)))
     (prodR (leastQ (f 12) (f 13) cnt (nnQ CQ)) (thP f k))
 
-theorem mem_botP (f : ℕ → String) {cnt : SeqAggFunc T} (hc : SeqAggFunc.Counts cnt) (k : ℕ)
+private theorem mem_botP (f : ℕ → String) {cnt : SeqAggFunc T} (hc : SeqAggFunc.Counts cnt) (k : ℕ)
     (CQ : AggQueryIn T c 1 (ColKind.allReg 1)) (hfr : FreshFor f CQ) (D : Database T)
     (γ : Fin c → T) (x : Tuple T (7 + k)) :
     Multiset.Mem ((botP f cnt k CQ).evaluatePlain D γ) x ↔
@@ -674,7 +685,7 @@ def emptyQ (s₁ s₂ : String) (cnt : SeqAggFunc T) (R : AggQueryIn T c 1 (ColK
     AggQueryIn T c 0 (ColKind.allReg 0) :=
   AggQueryIn.notInDiffX s₁ s₂ cnt AggQueryIn.unitC (projQ (fun j : Fin 0 => j.elim0) R)
 
-theorem mem_emptyQ (s₁ s₂ : String) {cnt : SeqAggFunc T} (hc : SeqAggFunc.Counts cnt)
+private theorem mem_emptyQ (s₁ s₂ : String) {cnt : SeqAggFunc T} (hc : SeqAggFunc.Counts cnt)
     (R : AggQueryIn T c 1 (ColKind.allReg 1)) (h₂ : R.noMention s₂) (D : Database T)
     (γ : Fin c → T) (z : Tuple T 0) :
     Multiset.Mem ((emptyQ s₁ s₂ cnt R).evaluatePlain D γ) z ↔
@@ -700,7 +711,7 @@ def botEP (f : ℕ → String) (cnt : SeqAggFunc T) (k : ℕ) (CQ : AggQueryIn T
       .const ValueType.nonzero, .const sLo, .const sLo] (fun r => .col (Fin.natAdd 0 r)))
     (prodR (emptyQ (f 14) (f 15) cnt (nnQ CQ)) (thP f k))
 
-theorem mem_botEP (f : ℕ → String) {cnt : SeqAggFunc T} (hc : SeqAggFunc.Counts cnt) (k : ℕ)
+private theorem mem_botEP (f : ℕ → String) {cnt : SeqAggFunc T} (hc : SeqAggFunc.Counts cnt) (k : ℕ)
     (CQ : AggQueryIn T c 1 (ColKind.allReg 1)) (hfr : FreshFor f CQ) (D : Database T)
     (γ : Fin c → T) (x : Tuple T (7 + k)) :
     Multiset.Mem ((botEP f cnt k CQ).evaluatePlain D γ) x ↔
@@ -768,7 +779,7 @@ def CellShape (C : Finset T) (k : ℕ) (x : Tuple T (7 + k)) : Prop :=
   (∃ a ∈ C, x = enc C k (.conc a)) ∨ ∃ l r, GapOK C l ∧ r ≤ k ∧ x = enc C k (.fresh l r)
 
 omit [ValueType T] in
-theorem noMention_projQ {N M : ℕ} (F : Fin M → SA T c N) (q : AggQueryIn T c N (ColKind.allReg N))
+private theorem noMention_projQ {N M : ℕ} (F : Fin M → SA T c N) (q : AggQueryIn T c N (ColKind.allReg N))
     {s : String} (h : q.noMention s) : (projQ F q).noMention s := by
   rw [projQ, AggQueryIn.noMention_castKind]; exact h
 
@@ -779,29 +790,29 @@ variable (f : ℕ → String) (cnt : SeqAggFunc T) (k : ℕ) (CQ : AggQueryIn T 
 include h
 
 omit h in
-theorem noMention_thP : (thP (T := T) (c := c) f k).noMention s := noMention_thQ _ k s k
+private theorem noMention_thP : (thP (T := T) (c := c) f k).noMention s := noMention_thQ _ k s k
 
-theorem noMention_concP : (concP k CQ).noMention s := noMention_projQ _ _ h
+private theorem noMention_concP : (concP k CQ).noMention s := noMention_projQ _ _ h
 
-theorem noMention_succP : (succP f cnt k CQ).noMention s :=
+private theorem noMention_succP : (succP f cnt k CQ).noMention s :=
   noMention_projQ _ _ ((noMention_prodR _ _).mpr ⟨AggQueryIn.noMention_notInDiffX _ _ _
     (noMention_ltQ' (noMention_nnQ CQ h)) (noMention_midQ' (noMention_nnQ CQ h)),
     noMention_thP (s := s) f k⟩)
 
-theorem noMention_topP : (topP f cnt k CQ).noMention s :=
+private theorem noMention_topP : (topP f cnt k CQ).noMention s :=
   noMention_projQ _ _ ((noMention_prodR _ _).mpr ⟨AggQueryIn.noMention_notInDiffX _ _ _
     (noMention_nnQ CQ h) (noMention_belowQ' (noMention_nnQ CQ h)), noMention_thP (s := s) f k⟩)
 
-theorem noMention_botP : (botP f cnt k CQ).noMention s :=
+private theorem noMention_botP : (botP f cnt k CQ).noMention s :=
   noMention_projQ _ _ ((noMention_prodR _ _).mpr ⟨AggQueryIn.noMention_notInDiffX _ _ _
     (noMention_nnQ CQ h) (noMention_aboveQ' (noMention_nnQ CQ h)), noMention_thP (s := s) f k⟩)
 
-theorem noMention_botEP : (botEP f cnt k CQ).noMention s :=
+private theorem noMention_botEP : (botEP f cnt k CQ).noMention s :=
   noMention_projQ _ _ ((noMention_prodR _ _).mpr ⟨AggQueryIn.noMention_notInDiffX _ _ _
     (AggQueryIn.noMention_unitC _) (noMention_projQ _ _ (noMention_nnQ CQ h)),
     noMention_thP (s := s) f k⟩)
 
-theorem noMention_cellsQ : (cellsQ f cnt k CQ).noMention s :=
+private theorem noMention_cellsQ : (cellsQ f cnt k CQ).noMention s :=
   AggQueryIn.noMention_dedupG _ _ (AggQueryIn.noMention_sumByMuX _ _ _ _
     (noMention_concP k CQ h) (AggQueryIn.noMention_sumByMuX _ _ _ _ (noMention_succP f cnt k CQ h)
       (AggQueryIn.noMention_sumByMuX _ _ _ _ (noMention_topP f cnt k CQ h)
@@ -810,7 +821,7 @@ theorem noMention_cellsQ : (cellsQ f cnt k CQ).noMention s :=
 
 end Pieces
 
-theorem mem_cellsQ (f : ℕ → String) {cnt : SeqAggFunc T} (hc : SeqAggFunc.Counts cnt) (k : ℕ)
+private theorem mem_cellsQ (f : ℕ → String) {cnt : SeqAggFunc T} (hc : SeqAggFunc.Counts cnt) (k : ℕ)
     (CQ : AggQueryIn T c 1 (ColKind.allReg 1)) (hfr : FreshFor f CQ) (D : Database T)
     (γ : Fin c → T) (x : Tuple T (7 + k)) :
     Multiset.Mem ((cellsQ f cnt k CQ).evaluatePlain D γ) x ↔
@@ -862,7 +873,7 @@ theorem mem_cellsQ (f : ℕ → String) {cnt : SeqAggFunc T} (hc : SeqAggFunc.Co
         · exact Or.inr (Or.inr (Or.inl ⟨t, ht, htn, htop, r, hr, rfl⟩))
         · exact Or.inr (Or.inl ⟨t, ht, htn, htop, r, hr, rfl⟩)
 
-theorem nodup_cellsQ (f : ℕ → String) (cnt : SeqAggFunc T) (k : ℕ)
+private theorem nodup_cellsQ (f : ℕ → String) (cnt : SeqAggFunc T) (k : ℕ)
     (CQ : AggQueryIn T c 1 (ColKind.allReg 1)) (D : Database T) (γ : Fin c → T) :
     ((cellsQ f cnt k CQ).evaluatePlain D γ : Multiset (Tuple T (7 + k))).Nodup := by
   rw [cellsQ, AggQueryIn.evaluatePlain_dedupG]
@@ -887,7 +898,7 @@ def powX {m : ℕ} (R : AggQueryIn T c m (ColKind.allReg m)) :
   | K + 1 => prodR (powX R K) R
 
 omit [ValueType T] in
-theorem blk_append_last {m K : ℕ} (y : Tuple T (m * K)) (e : Tuple T m) :
+private theorem blk_append_last {m K : ℕ} (y : Tuple T (m * K)) (e : Tuple T m) :
     blk m (K + 1) (Fin.append y e : Tuple T (m * K + m)) (Fin.last K) = e := by
   funext j
   show (Fin.append y e : Tuple T (m * K + m)) ⟨m * K + j, _⟩ = e j
@@ -895,14 +906,14 @@ theorem blk_append_last {m K : ℕ} (y : Tuple T (m * K)) (e : Tuple T m) :
     from Fin.ext rfl, Fin.append_right]
 
 omit [ValueType T] in
-theorem blk_append_castSucc {m K : ℕ} (y : Tuple T (m * K)) (e : Tuple T m) (i : Fin K) :
+private theorem blk_append_castSucc {m K : ℕ} (y : Tuple T (m * K)) (e : Tuple T m) (i : Fin K) :
     blk m (K + 1) (Fin.append y e : Tuple T (m * K + m)) (Fin.castSucc i) = blk m K y i := by
   funext j
   show (Fin.append y e : Tuple T (m * K + m)) ⟨m * i + j, _⟩ = y ⟨m * i + j, _⟩
   rw [show (⟨m * i + j, blk_lt (Fin.castSucc i).2 j.2⟩ : Fin (m * K + m))
     = Fin.castAdd m ⟨m * i + j, blk_lt i.2 j.2⟩ from Fin.ext rfl, Fin.append_left]
 
-theorem mem_powX {m : ℕ} (R : AggQueryIn T c m (ColKind.allReg m)) (D : Database T)
+private theorem mem_powX {m : ℕ} (R : AggQueryIn T c m (ColKind.allReg m)) (D : Database T)
     (γ : Fin c → T) :
     ∀ (K : ℕ) (v : Tuple T (m * K)), Multiset.Mem ((powX R K).evaluatePlain D γ) v ↔
       ∀ i, Multiset.Mem (R.evaluatePlain D γ) (blk m K v i)
@@ -929,7 +940,7 @@ theorem mem_powX {m : ℕ} (R : AggQueryIn T c m (ColKind.allReg m)) (D : Databa
         exact funext fun x => rfl
       · exact (Fin.append_castAdd_natAdd (f := v)).symm
 
-theorem nodup_powX {m : ℕ} (R : AggQueryIn T c m (ColKind.allReg m)) (D : Database T)
+private theorem nodup_powX {m : ℕ} (R : AggQueryIn T c m (ColKind.allReg m)) (D : Database T)
     (γ : Fin c → T) (h : (R.evaluatePlain D γ : Multiset (Tuple T m)).Nodup) :
     ∀ K, ((powX R K).evaluatePlain D γ : Multiset (Tuple T (m * K))).Nodup
   | 0 => by
@@ -941,7 +952,7 @@ theorem nodup_powX {m : ℕ} (R : AggQueryIn T c m (ColKind.allReg m)) (D : Data
     exact nodup_prodR _ _ D γ (nodup_powX R D γ h K) h
 
 omit [ValueType T] in
-theorem noMention_powX {m : ℕ} (R : AggQueryIn T c m (ColKind.allReg m)) {s : String}
+private theorem noMention_powX {m : ℕ} (R : AggQueryIn T c m (ColKind.allReg m)) {s : String}
     (h : R.noMention s) : ∀ K, (powX R K).noMention s
   | 0 => by rw [powX]; exact AggQueryIn.noMention_unitC s
   | K + 1 => by rw [powX]; exact (noMention_prodR _ _).mpr ⟨noMention_powX R h K, h⟩
@@ -954,14 +965,14 @@ def descQ (f : ℕ → String) (cnt : SeqAggFunc T) (k : ℕ) (CQ : AggQueryIn T
   projQ (fun x => SA.col (Fin.cast (Nat.mul_comm k (7 + k)) x)) (powX (cellsQ f cnt k CQ) k)
 
 omit [ValueType T] in
-theorem cellOf_cast {k : ℕ} (w : Tuple T ((7 + k) * k)) (i : Fin k) :
+private theorem cellOf_cast {k : ℕ} (w : Tuple T ((7 + k) * k)) (i : Fin k) :
     cellOf (fun x => w (Fin.cast (Nat.mul_comm k (7 + k)) x)) i = blk (7 + k) k w i := by
   funext j
   show w (Fin.cast _ (finProdFinEquiv (i, j))) = w ⟨(7 + k) * i + j, _⟩
   congr 1
   exact Fin.ext (by simp [finProdFinEquiv]; omega)
 
-theorem mem_descQ (f : ℕ → String) {cnt : SeqAggFunc T} (hc : SeqAggFunc.Counts cnt) (k : ℕ)
+private theorem mem_descQ (f : ℕ → String) {cnt : SeqAggFunc T} (hc : SeqAggFunc.Counts cnt) (k : ℕ)
     (CQ : AggQueryIn T c 1 (ColKind.allReg 1)) (hfr : FreshFor f CQ) (D : Database T)
     (γ : Fin c → T) (v : Tuple T (k * (7 + k))) :
     Multiset.Mem ((descQ f cnt k CQ).evaluatePlain D γ) v ↔
@@ -986,7 +997,7 @@ theorem mem_descQ (f : ℕ → String) {cnt : SeqAggFunc T} (hc : SeqAggFunc.Cou
       show v (Fin.cast _ (Fin.cast _ x)) = v x
       rw [Fin.cast_cast, Fin.cast_eq_self]
 
-theorem nodup_descQ (f : ℕ → String) (cnt : SeqAggFunc T) (k : ℕ)
+private theorem nodup_descQ (f : ℕ → String) (cnt : SeqAggFunc T) (k : ℕ)
     (CQ : AggQueryIn T c 1 (ColKind.allReg 1)) (D : Database T) (γ : Fin c → T) :
     ((descQ f cnt k CQ).evaluatePlain D γ : Multiset (Tuple T (k * (7 + k)))).Nodup := by
   rw [descQ, evaluatePlain_projQ]
@@ -1005,7 +1016,7 @@ def envOf (f : ℕ → String) (cnt : SeqAggFunc T) (k : ℕ) (CQ : AggQueryIn T
   Lq := fun n => lqQ (fun i => f (2 * i + 1)) cnt CQ (ctrW k n)
   Sq := fun n => sqQ (fun i => f (2 * i + 1)) cnt CQ (ctrW k n)
 
-theorem cutAt_envOf (f : ℕ → String) (cnt : SeqAggFunc T) (k : ℕ)
+private theorem cutAt_envOf (f : ℕ → String) (cnt : SeqAggFunc T) (k : ℕ)
     (CQ : AggQueryIn T c 1 (ColKind.allReg 1)) (D : Database T) (γ : Fin c → T) :
     cutAt (envOf f cnt k CQ) D γ = valsU (CQ.evaluatePlain D γ) := rfl
 
@@ -1040,7 +1051,7 @@ theorem envOK_envOf (f : ℕ → String) {cnt : SeqAggFunc T} (hc : SeqAggFunc.C
   · exact ctr_ok _ hc CQ hfr1 D γ k n
 
 /-- **The environment names only what the cut names.** -/
-theorem envNoMention_envOf (f : ℕ → String) (cnt : SeqAggFunc T) (k : ℕ)
+private theorem envNoMention_envOf (f : ℕ → String) (cnt : SeqAggFunc T) (k : ℕ)
     (CQ : AggQueryIn T c 1 (ColKind.allReg 1)) {s : String} (h : CQ.noMention s) :
     EnvNoMention (envOf f cnt k CQ) s := by
   refine ⟨h, noMention_projQ _ _ (noMention_powX _ (noMention_cellsQ _ cnt k CQ h) k),

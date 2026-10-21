@@ -4,6 +4,8 @@ public import Provenance.QueryAnnotatedDatabase
 import Mathlib.Data.List.Find
 import Mathlib.Tactic.Bound.Init
 import Provenance.QueryRewriting
+import all Provenance.QueryRewriting
+import all Provenance.Util.KeyAccValueList
 
 /-!
 # Query evaluation commutes with m-semiring homomorphisms
@@ -111,11 +113,11 @@ def mapAnnotatedDatabase (d: AnnotatedDatabase T K) : AnnotatedDatabase T K' :=
   d.map (fun e => (e.1, ⟨e.2.1, mapAnnotatedRelation h e.2.2⟩))
 
 @[simp]
-theorem mapAnnotatedRelation_zero :
+private theorem mapAnnotatedRelation_zero :
     mapAnnotatedRelation (T := T) (n := n) h 0 = 0 := rfl
 
 @[simp]
-theorem mapAnnotatedRelation_add (r₁ r₂: AnnotatedRelation T K n) :
+private theorem mapAnnotatedRelation_add (r₁ r₂: AnnotatedRelation T K n) :
     mapAnnotatedRelation h (r₁ + r₂)
       = mapAnnotatedRelation h r₁ + mapAnnotatedRelation h r₂ := by
   unfold mapAnnotatedRelation
@@ -123,7 +125,7 @@ theorem mapAnnotatedRelation_add (r₁ r₂: AnnotatedRelation T K n) :
 
 /-- The data side of an annotated relation is unaffected by the pushforward. -/
 @[simp]
-theorem map_fst_mapAnnotatedRelation (r: AnnotatedRelation T K n) :
+private theorem map_fst_mapAnnotatedRelation (r: AnnotatedRelation T K n) :
     (mapAnnotatedRelation h r).map Prod.fst = r.map Prod.fst := by
   show Multiset.map Prod.fst (Multiset.map (mapAnnotatedTuple h) r)
        = Multiset.map Prod.fst r
@@ -132,7 +134,7 @@ theorem map_fst_mapAnnotatedRelation (r: AnnotatedRelation T K n) :
 
 /-- Mapping the annotation side pushes the homomorphism through. -/
 @[simp]
-theorem map_snd_mapAnnotatedRelation (r: AnnotatedRelation T K n) :
+private theorem map_snd_mapAnnotatedRelation (r: AnnotatedRelation T K n) :
     (mapAnnotatedRelation h r).map Prod.snd = (r.map Prod.snd).map h.toRingHom := by
   show Multiset.map Prod.snd (Multiset.map (mapAnnotatedTuple h) r)
        = Multiset.map h.toRingHom (Multiset.map Prod.snd r)
@@ -140,7 +142,7 @@ theorem map_snd_mapAnnotatedRelation (r: AnnotatedRelation T K n) :
   rfl
 
 /-- Filtering by an `fst`-only predicate commutes with the pushforward. -/
-theorem mapAnnotatedRelation_filter_fst (P: Tuple T n → Prop) [DecidablePred P]
+private theorem mapAnnotatedRelation_filter_fst (P: Tuple T n → Prop) [DecidablePred P]
     (r: AnnotatedRelation T K n) :
     @Multiset.filter _ (fun (ta: AnnotatedTuple T K' n) => P ta.fst) _
         (mapAnnotatedRelation h r)
@@ -164,7 +166,7 @@ theorem mapAnnotatedRelation_filter_fst (P: Tuple T n → Prop) [DecidablePred P
 
 /-- Annotation-side sum over the entries with a given first component commutes
 with the pushforward: it pulls out `h.toRingHom`. -/
-theorem sum_filter_map_snd_mapAnnotatedRelation
+private theorem sum_filter_map_snd_mapAnnotatedRelation
     (v : Tuple T n) (r : AnnotatedRelation T K n) :
     (Multiset.map Prod.snd
         (@Multiset.filter _ (fun q : AnnotatedTuple T K' n => q.1 = v) _
@@ -185,7 +187,7 @@ theorem sum_filter_map_snd_mapAnnotatedRelation
 
 /-- `Selection.eval` on the data side commutes with pushforward, in the form needed
 to interchange `Multiset.filter` and `mapAnnotatedRelation` in the `Sel` case. -/
-theorem mapAnnotatedRelation_filter (φ : Selection T n) (r: AnnotatedRelation T K n) :
+private theorem mapAnnotatedRelation_filter (φ : Selection T n) (r: AnnotatedRelation T K n) :
     @Multiset.filter _ (fun (ta: AnnotatedTuple T K' n) => φ.eval ta.fst)
         φ.evalDecidableAnnotated (mapAnnotatedRelation h r)
       = mapAnnotatedRelation h
@@ -208,7 +210,7 @@ theorem mapAnnotatedRelation_filter (φ : Selection T n) (r: AnnotatedRelation T
             (p := fun ta : AnnotatedTuple T K n => φ.eval ta.fst) _ hφ, ih]
 
 /-- `find` commutes with the database-level pushforward. -/
-theorem find_mapAnnotatedDatabase (n: ℕ) (s: String) (d: AnnotatedDatabase T K) :
+private theorem find_mapAnnotatedDatabase (n: ℕ) (s: String) (d: AnnotatedDatabase T K) :
     (mapAnnotatedDatabase h d).find n s
       = (d.find n s).map (mapAnnotatedRelation h) := by
   induction d with
@@ -232,7 +234,7 @@ end SemiringWithMonusHom
 sum of the annotations at the chosen key. Bridges the `groupByKey`-based
 aggregation used in `evaluateAnnotated`'s `Diff` clause with the `filter`-based
 aggregation that `sum_filter_map_snd_mapAnnotatedRelation` reasons about. -/
-theorem groupByKey_find_eq_filter_sum (r : AnnotatedRelation T K n) (u : Tuple T n) :
+private theorem groupByKey_find_eq_filter_sum (r : AnnotatedRelation T K n) (u : Tuple T n) :
     (((groupByKey r).val.find? (·.1 = u)).map Prod.snd).getD 0
       = (Multiset.map Prod.snd
           (Multiset.filter (fun p : AnnotatedTuple T K n => p.1 = u) r)).sum := by

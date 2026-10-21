@@ -10,6 +10,12 @@ import Mathlib.Algebra.BigOperators.Group.Finset.Basic
 import Mathlib.Tactic.NormNum.Inv
 import Mathlib.Tactic.NormNum.Pow
 import Provenance.AggQueryBridges
+import all Provenance.AggQuery
+import all Provenance.AggQueryBridges
+import all Provenance.AggValue
+import all Provenance.AggValueCongr
+import all Provenance.Nested
+import all Provenance.SubWorlds
 
 /-!
 # The joint reading of a family, and homomorphisms
@@ -67,7 +73,7 @@ def valL (sp : LeafSpec ρ T) (s : List ρ) : T :=
   sp.g (fun j => sp.aggs j ((s.filter (fun r => sp.Fr r j && sp.Kp r j)).map (fun r => sp.V r j)))
 
 /-- **A world of a built value is read off the rows it selects.** -/
-theorem isWorld_build (sp : LeafSpec ρ T) (L : List β) (ann : β → K) (str : β → ρ)
+private theorem isWorld_build (sp : LeafSpec ρ T) (L : List β) (ann : β → K) (str : β → ρ)
     {e : AggExpr T K} {φ : FamId T} (he : e = sp.build L ann str φ)
     (h : L.length = e.occs.length) (W : Finset (Fin L.length)) :
     e.IsWorld (W.map (finCongr h).toEmbedding) ↔ sp.okL ((Having.seqOf L W).map str) := by
@@ -80,7 +86,7 @@ theorem isWorld_build (sp : LeafSpec ρ T) (L : List β) (ann : β → K) (str :
   simp only [List.mem_map, exists_exists_and_eq_and]
 
 /-- **So is its value.** -/
-theorem valOn_build (sp : LeafSpec ρ T) (L : List β) (ann : β → K) (str : β → ρ)
+private theorem valOn_build (sp : LeafSpec ρ T) (L : List β) (ann : β → K) (str : β → ρ)
     {e : AggExpr T K} {φ : FamId T} (he : e = sp.build L ann str φ)
     (h : L.length = e.occs.length) (W : Finset (Fin L.length)) :
     e.valOn (W.map (finCongr h).toEmbedding) = sp.valL ((Having.seqOf L W).map str) := by
@@ -94,7 +100,7 @@ theorem valOn_build (sp : LeafSpec ρ T) (L : List β) (ann : β → K) (str : �
   rfl
 
 /-- **The annotations of a built value are the listing's.** -/
-theorem anns_build (sp : LeafSpec ρ T) (L : List β) (ann : β → K) (str : β → ρ)
+private theorem anns_build (sp : LeafSpec ρ T) (L : List β) (ann : β → K) (str : β → ρ)
     {e : AggExpr T K} {φ : FamId T} (he : e = sp.build L ann str φ)
     (h : L.length = e.occs.length) (i : Fin L.length) :
     e.anns (finCongr h i) = ann (L.get i) := by
@@ -117,7 +123,7 @@ def AggExpr.PresBy {ρ β T K : Type} (e : AggExpr T K) (L : List β) (ann : β 
         e.valOn (W.map (finCongr h).toEmbedding) = val ((Having.seqOf L W).map str)
 
 /-- A value built by a `LeafSpec` is presented by its listing. -/
-theorem LeafSpec.presBy_build {ρ β T K : Type} (sp : LeafSpec ρ T) (L : List β) (ann : β → K)
+private theorem LeafSpec.presBy_build {ρ β T K : Type} (sp : LeafSpec ρ T) (L : List β) (ann : β → K)
     (str : β → ρ) {e : AggExpr T K} {φ : FamId T} (he : e = sp.build L ann str φ) :
     e.PresBy L ann str sp.okL sp.valL := by
   have h : L.length = e.occs.length := by rw [he]; simp [LeafSpec.build]
@@ -130,7 +136,7 @@ namespace List.Forall₂
 
 variable {α α' κ κ' : Type} {R : α' → α → Prop}
 
-theorem exists_of_mem_left {l' : List α'} {l : List α} (h : Forall₂ R l' l) {a' : α'}
+private theorem exists_of_mem_left {l' : List α'} {l : List α} (h : Forall₂ R l' l) {a' : α'}
     (ha : a' ∈ l') : ∃ a ∈ l, R a' a := by
   induction h with
   | nil => exact absurd ha List.not_mem_nil
@@ -140,7 +146,7 @@ theorem exists_of_mem_left {l' : List α'} {l : List α} (h : Forall₂ R l' l) 
     · obtain ⟨a, haa, hr⟩ := ih ha
       exact ⟨a, List.mem_cons_of_mem _ haa, hr⟩
 
-theorem exists_of_mem_right {l' : List α'} {l : List α} (h : Forall₂ R l' l) {a : α}
+private theorem exists_of_mem_right {l' : List α'} {l : List α} (h : Forall₂ R l' l) {a : α}
     (ha : a ∈ l) : ∃ a' ∈ l', R a' a := by
   induction h with
   | nil => exact absurd ha List.not_mem_nil
@@ -151,7 +157,7 @@ theorem exists_of_mem_right {l' : List α'} {l : List α} (h : Forall₂ R l' l)
       exact ⟨a', List.mem_cons_of_mem _ haa, hr⟩
 
 /-- Searching two related lists by corresponding tests. -/
-theorem find?_rel {l' : List α'} {l : List α} (h : Forall₂ R l' l) {P' : α' → Bool}
+private theorem find?_rel {l' : List α'} {l : List α} (h : Forall₂ R l' l) {P' : α' → Bool}
     {P : α → Bool} (hP : ∀ a' a, R a' a → (P' a' = P a)) :
     Option.Rel R (l'.find? P') (l.find? P) := by
   induction h with
@@ -163,7 +169,7 @@ theorem find?_rel {l' : List α'} {l : List α} (h : Forall₂ R l' l) {P' : α'
     · exact Option.Rel.some ha
 
 /-- Filtering two related lists by corresponding tests. -/
-theorem filter_rel {l' : List α'} {l : List α} (h : Forall₂ R l' l) {P' : α' → Bool}
+private theorem filter_rel {l' : List α'} {l : List α} (h : Forall₂ R l' l) {P' : α' → Bool}
     {P : α → Bool} (hP : ∀ a' a, R a' a → (P' a' = P a)) :
     Forall₂ R (l'.filter P') (l.filter P) := by
   induction h with
@@ -177,7 +183,7 @@ theorem filter_rel {l' : List α'} {l : List α} (h : Forall₂ R l' l) {P' : α
 /-- **Deduplicating the keys of two related lists**, when related elements
 are keyed alike: the surviving keys correspond, each to a key of
 related elements. -/
-theorem dedup_map_rel [DecidableEq κ] [DecidableEq κ'] {g' : α' → κ'} {g : α → κ}
+private theorem dedup_map_rel [DecidableEq κ] [DecidableEq κ'] {g' : α' → κ'} {g : α → κ}
     {l' : List α'} {l : List α} (h : Forall₂ R l' l)
     (hk : ∀ a' a b' b, R a' a → R b' b → (g' a' = g' b' ↔ g a = g b)) :
     Forall₂ (fun φ' φ => ∃ a' a, R a' a ∧ a' ∈ l' ∧ a ∈ l ∧ g' a' = φ' ∧ g a = φ)
@@ -215,7 +221,7 @@ attribute [local instance] CommSemiringWithMonus.toCommSemiringSW
 
 /-- The subsets of positions of a list, reindexed along a length
 equality. -/
-theorem univ_val_reindex {a b : ℕ} (h : a = b) :
+private theorem univ_val_reindex {a b : ℕ} (h : a = b) :
     (Finset.univ : Finset (Finset (Fin b))).val
       = (Finset.univ : Finset (Finset (Fin a))).val.map
           (fun W => W.map (finCongr h).toEmbedding) := by
@@ -223,7 +229,7 @@ theorem univ_val_reindex {a b : ℕ} (h : a = b) :
   simp
 
 /-- Reading a reindexed world in another listing of the same length. -/
-theorem trW_map {a b c : ℕ} (h₁ : c = a) (h₂ : c = b) (W : Finset (Fin c)) :
+private theorem trW_map {a b c : ℕ} (h₁ : c = a) (h₂ : c = b) (W : Finset (Fin c)) :
     trW (a := a) (b := b) (W.map (finCongr h₁).toEmbedding)
       = W.map (finCongr h₂).toEmbedding := by
   ext i
@@ -235,7 +241,7 @@ theorem trW_map {a b c : ℕ} (h₁ : c = a) (h₂ : c = b) (W : Finset (Fin c))
   · intro hi
     exact ⟨finCongr h₁ ((finCongr h₂).symm i), by simpa using hi, by simp⟩
 
-theorem compl_map_finCongr {a b : ℕ} (h : a = b) (W : Finset (Fin a)) :
+private theorem compl_map_finCongr {a b : ℕ} (h : a = b) (W : Finset (Fin a)) :
     (W.map (finCongr h).toEmbedding)ᶜ = Wᶜ.map (finCongr h).toEmbedding := by
   ext i
   simp [Finset.mem_map_equiv]
@@ -338,7 +344,7 @@ theorem classWorlds_hom [ValueType T] [DecidableEq K] {K' : Type} [CommSemiringW
     subWorlds_tiePerm ann' str' heqv hperm, subWorlds_map f ann ann' e hann L]
   simp only [Multiset.map_map, Multiset.filter_map, Function.comp_def, List.map_map, hstr]
 
-theorem multiset_map_product_map {α β γ δ : Type} (f : α → γ) (g : β → δ)
+private theorem multiset_map_product_map {α β γ δ : Type} (f : α → γ) (g : β → δ)
     (s : Multiset α) (t : Multiset β) :
     (s.map f) ×ˢ (t.map g) = (s ×ˢ t).map (Prod.map f g) := by
   induction s using Multiset.induction with
@@ -351,7 +357,7 @@ theorem multiset_map_product_map {α β γ δ : Type} (f : α → γ) (g : β �
 omit [CommSemiringWithMonus K] in
 /-- The aggregate columns of two rows that hold aggregate values at the
 same columns, paired by column. -/
-theorem tokCols_rel {K' : Type} {n : ℕ} (u : Tuple (GenValue T K) n)
+private theorem tokCols_rel {K' : Type} {n : ℕ} (u : Tuple (GenValue T K) n)
     (u' : Tuple (GenValue T K') n) (cols : List (Fin n))
     (hagg : ∀ k ∈ cols, (∃ x, u k = Sum.inr x) ↔ (∃ x', u' k = Sum.inr x')) :
     List.Forall₂ (fun (p' : Fin n × AggTok T K') (p : Fin n × AggTok T K) => p'.1 = p.1)
@@ -539,7 +545,7 @@ def FamPres [DecidableEq T] [DecidableEq K] [DecidableEq K'] (f : K →+* K')
 omit [CommSemiringWithMonus K] [CommSemiringWithMonus K'] in
 /-- **Corresponding worlds are admissible alike**, for two values with the
 same convention. -/
-theorem NestedValue.WCorr.isWorld_iff [DecidableEq T] [DecidableEq K] [DecidableEq K']
+private theorem NestedValue.WCorr.isWorld_iff [DecidableEq T] [DecidableEq K] [DecidableEq K']
     [CommSemiringWithMonus K] [CommSemiringWithMonus K'] {d d' : ℕ}
     {W : NestedValue.World T K d} {W' : NestedValue.World T K' d'}
     {c : NestedValue T K} {c' : NestedValue T K'} (hsc : c'.scalar = c.scalar)
@@ -596,7 +602,7 @@ theorem classWorlds_of_wcorr [ValueType T] [DecidableEq K] [DecidableEq K'] (f :
     rw [hagg, hk]
   · rw [ite_eq_right hkM, ite_eq_right hkM]
 
-theorem FamPres.mono [DecidableEq T] [DecidableEq K] [DecidableEq K'] {f : K →+* K'}
+private theorem FamPres.mono [DecidableEq T] [DecidableEq K] [DecidableEq K'] {f : K →+* K'}
     {S S' : AggTok T K' × AggTok T K → Prop}
     (h : FamPres f S) (hS : ∀ p, S' p → S p) : FamPres f S' :=
   ⟨fun p q hp hq => h.1 p q (hS p hp) (hS q hq), fun p₀ hp₀ =>
@@ -607,7 +613,7 @@ theorem FamPres.mono [DecidableEq T] [DecidableEq K] [DecidableEq K'] {f : K →
 namespace Multiset
 
 /-- **Related bags are listed by related lists.** -/
-theorem exists_forall₂_of_rel {α β : Type} {R : α → β → Prop} {s : Multiset α}
+private theorem exists_forall₂_of_rel {α β : Type} {R : α → β → Prop} {s : Multiset α}
     {t : Multiset β} (h : Multiset.Rel R s t) :
     ∃ (l : List α) (l' : List β), s = (l : Multiset α) ∧ t = (l' : Multiset β)
       ∧ List.Forall₂ R l l' := by
@@ -618,7 +624,7 @@ theorem exists_forall₂_of_rel {α β : Type} {R : α → β → Prop} {s : Mul
     exact ⟨a :: l, b :: l', rfl, rfl, List.Forall₂.cons hab hl⟩
 
 /-- Related lists list related bags. -/
-theorem rel_of_forall₂ {α β : Type} {R : α → β → Prop} {l : List α} {l' : List β}
+private theorem rel_of_forall₂ {α β : Type} {R : α → β → Prop} {l : List α} {l' : List β}
     (h : List.Forall₂ R l l') : Multiset.Rel R (l : Multiset α) (l' : Multiset β) := by
   induction h with
   | nil => exact Multiset.Rel.zero
@@ -627,7 +633,7 @@ theorem rel_of_forall₂ {α β : Type} {R : α → β → Prop} {l : List α} {
     exact Multiset.Rel.cons hab ih
 
 /-- Related lists are the two sides of one list of pairs. -/
-theorem exists_zip_of_forall₂ {α β : Type} {R : α → β → Prop} {l : List α} {l' : List β}
+private theorem exists_zip_of_forall₂ {α β : Type} {R : α → β → Prop} {l : List α} {l' : List β}
     (h : List.Forall₂ R l l') :
     ∃ u : List (α × β), u.map Prod.fst = l ∧ u.map Prod.snd = l' ∧ ∀ p ∈ u, R p.1 p.2 := by
   induction h with
@@ -645,7 +651,7 @@ end Multiset
 omit [CommSemiringWithMonus K] [CommSemiringWithMonus K'] in
 /-- The aggregate column of a row, with its value, is in its token
 columns. -/
-theorem mem_tokCols_of {n : ℕ} {u : Tuple (GenValue T K) n} {cols : List (Fin n)} {k : Fin n}
+private theorem mem_tokCols_of {n : ℕ} {u : Tuple (GenValue T K) n} {cols : List (Fin n)} {k : Fin n}
     (hk : k ∈ cols) {x : AggTok T K} (hx : u k = Sum.inr x) : (k, x) ∈ tokCols u cols := by
   unfold tokCols
   exact List.mem_filterMap.mpr ⟨k, hk, by rw [hx]⟩
@@ -725,25 +731,25 @@ its class, and a presented family stays presented. -/
 variable [ValueType T]
 
 omit [CommSemiringWithMonus K'] in
-theorem AggTok.classKey_postcompTerm (t : TermIn T 1 0) (x : AggTok T K) :
+private theorem AggTok.classKey_postcompTerm (t : TermIn T 1 0) (x : AggTok T K) :
     (x.postcompTerm t).classKey = x.classKey := by
   cases x <;> simp [AggTok.postcompTerm, AggTok.classKey, AggTok.postcomp, AggTok.setFam,
     AggTok.annList, AggTok.fam, NestedValue.postcomp, AggExpr.annList, AggExpr.postcomp]
 
 omit [ValueType T] [CommSemiringWithMonus K'] in
-theorem AggTok.classKey_postcomp (gf : T → T) (x : AggTok T K) :
+private theorem AggTok.classKey_postcomp (gf : T → T) (x : AggTok T K) :
     (x.postcomp gf).classKey = x.classKey := by
   cases x <;> simp [AggTok.classKey, AggTok.postcomp, AggTok.annList, AggTok.fam,
     NestedValue.postcomp, AggExpr.annList, AggExpr.postcomp]
 
 omit [CommSemiringWithMonus K] [CommSemiringWithMonus K'] in
-theorem AggTok.isNested_postcompTerm (t : TermIn T 1 0) (x : AggTok T K) :
+private theorem AggTok.isNested_postcompTerm (t : TermIn T 1 0) (x : AggTok T K) :
     (x.postcompTerm t).isNested = x.isNested := by
   cases x <;> rfl
 
 omit [ValueType T] [CommSemiringWithMonus K] [CommSemiringWithMonus K'] in
 /-- A function keeps a value presented, reading its value through it. -/
-theorem AggExpr.PresBy.postcomp {ρ β : Type} {x : AggTok T K} (hx : x.isNested = false)
+private theorem AggExpr.PresBy.postcomp {ρ β : Type} {x : AggTok T K} (hx : x.isNested = false)
     {L : List β} {ann : β → K} {str : β → ρ} {ok : List ρ → Prop} {val : List ρ → T}
     (gf : T → T) (hP : x.flatExpr.PresBy L ann str ok val) :
     (x.postcomp gf).flatExpr.PresBy L ann str ok (fun s => gf (val s)) := by
@@ -755,7 +761,7 @@ theorem AggExpr.PresBy.postcomp {ρ β : Type} {x : AggTok T K} (hx : x.isNested
 
 omit [CommSemiringWithMonus K] [CommSemiringWithMonus K'] in
 /-- A term keeps a value presented, reading its value through the term. -/
-theorem AggExpr.PresBy.postcompTerm {ρ β : Type} {x : AggTok T K} (hx : x.isNested = false)
+private theorem AggExpr.PresBy.postcompTerm {ρ β : Type} {x : AggTok T K} (hx : x.isNested = false)
     {L : List β} {ann : β → K} {str : β → ρ} {ok : List ρ → Prop} {val : List ρ → T}
     (t : TermIn T 1 0) (hP : x.flatExpr.PresBy L ann str ok val) :
     (x.postcompTerm t).flatExpr.PresBy L ann str ok (fun s => t.unary (val s)) := by
@@ -772,7 +778,7 @@ inductive PCl (S : AggTok T K' × AggTok T K → Prop) : AggTok T K' × AggTok T
   | step {p} (t : TermIn T 1 0) : PCl S p → PCl S (p.1.postcompTerm t, p.2.postcompTerm t)
   | stepF {p} (gf : T → T) : PCl S p → PCl S (p.1.postcomp gf, p.2.postcomp gf)
 
-theorem PCl.exists_base {S : AggTok T K' × AggTok T K → Prop} {p} (hp : PCl S p) :
+private theorem PCl.exists_base {S : AggTok T K' × AggTok T K → Prop} {p} (hp : PCl S p) :
     ∃ q, S q ∧ p.1.classKey = q.1.classKey ∧ p.2.classKey = q.2.classKey := by
   induction hp with
   | base h => exact ⟨_, h, rfl, rfl⟩
@@ -785,7 +791,7 @@ theorem PCl.exists_base {S : AggTok T K' × AggTok T K → Prop} {p} (hp : PCl S
     exact ⟨q, hq, by rw [AggTok.classKey_postcomp, h1], by rw [AggTok.classKey_postcomp, h2]⟩
 
 omit [CommSemiringWithMonus K] [CommSemiringWithMonus K'] in
-theorem PCl.mono {S S' : AggTok T K' × AggTok T K → Prop} (hS : ∀ p, S p → S' p) {p}
+private theorem PCl.mono {S S' : AggTok T K' × AggTok T K → Prop} (hS : ∀ p, S p → S' p) {p}
     (hp : PCl S p) : PCl S' p := by
   induction hp with
   | base h => exact PCl.base (hS _ h)
@@ -796,7 +802,7 @@ omit [CommSemiringWithMonus K] [CommSemiringWithMonus K'] in
 /-- **A term over a nested pair with corresponding worlds keeps them**:
 the worlds of a nested value read only its storey and its occurrences,
 which a term over it leaves alone. -/
-theorem PCl.wcorr [DecidableEq T] [DecidableEq K] [DecidableEq K'] [CommSemiringWithMonus K]
+private theorem PCl.wcorr [DecidableEq T] [DecidableEq K] [DecidableEq K'] [CommSemiringWithMonus K]
     [CommSemiringWithMonus K'] {f : K →+* K'} {S : AggTok T K' × AggTok T K → Prop}
     (hS : ∀ p, S p → p.2.isNested = true →
       ∃ b₀ b₀', p.2 = .nest b₀ ∧ p.1 = .nest b₀' ∧ NestedValue.WCorr f b₀' b₀) {p}
@@ -820,7 +826,7 @@ theorem PCl.wcorr [DecidableEq T] [DecidableEq K] [DecidableEq K'] [CommSemiring
     exact ⟨_, _, rfl, rfl, hw⟩
 
 /-- **Presented families stay presented under terms.** -/
-theorem FamPres.pcl [DecidableEq T] [DecidableEq K] [DecidableEq K'] {f : K →+* K'}
+private theorem FamPres.pcl [DecidableEq T] [DecidableEq K] [DecidableEq K'] {f : K →+* K'}
     {S : AggTok T K' × AggTok T K → Prop} (h : FamPres f S) :
     FamPres f (PCl S) := by
   refine ⟨fun p q hp hq => ?_, fun p₀ hp₀ => ?_⟩
@@ -895,7 +901,7 @@ the same leaves, whose families differ by a tie-block permutation – the
 target's a permutation of the source's pushed through `f`, occurrences
 swapped only where they carry the same values and flags – are presented
 by those families. -/
-theorem ListingRel.exists_of_tie (f : K →+* K') {q : ℕ}
+private theorem ListingRel.exists_of_tie (f : K →+* K') {q : ℕ}
     {occs : List ((Fin q → T) × K × (Fin q → Bool) × (Fin q → Bool))}
     {occs' : List ((Fin q → T) × K' × (Fin q → Bool) × (Fin q → Bool))}
     (aggs : Fin q → SeqAggFunc T) (sc : Fin q → Bool) (g : (Fin q → T) → T)
@@ -927,7 +933,7 @@ omit [ValueType T] in
 /-- **The values built from one group, presented by it.** A group's rows,
 listed on the two sides by a tie-block permutation of the pushed-forward
 listing, present every value a `LeafSpec` builds from them. -/
-theorem ListingRel.exists_group (f : K →+* K') {m : ℕ} (U : List (AnnotatedTuple T K m))
+private theorem ListingRel.exists_group (f : K →+* K') {m : ℕ} (U : List (AnnotatedTuple T K m))
     (U' : List (AnnotatedTuple T K' m))
     (hp : TiePerm (fun p q : AnnotatedTuple T K' m => p.fst = q.fst)
       (U.map (fun p => ((p.fst, f p.snd) : AnnotatedTuple T K' m))) U') :
@@ -965,21 +971,21 @@ no aggregate builds no value, so its label is not one of a value. -/
 def labCons {α : Type} (w : ℕ) (lab : α) (L : List α) : List α :=
   if w = 0 then L else lab :: L
 
-theorem labCons_of_ne {α : Type} {w : ℕ} (h : w ≠ 0) (lab : α) (L : List α) :
+private theorem labCons_of_ne {α : Type} {w : ℕ} (h : w ≠ 0) (lab : α) (L : List α) :
     labCons w lab L = lab :: L := by
   simp [labCons, h]
 
-theorem labCons_zero {α : Type} (lab : α) (L : List α) : labCons 0 lab L = L := by
+private theorem labCons_zero {α : Type} (lab : α) (L : List α) : labCons 0 lab L = L := by
   simp [labCons]
 
-theorem labCons_nodup {α : Type} {w : ℕ} {lab : α} {L : List α} (h : (labCons w lab L).Nodup) :
+private theorem labCons_nodup {α : Type} {w : ℕ} {lab : α} {L : List α} (h : (labCons w lab L).Nodup) :
     L.Nodup := by
   unfold labCons at h
   split at h
   · exact h
   · exact (List.nodup_cons.mp h).2
 
-theorem mem_labCons_of_mem {α : Type} {w : ℕ} {lab : α} {L : List α} {x : α} (h : x ∈ L) :
+private theorem mem_labCons_of_mem {α : Type} {w : ℕ} {lab : α} {L : List α} {x : α} (h : x ∈ L) :
     x ∈ labCons w lab L := by
   unfold labCons
   split
@@ -1030,7 +1036,7 @@ attribute [local instance] CommSemiringWithMonus.toCommSemiringSW
 
 open Classical in
 /-- **The world statistics read off the subfamilies of the listing.** -/
-theorem AggExpr.worldStats_eq_subWorlds (e : AggExpr T K) :
+private theorem AggExpr.worldStats_eq_subWorlds (e : AggExpr T K) :
     e.worldStats = (subWorlds (fun z => z.2.1) e.occs).map
       (fun w => (w.1, w.2.1, e.valSeq w.2.2, decide (e.okSeq w.2.2))) := by
   unfold AggExpr.worldStats
@@ -1043,7 +1049,7 @@ theorem AggExpr.worldStats_eq_subWorlds (e : AggExpr T K) :
 /-- **The world statistics of an expression pushed through a
 homomorphism**: the products and sums pushed through it, the values and
 world conditions unchanged. -/
-theorem AggExpr.worldStats_mapAnn (f : K →+* K') (e : AggExpr T K) :
+private theorem AggExpr.worldStats_mapAnn (f : K →+* K') (e : AggExpr T K) :
     (e.mapAnn f).worldStats = e.worldStats.map (fun z => (f z.1, f z.2.1, z.2.2.1, z.2.2.2)) := by
   obtain ⟨q, occs, aggs, sc, g, φ⟩ := e
   rw [AggExpr.worldStats_eq_subWorlds, AggExpr.worldStats_eq_subWorlds]

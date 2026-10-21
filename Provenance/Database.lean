@@ -37,12 +37,12 @@ def Tuple.cast (heq : n=m) (t: Tuple T n): Tuple T m := by
   subst heq
   exact t
 
-theorem Tuple.apply_cast {T: Type} (heq: n=m) (f: Tuple T m → α) (t: Tuple T n) :
+private theorem Tuple.apply_cast {T: Type} (heq: n=m) (f: Tuple T m → α) (t: Tuple T n) :
   f (t.cast heq) = (@_root_.cast (Tuple T m → α) (Tuple T n → α) (by simp[heq]) f) t := by
   subst heq
   rfl
 
-theorem Tuple.cast_get {T: Type} (heq: n=m) (t: Tuple T n) (k: Fin m) :
+private theorem Tuple.cast_get {T: Type} (heq: n=m) (t: Tuple T n) (k: Fin m) :
   t.cast heq k = t (k.cast (Eq.symm heq)) := by
     subst heq
     rfl
@@ -252,7 +252,7 @@ def Relation.cast (heq: n=m) (r: Relation T n): Relation T m := by
   subst heq
   exact r
 
-theorem Relation.cast_eq {S: Type} (r: Relation S n) (s: Relation S m) (heq: n=m) :
+private theorem Relation.cast_eq {S: Type} (r: Relation S n) (s: Relation S m) (heq: n=m) :
   s = r.cast heq ↔ s = r.map (λ t ↦ t.cast heq)
   := by
     simp[Relation.cast, Tuple.cast]
@@ -285,14 +285,14 @@ def Database.assign (s : String) {k : ℕ} (X : Relation T k)
     (d : Database T) : Database T := (s, ⟨k, X⟩) :: d
 
 omit [ValueType T] in
-@[simp] theorem Database.find_assign (s : String) {k : ℕ} (X : Relation T k)
+@[simp] private theorem Database.find_assign (s : String) {k : ℕ} (X : Relation T k)
     (d : Database T) : (d.assign s X).find k s = some X := by
   show (if h : k = k ∧ s = s then _ else _) = _
   rw [dite_eq_left ⟨rfl, rfl⟩]
   rfl
 
 omit [ValueType T] in
-theorem Database.find_assign_of_ne (s s' : String) {k k' : ℕ}
+private theorem Database.find_assign_of_ne (s s' : String) {k k' : ℕ}
     (X : Relation T k) (d : Database T) (h : ¬(k' = k ∧ s' = s)) :
     (d.assign s X).find k' s' = d.find k' s' := by
   show (if h : k' = k ∧ s' = s then _ else _) = _
@@ -335,7 +335,7 @@ def sortList {α : Type} [LinearOrder α] (M : Multiset α) : List α :=
   (M.foldr sortedInsert ⟨[], by simp⟩).val
 
 /-- Sorting changes no element: the list's multiset is the original. -/
-@[simp] theorem sortList_coe {α : Type} [LinearOrder α] (M : Multiset α) :
+@[simp] private theorem sortList_coe {α : Type} [LinearOrder α] (M : Multiset α) :
     (↑(sortList M) : Multiset α) = M := by
   induction M using Multiset.induction_on with
   | empty => rfl
@@ -350,24 +350,24 @@ def sortList {α : Type} [LinearOrder α] (M : Multiset α) : List α :=
       _ = a ::ₘ M := by rw [← sortList, ih]
 
 /-- And it sorts: the list is pairwise `≤`. -/
-theorem sortList_pairwise {α : Type} [LinearOrder α] (M : Multiset α) :
+private theorem sortList_pairwise {α : Type} [LinearOrder α] (M : Multiset α) :
     (sortList M).Pairwise (· ≤ ·) :=
   (Multiset.foldr sortedInsert ⟨[], by simp⟩ M).property
 
 /-- Sorting changes no count: the list is as long as the multiset. -/
-@[simp] theorem length_sortList {α : Type} [LinearOrder α] (M : Multiset α) :
+@[simp] private theorem length_sortList {α : Type} [LinearOrder α] (M : Multiset α) :
     (sortList M).length = Multiset.card M := by
   rw [← Multiset.coe_card, sortList_coe]
 
 /-- An element of the sorted list is an element of the multiset. -/
-@[simp] theorem mem_sortList {α : Type} [LinearOrder α] {M : Multiset α}
+@[simp] private theorem mem_sortList {α : Type} [LinearOrder α] {M : Multiset α}
     {x : α} : x ∈ sortList M ↔ x ∈ M := by
   rw [← Multiset.mem_coe, sortList_coe]
 
 /-- **A sorted list is its multiset's sorted list.** Two sequences built
 by sorting the same rows are the same sequence, whatever route built
 them. -/
-theorem sortList_eq {α : Type} [LinearOrder α] {l : List α} {M : Multiset α}
+private theorem sortList_eq {α : Type} [LinearOrder α] {l : List α} {M : Multiset α}
     (hs : l.Pairwise (· ≤ ·)) (hm : (↑l : Multiset α) = M) : l = sortList M :=
   List.Perm.eq_of_pairwise' (r := (· ≤ ·)) hs (sortList_pairwise M)
     (Multiset.coe_eq_coe.mp (by rw [hm, sortList_coe]))

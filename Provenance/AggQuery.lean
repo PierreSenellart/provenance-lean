@@ -9,6 +9,15 @@ public import Provenance.AggExpr
 public import Provenance.Nested
 public import Provenance.Frame
 import Mathlib.Tactic.Bound.Init
+import all Provenance.AggExpr
+import all Provenance.Database
+import all Provenance.Frame
+import all Provenance.Nested
+import all Provenance.Occurrence
+import all Provenance.OrderSpec
+import all Provenance.Util.Kleene
+import all Provenance.Util.ValueTypeNull
+public import Mathlib.Algebra.BigOperators.Group.Finset.Basic
 
 /-!
 # Kind-indexed general queries and their annotated semantics
@@ -104,7 +113,7 @@ def ColKind.base : ColKind → ColKind
   | ColKind.agg => ColKind.agg
   | _ => ColKind.reg
 
-theorem ColKind.base_eq_reg_of_ne_agg {c : ColKind} (h : c ≠ ColKind.agg) :
+private theorem ColKind.base_eq_reg_of_ne_agg {c : ColKind} (h : c ≠ ColKind.agg) :
     c.base = ColKind.reg := by
   cases c
   · rfl
@@ -159,7 +168,7 @@ omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K]
 /-- **The inner reading of a pushed-forward column is the pushforward of
 its inner reading**: the reading is built out of the column's own family,
 and the pushforward moves the annotations through it. -/
-@[simp] theorem GenValue.innerValue_mapAnnSum {K' : Type} (hm : K → K')
+@[simp] private theorem GenValue.innerValue_mapAnnSum {K' : Type} (hm : K → K')
     (x : GenValue T K) :
     GenValue.innerValue (AggValue.mapAnnSum hm x)
       = (GenValue.innerValue x).mapAnn hm := by
@@ -184,7 +193,7 @@ omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K]
   [HasAltLinearOrder K] in
 /-- **The inner value of a lifted value collapses to its collapse**: the
 deterministic reading does not see the nesting. -/
-@[simp] theorem NestedValue.collapse_innerValue (x : GenValue T K) :
+@[simp] private theorem NestedValue.collapse_innerValue (x : GenValue T K) :
     (GenValue.innerValue x).collapse = AggValue.collapseSum x := by
   cases x with
   | inl v =>
@@ -204,7 +213,7 @@ omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K]
   [HasAltLinearOrder K] in
 /-- **The inner reading of a lifted value collapses to its collapse**, at
 every storey. -/
-@[simp] theorem NestedValue.collapse_innerAt (x : GenValue T K) :
+@[simp] private theorem NestedValue.collapse_innerAt (x : GenValue T K) :
     ∀ D : ℕ, NestInner.collapse D (x.innerAt D) = AggValue.collapseSum x
   | 0 => NestedValue.collapse_innerValue x
   | D + 1 => by
@@ -242,7 +251,7 @@ abbrev GenRow (T K : Type) (n : ℕ) := Tuple (GenValue T K) n × GenAnn K
 
 omit [DecidableEq K] [HasAltLinearOrder K] in
 /-- A row with nothing pending finalizes to its concrete part. -/
-@[simp] theorem GenAnn.finalize_of_pending_zero (b : K) :
+@[simp] private theorem GenAnn.finalize_of_pending_zero (b : K) :
     (⟨b, 0⟩ : GenAnn K).finalize = b := by
   simp [GenAnn.finalize]
 
@@ -250,7 +259,7 @@ omit [DecidableEq K] [HasAltLinearOrder K] in
 /-- An uncompared `γ`-row (concrete part `𝟙`, its group factor pending)
 finalizes to `δ(⊕ U)` – the ProvSQL annotation of a plain `GROUP BY`
 output row. -/
-@[simp] theorem GenAnn.finalize_gamma (l : List K) :
+@[simp] private theorem GenAnn.finalize_gamma (l : List K) :
     (⟨1, {l}⟩ : GenAnn K).finalize = SemiringWithMonus.delta l.sum := by
   simp [GenAnn.finalize]
 
@@ -415,7 +424,7 @@ noncomputable def classWorlds (u : Tuple (GenValue T K) n) (M : List (Fin n)) :
             | _ => none) else none))
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
-theorem flatOk_iff (u : Tuple (GenValue T K) n) (M : List (Fin n)) {m : ℕ} (W : Finset (Fin m)) :
+private theorem flatOk_iff (u : Tuple (GenValue T K) n) (M : List (Fin n)) {m : ℕ} (W : Finset (Fin m)) :
     flatOk u M W = true ↔ ∀ k ∈ M, ∀ y, u k = Sum.inr y → y.flatExpr.IsWorld (trW W) := by
   unfold flatOk
   rw [List.all_eq_true]
@@ -425,7 +434,7 @@ theorem flatOk_iff (u : Tuple (GenValue T K) n) (M : List (Fin n)) {m : ℕ} (W 
   | inr y => simp
 
 omit [CommSemiringWithMonus K] [HasAltLinearOrder K] in
-theorem nestOk_iff (u : Tuple (GenValue T K) n) (M : List (Fin n)) {d : ℕ}
+private theorem nestOk_iff (u : Tuple (GenValue T K) n) (M : List (Fin n)) {d : ℕ}
     (W : NestedValue.World T K d) :
     nestOk u M W = true ↔ ∀ k ∈ M, ∀ b, u k = Sum.inr (.nest b) → W.IsWorld b := by
   unfold nestOk
@@ -486,7 +495,7 @@ noncomputable def jointWorlds (u : Tuple (GenValue T K) n) (cols : List (Fin n))
           ×ˢ acc).map (fun w => combineW w.1 w.2))
     {(1, 0, fun _ => none)}
 
-theorem trW_self {m : ℕ} (W : Finset (Fin m)) : trW (a := m) (b := m) W = W := by
+private theorem trW_self {m : ℕ} (W : Finset (Fin m)) : trW (a := m) (b := m) W = W := by
   ext i
   simp only [trW, Finset.mem_filter, Finset.mem_univ, true_and]
   constructor
@@ -495,7 +504,7 @@ theorem trW_self {m : ℕ} (W : Finset (Fin m)) : trW (a := m) (b := m) W = W :=
   · exact fun h => ⟨i, h, rfl⟩
 
 omit [HasAltLinearOrder K] in
-theorem classWorlds_sum_single {n : ℕ} (u : Tuple (GenValue T K) n) (k : Fin n) (x : AggTok T K)
+private theorem classWorlds_sum_single {n : ℕ} (u : Tuple (GenValue T K) n) (k : Fin n) (x : AggTok T K)
     (hu : u k = Sum.inr x) (P : T → Kleene) :
     ((classWorlds u [k] x).map (fun w => w.1 * (1 - w.2.1) *
       (w.2.2 k).elim (0 : K) (Having.chiOf P))).sum
@@ -572,12 +581,12 @@ def decHolds (φ : GenPredIn T c κ) (u : Tuple (GenValue T K) n)
   inferInstanceAs (Decidable (_ = _))
 
 omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
-@[simp] theorem holds_and (φ ψ : GenPred T κ) (u : Tuple (GenValue T K) n) :
+@[simp] private theorem holds_and (φ ψ : GenPred T κ) (u : Tuple (GenValue T K) n) :
     (GenPredIn.and φ ψ).holds u ↔ φ.holds u ∧ ψ.holds u :=
   Kleene.and_eq_true_iff _ _
 
 omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
-@[simp] theorem holds_or (φ ψ : GenPred T κ) (u : Tuple (GenValue T K) n) :
+@[simp] private theorem holds_or (φ ψ : GenPred T κ) (u : Tuple (GenValue T K) n) :
     (GenPredIn.or φ ψ).holds u ↔ φ.holds u ∨ ψ.holds u :=
   Kleene.or_eq_true_iff _ _
 
@@ -585,7 +594,7 @@ omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 /-- **Where nothing is null no predicate is ever unknown**, so the reading
 is the two-valued one and every statement proved before the null was
 introduced keeps saying what it said. -/
-theorem eval3_ne_unknown [NoNulls T] (u : Tuple (GenValue T K) n) :
+private theorem eval3_ne_unknown [NoNulls T] (u : Tuple (GenValue T K) n) :
     ∀ φ : GenPred T κ, φ.eval3 u ≠ Kleene.unknown
   | cmp op t₁ t₂ => by
     rw [GenPredIn.eval3, CompOp.eval3_eq_ofBool]
@@ -615,7 +624,7 @@ theorem eval3_ne_unknown [NoNulls T] (u : Tuple (GenValue T K) n) :
 
 omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 /-- Negation is classical where nothing is null. -/
-theorem holds_not_iff [NoNulls T] (φ : GenPred T κ)
+private theorem holds_not_iff [NoNulls T] (φ : GenPred T κ)
     (u : Tuple (GenValue T K) n) :
     (GenPredIn.not φ).holds u ↔ ¬ φ.holds u := by
   have h := eval3_ne_unknown u φ
@@ -625,7 +634,7 @@ theorem holds_not_iff [NoNulls T] (φ : GenPred T κ)
 omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 /-- **A row is kept by `NOT φ` when `φ` is false**, which is not the same as
 `φ` failing to be true: a row on which `φ` is unknown is kept by neither. -/
-@[simp] theorem holds_not (φ : GenPred T κ) (u : Tuple (GenValue T K) n) :
+@[simp] private theorem holds_not (φ : GenPred T κ) (u : Tuple (GenValue T K) n) :
     (GenPredIn.not φ).holds u ↔ φ.eval3 u = Kleene.false :=
   Kleene.not_eq_true_iff _
 
@@ -696,7 +705,7 @@ not – over `ℕ` on a single family, `4` against `2`
 family is read as one predicate is therefore not a free choice once the
 joint reading is the definition: it is the same question as whether the
 decomposition is licensed. -/
-theorem predsem_and (φ ψ : GenPredIn T c κ) (u : Tuple (GenValue T K) n)
+private theorem predsem_and (φ ψ : GenPredIn T c κ) (u : Tuple (GenValue T K) n)
     (γ : Fin c → T) :
     (GenPredIn.and φ ψ).predsem false u γ
       = φ.predsem false u γ * ψ.predsem false u γ := rfl
@@ -705,7 +714,7 @@ omit [HasAltLinearOrder K] in
 /-- The disjunction's structural rule, named rather than unfolded for
 the same reason: it is `⊕`, and `bool_or_ne_joint` and `nat_or_ne_joint`
 say it is not the joint reading. -/
-theorem predsem_or (φ ψ : GenPredIn T c κ) (u : Tuple (GenValue T K) n)
+private theorem predsem_or (φ ψ : GenPredIn T c κ) (u : Tuple (GenValue T K) n)
     (γ : Fin c → T) :
     (GenPredIn.or φ ψ).predsem false u γ
       = φ.predsem false u γ + ψ.predsem false u γ := rfl
@@ -740,7 +749,7 @@ noncomputable def predsemJ (φ : GenPredIn T c κ) (neg : Bool) (u : Tuple (GenV
     (fun w => w.1 * (1 - w.2.1) *
       (if φ.eval3W w.2.2 u γ = (if neg then Kleene.false else Kleene.true) then 1 else 0))).sum
 
-theorem filter_finRange_singleton (k : Fin n) :
+private theorem filter_finRange_singleton (k : Fin n) :
     (List.finRange n).filter (· ∈ ({k} : Finset (Fin n))) = [k] := by
   have h : (List.finRange n).filter (· ∈ ({k} : Finset (Fin n)))
       = (List.finRange n).filter (fun x => x == k) := by
@@ -749,7 +758,7 @@ theorem filter_finRange_singleton (k : Fin n) :
   rfl
 
 omit [HasAltLinearOrder K] in
-theorem jointWorlds_single (u : Tuple (GenValue T K) n) (k : Fin n) (x : AggTok T K)
+private theorem jointWorlds_single (u : Tuple (GenValue T K) n) (k : Fin n) (x : AggTok T K)
     (hu : u k = Sum.inr x) :
     jointWorlds u [k] = (classWorlds u [k] x).map (fun w => combineW w (1, 0, fun _ => none)) := by
   have ht : tokCols u [k] = [(k, x)] := by simp [tokCols, hu]
@@ -764,7 +773,7 @@ theorem jointWorlds_single (u : Tuple (GenValue T K) n) (k : Fin n) (x : AggTok 
   rfl
 
 omit [HasAltLinearOrder K] in
-theorem predsemJ_aggCmp (k : Fin n) (h : κ k = ColKind.agg) (op : CompOp) (t : TermGIn T c κ)
+private theorem predsemJ_aggCmp (k : Fin n) (h : κ k = ColKind.agg) (op : CompOp) (t : TermGIn T c κ)
     (u : Tuple (GenValue T K) n) (γ : Fin c → T) (x : AggTok T K) (hu : u k = Sum.inr x)
     (neg : Bool) :
     (aggCmp k h op t).predsemJ neg u γ
@@ -924,14 +933,14 @@ def Relation.groupSeqOrd {m n₁ : ℕ} (is : Tuple (Fin m) n₁)
       OrderSpec.sortSeq (Tuple.key cols) (id : Tuple T m → Tuple T m) spec
         (Relation.groupSeq is r g)
 
-@[simp] theorem Relation.groupSeqOrd_unord {m n₁ : ℕ} (is : Tuple (Fin m) n₁)
+@[simp] private theorem Relation.groupSeqOrd_unord {m n₁ : ℕ} (is : Tuple (Fin m) n₁)
     (r : Relation T m) (g : Tuple T n₁) :
     Relation.groupSeqOrd is GroupOrder.unord r g = Relation.groupSeq is r g :=
   rfl
 
 /-- Reading a group in a clause's order is reading a listing of it: the
 rows are the same, in another order. -/
-theorem Relation.groupSeqOrd_perm {m n₁ : ℕ} (is : Tuple (Fin m) n₁)
+private theorem Relation.groupSeqOrd_perm {m n₁ : ℕ} (is : Tuple (Fin m) n₁)
     (ord : GroupOrder T m) (r : Relation T m) (g : Tuple T n₁) :
     (Relation.groupSeqOrd is ord r g).Perm (Relation.groupSeq is r g) := by
   cases ord with
@@ -948,14 +957,14 @@ def Relation.groupSeqOptOrd {m n₁ : ℕ} (is : Tuple (Fin m) n₁)
   | none => Relation.groupSeqOrd is ord r g
   | some φ => (Relation.groupSeqOrd is ord r g).filter φ.keeps
 
-@[simp] theorem Relation.groupSeqOptOrd_unord {m n₁ : ℕ}
+@[simp] private theorem Relation.groupSeqOptOrd_unord {m n₁ : ℕ}
     (is : Tuple (Fin m) n₁) (r : Relation T m) (g : Tuple T n₁)
     (keep : Option (Selection T m)) :
     Relation.groupSeqOptOrd is GroupOrder.unord r g keep
       = Relation.groupSeqOpt is r g keep := by
   cases keep <;> rfl
 
-@[simp] theorem Relation.groupSeqOptOrd_none {m n₁ : ℕ}
+@[simp] private theorem Relation.groupSeqOptOrd_none {m n₁ : ℕ}
     (is : Tuple (Fin m) n₁) (ord : GroupOrder T m) (r : Relation T m)
     (g : Tuple T n₁) :
     Relation.groupSeqOptOrd is ord r g none = Relation.groupSeqOrd is ord r g :=
@@ -976,14 +985,14 @@ def Having.havingGroupOrd {m n₁ : ℕ} (is : Tuple (Fin m) n₁)
         (Having.havingGroup is r g)
 
 omit [CommSemiringWithMonus K] [DecidableEq K] in
-@[simp] theorem Having.havingGroupOrd_unord {m n₁ : ℕ}
+@[simp] private theorem Having.havingGroupOrd_unord {m n₁ : ℕ}
     (is : Tuple (Fin m) n₁) (r : AnnotatedRelation T K m) (g : Tuple T n₁) :
     Having.havingGroupOrd is GroupOrder.unord r g = Having.havingGroup is r g :=
   rfl
 
 omit [CommSemiringWithMonus K] [DecidableEq K] in
 /-- The ordered reading is a listing of the group. -/
-theorem Having.havingGroupOrd_perm {m n₁ : ℕ} (is : Tuple (Fin m) n₁)
+private theorem Having.havingGroupOrd_perm {m n₁ : ℕ} (is : Tuple (Fin m) n₁)
     (ord : GroupOrder T m) (r : AnnotatedRelation T K m) (g : Tuple T n₁) :
     (Having.havingGroupOrd is ord r g).Perm (Having.havingGroup is r g) := by
   cases ord with
@@ -992,7 +1001,7 @@ theorem Having.havingGroupOrd_perm {m n₁ : ℕ} (is : Tuple (Fin m) n₁)
 
 omit [CommSemiringWithMonus K] [DecidableEq K] in
 /-- An occurrence of the group is one of its ordered reading. -/
-@[simp] theorem Having.mem_havingGroupOrd {m n₁ : ℕ} (is : Tuple (Fin m) n₁)
+@[simp] private theorem Having.mem_havingGroupOrd {m n₁ : ℕ} (is : Tuple (Fin m) n₁)
     (ord : GroupOrder T m) (r : AnnotatedRelation T K m) (g : Tuple T n₁)
     (x : AnnotatedTuple T K m) :
     x ∈ Having.havingGroupOrd is ord r g ↔ x ∈ Having.havingGroup is r g :=
@@ -1022,7 +1031,7 @@ def TermIn.regOnly {c n : ℕ} (κ : Fin n → ColKind) : TermIn T c n → Bool
 
 omit [ValueType T] in
 /-- Over all-regular columns the condition asks nothing. -/
-@[simp] theorem TermIn.regOnly_allReg {c n : ℕ} (t : TermIn T c n) :
+@[simp] private theorem TermIn.regOnly_allReg {c n : ℕ} (t : TermIn T c n) :
     t.regOnly (ColKind.allReg n) = true := by
   induction t with
   | const a => rfl
@@ -1094,7 +1103,7 @@ theorem SelOK.of_eq {l : List (String × ℕ)} {c n c' n' : ℕ} {κ : Fin n →
   | cons _ _ => exact h.trans hφ
 
 omit [ValueType T] in
-theorem SelOK.noAggAtom {l : List (String × ℕ)} {c n : ℕ} {κ : Fin n → ColKind}
+private theorem SelOK.noAggAtom {l : List (String × ℕ)} {c n : ℕ} {κ : Fin n → ColKind}
     {φ : GenPredIn T c κ} (hφ : SelOK l φ) (hl : l ≠ []) : φ.hasAggAtom = false := by
   cases l with
   | nil => exact absurd rfl hl
@@ -1565,7 +1574,7 @@ the nulling is *for* is the rest: the canonical order on rows, by which
 a listing of a frame is determinized, and which would otherwise tell
 two rows apart by an aggregate column – reading differently in each
 world. -/
-theorem TermIn.eval_readTuple {c n : ℕ} {κ : Fin n → ColKind}
+private theorem TermIn.eval_readTuple {c n : ℕ} {κ : Fin n → ColKind}
     (t : TermIn T c n) (hr : t.regOnly κ = true) (u : Tuple T n)
     (γ : Fin c → T) : t.eval (ColKind.readTuple κ u) γ = t.eval u γ := by
   induction t with
@@ -1604,7 +1613,7 @@ theorem TermIn.eval_readTuple {c n : ℕ} {κ : Fin n → ColKind}
     rfl
 
 /-- **And a key of regular columns is blind to it too.** -/
-theorem Tuple.key_readTuple {n m : ℕ} {κ : Fin n → ColKind}
+private theorem Tuple.key_readTuple {n m : ℕ} {κ : Fin n → ColKind}
     (is : Tuple (Fin n) m) (hr : ∀ k, (κ (is k)).base = ColKind.reg)
     (u : Tuple T n) :
     Tuple.key is (ColKind.readTuple κ u) = Tuple.key is u := by
@@ -1617,7 +1626,7 @@ theorem Tuple.key_readTuple {n m : ℕ} {κ : Fin n → ColKind}
 omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 /-- The two readings agree: what a window reads of a row is what it reads
 of its regular reading. -/
-theorem ColKind.readTuple_plainTuple {n : ℕ} (κ : Fin n → ColKind)
+private theorem ColKind.readTuple_plainTuple {n : ℕ} (κ : Fin n → ColKind)
     (u : Tuple (GenValue T K) n) :
     ColKind.readTuple κ (GenRow.plainTuple u) = GenRow.readTuple κ u := rfl
 
@@ -1628,23 +1637,23 @@ def GenRow.readAnnotated {n : ℕ} (κ : Fin n → ColKind) (r : GenRow T K n) :
   ⟨GenRow.readTuple κ r.fst, r.snd.finalize⟩
 
 omit [DecidableEq K] [HasAltLinearOrder K] in
-@[simp] theorem GenRow.readAnnotated_allReg {n : ℕ} (r : GenRow T K n) :
+@[simp] private theorem GenRow.readAnnotated_allReg {n : ℕ} (r : GenRow T K n) :
     GenRow.readAnnotated (ColKind.allReg n) r = GenRow.toAnnotated r := rfl
 
 omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
-@[simp] theorem ColKind.readTuple_allReg {n : ℕ} (u : Tuple T n) :
+@[simp] private theorem ColKind.readTuple_allReg {n : ℕ} (u : Tuple T n) :
     ColKind.readTuple (ColKind.allReg n) u = u := rfl
 
 omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 /-- An all-regular relation is read whole: the window reads every column
 of every row. -/
-@[simp] theorem ColKind.map_readTuple_allReg {n : ℕ}
+@[simp] private theorem ColKind.map_readTuple_allReg {n : ℕ}
     (M : Multiset (Tuple T n)) :
     M.map (ColKind.readTuple (ColKind.allReg n)) = M :=
   Eq.trans (Multiset.map_congr rfl (fun _ _ => rfl)) (Multiset.map_id M)
 
 omit [DecidableEq K] [HasAltLinearOrder K] in
-@[simp] theorem GenRow.map_readAnnotated_allReg {n : ℕ}
+@[simp] private theorem GenRow.map_readAnnotated_allReg {n : ℕ}
     (M : Multiset (GenRow T K n)) :
     M.map (GenRow.readAnnotated (ColKind.allReg n))
       = M.map GenRow.toAnnotated := rfl
@@ -1761,7 +1770,7 @@ def TermGIn.evalPlain {c : ℕ} {κ : Fin n → ColKind} (t : TermGIn T c κ)
     if ValueType.isNull (t₁.evalPlain u γ) then t₂.evalPlain u γ
     else t₁.evalPlain u γ
 
-theorem TermIn.evalPlain_atCol {c k : ℕ} {κ : Fin k → ColKind} (i : Fin k)
+private theorem TermIn.evalPlain_atCol {c k : ℕ} {κ : Fin k → ColKind} (i : Fin k)
     (h : κ i = ColKind.reg) (u : Tuple T k) (γ : Fin c → T) :
     ∀ t : TermIn T 1 0, (t.atCol i h).evalPlain u γ = t.unary (u i)
   | .const a => rfl
@@ -1800,7 +1809,7 @@ def TermIn.toGen {c n : ℕ} : TermIn T c n → TermGIn T c (ColKind.allReg n)
 
 omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 /-- Reading a term as a general term does not change what it computes. -/
-@[simp] theorem TermIn.evalPlain_toGen {c n : ℕ} (t : TermIn T c n)
+@[simp] private theorem TermIn.evalPlain_toGen {c n : ℕ} (t : TermIn T c n)
     (u : Tuple T n) (γ : Fin c → T) : t.toGen.evalPlain u γ = t.eval u γ := by
   induction t with
   | const a => rfl
@@ -1845,7 +1854,7 @@ omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K]
   [HasAltLinearOrder K] in
 /-- A term over regular columns has no indicator gate: the grammar of
 `TermIn` has none to build. -/
-theorem TermIn.chiFree_toGen {c n : ℕ} (t : TermIn T c n) : t.toGen.chiFree := by
+private theorem TermIn.chiFree_toGen {c n : ℕ} (t : TermIn T c n) : t.toGen.chiFree := by
   induction t with
   | const a => exact trivial
   | outer k => exact trivial
@@ -1944,7 +1953,7 @@ noncomputable def muSumFix {α : Type} (step : Multiset α → Multiset α)
   muSum step (muRounds step M) M
 
 /-- One more round adds one more iterate. -/
-theorem muSum_succ {α : Type} (step : Multiset α → Multiset α) (b : ℕ)
+private theorem muSum_succ {α : Type} (step : Multiset α → Multiset α) (b : ℕ)
     (M : Multiset α) :
     muSum step (b + 1) M = muSum step b M + step^[b + 1] M := by
   induction b generalizing M with
@@ -1954,7 +1963,7 @@ theorem muSum_succ {α : Type} (step : Multiset α → Multiset α) (b : ℕ)
     rfl
 
 /-- **An empty round stays empty.** -/
-theorem iterate_eq_zero_of_le {α : Type} {step : Multiset α → Multiset α}
+private theorem iterate_eq_zero_of_le {α : Type} {step : Multiset α → Multiset α}
     (h0 : step 0 = 0) {M : Multiset α} {i : ℕ} (hi : step^[i] M = 0)
     {j : ℕ} (hij : i ≤ j) : step^[j] M = 0 := by
   obtain ⟨k, rfl⟩ := Nat.exists_eq_add_of_le hij
@@ -1964,7 +1973,7 @@ theorem iterate_eq_zero_of_le {α : Type} {step : Multiset α → Multiset α}
 round is empty, every bound at least `i` gives the same value. This is
 what makes `Mu b` the semantics' `⨄_{i≥0} Mᵢ` – on the fragment where
 the rounds end, the bound is not part of what the query means. -/
-theorem muSum_eq_of_le {α : Type} {step : Multiset α → Multiset α}
+private theorem muSum_eq_of_le {α : Type} {step : Multiset α → Multiset α}
     (h0 : step 0 = 0) {M : Multiset α} {i : ℕ} (hi : step^[i] M = 0)
     {b b' : ℕ} (hb : i ≤ b) (hbb : b ≤ b') :
     muSum step b' M = muSum step b M := by
@@ -1980,7 +1989,7 @@ theorem muSum_eq_of_le {α : Type} {step : Multiset α → Multiset α}
 
 /-- **Past the fixpoint the iteration no longer moves**: once a round
 repeats, every bound at least that one gives the same value. -/
-theorem muIter_eq_of_le {α : Type} {step : Multiset α → Multiset α} {j : ℕ}
+private theorem muIter_eq_of_le {α : Type} {step : Multiset α → Multiset α} {j : ℕ}
     (hj : step (muIter step j) = muIter step j) {b : ℕ} (hb : j ≤ b) :
     muIter step b = muIter step j := by
   induction b with
@@ -1991,7 +2000,7 @@ theorem muIter_eq_of_le {α : Type} {step : Multiset α → Multiset α} {j : �
     · rw [le_antisymm hb h]
 
 /-- `muIter` is iteration from the empty relation. -/
-theorem muIter_eq_iterate {α : Type} (step : Multiset α → Multiset α) (j : ℕ) :
+private theorem muIter_eq_iterate {α : Type} (step : Multiset α → Multiset α) (j : ℕ) :
     muIter step j = step^[j] 0 := by
   induction j with
   | zero => rfl
@@ -2000,7 +2009,7 @@ theorem muIter_eq_iterate {α : Type} (step : Multiset α → Multiset α) (j : 
 /-- **A round that repeats witnesses the value a set recursion settles
 at**: `muFix` is that round, whatever later round exhibited it. This is
 how a bounded computation establishes the semantics. -/
-theorem muFix_eq_of_fix {α : Type} {step : Multiset α → Multiset α} {j : ℕ}
+private theorem muFix_eq_of_fix {α : Type} {step : Multiset α → Multiset α} {j : ℕ}
     (hj : step (muIter step j) = muIter step j) :
     muFix step = muIter step j := by
   have hmem : j ∈ {i | step^[i + 1] 0 = step^[i] 0} := by
@@ -2023,7 +2032,7 @@ theorem muFix_eq_of_fix {α : Type} {step : Multiset α → Multiset α} {j : �
 
 /-- **An empty round witnesses the value a duplicate-preserving
 recursion settles at.** -/
-theorem muSumFix_eq_of_empty {α : Type} {step : Multiset α → Multiset α}
+private theorem muSumFix_eq_of_empty {α : Type} {step : Multiset α → Multiset α}
     (h0 : step 0 = 0) {M : Multiset α} {k : ℕ} (hk : step^[k + 1] M = 0) :
     muSumFix step M = muSum step k M := by
   have hmem : k ∈ {i | step^[i + 1] M = 0} := hk
@@ -2045,7 +2054,7 @@ theorem muSumFix_eq_of_empty {α : Type} {step : Multiset α → Multiset α}
 /-- **The sums of two simulating round sequences simulate each other**:
 the rounds are related one by one, so the first empty one is the same on
 both sides. -/
-theorem muSumFix_rel {α β : Type} {R : β → α → Prop} {step : Multiset α → Multiset α}
+private theorem muSumFix_rel {α β : Type} {R : β → α → Prop} {step : Multiset α → Multiset α}
     {step' : Multiset β → Multiset β} {M : Multiset α} {M' : Multiset β}
     (hM : Multiset.Rel R M' M)
     (hstep : ∀ (k : ℕ) (X' : Multiset β), Multiset.Rel R X' (step^[k] M) →
@@ -2084,7 +2093,7 @@ theorem muSumFix_rel {α β : Type} {R : β → α → Prop} {step : Multiset α
     exact ih.add (hit (b + 1))
 
 /-- Rounds built from the same step on the same seed agree. -/
-theorem muSum_congr {α : Type} {step step' : Multiset α → Multiset α}
+private theorem muSum_congr {α : Type} {step step' : Multiset α → Multiset α}
     (h : ∀ X, step X = step' X) (b : ℕ) :
     ∀ {M M' : Multiset α}, M = M' → muSum step b M = muSum step' b M' := by
   induction b with
@@ -2095,7 +2104,7 @@ theorem muSum_congr {α : Type} {step step' : Multiset α → Multiset α}
     exact congrArg _ (ih (h M'))
 
 /-- Iterations of the same step agree. -/
-theorem muIter_congr {α : Type} {step step' : Multiset α → Multiset α}
+private theorem muIter_congr {α : Type} {step step' : Multiset α → Multiset α}
     (h : ∀ X, step X = step' X) (b : ℕ) : muIter step b = muIter step' b := by
   induction b with
   | zero => rfl
@@ -2104,7 +2113,7 @@ theorem muIter_congr {α : Type} {step step' : Multiset α → Multiset α}
 /-- **An additive map commutes with the rounds of `Mu`**: forgetting
 annotations, or applying a semiring homomorphism, round by round is the
 same as doing it to the sum. -/
-theorem muSum_map {α β : Type} {h : Multiset α → Multiset β}
+private theorem muSum_map {α β : Type} {h : Multiset α → Multiset β}
     (hadd : ∀ x y, h (x + y) = h x + h y)
     {step : Multiset α → Multiset α} {stepP : Multiset β → Multiset β}
     (hstep : ∀ X, h (step X) = stepP (h X)) (b : ℕ) (M : Multiset α) :
@@ -2115,7 +2124,7 @@ theorem muSum_map {α β : Type} {h : Multiset α → Multiset β}
 
 /-- **A map sending the empty relation to the empty relation commutes
 with the iteration of `MuSet`.** -/
-theorem muIter_map {α β : Type} {h : Multiset α → Multiset β} (h0 : h 0 = 0)
+private theorem muIter_map {α β : Type} {h : Multiset α → Multiset β} (h0 : h 0 = 0)
     {step : Multiset α → Multiset α} {stepP : Multiset β → Multiset β}
     (hstep : ∀ X, h (step X) = stepP (h X)) (b : ℕ) :
     h (muIter step b) = muIter stepP b := by
@@ -2124,7 +2133,7 @@ theorem muIter_map {α β : Type} {h : Multiset α → Multiset β} (h0 : h 0 = 
   | succ b ih => rw [muIter, hstep, ih, muIter]
 
 /-- **The round a set recursion settles at is a fixpoint of its step.** -/
-theorem muFix_isFix {α : Type} {step : Multiset α → Multiset α}
+private theorem muFix_isFix {α : Type} {step : Multiset α → Multiset α}
     (h : MuSetSettles step) : step (muFix step) = muFix step := by
   have hne : {i | step^[i + 1] 0 = step^[i] 0}.Nonempty := h
   have hspec : step^[muFixIdx step + 1] 0 = step^[muFixIdx step] 0 := by
@@ -2242,33 +2251,33 @@ def EvalEnv.withCtx (E : EvalEnv T K) {c : ℕ} (u : Tuple (GenValue T K) c) :
   { E with ctx := ⟨c, u⟩ }
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
-@[simp] theorem EvalEnv.ctxAt_withCtx (E : EvalEnv T K) {c : ℕ} (u : Tuple (GenValue T K) c)
+@[simp] private theorem EvalEnv.ctxAt_withCtx (E : EvalEnv T K) {c : ℕ} (u : Tuple (GenValue T K) c)
     (γ : Fin c → T) : (E.withCtx u).ctxAt c γ = u := by
   unfold EvalEnv.ctxAt EvalEnv.withCtx
   rw [dite_eq_left rfl]
   rfl
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
-theorem EvalEnv.ctxAt_withCtx_cast (E : EvalEnv T K) {c c' : ℕ} (h : c' = c)
+private theorem EvalEnv.ctxAt_withCtx_cast (E : EvalEnv T K) {c c' : ℕ} (h : c' = c)
     (u : Tuple (GenValue T K) c') (γ : Fin c → T) :
     (E.withCtx u).ctxAt c γ = fun k => u (Fin.cast h.symm k) := by
   subst h
   exact EvalEnv.ctxAt_withCtx E u γ
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
-@[simp] theorem EvalEnv.withCtx_withCtx (E : EvalEnv T K) {c c' : ℕ}
+@[simp] private theorem EvalEnv.withCtx_withCtx (E : EvalEnv T K) {c c' : ℕ}
     (u : Tuple (GenValue T K) c) (v : Tuple (GenValue T K) c') :
     (E.withCtx u).withCtx v = E.withCtx v := rfl
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
-@[simp] theorem EvalEnv.ctxAt_assignHole (E : EvalEnv T K) (s : String) {n : ℕ}
+@[simp] private theorem EvalEnv.ctxAt_assignHole (E : EvalEnv T K) (s : String) {n : ℕ}
     (X : Multiset (GenRow T K n)) {c : ℕ} (γ : Fin c → T) :
     (E.assignHole s X).ctxAt c γ = E.ctxAt c γ := rfl
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 /-- An environment with no context reads the plain context as regular
 values. -/
-@[simp] theorem EvalEnv.empty_ctxAt {c : ℕ} (γ : Fin c → T) :
+@[simp] private theorem EvalEnv.empty_ctxAt {c : ℕ} (γ : Fin c → T) :
     ({} : EvalEnv T K).ctxAt c γ = fun k => Sum.inl (γ k) := by
   unfold EvalEnv.ctxAt
   split
@@ -2293,11 +2302,11 @@ def EvalEnv.RowsSat (Q : GenValue T K → Prop) (E : EvalEnv T K) : Prop :=
   (∀ (s : String) (n : ℕ), ∀ r ∈ E.holes s n, ∀ k, Q (r.fst k)) ∧ ∀ k, Q (E.ctx.2 k)
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
-theorem EvalEnv.rowsSat_empty {Q : GenValue T K → Prop} : ({} : EvalEnv T K).RowsSat Q :=
+private theorem EvalEnv.rowsSat_empty {Q : GenValue T K → Prop} : ({} : EvalEnv T K).RowsSat Q :=
   ⟨fun _ _ r hr => absurd hr (Multiset.notMem_zero r), fun k => k.elim0⟩
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
-theorem EvalEnv.rowsSat_assignHole {Q : GenValue T K → Prop}
+private theorem EvalEnv.rowsSat_assignHole {Q : GenValue T K → Prop}
     {E : EvalEnv T K} (hE : E.RowsSat Q) (s : String) {n : ℕ}
     {X : Multiset (GenRow T K n)} (hX : ∀ r ∈ X, ∀ k, Q (r.fst k)) :
     (E.assignHole s X).RowsSat Q := by
@@ -2311,7 +2320,7 @@ theorem EvalEnv.rowsSat_assignHole {Q : GenValue T K → Prop}
     exact hE.1 s' m r hr
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
-theorem EvalEnv.rowsSat_ctxAt {Q : GenValue T K → Prop} (hQ : ∀ a, Q (Sum.inl a))
+private theorem EvalEnv.rowsSat_ctxAt {Q : GenValue T K → Prop} (hQ : ∀ a, Q (Sum.inl a))
     {E : EvalEnv T K} (hE : E.RowsSat Q) (c : ℕ) (γ : Fin c → T) (k : Fin c) :
     Q (E.ctxAt c γ k) := by
   unfold EvalEnv.ctxAt
@@ -2320,14 +2329,14 @@ theorem EvalEnv.rowsSat_ctxAt {Q : GenValue T K → Prop} (hQ : ∀ a, Q (Sum.in
   · exact hQ _
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
-theorem EvalEnv.rowsSat_withCtx {Q : GenValue T K → Prop}
+private theorem EvalEnv.rowsSat_withCtx {Q : GenValue T K → Prop}
     {E : EvalEnv T K} (hE : E.RowsSat Q) {c : ℕ} {u : Tuple (GenValue T K) c}
     (hu : ∀ k, Q (u k)) : (E.withCtx u).RowsSat Q :=
   ⟨hE.1, hu⟩
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 /-- Entering an apply's right side at a row of its left side. -/
-theorem EvalEnv.rowsSat_enter {Q : GenValue T K → Prop} (hQ : ∀ a, Q (Sum.inl a))
+private theorem EvalEnv.rowsSat_enter {Q : GenValue T K → Prop} (hQ : ∀ a, Q (Sum.inl a))
     {E : EvalEnv T K} (hE : E.RowsSat Q) {c n₁ : ℕ} (γ : Fin c → T)
     {x : Tuple (GenValue T K) n₁} (hx : ∀ k, Q (x k)) :
     (E.withCtx (Fin.append x (E.ctxAt c γ))).RowsSat Q :=
@@ -2337,14 +2346,14 @@ theorem EvalEnv.rowsSat_enter {Q : GenValue T K → Prop} (hQ : ∀ a, Q (Sum.in
     · rw [Fin.append_right]; exact EvalEnv.rowsSat_ctxAt hQ hE c γ j)
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
-theorem EvalEnv.rowsSat_hole {Q : GenValue T K → Prop}
+private theorem EvalEnv.rowsSat_hole {Q : GenValue T K → Prop}
     {E : EvalEnv T K} (hE : E.RowsSat Q) {s : String} {n : ℕ} {κ : Fin n → ColKind}
     {r : GenRow T K n} (hr : r ∈ (E.holes s n).filter (fun r => GenRow.Conforms κ r.fst)) :
     ∀ k, Q (r.fst k) :=
   hE.1 s n r (Multiset.mem_of_mem_filter hr)
 
 omit [ValueType T] [DecidableEq K] [HasAltLinearOrder K] in
-theorem EvalEnv.rowsSat_param {Q : GenValue T K → Prop} (hQ : ∀ a, Q (Sum.inl a))
+private theorem EvalEnv.rowsSat_param {Q : GenValue T K → Prop} (hQ : ∀ a, Q (Sum.inl a))
     {E : EvalEnv T K} (hE : E.RowsSat Q) {c m : ℕ} {γ : Fin c → T} {pv : Fin m → T ⊕ Fin c}
     {ρ : Fin m → ColKind} {r : GenRow T K m} (hr : r ∈ E.paramRows γ pv ρ) :
     ∀ k, Q (r.fst k) := by
@@ -2361,7 +2370,7 @@ theorem EvalEnv.rowsSat_param {Q : GenValue T K → Prop} (hQ : ∀ a, Q (Sum.in
 
 omit [ValueType T] [DecidableEq K] [HasAltLinearOrder K] in
 /-- The parameter row has the kinds its leaf says. -/
-theorem EvalEnv.conforms_of_mem_paramRows {E : EvalEnv T K} {c m : ℕ} {γ : Fin c → T}
+private theorem EvalEnv.conforms_of_mem_paramRows {E : EvalEnv T K} {c m : ℕ} {γ : Fin c → T}
     {pv : Fin m → T ⊕ Fin c} {ρ : Fin m → ColKind}
     {r : GenRow T K m} (hr : r ∈ E.paramRows γ pv ρ) : GenRow.Conforms ρ r.fst := by
   simp only [EvalEnv.paramRows] at hr
@@ -2374,7 +2383,7 @@ theorem EvalEnv.conforms_of_mem_paramRows {E : EvalEnv T K} {c m : ℕ} {γ : Fi
 
 /-- A property of the rows that every round keeps holds of every row of the
 recursion. -/
-theorem forall_mem_muSum {α : Type} {P : α → Prop} {step : Multiset α → Multiset α}
+private theorem forall_mem_muSum {α : Type} {P : α → Prop} {step : Multiset α → Multiset α}
     (hstep : ∀ X : Multiset α, (∀ x ∈ X, P x) → ∀ y ∈ step X, P y) :
     ∀ (b : ℕ) (M : Multiset α), (∀ x ∈ M, P x) → ∀ y ∈ muSum step b M, P y := by
   intro b
@@ -2386,7 +2395,7 @@ theorem forall_mem_muSum {α : Type} {P : α → Prop} {step : Multiset α → M
     · exact hM y h
     · exact ih (step M) (hstep M hM) y h
 
-theorem forall_mem_muSumFix {α : Type} {P : α → Prop} {step : Multiset α → Multiset α}
+private theorem forall_mem_muSumFix {α : Type} {P : α → Prop} {step : Multiset α → Multiset α}
     (hstep : ∀ X : Multiset α, (∀ x ∈ X, P x) → ∀ y ∈ step X, P y) {M : Multiset α}
     (hM : ∀ x ∈ M, P x) : ∀ y ∈ muSumFix step M, P y :=
   forall_mem_muSum hstep _ M hM
@@ -2484,7 +2493,7 @@ of the group. -/
 def ctxKey {c : ℕ} {α : Type} (r : Fin c → Bool) (γ : Fin c → α) : List α :=
   (List.finRange c).filterMap (fun k => if r k then some (γ k) else none)
 
-@[simp] theorem ctxKey_zero {α : Type} (r : Fin 0 → Bool) (γ : Fin 0 → α) :
+@[simp] private theorem ctxKey_zero {α : Type} (r : Fin 0 → Bool) (γ : Fin 0 → α) :
     ctxKey r γ = [] := rfl
 
 /-- **How a family records a parameter**: a regular one by its value, an
@@ -2516,43 +2525,43 @@ def nestOfGroup {c m : ℕ} {κ : Fin m → ColKind} (p : ProjColIn T c κ) (γ 
   nestOfVals f φ (grp.map (fun row => (p.eval row.fst γ, row.snd.finalize)))
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
-@[simp] theorem fam_nestOfVals (f : Multiset T → T) (φ : FamId T)
+@[simp] private theorem fam_nestOfVals (f : Multiset T → T) (φ : FamId T)
     (V : Multiset (GenValue T K × K)) : (nestOfVals f φ V).fam = φ := rfl
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
-@[simp] theorem agg_nestOfVals (f : Multiset T → T) (φ : FamId T)
+@[simp] private theorem agg_nestOfVals (f : Multiset T → T) (φ : FamId T)
     (V : Multiset (GenValue T K × K)) : (nestOfVals f φ V).agg = f := rfl
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
-@[simp] theorem scalar_nestOfVals (f : Multiset T → T) (φ : FamId T)
+@[simp] private theorem scalar_nestOfVals (f : Multiset T → T) (φ : FamId T)
     (V : Multiset (GenValue T K × K)) : (nestOfVals f φ V).scalar = false := rfl
 
 omit [DecidableEq K] [HasAltLinearOrder K] in
-@[simp] theorem fam_nestOfGroup {c m : ℕ} {κ : Fin m → ColKind} (p : ProjColIn T c κ)
+@[simp] private theorem fam_nestOfGroup {c m : ℕ} {κ : Fin m → ColKind} (p : ProjColIn T c κ)
     (γ : Fin c → T) (f : Multiset T → T) (φ : FamId T) (grp : Multiset (GenRow T K m)) :
     (nestOfGroup p γ f φ grp).fam = φ := rfl
 
 omit [DecidableEq K] [HasAltLinearOrder K] in
-@[simp] theorem agg_nestOfGroup {c m : ℕ} {κ : Fin m → ColKind} (p : ProjColIn T c κ)
+@[simp] private theorem agg_nestOfGroup {c m : ℕ} {κ : Fin m → ColKind} (p : ProjColIn T c κ)
     (γ : Fin c → T) (f : Multiset T → T) (φ : FamId T) (grp : Multiset (GenRow T K m)) :
     (nestOfGroup p γ f φ grp).agg = f := rfl
 
 omit [DecidableEq K] [HasAltLinearOrder K] in
-@[simp] theorem scalar_nestOfGroup {c m : ℕ} {κ : Fin m → ColKind} (p : ProjColIn T c κ)
+@[simp] private theorem scalar_nestOfGroup {c m : ℕ} {κ : Fin m → ColKind} (p : ProjColIn T c κ)
     (γ : Fin c → T) (f : Multiset T → T) (φ : FamId T) (grp : Multiset (GenRow T K m)) :
     (nestOfGroup p γ f φ grp).scalar = false := rfl
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 /-- **The deterministic reading of a nested value built over a bag** is
 the outer aggregate of the values' collapses. -/
-@[simp] theorem collapse_nestOfVals (f : Multiset T → T) (φ : FamId T)
+@[simp] private theorem collapse_nestOfVals (f : Multiset T → T) (φ : FamId T)
     (V : Multiset (GenValue T K × K)) :
     (nestOfVals f φ V).collapse = f (V.map (fun v => AggValue.collapseSum v.1)) := by
   simp only [nestOfVals, NestedValue.collapse, NestedValue.ofOccs, Multiset.map_map,
     Function.comp_def, NestedValue.collapse_innerAt]
 
 omit [DecidableEq K] [HasAltLinearOrder K] in
-@[simp] theorem collapse_nestOfGroup {c m : ℕ} {κ : Fin m → ColKind} (p : ProjColIn T c κ)
+@[simp] private theorem collapse_nestOfGroup {c m : ℕ} {κ : Fin m → ColKind} (p : ProjColIn T c κ)
     (γ : Fin c → T) (f : Multiset T → T) (φ : FamId T) (grp : Multiset (GenRow T K m)) :
     (nestOfGroup p γ f φ grp).collapse
       = f (grp.map (fun row => AggValue.collapseSum (p.eval row.fst γ))) := by
@@ -2561,7 +2570,7 @@ omit [DecidableEq K] [HasAltLinearOrder K] in
 
 omit [DecidableEq K] [HasAltLinearOrder K] in
 /-- The annotations of its occurrences are the rows'. -/
-@[simp] theorem occs_snd_nestOfGroup {c m : ℕ} {κ : Fin m → ColKind} (p : ProjColIn T c κ)
+@[simp] private theorem occs_snd_nestOfGroup {c m : ℕ} {κ : Fin m → ColKind} (p : ProjColIn T c κ)
     (γ : Fin c → T) (f : Multiset T → T) (φ : FamId T) (grp : Multiset (GenRow T K m)) :
     (nestOfGroup p γ f φ grp).occs.map Prod.snd = grp.map (fun row => row.snd.finalize) := by
   simp only [nestOfGroup, nestOfVals, NestedValue.occs_ofOccs, Multiset.map_map]
@@ -2769,7 +2778,7 @@ omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K]
   [HasAltLinearOrder K] in
 /-- Appending nothing: a closed query's apply gives its right side the
 left row and nothing else. -/
-theorem Fin.append_nil {α : Sort*} {m : ℕ} (u : Fin m → α) (v : Fin 0 → α) :
+private theorem Fin.append_nil {α : Sort*} {m : ℕ} (u : Fin m → α) (v : Fin 0 → α) :
     Fin.append u v = u := by
   funext k
   exact Fin.append_left u v k
@@ -2777,7 +2786,7 @@ theorem Fin.append_nil {α : Sort*} {m : ℕ} (u : Fin m → α) (v : Fin 0 → 
 /-- **The apply, read off the two sides.** Each occurrence of the left
 side is paired with each row the right side gives *under that
 occurrence's values*, and the annotations are multiplied. -/
-theorem AggQueryIn.evaluate_Apply {n₁ n₂ : ℕ} {κ₁ : Fin n₁ → ColKind}
+private theorem AggQueryIn.evaluate_Apply {n₁ n₂ : ℕ} {κ₁ : Fin n₁ → ColKind}
     {κ₂ : Fin n₂ → ColKind}
     (q₁ : AggQuery T n₁ κ₁) (q₂ : AggQueryIn T n₁ n₂ κ₂)
     (d : AnnotatedDatabase T K) (E : EvalEnv T K) :
@@ -2821,7 +2830,7 @@ noncomputable def AggQueryIn.muSetStep {c n : ℕ} (s : String)
       + q₁.evaluateAnnotated d γ (E.assignHole s (X.map GenRow.ofAnnotated)))
 
 /-- `Mu` is the sum of its rounds up to the first empty one. -/
-theorem AggQueryIn.evaluate_Mu {c n : ℕ} {κ : Fin n → ColKind} (s : String)
+private theorem AggQueryIn.evaluate_Mu {c n : ℕ} {κ : Fin n → ColKind} (s : String)
     (q₀ : AggQueryIn T c n κ) (q₁ : AggQueryIn T c n κ [(s, n)])
     (d : AnnotatedDatabase T K) (γ : Fin c → T) (E : EvalEnv T K) :
     (AggQueryIn.Mu s q₀ q₁).evaluate d γ E
@@ -2829,7 +2838,7 @@ theorem AggQueryIn.evaluate_Mu {c n : ℕ} {κ : Fin n → ColKind} (s : String)
   rfl
 
 /-- `MuSet` is the round its iteration settles at. -/
-theorem AggQueryIn.evaluate_MuSet {c n : ℕ} (s : String)
+private theorem AggQueryIn.evaluate_MuSet {c n : ℕ} (s : String)
     (q₀ : AggQueryIn T c n (ColKind.allReg n))
     (q₁ : AggQueryIn T c n (ColKind.allReg n) [(s, n)]) (d : AnnotatedDatabase T K)
     (γ : Fin c → T) (E : EvalEnv T K) :
@@ -2842,7 +2851,7 @@ round function that keeps an empty round empty – which is what the
 semantics asks for in asking that some round be empty – the query's value
 is the bounded sum up to that round. This is how a computation witnesses
 the semantics, the round count being no part of the query. -/
-theorem AggQueryIn.evaluate_Mu_of_empty {c n : ℕ} {κ : Fin n → ColKind} {k : ℕ} (s : String)
+private theorem AggQueryIn.evaluate_Mu_of_empty {c n : ℕ} {κ : Fin n → ColKind} {k : ℕ} (s : String)
     (q₀ : AggQueryIn T c n κ) (q₁ : AggQueryIn T c n κ [(s, n)])
     (d : AnnotatedDatabase T K) (γ : Fin c → T) (E : EvalEnv T K)
     (h0 : AggQueryIn.muStep s q₁ d γ E 0 = 0)
@@ -2852,7 +2861,7 @@ theorem AggQueryIn.evaluate_Mu_of_empty {c n : ℕ} {κ : Fin n → ColKind} {k 
   rw [AggQueryIn.evaluate_Mu, muSumFix_eq_of_empty h0 hk]
 
 /-- **A repeating round computes `MuSet`.** -/
-theorem AggQueryIn.evaluate_MuSet_of_fix {c n : ℕ} {j : ℕ} (s : String)
+private theorem AggQueryIn.evaluate_MuSet_of_fix {c n : ℕ} {j : ℕ} (s : String)
     (q₀ : AggQueryIn T c n (ColKind.allReg n))
     (q₁ : AggQueryIn T c n (ColKind.allReg n) [(s, n)]) (d : AnnotatedDatabase T K)
     (γ : Fin c → T) (E : EvalEnv T K)
@@ -2895,7 +2904,7 @@ theorem AggQueryIn.evaluate_Win_eq {lab : ℕ} {c n m p : ℕ} {rd : Fin c → B
 
 omit [ValueType T] [DecidableEq K] [HasAltLinearOrder K] in
 /-- Embedding then finalizing is the identity on annotated tuples. -/
-@[simp] theorem GenRow.toAnnotated_ofAnnotated {n : ℕ}
+@[simp] private theorem GenRow.toAnnotated_ofAnnotated {n : ℕ}
     (p : AnnotatedTuple T K n) :
     GenRow.toAnnotated (GenRow.ofAnnotated p) = p := by
   unfold GenRow.toAnnotated GenRow.ofAnnotated GenRow.plainTuple
@@ -2940,20 +2949,20 @@ def decHoldsPlain (φ : GenPredIn T c κ) (u : Tuple T n)
     (γ : Fin c → T := fun _ => 0) : Decidable (φ.holdsPlain u γ) :=
   inferInstanceAs (Decidable (_ = _))
 
-@[simp] theorem holdsPlain_and (φ ψ : GenPred T κ) (u : Tuple T n) :
+@[simp] private theorem holdsPlain_and (φ ψ : GenPred T κ) (u : Tuple T n) :
     (GenPredIn.and φ ψ).holdsPlain u ↔ φ.holdsPlain u ∧ ψ.holdsPlain u :=
   Kleene.and_eq_true_iff _ _
 
-@[simp] theorem holdsPlain_or (φ ψ : GenPred T κ) (u : Tuple T n) :
+@[simp] private theorem holdsPlain_or (φ ψ : GenPred T κ) (u : Tuple T n) :
     (GenPredIn.or φ ψ).holdsPlain u ↔ φ.holdsPlain u ∨ ψ.holdsPlain u :=
   Kleene.or_eq_true_iff _ _
 
-@[simp] theorem holdsPlain_not (φ : GenPred T κ) (u : Tuple T n) :
+@[simp] private theorem holdsPlain_not (φ : GenPred T κ) (u : Tuple T n) :
     (GenPredIn.not φ).holdsPlain u ↔ φ.evalPlain3 u = Kleene.false :=
   Kleene.not_eq_true_iff _
 
 /-- Where nothing is null no predicate is ever unknown on a plain row. -/
-theorem evalPlain3_ne_unknown [NoNulls T] (u : Tuple T n) :
+private theorem evalPlain3_ne_unknown [NoNulls T] (u : Tuple T n) :
     ∀ φ : GenPred T κ, φ.evalPlain3 u ≠ Kleene.unknown
   | cmp op t₁ t₂ => by
     rw [GenPredIn.evalPlain3, CompOp.eval3_eq_ofBool]
@@ -2982,7 +2991,7 @@ theorem evalPlain3_ne_unknown [NoNulls T] (u : Tuple T n) :
     cases e : φ.evalPlain3 u <;> simp_all [GenPredIn.evalPlain3, Kleene.not]
 
 /-- Negation is classical on a plain row where nothing is null. -/
-theorem holdsPlain_not_iff [NoNulls T] (φ : GenPred T κ) (u : Tuple T n) :
+private theorem holdsPlain_not_iff [NoNulls T] (φ : GenPred T κ) (u : Tuple T n) :
     (GenPredIn.not φ).holdsPlain u ↔ ¬ φ.holdsPlain u := by
   have h := evalPlain3_ne_unknown u φ
   show (φ.evalPlain3 u).not = Kleene.true ↔ ¬ (φ.evalPlain3 u = Kleene.true)
@@ -3032,14 +3041,14 @@ def ValueFrame.windowValueOpt {c n m p : ℕ} (P : Tuple (Fin n) m)
   | none => ValueFrame.windowValue P O o w t f R u γ
   | some φ => ValueFrame.windowValueWhen P O o w t f φ.keeps R u γ
 
-@[simp] theorem ValueFrame.windowValueOpt_none {c n m p : ℕ}
+@[simp] private theorem ValueFrame.windowValueOpt_none {c n m p : ℕ}
     (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
     (w : ValueFrame T p) (t : TermIn T c n) (f : SeqAggFunc T)
     (R : Relation T n) (u : Tuple T n) (γ : Fin c → T) :
     ValueFrame.windowValueOpt P O o w t f none R u γ
       = ValueFrame.windowValue P O o w t f R u γ := rfl
 
-@[simp] theorem ValueFrame.windowValueOpt_some {c n m p : ℕ}
+@[simp] private theorem ValueFrame.windowValueOpt_some {c n m p : ℕ}
     (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
     (w : ValueFrame T p) (t : TermIn T c n) (f : SeqAggFunc T)
     (φ : Selection T n) (R : Relation T n) (u : Tuple T n) (γ : Fin c → T) :
@@ -3047,7 +3056,7 @@ def ValueFrame.windowValueOpt {c n m p : ℕ} (P : Tuple (Fin n) m)
       = ValueFrame.windowValueWhen P O o w t f φ.keeps R u γ := rfl
 
 /-- A window's value reads the context only through its term. -/
-theorem ValueFrame.windowValueOpt_congr_ctx {c n m p : ℕ}
+private theorem ValueFrame.windowValueOpt_congr_ctx {c n m p : ℕ}
     {P : Tuple (Fin n) m} {O : Tuple (Fin n) p} {o : OrderSpec p}
     {w : ValueFrame T p} {t : TermIn T c n} {f : SeqAggFunc T} {keep : Option (Selection T n)}
     {R : Relation T n} {u : Tuple T n} {γ γ' : Fin c → T} (h : ∀ x, t.eval x γ = t.eval x γ') :
@@ -3059,7 +3068,7 @@ theorem ValueFrame.windowValueOpt_congr_ctx {c n m p : ℕ}
       ValueFrame.windowValueWhen, hf]
 
 /-- The same, without a `FILTER` clause. -/
-theorem ValueFrame.windowValue_congr_ctx {c n m p : ℕ}
+private theorem ValueFrame.windowValue_congr_ctx {c n m p : ℕ}
     {P : Tuple (Fin n) m} {O : Tuple (Fin n) p} {o : OrderSpec p}
     {w : ValueFrame T p} {t : TermIn T c n} {f : SeqAggFunc T}
     {R : Relation T n} {u : Tuple T n} {γ γ' : Fin c → T} (h : ∀ x, t.eval x γ = t.eval x γ') :
@@ -3067,7 +3076,7 @@ theorem ValueFrame.windowValue_congr_ctx {c n m p : ℕ}
   ValueFrame.windowValueOpt_congr_ctx (keep := none) h
 
 /-- And with one. -/
-theorem ValueFrame.windowValueWhen_congr_ctx {c n m p : ℕ}
+private theorem ValueFrame.windowValueWhen_congr_ctx {c n m p : ℕ}
     {P : Tuple (Fin n) m} {O : Tuple (Fin n) p} {o : OrderSpec p}
     {w : ValueFrame T p} {t : TermIn T c n} {f : SeqAggFunc T} {keep : Tuple T n → Bool}
     {R : Relation T n} {u : Tuple T n} {γ γ' : Fin c → T} (h : ∀ x, t.eval x γ = t.eval x γ') :
@@ -3180,7 +3189,7 @@ noncomputable def AggQueryIn.evaluatePlain : {c n : ℕ} → {κ : Fin n → Col
 
 omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 /-- Plain counterpart of `AggQueryIn.evaluate_Apply`. -/
-theorem AggQueryIn.evaluatePlain_Apply {n₁ n₂ : ℕ} {κ₂ : Fin n₂ → ColKind}
+private theorem AggQueryIn.evaluatePlain_Apply {n₁ n₂ : ℕ} {κ₂ : Fin n₂ → ColKind}
     (q₁ : AggQuery T n₁ (ColKind.allReg n₁)) (q₂ : AggQueryIn T n₁ n₂ κ₂)
     (D : Database T) :
     (AggQueryIn.Apply q₁ q₂).evaluatePlain D
@@ -3211,7 +3220,7 @@ theorem ValueFrame.windowValue_of_perm {c n m p : ℕ} (P : Tuple (Fin n) m)
 clause**: each group's aggregate reads the whole group, the clause-less
 `List.filter` keeping every row. This is the form every result about an
 unfiltered grouping uses. -/
-theorem AggQueryIn.evaluatePlain_Gamma_eq {lab : ℕ} {c m n₁ n₂ : ℕ} {rd : Fin c → Bool}
+private theorem AggQueryIn.evaluatePlain_Gamma_eq {lab : ℕ} {c m n₁ n₂ : ℕ} {rd : Fin c → Bool}
     (is : Tuple (Fin m) n₁) (ts : Tuple (TermIn T c m) n₂)
     (fs : Tuple (SeqAggFunc T) n₂)
     (q : AggQueryIn T c m (ColKind.allReg m)) (d : Database T)
@@ -3260,7 +3269,7 @@ def ValueFrame.windowRowWhen {c n m p : ℕ} (P : Tuple (Fin n) m)
 
 /-- **The `Win` case of the evaluator under a `FILTER` clause**, read off
 the relation, as `AggQueryIn.evaluate_Win_eq` is without one. -/
-theorem AggQueryIn.evaluate_Win_eq_when {lab : ℕ} {c n m p : ℕ} {rd : Fin c → Bool}
+private theorem AggQueryIn.evaluate_Win_eq_when {lab : ℕ} {c n m p : ℕ} {rd : Fin c → Bool}
     {κ : Fin n → ColKind}
     (P : Tuple (Fin n) m)
     (O : Tuple (Fin n) p) (o : OrderSpec p) (w : ValueFrame T p) {hsql : w.IsSQL o}
@@ -3276,7 +3285,7 @@ theorem AggQueryIn.evaluate_Win_eq_when {lab : ℕ} {c n m p : ℕ} {rd : Fin c 
             dist) := rfl
 
 /-- **The `Win` case of the plain evaluator under a `FILTER` clause.** -/
-theorem AggQueryIn.evaluatePlain_Win_eq_when {lab : ℕ} {c n m p : ℕ} {rd : Fin c → Bool}
+private theorem AggQueryIn.evaluatePlain_Win_eq_when {lab : ℕ} {c n m p : ℕ} {rd : Fin c → Bool}
     {κ : Fin n → ColKind}
     (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
     (w : ValueFrame T p) {hsql : w.IsSQL o} (t : TermIn T c n) (f : SeqAggFunc T) (dist : Bool)
@@ -3297,7 +3306,7 @@ theorem AggQueryIn.evaluatePlain_Win_eq_when {lab : ℕ} {c n m p : ℕ} {rd : F
 is the form a recursion over the syntax needs: the frame is read through
 `ValueFrame.windowValueOpt`, which is the unfiltered reading where there
 is no clause and the cut one where there is. -/
-theorem AggQueryIn.evaluatePlain_Win_eq_opt {lab : ℕ} {c n m p : ℕ} {rd : Fin c → Bool}
+private theorem AggQueryIn.evaluatePlain_Win_eq_opt {lab : ℕ} {c n m p : ℕ} {rd : Fin c → Bool}
     {κ : Fin n → ColKind}
     (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
     (w : ValueFrame T p) {hsql : w.IsSQL o} (t : TermIn T c n) (f : SeqAggFunc T) (dist : Bool)
@@ -3321,7 +3330,7 @@ theorem AggQueryIn.evaluatePlain_Win_eq_opt {lab : ℕ} {c n m p : ℕ} {rd : Fi
 /-- **The `WinExpr` case of the plain evaluator, read off the
 relation**: each leaf aggregates over its own frame, and `g` combines
 the values. -/
-theorem AggQueryIn.evaluatePlain_WinExpr_eq {lab : ℕ} {c n m p na : ℕ} {rd : Fin c → Bool}
+private theorem AggQueryIn.evaluatePlain_WinExpr_eq {lab : ℕ} {c n m p na : ℕ} {rd : Fin c → Bool}
     (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
     (ws : Fin na → ValueFrame T p) {hsql : ∀ l, (ws l).IsSQL o} (ts : Fin na → TermIn T c n)
     (fs : Fin na → SeqAggFunc T) (g : (Fin na → T) → T)
@@ -3347,7 +3356,7 @@ theorem AggQueryIn.evaluatePlain_WinExpr_eq {lab : ℕ} {c n m p na : ℕ} {rd :
 
 /-- **The `WinExpr` case of the plain evaluator under `FILTER` clauses**:
 each leaf aggregates over the part of its own frame its clause keeps. -/
-theorem AggQueryIn.evaluatePlain_WinExpr_eq_when {lab : ℕ} {c n m p na : ℕ} {rd : Fin c → Bool}
+private theorem AggQueryIn.evaluatePlain_WinExpr_eq_when {lab : ℕ} {c n m p na : ℕ} {rd : Fin c → Bool}
     (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
     (ws : Fin na → ValueFrame T p) {hsql : ∀ l, (ws l).IsSQL o} (ts : Fin na → TermIn T c n)
     (fs : Fin na → SeqAggFunc T) (g : (Fin na → T) → T)
@@ -3490,7 +3499,7 @@ def ProjColIn.outerOk {c n : ℕ} {κ : Fin n → ColKind} (ok : Fin c → Prop)
   | .provTerm t => t.outerOk ok
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
-theorem TermIn.eval_congr_outerOk [ValueType T] {c n : ℕ} {ok : Fin c → Prop} {γ γ' : Fin c → T}
+private theorem TermIn.eval_congr_outerOk [ValueType T] {c n : ℕ} {ok : Fin c → Prop} {γ γ' : Fin c → T}
     (hγ : ∀ k, ok k → γ k = γ' k) (u : Tuple T n) :
     ∀ t : TermIn T c n, t.outerOk ok → t.eval u γ = t.eval u γ'
   | .const _, _ => rfl
@@ -3512,7 +3521,7 @@ theorem TermIn.eval_congr_outerOk [ValueType T] {c n : ℕ} {ok : Fin c → Prop
     rw [eval_congr_outerOk hγ u t₁ h.1, eval_congr_outerOk hγ u t₂ h.2]
 
 omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
-theorem TermGIn.evalPlain_congr_outerOk {c n : ℕ} {κ : Fin n → ColKind} {ok : Fin c → Prop}
+private theorem TermGIn.evalPlain_congr_outerOk {c n : ℕ} {κ : Fin n → ColKind} {ok : Fin c → Prop}
     {γ γ' : Fin c → T} (hγ : ∀ k, ok k → γ k = γ' k) (u : Tuple T n) :
     ∀ t : TermGIn T c κ, t.outerOk ok → t.evalPlain u γ = t.evalPlain u γ'
   | .const _, _ => rfl
@@ -3537,7 +3546,7 @@ theorem TermGIn.evalPlain_congr_outerOk {c n : ℕ} {κ : Fin n → ColKind} {ok
     rw [evalPlain_congr_outerOk hγ u t₁ h.1, evalPlain_congr_outerOk hγ u t₂ h.2]
 
 omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
-theorem ProjColIn.evalPlain_congr_outerOk {c n : ℕ} {κ : Fin n → ColKind} {ok : Fin c → Prop}
+private theorem ProjColIn.evalPlain_congr_outerOk {c n : ℕ} {κ : Fin n → ColKind} {ok : Fin c → Prop}
     {γ γ' : Fin c → T} (hγ : ∀ k, ok k → γ k = γ' k) (u : Tuple T n) :
     ∀ p : ProjColIn T c κ, p.outerOk ok → p.evalPlain u γ = p.evalPlain u γ'
   | .term t, h => TermGIn.evalPlain_congr_outerOk hγ u t h
@@ -3547,7 +3556,7 @@ theorem ProjColIn.evalPlain_congr_outerOk {c n : ℕ} {κ : Fin n → ColKind} {
   | .provTerm t, h => TermGIn.evalPlain_congr_outerOk hγ u t h
 
 omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
-theorem GenPredIn.evalPlain3_congr_outerOk {c n : ℕ} {κ : Fin n → ColKind} {ok : Fin c → Prop}
+private theorem GenPredIn.evalPlain3_congr_outerOk {c n : ℕ} {κ : Fin n → ColKind} {ok : Fin c → Prop}
     {γ γ' : Fin c → T} (hγ : ∀ k, ok k → γ k = γ' k) (u : Tuple T n) :
     ∀ φ : GenPredIn T c κ, φ.outerOk ok → φ.evalPlain3 u γ = φ.evalPlain3 u γ'
   | .cmp op t₁ t₂, h => by
@@ -3570,7 +3579,7 @@ theorem GenPredIn.evalPlain3_congr_outerOk {c n : ℕ} {κ : Fin n → ColKind} 
     rw [evalPlain3_congr_outerOk hγ u φ h]
 
 omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
-theorem GenPredIn.holdsPlain_congr_outerOk {c n : ℕ} {κ : Fin n → ColKind} {ok : Fin c → Prop}
+private theorem GenPredIn.holdsPlain_congr_outerOk {c n : ℕ} {κ : Fin n → ColKind} {ok : Fin c → Prop}
     {γ γ' : Fin c → T} (hγ : ∀ k, ok k → γ k = γ' k) (u : Tuple T n) (φ : GenPredIn T c κ)
     (h : φ.outerOk ok) : φ.holdsPlain u γ ↔ φ.holdsPlain u γ' := by
   unfold GenPredIn.holdsPlain
@@ -3642,12 +3651,12 @@ def EvalEnv.Kinded (E : EvalEnv T K) {c : ℕ} (γ : Fin c → T) (ρc : Fin c �
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 /-- Two kinds with the same base give the same conformance. -/
-theorem GenRow.conforms_congr {n : ℕ} {κ κ' : Fin n → ColKind} (h : ∀ k, (κ k).base = (κ' k).base)
+private theorem GenRow.conforms_congr {n : ℕ} {κ κ' : Fin n → ColKind} (h : ∀ k, (κ k).base = (κ' k).base)
     (u : Tuple (GenValue T K) n) : GenRow.Conforms κ u ↔ GenRow.Conforms κ' u :=
   forall_congr' fun k => by rw [h k]
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
-theorem EvalEnv.kinded_empty {c : ℕ} (γ : Fin c → T) :
+private theorem EvalEnv.kinded_empty {c : ℕ} (γ : Fin c → T) :
     ({} : EvalEnv T K).Kinded γ (ColKind.allReg c) HoleKinds.empty := by
   refine ⟨fun k => ?_, ?_, fun _ _ r hr => absurd hr (Multiset.notMem_zero r)⟩
   · rw [EvalEnv.empty_ctxAt]; rfl
@@ -3656,7 +3665,7 @@ theorem EvalEnv.kinded_empty {c : ℕ} (γ : Fin c → T) :
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 /-- **Entering an apply's right side** at a row of its left side keeps the
 environment kinded. -/
-theorem EvalEnv.Kinded.enter {E : EvalEnv T K} {c : ℕ} {γ : Fin c → T} {ρc : Fin c → ColKind}
+private theorem EvalEnv.Kinded.enter {E : EvalEnv T K} {c : ℕ} {γ : Fin c → T} {ρc : Fin c → ColKind}
     {HK : HoleKinds} (hE : E.Kinded γ ρc HK) {n₁ : ℕ} {κ₁ : Fin n₁ → ColKind}
     {x : Tuple (GenValue T K) n₁} (hx : GenRow.Conforms κ₁ x) :
     (E.withCtx (Fin.append x (E.ctxAt c γ))).Kinded (Fin.append (GenRow.plainTuple x) γ)
@@ -3676,7 +3685,7 @@ theorem EvalEnv.Kinded.enter {E : EvalEnv T K} {c : ℕ} {γ : Fin c → T} {ρc
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 /-- **Binding a recursive name** to a round of its kinds keeps the
 environment kinded. -/
-theorem EvalEnv.Kinded.assignHole {E : EvalEnv T K} {c : ℕ} {γ : Fin c → T}
+private theorem EvalEnv.Kinded.assignHole {E : EvalEnv T K} {c : ℕ} {γ : Fin c → T}
     {ρc : Fin c → ColKind} {HK : HoleKinds} (hE : E.Kinded γ ρc HK) (s : String) {n : ℕ}
     {κ : Fin n → ColKind} {X : Multiset (GenRow T K n)}
     (hX : ∀ r ∈ X, GenRow.Conforms κ r.fst) :
@@ -3696,7 +3705,7 @@ theorem EvalEnv.Kinded.assignHole {E : EvalEnv T K} {c : ℕ} {γ : Fin c → T}
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 /-- On a kinded environment, a well-kinded hole reads its round whole. -/
-theorem EvalEnv.Kinded.hole_filter {E : EvalEnv T K} {c : ℕ} {γ : Fin c → T}
+private theorem EvalEnv.Kinded.hole_filter {E : EvalEnv T K} {c : ℕ} {γ : Fin c → T}
     {ρc : Fin c → ColKind} {HK : HoleKinds} (hE : E.Kinded γ ρc HK) {s : String} {n : ℕ}
     {κ : Fin n → ColKind} (hwk : ∀ k, (κ k).base = (HK s n k).base) :
     (E.holes s n).filter (fun r => GenRow.Conforms κ r.fst) = E.holes s n :=
@@ -3706,7 +3715,7 @@ theorem EvalEnv.Kinded.hole_filter {E : EvalEnv T K} {c : ℕ} {γ : Fin c → T
 omit [ValueType T] [DecidableEq K] [HasAltLinearOrder K] in
 /-- On a kinded environment, a well-kinded parameter leaf reads its one
 row. -/
-theorem EvalEnv.Kinded.paramRows_eq {E : EvalEnv T K} {c : ℕ} {γ : Fin c → T}
+private theorem EvalEnv.Kinded.paramRows_eq {E : EvalEnv T K} {c : ℕ} {γ : Fin c → T}
     {ρc : Fin c → ColKind} {HK : HoleKinds} (hE : E.Kinded γ ρc HK) {m : ℕ}
     {pv : Fin m → T ⊕ Fin c} {ρ : Fin m → ColKind}
     (hwk : ∀ k, (ρ k).base = _root_.Sum.elim (fun _ => ColKind.reg) (fun j => (ρc j).base) (pv k)) :
@@ -3723,7 +3732,7 @@ theorem EvalEnv.Kinded.paramRows_eq {E : EvalEnv T K} {c : ℕ} {γ : Fin c → 
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 /-- And the plain reading of that row is the plain parameters'. -/
-theorem EvalEnv.Kinded.plainTuple_param {E : EvalEnv T K} {c : ℕ} {γ : Fin c → T}
+private theorem EvalEnv.Kinded.plainTuple_param {E : EvalEnv T K} {c : ℕ} {γ : Fin c → T}
     {ρc : Fin c → ColKind} {HK : HoleKinds} (hE : E.Kinded γ ρc HK) {m : ℕ}
     (pv : Fin m → T ⊕ Fin c) :
     GenRow.plainTuple (fun k => _root_.Sum.elim Sum.inl (E.ctxAt c γ) (pv k))
@@ -3786,7 +3795,7 @@ def keyJoinCond {T' : Type} [Zero T'] {n m : ℕ} {κ : Fin m → ColKind}
 
 /-- The join condition is a conjunction of column equalities: no
 indicator gate. -/
-theorem keyJoinCond_chiFree {T' : Type} [Zero T'] {n m : ℕ}
+private theorem keyJoinCond_chiFree {T' : Type} [Zero T'] {n m : ℕ}
     {κ : Fin m → ColKind} (posL posR : Fin n → Fin m)
     (hL : ∀ k, κ (posL k) = ColKind.reg)
     (hR : ∀ k, κ (posR k) = ColKind.reg) :
@@ -3796,7 +3805,7 @@ theorem keyJoinCond_chiFree {T' : Type} [Zero T'] {n m : ℕ}
   | nil => exact ⟨trivial, trivial⟩
   | cons k l ih => exact ⟨⟨trivial, trivial⟩, ih⟩
 
-theorem GenPredIn.holdsPlain_foldr_and {T' : Type} [ValueType T'] {N : ℕ}
+private theorem GenPredIn.holdsPlain_foldr_and {T' : Type} [ValueType T'] {N : ℕ}
     {κ' : Fin N → ColKind} {α : Type} (l : List α)
     (f : α → GenPred T' κ') (base : GenPred T' κ') (u : Tuple T' N) :
     (((l.map f).foldr GenPredIn.and base).holdsPlain u)
@@ -3814,7 +3823,7 @@ theorem GenPredIn.holdsPlain_foldr_and {T' : Type} [ValueType T'] {N : ℕ}
 
 /-- **The join condition holds exactly when the two blocks of key columns
 carry the same values** – nulls included, the atoms being syntactic. -/
-theorem keyJoinCond_holdsPlain {T' : Type} [ValueType T']
+private theorem keyJoinCond_holdsPlain {T' : Type} [ValueType T']
     {n m : ℕ} {κ' : Fin m → ColKind} (posL posR : Fin n → Fin m)
     (hL : ∀ k, κ' (posL k) = ColKind.reg)
     (hR : ∀ k, κ' (posR k) = ColKind.reg) (u : Tuple T' m) :
@@ -3837,7 +3846,7 @@ theorem keyJoinCond_holdsPlain {T' : Type} [ValueType T']
     rw [CompOp.syneq_eval3_eq_true_iff]
 
 /-- The join condition has no aggregate atom: it filters classically. -/
-theorem keyJoinCond_hasAggAtom {T' : Type} [Zero T'] {n m : ℕ}
+private theorem keyJoinCond_hasAggAtom {T' : Type} [Zero T'] {n m : ℕ}
     {κ : Fin m → ColKind} (posL posR : Fin n → Fin m)
     (hL : ∀ k, κ (posL k) = ColKind.reg)
     (hR : ∀ k, κ (posR k) = ColKind.reg) :
@@ -3848,7 +3857,7 @@ theorem keyJoinCond_hasAggAtom {T' : Type} [Zero T'] {n m : ℕ}
   | cons k l ih => simpa [GenPredIn.hasAggAtom] using ih
 
 omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
-theorem GenPredIn.holds_foldr_and {N : ℕ} {κ' : Fin N → ColKind} {α : Type}
+private theorem GenPredIn.holds_foldr_and {N : ℕ} {κ' : Fin N → ColKind} {α : Type}
     (l : List α) (f : α → GenPred T κ') (base : GenPred T κ')
     (u : Tuple (GenValue T K) N) :
     (((l.map f).foldr GenPredIn.and base).holds u)
@@ -3868,7 +3877,7 @@ theorem GenPredIn.holds_foldr_and {N : ℕ} {κ' : Fin N → ColKind} {α : Type
 omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 /-- On a lifted tuple the join condition says what it says on the collapsed
 one: its columns are regular, so no token is read. -/
-theorem keyJoinCond_holds {n m : ℕ} {κ' : Fin m → ColKind}
+private theorem keyJoinCond_holds {n m : ℕ} {κ' : Fin m → ColKind}
     (posL posR : Fin n → Fin m)
     (hL : ∀ k, κ' (posL k) = ColKind.reg)
     (hR : ∀ k, κ' (posR k) = ColKind.reg) (u : Tuple (GenValue T K) m) :
@@ -3906,7 +3915,7 @@ abbrev ColKind.gammaKinds (n₁ n₂ : ℕ) : Fin (n₁ + n₂) → ColKind :=
 
 omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 /-- Kind transport is transparent to plain evaluation too. -/
-theorem AggQueryIn.evaluatePlain_castKind {c n : ℕ} {κ κ' : Fin n → ColKind} {l : List (String × ℕ)}
+private theorem AggQueryIn.evaluatePlain_castKind {c n : ℕ} {κ κ' : Fin n → ColKind} {l : List (String × ℕ)}
     (h : κ = κ') (q : AggQueryIn T c n κ l) (d : Database T)
     {γ : Fin c → T} :
     (q.castKind h).evaluatePlain d γ = q.evaluatePlain d γ := by
@@ -3915,7 +3924,7 @@ theorem AggQueryIn.evaluatePlain_castKind {c n : ℕ} {κ κ' : Fin n → ColKin
 omit [ValueType T] [DecidableEq K] [HasAltLinearOrder K] in
 /-- The token lists of a row with a single token, in its last column: the
 one token's occurrence annotations. -/
-theorem tokenLists_snoc {n : ℕ} (u : Tuple T n) (a : AggTok T K) :
+private theorem tokenLists_snoc {n : ℕ} (u : Tuple T n) (a : AggTok T K) :
     tokenLists (Fin.snoc (fun k => (Sum.inl (u k) : GenValue T K))
         (Sum.inr a) : Tuple (GenValue T K) (n + 1))
       = {a.annList} := by
@@ -3949,7 +3958,7 @@ def GenRow.NoNested {n : ℕ} (u : Tuple (GenValue T K) n) : Prop :=
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K]
   [HasAltLinearOrder K] in
 /-- An ordinary token is not nested. -/
-theorem GenRow.NoNested.of_ordinary {n : ℕ} {u : Tuple (GenValue T K) n}
+private theorem GenRow.NoNested.of_ordinary {n : ℕ} {u : Tuple (GenValue T K) n}
     (h : GenRow.OrdinaryTokens u) : GenRow.NoNested u := by
   intro k a ha
   obtain ⟨a', rfl⟩ := AggTok.eq_tok_of_isTok (h k a ha)
@@ -4207,7 +4216,7 @@ def AggQueryIn.framesContainSelf : {c n : ℕ} → {κ : Fin n → ColKind} → 
       (∀ l, (ws l).ContainsSelf) ∧ q.framesContainSelf
 
 /-- A query with no multi-frame window asks nothing of its frames. -/
-theorem AggQueryIn.framesContainSelf_of_noWinExpr :
+private theorem AggQueryIn.framesContainSelf_of_noWinExpr :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l),
       q.noWinExpr → q.framesContainSelf := by
   intro c n κ l q
@@ -4465,7 +4474,7 @@ constructs a nested value, and `noGammaNest` is what excludes it.
 
 This is what a result proved for an expression column as well as an
 ordinary one asks of a row. -/
-theorem AggQueryIn.evaluate_noNestedOn :
+private theorem AggQueryIn.evaluate_noNestedOn :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l),
       q.noGammaNest →
       ∀ (d : AnnotatedDatabase T K) {γ : Fin c → T} (E : EvalEnv T K) (R : Fin c → Bool),

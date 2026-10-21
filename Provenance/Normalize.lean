@@ -192,7 +192,7 @@ theorem AggQueryIn.normalize_id_of_chainFree :
 
 omit [ValueType T] in
 /-- **Normalization is idempotent.** -/
-theorem AggQueryIn.normalize_idem {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)}
+private theorem AggQueryIn.normalize_idem {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)}
     (q : AggQueryIn T c n κ l) : q.normalize.normalize = q.normalize :=
   AggQueryIn.normalize_id_of_chainFree _ (AggQueryIn.normalize_chainFree q)
 
@@ -233,7 +233,7 @@ def GenPredIn.ReadsOne {c n : ℕ} {κ : Fin n → ColKind}
 
 omit [ValueType T] [DecidableEq K] [HasAltLinearOrder K] in
 /-- Reading one family, every compared list is that family's. -/
-theorem GenPredIn.mem_comparedLists {c n : ℕ} {κ : Fin n → ColKind}
+private theorem GenPredIn.mem_comparedLists {c n : ℕ} {κ : Fin n → ColKind}
     {χ : GenPredIn T c κ} {u : Tuple (GenValue T K) n} {ℓ : List K}
     (h : χ.ReadsOne u ℓ) {x : List K} (hx : x ∈ χ.comparedLists u) : x = ℓ := by
   obtain ⟨k, hk, hfk⟩ := (Multiset.mem_filterMap _ _).mp hx
@@ -243,7 +243,7 @@ theorem GenPredIn.mem_comparedLists {c n : ℕ} {κ : Fin n → ColKind}
 
 omit [ValueType T] [DecidableEq K] [HasAltLinearOrder K] in
 /-- Reading one family, some column does hold a token. -/
-theorem GenPredIn.comparedLists_ne_zero {c n : ℕ} {κ : Fin n → ColKind}
+private theorem GenPredIn.comparedLists_ne_zero {c n : ℕ} {κ : Fin n → ColKind}
     {χ : GenPredIn T c κ} {u : Tuple (GenValue T K) n} {ℓ : List K}
     (h : χ.ReadsOne u ℓ) : χ.comparedLists u ≠ 0 := by
   obtain ⟨k, hk⟩ := h.1
@@ -254,7 +254,7 @@ theorem GenPredIn.comparedLists_ne_zero {c n : ℕ} {κ : Fin n → ColKind}
 
 omit [ValueType T] [DecidableEq K] [HasAltLinearOrder K] in
 /-- Reading one family, no compared token is scalar. -/
-theorem GenPredIn.comparedScalarLists_eq_zero {c n : ℕ} {κ : Fin n → ColKind}
+private theorem GenPredIn.comparedScalarLists_eq_zero {c n : ℕ} {κ : Fin n → ColKind}
     {χ : GenPredIn T c κ} {u : Tuple (GenValue T K) n} {ℓ : List K}
     (h : χ.ReadsOne u ℓ) : χ.comparedScalarLists u = 0 := by
   refine Multiset.eq_zero_of_forall_notMem (fun x hx => ?_)
@@ -280,7 +280,7 @@ theorem Having.supersede_test_iff {S L : Multiset (List K)} {ℓ : List K}
 
 omit [ValueType T] [DecidableEq K] [HasAltLinearOrder K] in
 /-- A conjunction of two predicates reading one family reads it too. -/
-theorem GenPredIn.ReadsOne.and {c n : ℕ} {κ : Fin n → ColKind}
+private theorem GenPredIn.ReadsOne.and {c n : ℕ} {κ : Fin n → ColKind}
     {φ ψ : GenPredIn T c κ} {u : Tuple (GenValue T K) n} {ℓ : List K}
     (hφ : φ.ReadsOne u ℓ) (hψ : ψ.ReadsOne u ℓ) :
     (GenPredIn.and φ ψ).ReadsOne u ℓ := by

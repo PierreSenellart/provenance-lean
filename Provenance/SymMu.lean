@@ -6,6 +6,13 @@ import Mathlib.Data.Sym.Basic
 import Mathlib.Tactic.NormNum.Inv
 import Mathlib.Tactic.NormNum.Pow
 import Provenance.SymGamma
+import all Provenance.AggQuery
+import all Provenance.PlainBasis
+import all Provenance.SumByMu
+import all Provenance.SymCells
+import all Provenance.SymGamma
+import all Provenance.SymTerms
+import all Provenance.Util.Kleene
 
 /-!
 # A bag recursion run against a counter
@@ -44,15 +51,15 @@ def pre (x : Tuple T (N + K)) : Tuple T N := fun i => x (Fin.castAdd K i)
 def suf (x : Tuple T (N + K)) : Tuple T K := fun i => x (Fin.natAdd N i)
 
 omit [ValueType T] in
-@[simp] theorem pre_append (r : Tuple T N) (c : Tuple T K) : pre (Fin.append r c) = r := by
+@[simp] private theorem pre_append (r : Tuple T N) (c : Tuple T K) : pre (Fin.append r c) = r := by
   funext i; exact Fin.append_left r c i
 
 omit [ValueType T] in
-@[simp] theorem suf_append (r : Tuple T N) (c : Tuple T K) : suf (Fin.append r c) = c := by
+@[simp] private theorem suf_append (r : Tuple T N) (c : Tuple T K) : suf (Fin.append r c) = c := by
   funext i; exact Fin.append_right r c i
 
 omit [ValueType T] in
-@[simp] theorem append_pre_suf (x : Tuple T (N + K)) : Fin.append (pre x) (suf x) = x := by
+@[simp] private theorem append_pre_suf (x : Tuple T (N + K)) : Fin.append (pre x) (suf x) = x := by
   funext i
   refine Fin.addCases (fun j => ?_) (fun j => ?_) i
   · rw [Fin.append_left]; rfl
@@ -72,7 +79,7 @@ def simStep (B : Multiset (Tuple T (N + K)) → Multiset (Tuple T (N + K)))
     (fun ab => Fin.append (pre x) (suf ab)))
 
 /-- The successor pairs of a list, as a list. -/
-theorem succList_filter :
+private theorem succList_filter :
     ∀ (cs : List (Tuple T K)), cs.Nodup → ∀ (j : ℕ) (hj : j < cs.length),
       ((cs.zip cs.tail).map (fun ab => (Fin.append ab.1 ab.2 : Tuple T (K + K)))).filter
           (fun ab => decide (pre ab = cs[j]))
@@ -112,7 +119,7 @@ theorem succList_filter :
 
 /-- **The successors of a counter of the list**: the next one, or none
 after the last. -/
-theorem succRel_filter (cs : List (Tuple T K)) (hnd : cs.Nodup) (j : ℕ) (hj : j < cs.length) :
+private theorem succRel_filter (cs : List (Tuple T K)) (hnd : cs.Nodup) (j : ℕ) (hj : j < cs.length) :
     (succRel cs).filter (fun ab => pre ab = cs[j])
       = if h : j + 1 < cs.length then {Fin.append cs[j] cs[j + 1]} else 0 := by
   unfold succRel
@@ -120,7 +127,7 @@ theorem succRel_filter (cs : List (Tuple T K)) (hnd : cs.Nodup) (j : ℕ) (hj : 
   split <;> rfl
 
 omit [ValueType T] in
-theorem muSum_eq_sum' {α : Type} (step : Multiset α → Multiset α) :
+private theorem muSum_eq_sum' {α : Type} (step : Multiset α → Multiset α) :
     ∀ (k : ℕ) (M : Multiset α), muSum step k M = ∑ j ∈ Finset.range (k + 1), step^[j] M
   | 0, M => by simp [muSum]
   | k + 1, M => by
@@ -148,7 +155,7 @@ def prodR {l₁ l₂ : List (String × ℕ)} {a b : ℕ} (q₁ : AggQueryIn T c 
     (l₁ ++ l₂) :=
   (AggQueryIn.Prod q₁ q₂).castKind (appendKinds a b)
 
-theorem evaluatePlain_prodR {l₁ l₂ : List (String × ℕ)} {a b : ℕ}
+private theorem evaluatePlain_prodR {l₁ l₂ : List (String × ℕ)} {a b : ℕ}
     (q₁ : AggQueryIn T c a (ColKind.allReg a) l₁) (q₂ : AggQueryIn T c b (ColKind.allReg b) l₂)
     (D : Database T) (γ : Fin c → T) :
     ((prodR q₁ q₂).evaluatePlain D γ : Multiset (Tuple T (a + b)))
@@ -164,7 +171,7 @@ def ctrEqSP : SP T c ((N + K) + (K + K)) :=
     .atom .syneq (.col (Fin.castAdd (K + K) (Fin.natAdd N i)))
       (.col (Fin.natAdd (N + K) (Fin.castAdd K i)))))
 
-theorem eval3_ctrEqSP (x : Tuple T (N + K)) (ab : Tuple T (K + K)) (γ : Fin c → T) :
+private theorem eval3_ctrEqSP (x : Tuple T (N + K)) (ab : Tuple T (K + K)) (γ : Fin c → T) :
     (ctrEqSP (N := N) (K := K)).eval3 (Fin.append x ab) γ
       = Kleene.ofBool (decide (pre ab = suf x)) := by
   unfold ctrEqSP
@@ -186,7 +193,7 @@ def stepCols : Fin (N + K) → SA T c ((N + K) + (K + K)) :=
     (fun z => .col (Fin.natAdd (N + K) (Fin.natAdd K z)))
 
 omit [ValueType T] in
-theorem eval_stepCols (x : Tuple T (N + K)) (ab : Tuple T (K + K)) (γ : Fin c → T) :
+private theorem eval_stepCols (x : Tuple T (N + K)) (ab : Tuple T (K + K)) (γ : Fin c → T) :
     (fun i => (stepCols (N := N) (K := K) i).eval (Fin.append x ab) γ)
       = Fin.append (pre x) (suf ab) := by
   funext i
@@ -204,7 +211,7 @@ def stepQ (s : String) (Bq : AggQueryIn T c (N + K) (ColKind.allReg (N + K)) [(s
       (SelOK.of_noAggAtom (SP.hasAggAtom_toGen _)))).castKind
     (projSA_kind _)
 
-theorem evaluatePlain_stepQ (s : String)
+private theorem evaluatePlain_stepQ (s : String)
     (Bq : AggQueryIn T c (N + K) (ColKind.allReg (N + K)) [(s, N + K)])
     (Sq : AggQueryIn T c (K + K) (ColKind.allReg (K + K))) (D : Database T) (γ : Fin c → T) :
     ((stepQ s Bq Sq).evaluatePlain D γ : Multiset (Tuple T (N + K)))
@@ -237,7 +244,7 @@ def symMuQ (s : String) (Q₀ : AggQueryIn T c N (ColKind.allReg N))
 
 /-- **The bounded recursion, read as a fixpoint** of its round on the
 rows. -/
-theorem evaluatePlain_symMuQ_fix (s : String) (Q₀ : AggQueryIn T c N (ColKind.allReg N))
+private theorem evaluatePlain_symMuQ_fix (s : String) (Q₀ : AggQueryIn T c N (ColKind.allReg N))
     (Bq : AggQueryIn T c (N + K) (ColKind.allReg (N + K)) [(s, N + K)])
     (Lq : AggQueryIn T c K (ColKind.allReg K))
     (Sq : AggQueryIn T c (K + K) (ColKind.allReg (K + K)))
@@ -312,7 +319,7 @@ section SliceSim
 variable {k c n : ℕ} {C : Finset T}
 
 omit [ValueType T] in
-theorem descP_pre {K' : ℕ} (x : Tuple T ((k + n) * (7 + k) + K')) :
+private theorem descP_pre {K' : ℕ} (x : Tuple T ((k + n) * (7 + k) + K')) :
     descP (P := 0) (pre x : Tuple T ((k + n) * (7 + k))) = descP (P := K') x := by
   funext y
   simp only [descP, ofCells, pre]
@@ -320,7 +327,7 @@ theorem descP_pre {K' : ℕ} (x : Tuple T ((k + n) * (7 + k) + K')) :
 
 /-- **The rounds of the symbolic bounded recursion, under a descriptor**:
 the encodings of the recursion's rounds, each with its counter. -/
-theorem slice_simStep {par : Fin k → T} {K' : ℕ}
+private theorem slice_simStep {par : Fin k → T} {K' : ℕ}
     (B : Multiset (Tuple T ((k + n) * (7 + k) + K')) → Multiset (Tuple T ((k + n) * (7 + k) + K')))
     (step : Multiset (Tuple T n) → Multiset (Tuple T n))
     (cs : List (Tuple T K')) (hnd : cs.Nodup) (hne : 0 < cs.length)
@@ -373,7 +380,7 @@ theorem slice_simStep {par : Fin k → T} {K' : ℕ}
     rw [succRel_filter cs hnd j hj, dite_eq_left hj1, Multiset.map_singleton, suf_append]
 
 /-- A relation with no further columns, its slice as encoded rows. -/
-theorem sliceIs_zero_iff {par : Fin k → T} (Q : Multiset (Tuple T ((k + n) * (7 + k))))
+private theorem sliceIs_zero_iff {par : Fin k → T} (Q : Multiset (Tuple T ((k + n) * (7 + k))))
     (X : Multiset (Tuple T n)) :
     SliceIs (P := 0) C par Q (X.map (fun v => (v, (Fin.elim0 : Tuple T 0))))
       ↔ Q.filter (fun r => descP (P := 0) r = descEnc C par) = X.map (rowEnc C par) := by

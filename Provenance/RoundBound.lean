@@ -4,6 +4,9 @@ public import Provenance.PlainBasis
 import Mathlib.Data.Fintype.BigOperators
 import Mathlib.Tactic.NormNum.Inv
 import Mathlib.Tactic.NormNum.Pow
+import all Provenance.AggQuery
+import all Provenance.Database
+import all Provenance.PlainBasis
 
 /-!
 # The rounds of a bag recursion that settles are bounded
@@ -156,9 +159,9 @@ variable {α : Type}
 round: a round is the previous one bound through `F`. -/
 def bindStep (F : α → Multiset α) : Multiset α → Multiset α := fun X => X.bind F
 
-theorem bindStep_zero (F : α → Multiset α) : bindStep F 0 = 0 := Multiset.zero_bind F
+private theorem bindStep_zero (F : α → Multiset α) : bindStep F 0 = 0 := Multiset.zero_bind F
 
-theorem bindStep_iterate_succ (F : α → Multiset α) (M : Multiset α) (j : ℕ) :
+private theorem bindStep_iterate_succ (F : α → Multiset α) (M : Multiset α) (j : ℕ) :
     Nat.iterate (bindStep F) (j + 1) M = (Nat.iterate (bindStep F) (j) M).bind F :=
   Function.iterate_succ_apply' _ _ _
 
@@ -185,7 +188,7 @@ theorem exists_path_of_mem_round (F : α → Multiset α) (M : Multiset α) :
 
 /-- **Following a path from a round forward**: the `i`-th row of a path
 whose start is in round `r` is in round `r + i`. -/
-theorem mem_round_of_path (F : α → Multiset α) (M : Multiset α) (p : ℕ → α) (j : ℕ)
+private theorem mem_round_of_path (F : α → Multiset α) (M : Multiset α) (p : ℕ → α) (j : ℕ)
     (hp : ∀ i, LT.lt i j → p (i + 1) ∈ F (p i)) {r : ℕ} (hr : p 0 ∈ Nat.iterate (bindStep F)
         (r) M) :
     ∀ i, i ≤ j → p i ∈ Nat.iterate (bindStep F) (r + i) M := by
@@ -267,7 +270,7 @@ theorem bindStep_round_eq_zero_of_settles {m : ℕ} (F : Tuple T m → Multiset 
 
 omit [ValueType T] in
 /-- The rounds of a step keep their values in `V` as soon as the step does. -/
-theorem iterate_valsIn {m : ℕ} (step : Multiset (Tuple T m) → Multiset (Tuple T m))
+private theorem iterate_valsIn {m : ℕ} (step : Multiset (Tuple T m) → Multiset (Tuple T m))
     (M : Multiset (Tuple T m)) (V : Finset T)
     (hM : ∀ u ∈ M, ∀ i, u i ∈ V)
     (hstep : ∀ X : Multiset (Tuple T m), (∀ u ∈ X, ∀ i, u i ∈ V) → ∀ u ∈ step X, ∀ i, u i ∈ V) :

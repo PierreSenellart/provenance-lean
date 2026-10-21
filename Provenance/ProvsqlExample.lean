@@ -88,7 +88,7 @@ def valOf (k : ℕ) : X → Bool := fun i => Nat.testBit k (i : ℕ)
 def table (f : K) : List Bool := (List.range 64).map (fun k => f (valOf k))
 
 set_option maxRecDepth 100000 in
-theorem valOf_surj : ∀ v : X → Bool, ∃ k : Fin 64, valOf (k : ℕ) = v := by
+private theorem valOf_surj : ∀ v : X → Bool, ∃ k : Fin 64, valOf (k : ℕ) = v := by
   decide
 
 theorem table_inj : Function.Injective table := by
@@ -175,7 +175,7 @@ abbrev q1 : AggQuery V 5 (ColKind.allReg 5) :=
 open WithNull in
 /-- The six candidate rows: the three matches and one padded row per
 department. -/
-theorem q1_data :
+private theorem q1_data :
     (q1.evaluateAnnotated db).map
         (fun p => (p.1 0, p.1 1, p.1 2, p.1 3, p.1 4))
       = ((([(val 2, val 20, val 201, val 2, val 120),
@@ -192,7 +192,7 @@ open WithNull in
 /-- **The annotations of the six candidates**, as Boolean functions of the
 six tokens: a match by the product, a padded row by the department's own
 token minus its matches. Each row is named by `(d.dept, e.id)`. -/
-theorem q1_ann : ∀ v : X → Bool,
+private theorem q1_ann : ∀ v : X → Bool,
     (q1.evaluateAnnotated db).map (fun p => ((p.1 0, p.1 2), p.2 v))
       = ((([((val 2, val 201), v dB && v tb1),
             ((val 1, val 101), v dA && v ta1),
@@ -289,7 +289,7 @@ three matches and on the Accounting and Bakery padded rows, and cuts the
 Catering row exactly in the worlds where three rows sort ahead of it.
 The windows change no annotation, so these are `q1_ann`'s annotations
 with that one gate. -/
-theorem q2_ann : ∀ v : X → Bool,
+private theorem q2_ann : ∀ v : X → Bool,
     (q2.evaluateAnnotated db).map (fun p => ((p.1 0, p.1 2), p.2 v))
       = ((([((val 2, val 201), v dB && v tb1),
             ((val 1, val 101), v dA && v ta1),
@@ -321,7 +321,7 @@ open WithNull in
 /-- **All six tokens true**: the three employees with SQL's rank and
 average, and the Catering padded row cut by the `LIMIT` – three rows,
 each `(e.id, rank, avg)`. -/
-theorem world_all :
+private theorem world_all :
     (q2.evaluatePlain (AnnotatedDatabase.randomWorld vAll db)).map
         (fun u => (u 2, 1 + u 5, u 6))
       = ((([(val 201, val 1, val 120), (val 101, val 1, val 95),
@@ -332,7 +332,7 @@ theorem world_all :
 open WithNull in
 /-- **`a1` absent**: Accounting is down to `a2`, whose average is its own
 salary, and Catering's padded row is kept – three rows again. -/
-theorem world_noA1 :
+private theorem world_noA1 :
     (q2.evaluatePlain (AnnotatedDatabase.randomWorld vNoA1 db)).map
         (fun u => (u 2, 1 + u 5, u 6))
       = ((([(val 201, val 1, val 120), (val 102, val 1, val 90),
@@ -345,7 +345,7 @@ open WithNull in
 – the partition holds one row and that row's salary is null. ProvSQL
 prints `NaN` there, which it takes for a display artefact; the semantics
 says null. -/
-theorem world_noB1 :
+private theorem world_noB1 :
     (q2.evaluatePlain (AnnotatedDatabase.randomWorld vNoB1 db)).map
         (fun u => (u 2, 1 + u 5, u 6))
       = ((([(val 101, val 1, val 95), (val 102, val 2, val 95),

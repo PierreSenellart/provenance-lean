@@ -9,6 +9,8 @@ public import Provenance.Util.Kleene
 public import Provenance.Algorithms.CompOp
 public import Mathlib.Order.WithBot
 import Mathlib.Tactic.Bound.Init
+import all Provenance.Algorithms.CompOp
+import all Provenance.Util.Kleene
 
 /-!
 # Value domains with a null
@@ -59,14 +61,14 @@ namespace ValueTypeNull
 variable {T : Type} [ValueTypeNull T]
 
 /-- The null is not the domain's zero. -/
-theorem null_ne_zero : (null : T) ≠ 0 := by
+private theorem null_ne_zero : (null : T) ≠ 0 := by
   intro h
   have := ValueTypeNull.isNull_iff (0 : T)
   rw [ValueType.isNull_zero, ← h] at this
   simp at this
 
 /-- Addition is null-strict on the right, by commutativity. -/
-theorem add_null (a : T) : a + null = (null : T) := by
+private theorem add_null (a : T) : a + null = (null : T) := by
   rw [add_comm]; exact null_add a
 
 end ValueTypeNull
@@ -83,12 +85,12 @@ section Comparison
 
 variable {T : Type} [ValueType T]
 
-@[simp] theorem CompOp.eval3_of_isNull_left {op : CompOp}
+@[simp] private theorem CompOp.eval3_of_isNull_left {op : CompOp}
     (hs : op.strict = true) {a : T} (h : ValueType.isNull a = true) (b : T) :
     op.eval3 a b = Kleene.unknown := by
   simp [CompOp.eval3, hs, h]
 
-@[simp] theorem CompOp.eval3_of_isNull_right {op : CompOp}
+@[simp] private theorem CompOp.eval3_of_isNull_right {op : CompOp}
     (hs : op.strict = true) (a : T) {b : T} (h : ValueType.isNull b = true) :
     op.eval3 a b = Kleene.unknown := by
   simp [CompOp.eval3, hs, h]
@@ -97,7 +99,7 @@ variable {T : Type} [ValueType T]
 values, two nulls being the same value. This is SQL's `IS [NOT] DISTINCT
 FROM`, and it is what grouping, partitioning, duplicate elimination and
 difference key on. -/
-theorem CompOp.eval3_of_not_strict {op : CompOp} (hs : op.strict = false)
+private theorem CompOp.eval3_of_not_strict {op : CompOp} (hs : op.strict = false)
     (a b : T) : op.eval3 a b = Kleene.ofBool (decide (op.eval a b)) := by
   simp [CompOp.eval3, hs]
 
@@ -115,11 +117,11 @@ theorem CompOp.eval3_eq_true_iff (op : CompOp) {a b : T}
   simp [CompOp.eval3, ha, hb]
 
 /-- **On a domain where nothing is null the comparison is two-valued.** -/
-@[simp] theorem CompOp.eval3_eq_true_iff_noNulls [NoNulls T] (op : CompOp)
+@[simp] private theorem CompOp.eval3_eq_true_iff_noNulls [NoNulls T] (op : CompOp)
     (a b : T) : op.eval3 a b = Kleene.true ↔ op.eval a b :=
   CompOp.eval3_eq_true_iff op (isNull_eq_false a) (isNull_eq_false b)
 
-theorem CompOp.eval3_eq_ofBool [NoNulls T] (op : CompOp) (a b : T) :
+private theorem CompOp.eval3_eq_ofBool [NoNulls T] (op : CompOp) (a b : T) :
     op.eval3 a b = Kleene.ofBool (decide (op.eval a b)) := by
   simp [CompOp.eval3, isNull_eq_false a, isNull_eq_false b]
 
@@ -148,22 +150,22 @@ section Null
 
 variable {T : Type} [ValueTypeNull T]
 
-@[simp] theorem ValueTypeNull.isNull_null :
+@[simp] private theorem ValueTypeNull.isNull_null :
     ValueType.isNull (ValueTypeNull.null : T) = true := by
   simp [ValueTypeNull.isNull_iff]
 
-theorem CompOp.eval3_null_left {op : CompOp} (hs : op.strict = true) (b : T) :
+private theorem CompOp.eval3_null_left {op : CompOp} (hs : op.strict = true) (b : T) :
     op.eval3 (ValueTypeNull.null : T) b = Kleene.unknown :=
   CompOp.eval3_of_isNull_left hs ValueTypeNull.isNull_null b
 
-theorem CompOp.eval3_null_right {op : CompOp} (hs : op.strict = true) (a : T) :
+private theorem CompOp.eval3_null_right {op : CompOp} (hs : op.strict = true) (a : T) :
     op.eval3 a (ValueTypeNull.null : T) = Kleene.unknown :=
   CompOp.eval3_of_isNull_right hs a ValueTypeNull.isNull_null
 
 /-- **Syntactic equality**, SQL's `IS NOT DISTINCT FROM`: the two values are
 the same value, two nulls being the same value. It is two-valued, and it is
 what grouping, partitioning, duplicate elimination and difference use. -/
-theorem synEq_iff (a b : T) :
+private theorem synEq_iff (a b : T) :
     a = b ↔ (CompOp.eq.eval3 a b = Kleene.true
       ∨ (a = ValueTypeNull.null ∧ b = ValueTypeNull.null)) := by
   have hn : ∀ x : T, ValueType.isNull x = decide (x = ValueTypeNull.null) :=
@@ -260,10 +262,10 @@ instance [ValueType T] : ValueTypeNull (WithNull T) where
   null_mul _ := rfl
   mul_null a := by rcases a with _ | x <;> rfl
 
-@[simp] theorem null_eq_nil [ValueType T] :
+@[simp] private theorem null_eq_nil [ValueType T] :
     (ValueTypeNull.null : WithNull T) = nil := rfl
 
-@[simp] theorem val_ne_null [ValueType T] (x : T) :
+@[simp] private theorem val_ne_null [ValueType T] (x : T) :
     (val x : WithNull T) ≠ ValueTypeNull.null := by
   simp [val, nil]
 
@@ -289,20 +291,20 @@ section RewritingDomain
 
 variable {V K : Type} [ValueType V] [HasAltLinearOrder K] [SemiringWithMonus K]
 
-@[simp] theorem isNull_inl (a : V) :
+@[simp] private theorem isNull_inl (a : V) :
     ValueType.isNull (Sum.inl a : V ⊕ K) = ValueType.isNull a := rfl
 
-@[simp] theorem isNull_inr (x : K) :
+@[simp] private theorem isNull_inr (x : K) :
     ValueType.isNull (Sum.inr x : V ⊕ K) = false := rfl
 
-theorem le_inl_inl {a b : V} : (Sum.inl a : V ⊕ K) ≤ Sum.inl b ↔ a ≤ b :=
+private theorem le_inl_inl {a b : V} : (Sum.inl a : V ⊕ K) ≤ Sum.inl b ↔ a ≤ b :=
   Iff.rfl
 
-theorem lt_inl_inl {a b : V} : (Sum.inl a : V ⊕ K) < Sum.inl b ↔ a < b := by
+private theorem lt_inl_inl {a b : V} : (Sum.inl a : V ⊕ K) < Sum.inl b ↔ a < b := by
   rw [lt_iff_le_not_ge, lt_iff_le_not_ge, le_inl_inl, le_inl_inl]
 
 /-- **Comparison operators restrict along the `inl` embedding.** -/
-theorem CompOp.eval_inl (op : CompOp) (a b : V) :
+private theorem CompOp.eval_inl (op : CompOp) (a b : V) :
     op.eval (Sum.inl a : V ⊕ K) (Sum.inl b) ↔ op.eval a b := by
   cases op <;>
     simp only [CompOp.eval, Sum.inl.injEq, ne_eq, le_inl_inl, lt_inl_inl,
@@ -310,7 +312,7 @@ theorem CompOp.eval_inl (op : CompOp) (a b : V) :
 
 /-- **A comparison of two data values reads the same on the data arm**:
 the composite domain takes its nulls from the data side. -/
-@[simp] theorem CompOp.eval3_inl (op : CompOp) (a b : V) :
+@[simp] private theorem CompOp.eval3_inl (op : CompOp) (a b : V) :
     op.eval3 (Sum.inl a : V ⊕ K) (Sum.inl b) = op.eval3 a b := by
   unfold CompOp.eval3
   rw [isNull_inl, isNull_inl, decide_eq_decide.mpr (CompOp.eval_inl op a b)]

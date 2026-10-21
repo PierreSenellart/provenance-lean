@@ -12,6 +12,9 @@ import Mathlib.Data.Rat.Cast.Order
 import Mathlib.Tactic.NormNum.Abs
 import Mathlib.Tactic.NormNum.DivMod
 import Mathlib.Tactic.NormNum.OfScientific
+import all Provenance.Circuit
+import all Provenance.HavingProbability
+import all Provenance.Probability
 
 /-!
 # Worked examples: HAVING provenance and probability on a three-occurrence group
@@ -52,7 +55,7 @@ def α : Fin 3 → BoolFunc (Fin 3) := BoolFunc.var
 /-- **Possible-world provenance of `SUM(a) ≥ 5`**: the `⊕`-sum of the world
 annotations `T_U(W)` over the valid worlds `{1,2}`, `{1,3}`, `{1,2,3}`
 computes to `x₁ ∧ (x₂ ∨ x₃)`. -/
-theorem sum_ge_five_prov :
+private theorem sum_ge_five_prov :
     ∑ W ∈ (Finset.univ : Finset (Fin 3)).powerset.filter
         (fun W => 5 ≤ ∑ i ∈ W, t i), T α Finset.univ W
       = BoolFunc.var 0 * (BoolFunc.var 1 + BoolFunc.var 2) :=
@@ -62,7 +65,7 @@ theorem sum_ge_five_prov :
 the two minimal valid worlds `{1,2}` and `{1,3}` computes to the same
 `x₁ ∧ (x₂ ∨ x₃)`, as predicted by `Having.sum_ge_collapse` since `𝔹[X]` is
 absorptive. -/
-theorem sum_ge_five_minimal :
+private theorem sum_ge_five_minimal :
     ∑ V ∈ ((Finset.univ : Finset (Fin 3)).powerset.filter
           (fun W => 5 ≤ ∑ i ∈ W, t i)).filter
         (fun V => ∀ V' ⊂ V, ¬ (5 ≤ ∑ i ∈ V', t i)), A α V
@@ -80,33 +83,33 @@ def P : ProbAssignment (Fin 3) where
 /-- Per-contributor variable supports: contributor `i` depends on `xᵢ` only. -/
 def S : Fin 3 → Finset (Fin 3) := fun i => {i}
 
-lemma hdep : ∀ i, (α i).DependsOn (S i) := fun i => BoolFunc.DependsOn.var i
+private lemma hdep : ∀ i, (α i).DependsOn (S i) := fun i => BoolFunc.DependsOn.var i
 
-lemma hdisj : Set.Pairwise Set.univ (fun i j => Disjoint (S i) (S j)) := by
+private lemma hdisj : Set.Pairwise Set.univ (fun i j => Disjoint (S i) (S j)) := by
   intro i _ j _ hij
   rw [Finset.disjoint_left]
   intro a ha ha'
   exact hij ((Finset.mem_singleton.mp ha).symm.trans (Finset.mem_singleton.mp ha'))
 
-lemma funcProb_α (i : Fin 3) : P.funcProb (α i) = P.prob i :=
+private lemma funcProb_α (i : Fin 3) : P.funcProb (α i) = P.prob i :=
   P.funcProb_var i
 
-lemma prob_0 : P.prob 0 = 1/2 := rfl
-lemma prob_1 : P.prob 1 = 1/4 := rfl
-lemma prob_2 : P.prob 2 = 1/3 := rfl
+private lemma prob_0 : P.prob 0 = 1/2 := rfl
+private lemma prob_1 : P.prob 1 = 1/4 := rfl
+private lemma prob_2 : P.prob 2 = 1/3 := rfl
 
 open HavingProbability
 
 /-- Base of the recurrence: over no contributors, the count is `0` with
 probability `1`. -/
-lemma mass_empty_zero :
+private lemma mass_empty_zero :
     P.funcProb (countEqIndicator α (∅ : Finset (Fin 3)) 0) = 1 := by
   have h : countEqIndicator α (∅ : Finset (Fin 3)) 0 = 1 := funext fun v => rfl
   rw [h, P.funcProb_one]
 
 /-- Base of the recurrence: over no contributors, a positive count has
 probability `0`. -/
-lemma mass_empty_succ (j : ℕ) :
+private lemma mass_empty_succ (j : ℕ) :
     P.funcProb (countEqIndicator α (∅ : Finset (Fin 3)) (j + 1)) = 0 := by
   have h : countEqIndicator α (∅ : Finset (Fin 3)) (j + 1) = 0 :=
     funext fun v => decide_eq_false (by simp)
@@ -115,45 +118,45 @@ lemma mass_empty_succ (j : ℕ) :
 /- The table of the Poisson-binomial recurrence, built one contributor at a
 time (last contributor first: `{x₃}`, then `{x₂, x₃}`, then all three). -/
 
-lemma mass_1_0 :
+private lemma mass_1_0 :
     P.funcProb (countEqIndicator α (insert 2 (∅ : Finset (Fin 3))) 0) = 2/3 := by
   rw [countMass_insert_zero P α S hdep hdisj (by decide), mass_empty_zero,
     funcProb_α, prob_2]
   norm_num
 
-lemma mass_1_1 :
+private lemma mass_1_1 :
     P.funcProb (countEqIndicator α (insert 2 (∅ : Finset (Fin 3))) 1) = 1/3 := by
   rw [countMass_insert_succ P α S hdep hdisj (by decide) 0, mass_empty_zero,
     mass_empty_succ, funcProb_α, prob_2]
   norm_num
 
-lemma mass_1_2 :
+private lemma mass_1_2 :
     P.funcProb (countEqIndicator α (insert 2 (∅ : Finset (Fin 3))) 2) = 0 := by
   rw [countMass_insert_succ P α S hdep hdisj (by decide) 1, mass_empty_succ,
     mass_empty_succ]
   ring
 
-lemma mass_1_3 :
+private lemma mass_1_3 :
     P.funcProb (countEqIndicator α (insert 2 (∅ : Finset (Fin 3))) 3) = 0 := by
   rw [countMass_insert_succ P α S hdep hdisj (by decide) 2, mass_empty_succ,
     mass_empty_succ]
   ring
 
-lemma mass_2_1 :
+private lemma mass_2_1 :
     P.funcProb (countEqIndicator α
       (insert 1 (insert 2 (∅ : Finset (Fin 3)))) 1) = 5/12 := by
   rw [countMass_insert_succ P α S hdep hdisj (by decide) 0, mass_1_0, mass_1_1,
     funcProb_α, prob_1]
   norm_num
 
-lemma mass_2_2 :
+private lemma mass_2_2 :
     P.funcProb (countEqIndicator α
       (insert 1 (insert 2 (∅ : Finset (Fin 3)))) 2) = 1/12 := by
   rw [countMass_insert_succ P α S hdep hdisj (by decide) 1, mass_1_1, mass_1_2,
     funcProb_α, prob_1]
   norm_num
 
-lemma mass_2_3 :
+private lemma mass_2_3 :
     P.funcProb (countEqIndicator α
       (insert 1 (insert 2 (∅ : Finset (Fin 3)))) 3) = 0 := by
   rw [countMass_insert_succ P α S hdep hdisj (by decide) 2, mass_1_2, mass_1_3]
@@ -164,7 +167,7 @@ private lemma huniv : (Finset.univ : Finset (Fin 3))
 
 /-- Point mass `ρ₃(2) = 1/4`: probability that exactly two of the three
 contributors are present. -/
-theorem mass_3_2 :
+private theorem mass_3_2 :
     P.funcProb (countEqIndicator α (Finset.univ : Finset (Fin 3)) 2) = 1/4 := by
   rw [huniv, countMass_insert_succ P α S hdep hdisj (by decide) 1, mass_2_1,
     mass_2_2, funcProb_α, prob_0]
@@ -172,7 +175,7 @@ theorem mass_3_2 :
 
 /-- Point mass `ρ₃(3) = 1/24`: probability that all three contributors are
 present. -/
-theorem mass_3_3 :
+private theorem mass_3_3 :
     P.funcProb (countEqIndicator α (Finset.univ : Finset (Fin 3)) 3) = 1/24 := by
   rw [huniv, countMass_insert_succ P α S hdep hdisj (by decide) 2, mass_2_2,
     mass_2_3, funcProb_α, prob_0]
@@ -180,7 +183,7 @@ theorem mass_3_3 :
 
 /-- **`Pr[COUNT(*) ≥ 2] = 7/24`**: the tail of the Poisson-binomial CDF,
 assembled from the point masses `ρ₃(2) + ρ₃(3) = 1/4 + 1/24`. -/
-theorem count_ge_two_prob :
+private theorem count_ge_two_prob :
     P.funcProb (fun v => decide
         (2 ≤ ((Finset.univ : Finset (Fin 3)).filter
           (fun i => α i v = true)).card))

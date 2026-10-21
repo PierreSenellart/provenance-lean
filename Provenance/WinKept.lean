@@ -7,6 +7,12 @@ module
 public import Provenance.SumByMu
 import Mathlib.Tactic.NormNum.Inv
 import Mathlib.Tactic.NormNum.Pow
+import all Provenance.AggQuery
+import all Provenance.Database
+import all Provenance.Decorrelate
+import all Provenance.OrderSpec
+import all Provenance.PlainBasis
+import all Provenance.SumByMu
 
 /-!
 # A window kept as a window over an all-regular input
@@ -45,7 +51,7 @@ def TermIn.widen (n' : ℕ) {c k : ℕ} : TermIn T c k → TermIn T c (k + n')
   | .coalesce t₁ t₂ => .coalesce (t₁.widen n') (t₂.widen n')
 
 /-- It reads the first block. -/
-theorem TermIn.eval_widen (n' : ℕ) {c k : ℕ} (t : TermIn T c k)
+private theorem TermIn.eval_widen (n' : ℕ) {c k : ℕ} (t : TermIn T c k)
     (u : Tuple T k) (v : Tuple T n') (γ : Fin c → T) :
     (t.widen n').eval (Fin.append u v) γ = t.eval u γ := by
   induction t with
@@ -67,7 +73,7 @@ theorem TermIn.eval_widen (n' : ℕ) {c k : ℕ} (t : TermIn T c k)
     rfl
 
 omit [ValueType T] in
-theorem TermIn.noFun_widen (n' : ℕ) {c k : ℕ} (t : TermIn T c k) :
+private theorem TermIn.noFun_widen (n' : ℕ) {c k : ℕ} (t : TermIn T c k) :
     (t.widen n').noFun = t.noFun := by
   cases t <;> rfl
 
@@ -82,7 +88,7 @@ def BoolTerm.widen (n' : ℕ) {k : ℕ} : BoolTerm T k → BoolTerm T (k + n')
   | .SYNEQ a b => .SYNEQ (a.widen n') (b.widen n')
   | .SYNNE a b => .SYNNE (a.widen n') (b.widen n')
 
-theorem BoolTerm.eval3_widen (n' : ℕ) {k : ℕ} (φ : BoolTerm T k)
+private theorem BoolTerm.eval3_widen (n' : ℕ) {k : ℕ} (φ : BoolTerm T k)
     (u : Tuple T k) (v : Tuple T n') :
     (φ.widen n').eval3 (Fin.append u v) = φ.eval3 u := by
   have hargs : ∀ ψ : BoolTerm T k,
@@ -97,7 +103,7 @@ theorem BoolTerm.eval3_widen (n' : ℕ) {k : ℕ} (φ : BoolTerm T k)
   rw [h₁, h₂, hop]
 
 omit [ValueType T] in
-theorem BoolTerm.noFun_widen (n' : ℕ) {k : ℕ} (φ : BoolTerm T k) :
+private theorem BoolTerm.noFun_widen (n' : ℕ) {k : ℕ} (φ : BoolTerm T k) :
     (φ.widen n').noFun = φ.noFun := by
   cases φ <;> exact congrArg₂ (· && ·) (TermIn.noFun_widen n' _) (TermIn.noFun_widen n' _)
 
@@ -110,7 +116,7 @@ def Selection.widen (n' : ℕ) {k : ℕ} : Selection T k → Selection T (k + n'
   | .True => .True
 
 /-- It keeps the rows whose first block the selection keeps. -/
-theorem Selection.keeps_widen (n' : ℕ) {k : ℕ} (φ : Selection T k)
+private theorem Selection.keeps_widen (n' : ℕ) {k : ℕ} (φ : Selection T k)
     (u : Tuple T k) (v : Tuple T n') :
     (φ.widen n').keeps (Fin.append u v) = φ.keeps u := by
   have h3 : ∀ ψ : Selection T k,
@@ -126,7 +132,7 @@ theorem Selection.keeps_widen (n' : ℕ) {k : ℕ} (φ : Selection T k)
   rw [h3]
 
 omit [ValueType T] in
-theorem Selection.noFun_widen (n' : ℕ) {k : ℕ} (φ : Selection T k) :
+private theorem Selection.noFun_widen (n' : ℕ) {k : ℕ} (φ : Selection T k) :
     (φ.widen n').noFun = φ.noFun := by
   induction φ with
   | BT b => exact BoolTerm.noFun_widen n' b
@@ -136,7 +142,7 @@ theorem Selection.noFun_widen (n' : ℕ) {k : ℕ} (φ : Selection T k) :
   | True => rfl
 
 omit [ValueType T] in
-theorem Selection.noFunOpt_widen (n' : ℕ) {k : ℕ} (keep : Option (Selection T k)) :
+private theorem Selection.noFunOpt_widen (n' : ℕ) {k : ℕ} (keep : Option (Selection T k)) :
     Selection.noFunOpt (keep.map (fun φ => φ.widen n')) = Selection.noFunOpt keep := by
   cases keep with
   | none => rfl
@@ -153,17 +159,17 @@ def blockL (n : ℕ) (x : Tuple T (n + n)) : Tuple T n := fun i => x (Fin.castAd
 def blockR (n : ℕ) (x : Tuple T (n + n)) : Tuple T n := fun i => x (Fin.natAdd n i)
 
 omit [ValueType T] in
-@[simp] theorem blockL_append (n : ℕ) (u v : Tuple T n) :
+@[simp] private theorem blockL_append (n : ℕ) (u v : Tuple T n) :
     blockL n (Fin.append u v) = u := by
   funext i; exact Fin.append_left u v i
 
 omit [ValueType T] in
-@[simp] theorem blockR_append (n : ℕ) (u v : Tuple T n) :
+@[simp] private theorem blockR_append (n : ℕ) (u v : Tuple T n) :
     blockR n (Fin.append u v) = v := by
   funext i; exact Fin.append_right u v i
 
 omit [ValueType T] in
-theorem append_blockL_blockR (n : ℕ) (x : Tuple T (n + n)) :
+private theorem append_blockL_blockR (n : ℕ) (x : Tuple T (n + n)) :
     Fin.append (blockL n x) (blockR n x) = x :=
   Fin.append_castAdd_natAdd
 
@@ -172,13 +178,13 @@ def castCols (n : ℕ) {m : ℕ} (P : Tuple (Fin n) m) : Tuple (Fin (n + n)) m :
   fun k => Fin.castAdd n (P k)
 
 omit [ValueType T] in
-theorem key_castCols (n : ℕ) {m : ℕ} (P : Tuple (Fin n) m) (x : Tuple T (n + n)) :
+private theorem key_castCols (n : ℕ) {m : ℕ} (P : Tuple (Fin n) m) (x : Tuple T (n + n)) :
     Tuple.key (castCols n P) x = Tuple.key P (blockL n x) := rfl
 
 /-- **The order of rows restricts to their first block**: where a row is
 below another in the domain's order, so is its first block (or they are
 equal there). -/
-theorem blockL_le_blockL {n : ℕ} {x y : Tuple T (n + n)} (h : x ≤ y) :
+private theorem blockL_le_blockL {n : ℕ} {x y : Tuple T (n + n)} (h : x ≤ y) :
     blockL n x ≤ blockL n y := by
   rcases h with ⟨i, hj, hi⟩ | rfl
   · induction i using Fin.addCases with
@@ -192,7 +198,7 @@ theorem blockL_le_blockL {n : ℕ} {x y : Tuple T (n + n)} (h : x ≤ y) :
 
 /-- The clause's reading of a doubled row is its reading of the first
 block, ties included. -/
-theorem readLe_blockL {n p : ℕ} (O : Tuple (Fin n) p) (o : OrderSpec p)
+private theorem readLe_blockL {n p : ℕ} (O : Tuple (Fin n) p) (o : OrderSpec p)
     {x y : Tuple T (n + n)}
     (h : OrderSpec.readLe (Tuple.key (castCols n O)) id o x y = true) :
     OrderSpec.readLe (Tuple.key O) id o (blockL n x) (blockL n y) = true := by
@@ -215,7 +221,7 @@ theorem readLe_blockL {n p : ℕ} (O : Tuple (Fin n) p) (o : OrderSpec p)
 frame of its first block** in the first blocks: partition and frame
 condition read that block only, and the current row is the one row of
 the frame projected onto it. -/
-theorem frameOf_blockL {n m p : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
+private theorem frameOf_blockL {n m p : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
     (w : ValueFrame T p) (M : Multiset (Tuple T (n + n))) {x : Tuple T (n + n)} (hx : x ∈ M) :
     (ValueFrame.frameOf (α := Tuple T (n + n)) id (castCols n P) (castCols n O) w M x).map
         (blockL n)
@@ -263,7 +269,7 @@ theorem frameOf_blockL {n m p : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
 block** over the first blocks: the two listings of the frame, sorted by
 the clause with ties by the row, differ only in the order of rows with
 equal first blocks, which read alike. -/
-theorem windowValueOpt_blockL {c n m p : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
+private theorem windowValueOpt_blockL {c n m p : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
     (o : OrderSpec p) (w : ValueFrame T p) (t : TermIn T c n) (f : SeqAggFunc T)
     (keep : Option (Selection T n)) (M : Multiset (Tuple T (n + n))) {x : Tuple T (n + n)}
     (hx : x ∈ M) (γ : Fin c → T) :
@@ -343,7 +349,7 @@ def doubled {n : ℕ} (κ : Fin n → ColKind) (q : AggQueryIn T c n (ColKind.al
   (AggQueryIn.Proj (Fin.append (nullCols κ)
       (fun i : Fin n => ProjColIn.term (TermGIn.index i rfl))) q).castKind (doubled_kinds n κ)
 
-theorem evaluatePlain_doubled {n : ℕ} (κ : Fin n → ColKind)
+private theorem evaluatePlain_doubled {n : ℕ} (κ : Fin n → ColKind)
     (q : AggQueryIn T c n (ColKind.allReg n)) (D : Database T) (γ : Fin c → T) :
     (doubled κ q).evaluatePlain D γ
       = (q.evaluatePlain D γ : Multiset (Tuple T n)).map
@@ -429,7 +435,7 @@ variable {n m p : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpe
 
 include hsql
 
-theorem usesOnly_winKept {S : Set OpKind} (hwin : OpKind.win ∈ S) (hproj : OpKind.proj ∈ S)
+private theorem usesOnly_winKept {S : Set OpKind} (hwin : OpKind.win ∈ S) (hproj : OpKind.proj ∈ S)
     (hq : q.usesOnly S) : (winKept (hsql := sql_frame%) P O o w t f κ q dist keep).usesOnly S := by
   rw [winKept, AggQueryIn.usesOnly_castKind]
   refine ⟨⟨hproj, fun j => ?_⟩, hwin, ?_⟩
@@ -445,14 +451,14 @@ theorem usesOnly_winKept {S : Set OpKind} (hwin : OpKind.win ∈ S) (hproj : OpK
     · rw [Fin.append_right]
       rfl
 
-theorem hygienic_winKept (hq : q.hygienic) :
+private theorem hygienic_winKept (hq : q.hygienic) :
     (winKept (hsql := sql_frame%) P O o w t f κ q dist keep).hygienic := by
   rw [winKept, AggQueryIn.hygienic_castKind]
   show (doubled κ q).hygienic
   rw [doubled, AggQueryIn.hygienic_castKind]
   exact hq
 
-theorem inSig_winKept {Θ : Set (SeqAggFunc T)} (ht : t.noFun = true)
+private theorem inSig_winKept {Θ : Set (SeqAggFunc T)} (ht : t.noFun = true)
     (hf : if dist then f.distinct ∈ Θ else f ∈ Θ) (hkeep : Selection.noFunOpt keep = true)
     (hw : w.cond.noOff = true)
     (hq : q.inSig Θ) : (winKept (hsql := sql_frame%) P O o w t f κ q dist keep).inSig Θ := by
@@ -472,35 +478,35 @@ theorem inSig_winKept {Θ : Set (SeqAggFunc T)} (ht : t.noFun = true)
     · rw [Fin.append_right]
       rfl
 
-theorem overSchema_winKept {sch : Schema} (hq : q.overSchema sch) :
+private theorem overSchema_winKept {sch : Schema} (hq : q.overSchema sch) :
     (winKept (hsql := sql_frame%) P O o w t f κ q dist keep).overSchema sch := by
   rw [winKept, AggQueryIn.overSchema_castKind]
   show (doubled κ q).overSchema sch
   rw [doubled, AggQueryIn.overSchema_castKind]
   exact hq
 
-theorem names_winKept : (winKept (hsql := sql_frame%) P O o w t f κ q dist keep).names = q.names
+private theorem names_winKept : (winKept (hsql := sql_frame%) P O o w t f κ q dist keep).names = q.names
     := by
   rw [winKept, AggQueryIn.names_castKind]
   show (doubled κ q).names = _
   rw [doubled, AggQueryIn.names_castKind]
   rfl
 
-theorem noMention_winKept (s : String) (hq : q.noMention s) :
+private theorem noMention_winKept (s : String) (hq : q.noMention s) :
     (winKept (hsql := sql_frame%) P O o w t f κ q dist keep).noMention s := by
   rw [winKept, AggQueryIn.noMention_castKind]
   show (doubled κ q).noMention s
   rw [doubled, AggQueryIn.noMention_castKind]
   exact hq
 
-theorem sumsAllReg_winKept (hq : q.sumsAllReg) :
+private theorem sumsAllReg_winKept (hq : q.sumsAllReg) :
     (winKept (hsql := sql_frame%) P O o w t f κ q dist keep).sumsAllReg := by
   rw [winKept, AggQueryIn.sumsAllReg_castKind]
   show (doubled κ q).sumsAllReg
   rw [doubled, AggQueryIn.sumsAllReg_castKind]
   exact hq
 
-theorem settlesAt_winKept (D : Database T) (γ : Fin c → T) (hq : q.SettlesAt D γ) :
+private theorem settlesAt_winKept (D : Database T) (γ : Fin c → T) (hq : q.SettlesAt D γ) :
     (winKept (hsql := sql_frame%) P O o w t f κ q dist keep).SettlesAt D γ := by
   rw [winKept, AggQueryIn.settlesAt_castKind]
   show (doubled κ q).SettlesAt D γ

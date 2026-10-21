@@ -7,6 +7,14 @@ module
 public import Provenance.AnnotatedDiffRow
 import Mathlib.Analysis.SpecialFunctions.Pow.NNReal
 import Provenance.AggQueryBridges
+import all Provenance.AggQuery
+import all Provenance.AggQueryAdequacy
+import all Provenance.AggQueryBridges
+import all Provenance.AnnotatedDatabase
+import all Provenance.AnnotatedDiffRow
+import all Provenance.AnnotatedMuUnion
+import all Provenance.SemiringWithMonus
+import all Provenance.Semirings.Nat
 
 /-!
 # Duplicate elimination is necessary in the annotated algebra
@@ -41,22 +49,22 @@ With the other rows this makes the basis `{∅, Π, σ, apply, γ, win, μ^⊎,
 
 section Weights
 
-theorem nat_delta_le_one (a : ℕ) : SemiringWithMonus.delta a ≤ 1 := by
+private theorem nat_delta_le_one (a : ℕ) : SemiringWithMonus.delta a ≤ 1 := by
   rcases Nat.eq_zero_or_pos a with rfl | h
   · rw [SemiringWithMonus.delta_zero]; exact Nat.zero_le 1
   · have := SemiringWithMonus.delta_natCast_pos (α := ℕ) h
     rw [Nat.cast_id] at this
     rw [this]
 
-theorem nat_one_sub_le_one (a : ℕ) : ((1 : ℕ) - a : ℕ) ≤ 1 := Nat.sub_le 1 a
+private theorem nat_one_sub_le_one (a : ℕ) : ((1 : ℕ) - a : ℕ) ≤ 1 := Nat.sub_le 1 a
 
-theorem nat_add_one_sub (a : ℕ) (h : a ≤ 1) : (a + ((1 : ℕ) - a) : ℕ) = 1 := by omega
+private theorem nat_add_one_sub (a : ℕ) (h : a ≤ 1) : (a + ((1 : ℕ) - a) : ℕ) = 1 := by omega
 
-theorem nat_mul_le_one {a b : ℕ} (ha : a ≤ 1) (hb : b ≤ 1) : a * b ≤ 1 := by
+private theorem nat_mul_le_one {a b : ℕ} (ha : a ≤ 1) (hb : b ≤ 1) : a * b ≤ 1 := by
   calc a * b ≤ 1 * 1 := Nat.mul_le_mul ha hb
     _ = 1 := rfl
 
-theorem nat_mprod_le_one : ∀ s : Multiset ℕ, (∀ a ∈ s, a ≤ 1) → s.prod ≤ 1 := by
+private theorem nat_mprod_le_one : ∀ s : Multiset ℕ, (∀ a ∈ s, a ≤ 1) → s.prod ≤ 1 := by
   intro s
   induction s using Multiset.induction_on with
   | empty => intro _; exact le_refl 1
@@ -66,7 +74,7 @@ theorem nat_mprod_le_one : ∀ s : Multiset ℕ, (∀ a ∈ s, a ≤ 1) → s.pr
     exact nat_mul_le_one (h a (Multiset.mem_cons_self a s))
       (ih fun b hb => h b (Multiset.mem_cons_of_mem hb))
 
-theorem nat_fprod_le_one {ι : Type} (s : Finset ι) (f : ι → ℕ) (h : ∀ i ∈ s, f i ≤ 1) :
+private theorem nat_fprod_le_one {ι : Type} (s : Finset ι) (f : ι → ℕ) (h : ∀ i ∈ s, f i ≤ 1) :
     ∏ i ∈ s, f i ≤ 1 := by
   unfold Finset.prod
   exact nat_mprod_le_one _ fun a ha => by
@@ -74,7 +82,7 @@ theorem nat_fprod_le_one {ι : Type} (s : Finset ι) (f : ι → ℕ) (h : ∀ i
     exact h i hi
 
 /-- `𝟙 ⊖ Σ` is `∏ (𝟙 ⊖ ·)` over a finite set, `ℕ` being complemented. -/
-theorem nat_one_sub_fsum {ι : Type} (s : Finset ι) (f : ι → ℕ) :
+private theorem nat_one_sub_fsum {ι : Type} (s : Finset ι) (f : ι → ℕ) :
     ((1 : ℕ) - ∑ i ∈ s, f i : ℕ) = ∏ i ∈ s, ((1 : ℕ) - f i : ℕ) := by
   unfold Finset.sum Finset.prod
   rw [monus_multiset_sum Nat.complemented, Multiset.map_map]
@@ -82,7 +90,7 @@ theorem nat_one_sub_fsum {ι : Type} (s : Finset ι) (f : ι → ℕ) :
 
 /-- **The worlds of a flat family weigh `𝟙` together** when every
 occurrence is annotated at most `𝟙`. -/
-theorem nat_sum_worldAnn {N : ℕ} (α : Fin N → ℕ) (h : ∀ i, α i ≤ 1) :
+private theorem nat_sum_worldAnn {N : ℕ} (α : Fin N → ℕ) (h : ∀ i, α i ≤ 1) :
     ∑ W : Finset (Fin N), (∏ i ∈ W, α i) * (1 - ∑ i ∈ Wᶜ, α i) = 1 := by
   have hprod := Finset.prod_add α (fun i => 1 - α i) (Finset.univ : Finset (Fin N))
   rw [Finset.powerset_univ] at hprod
@@ -93,7 +101,7 @@ theorem nat_sum_worldAnn {N : ℕ} (α : Fin N → ℕ) (h : ∀ i, α i ≤ 1) 
     _ = ∏ i, (α i + (1 - α i)) := hprod.symm
     _ = 1 := Finset.prod_eq_one fun i _ => nat_add_one_sub _ (h i)
 
-theorem nat_sum_worldAnn_le {N : ℕ} (α : Fin N → ℕ) (h : ∀ i, α i ≤ 1)
+private theorem nat_sum_worldAnn_le {N : ℕ} (α : Fin N → ℕ) (h : ∀ i, α i ≤ 1)
     (F : Finset (Finset (Fin N))) :
     ∑ W ∈ F, (∏ i ∈ W, α i) * (1 - ∑ i ∈ Wᶜ, α i) ≤ 1 := by
   calc ∑ W ∈ F, (∏ i ∈ W, α i) * (1 - ∑ i ∈ Wᶜ, α i)
@@ -102,13 +110,13 @@ theorem nat_sum_worldAnn_le {N : ℕ} (α : Fin N → ℕ) (h : ∀ i, α i ≤ 
           (Finset.subset_univ F)
     _ = 1 := nat_sum_worldAnn α h
 
-theorem nat_sum_filter_le {α : Type} (s : Multiset α) (p : α → Prop) [DecidablePred p]
+private theorem nat_sum_filter_le {α : Type} (s : Multiset α) (p : α → Prop) [DecidablePred p]
     (f : α → ℕ) : ((s.filter p).map f).sum ≤ (s.map f).sum := by
   conv_rhs => rw [← Multiset.filter_add_not p s]
   rw [Multiset.map_add, Multiset.sum_add]
   exact Nat.le_add_right _ _
 
-theorem nat_sum_product {α β : Type} (s : Multiset α) (t : Multiset β) (f : α → ℕ)
+private theorem nat_sum_product {α β : Type} (s : Multiset α) (t : Multiset β) (f : α → ℕ)
     (g : β → ℕ) : ((s ×ˢ t).map (fun p => f p.1 * g p.2)).sum
       = (s.map f).sum * (t.map g).sum := by
   induction s using Multiset.induction_on with
@@ -132,7 +140,7 @@ variable {T : Type} [ValueType T]
 def worldWeight {n : ℕ} (w : ℕ × ℕ × (Fin n → Option T)) : ℕ := w.1 * ((1 : ℕ) - w.2.1 : ℕ)
 
 omit [ValueType T] in
-theorem worldWeight_combineW {n : ℕ} (w₁ w₂ : ℕ × ℕ × (Fin n → Option T)) :
+private theorem worldWeight_combineW {n : ℕ} (w₁ w₂ : ℕ × ℕ × (Fin n → Option T)) :
     worldWeight (combineW w₁ w₂) = worldWeight w₁ * worldWeight w₂ := by
   unfold worldWeight combineW
   dsimp only
@@ -141,7 +149,7 @@ theorem worldWeight_combineW {n : ℕ} (w₁ w₂ : ℕ × ℕ × (Fin n → Opt
 omit [ValueType T] in
 /-- The presence choices over outer occurrences annotated at most `𝟙`
 weigh `𝟙` together. -/
-theorem nat_sum_memChoices {X : Type} (M : Multiset (X × ℕ)) (hM : ∀ o ∈ M, o.2 ≤ 1) :
+private theorem nat_sum_memChoices {X : Type} (M : Multiset (X × ℕ)) (hM : ∀ o ∈ M, o.2 ≤ 1) :
     ((NestedValue.memChoices M).map (fun ms =>
       (ms.map (fun m => if m.2.2 = true then m.2.1 else ((1 : ℕ) - m.2.1 : ℕ))).prod)).sum
       = 1 := by
@@ -170,7 +178,7 @@ def natLeafW (e : LeafKey T ℕ × Finset ℕ) : ℕ :=
 omit [ValueType T] in
 /-- Over `ℕ`, what a decision keeps times `𝟙 ⊖` what it leaves out is a
 product over the occurrences. -/
-theorem nat_decProd_decAbs {X : Type} (D : Multiset (X × ℕ × Bool)) :
+private theorem nat_decProd_decAbs {X : Type} (D : Multiset (X × ℕ × Bool)) :
     NestedValue.decProd D * ((1 : ℕ) - NestedValue.decAbs D : ℕ) = natDecW D := by
   induction D using Multiset.induction_on with
   | empty => simp [NestedValue.decProd, NestedValue.decAbs, natDecW]
@@ -188,7 +196,7 @@ theorem nat_decProd_decAbs {X : Type} (D : Multiset (X × ℕ × Bool)) :
 omit [ValueType T] in
 /-- **Over `ℕ` a nested world's weight factors**: the value's own
 occurrences, each expression family and each node apart. -/
-theorem nat_world_ann {d : ℕ} (W : NestedValue.World T ℕ d) :
+private theorem nat_world_ann {d : ℕ} (W : NestedValue.World T ℕ d) :
     W.ann = natDecW W.root * (W.leaf.map natLeafW).prod
       * (W.node.map (fun e => natDecW e.2.2)).prod := by
   have hL : (W.leaf.map natLeafW).prod = (W.leaf.map NestedValue.leafProd).prod
@@ -208,7 +216,7 @@ theorem nat_world_ann {d : ℕ} (W : NestedValue.World T ℕ d) :
 omit [ValueType T] in
 /-- The positions one can keep of an expression family annotated at most
 `𝟙` weigh `𝟙` together. -/
-theorem nat_sum_leafChoices (κ : LeafKey T ℕ) (h : ∀ k ∈ κ.2, k ≤ 1) :
+private theorem nat_sum_leafChoices (κ : LeafKey T ℕ) (h : ∀ k ∈ κ.2, k ≤ 1) :
     (((Finset.range κ.2.length).powerset.val).map (fun S => natLeafW (κ, S))).sum = 1 := by
   have hle : ∀ i, κ.2.getD i 0 ≤ 1 := fun i => by
     rw [List.getD_eq_getElem?_getD]
@@ -229,7 +237,7 @@ theorem nat_sum_leafChoices (κ : LeafKey T ℕ) (h : ∀ k ∈ κ.2, k ≤ 1) :
     _ = 1 := Finset.prod_eq_one fun i _ => nat_add_one_sub _ (hle i)
 
 omit [ValueType T] in
-theorem nat_sum_foldr_addLeaf : ∀ (s : Multiset (LeafKey T ℕ)),
+private theorem nat_sum_foldr_addLeaf : ∀ (s : Multiset (LeafKey T ℕ)),
     (∀ κ ∈ s, ∀ k ∈ κ.2, k ≤ 1) →
     ((s.foldr NestedValue.addLeaf {0}).map (fun L => (L.map natLeafW).prod)).sum = 1 := by
   intro s
@@ -247,7 +255,7 @@ theorem nat_sum_foldr_addLeaf : ∀ (s : Multiset (LeafKey T ℕ)),
       _ = 1 := nat_sum_leafChoices κ (h κ (Multiset.mem_cons_self _ _))
 
 omit [ValueType T] in
-theorem nat_sum_foldr_addNode : ∀ (s : Multiset (Σ j, NodeKey T ℕ j)),
+private theorem nat_sum_foldr_addNode : ∀ (s : Multiset (Σ j, NodeKey T ℕ j)),
     (∀ κ ∈ s, ∀ o ∈ κ.2.2, o.2 ≤ 1) →
     ((s.foldr NestedValue.addNode {0}).map
       (fun N => (N.map (fun e => natDecW e.2.2)).prod)).sum = 1 := by
@@ -268,7 +276,7 @@ theorem nat_sum_foldr_addNode : ∀ (s : Multiset (Σ j, NodeKey T ℕ j)),
 omit [ValueType T] in
 /-- **The worlds of a nested value weigh `𝟙` together** when every
 annotation, at every storey, is at most `𝟙`. -/
-theorem NestedValue.nat_sum_worlds_ann [DecidableEq T] (a : NestedValue T ℕ)
+private theorem NestedValue.nat_sum_worlds_ann [DecidableEq T] (a : NestedValue T ℕ)
     (h : a.AnnsIn (· ≤ 1)) :
     (a.worlds.map NestedValue.World.ann).sum = 1 := by
   classical
@@ -293,7 +301,7 @@ theorem NestedValue.nat_sum_worlds_ann [DecidableEq T] (a : NestedValue T ℕ)
     _ = 1 := nat_sum_memChoices a.occs fun o ho => (h o ho).1
 
 /-- **The worlds of one family weigh at most `𝟙` together.** -/
-theorem classWorlds_weight_le {n : ℕ} (u : Tuple (GenValue T ℕ) n) (M : List (Fin n))
+private theorem classWorlds_weight_le {n : ℕ} (u : Tuple (GenValue T ℕ) n) (M : List (Fin n))
     (x₀ : AggTok T ℕ) (h : x₀.AnnsIn (· ≤ 1)) :
     ((classWorlds u M x₀).map worldWeight).sum ≤ 1 := by
   cases x₀ with
@@ -313,7 +321,7 @@ theorem classWorlds_weight_le {n : ℕ} (u : Tuple (GenValue T ℕ) n) (M : List
 
 open Classical in
 /-- **The joint worlds of a row weigh at most `𝟙` together.** -/
-theorem jointWorlds_weight_le {n : ℕ} (u : Tuple (GenValue T ℕ) n) (cols : List (Fin n))
+private theorem jointWorlds_weight_le {n : ℕ} (u : Tuple (GenValue T ℕ) n) (cols : List (Fin n))
     (hu : ∀ k a, u k = Sum.inr a → a.AnnsIn (· ≤ 1)) :
     ((jointWorlds u cols).map worldWeight).sum ≤ 1 := by
   unfold jointWorlds
@@ -358,17 +366,17 @@ def GenRow.Le1 {n : ℕ} (r : GenRow T ℕ n) : Prop :=
   r.snd.base ≤ 1 ∧ ∀ k a, r.fst k = Sum.inr a → a.AnnsIn (· ≤ 1)
 
 omit [ValueType T] in
-theorem GenRow.Le1.finalize {n : ℕ} {r : GenRow T ℕ n} (h : r.Le1) : r.snd.finalize ≤ 1 :=
+private theorem GenRow.Le1.finalize {n : ℕ} {r : GenRow T ℕ n} (h : r.Le1) : r.snd.finalize ≤ 1 :=
   nat_mul_le_one h.1 (nat_mprod_le_one _ fun a ha => by
     obtain ⟨l, -, rfl⟩ := Multiset.mem_map.1 ha
     exact nat_delta_le_one _)
 
 omit [ValueType T] in
-theorem GenRow.le1_ofAnnotated {n : ℕ} {p : AnnotatedTuple T ℕ n} (h : p.2 ≤ 1) :
+private theorem GenRow.le1_ofAnnotated {n : ℕ} {p : AnnotatedTuple T ℕ n} (h : p.2 ≤ 1) :
     (GenRow.ofAnnotated p).Le1 :=
   ⟨h, fun k a hk => by simp [GenRow.ofAnnotated] at hk⟩
 
-theorem annsIn_tokenOf_le1 {c n m p : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
+private theorem annsIn_tokenOf_le1 {c n m p : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
     (o : OrderSpec p) (w : ValueFrame T p) (t : TermIn T c n) (f : SeqAggFunc T)
     (X : AnnotatedRelation T ℕ n) (x : AnnotatedTuple T ℕ n) (γ : Fin c → T)
     (hX : ∀ q ∈ X, q.2 ≤ 1) (hx : x.2 ≤ 1) :
@@ -384,7 +392,7 @@ theorem annsIn_tokenOf_le1 {c n m p : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin
   · exact AggValue.annsIn_ofGroup (Q := (· ≤ 1)) f t _ γ hU
   · exact AggValue.annsIn_ofScalarGroup (Q := (· ≤ 1)) f t _ γ hU
 
-theorem annsIn_exprWhenOf_le1 {c n m p : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
+private theorem annsIn_exprWhenOf_le1 {c n m p : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
     (o : OrderSpec p) (w : ValueFrame T p) (t : TermIn T c n) (f : SeqAggFunc T)
     (keep : Tuple T n → Bool) (X : AnnotatedRelation T ℕ n) (x : AnnotatedTuple T ℕ n)
     (γ : Fin c → T) (hX : ∀ q ∈ X, q.2 ≤ 1) (hx : x.2 ≤ 1) :
@@ -627,7 +635,7 @@ def dEps : AnnotatedDatabase ℕ ℕ :=
     (({(((fun _ => 0) : Tuple ℕ 1), 1), (((fun _ => 0) : Tuple ℕ 1), 1)}
       : Multiset (AnnotatedTuple ℕ ℕ 1)) : AnnotatedRelation ℕ ℕ 1) []
 
-theorem dEps_le1 : ∀ k t (r : AnnotatedRelation ℕ ℕ k), dEps.find k t = some r →
+private theorem dEps_le1 : ∀ k t (r : AnnotatedRelation ℕ ℕ k), dEps.find k t = some r →
     ∀ a ∈ r, a.2 ≤ 1 := by
   intro k t r hr a ha
   unfold dEps at hr
@@ -646,7 +654,7 @@ theorem dEps_le1 : ∀ k t (r : AnnotatedRelation ℕ ℕ k), dEps.find k t = so
       simp)
 
 /-- **`ε(R)` there holds `0` annotated `2`.** -/
-theorem mem_evaluateAnnotated_epsWitness :
+private theorem mem_evaluateAnnotated_epsWitness :
     ((((fun _ => 0) : Tuple ℕ 1), 2) : AnnotatedTuple ℕ ℕ 1)
       ∈ epsWitness.evaluateAnnotated dEps (fun _ => 0) := by
   show _ ∈ epsWitness.ann dEps (fun _ => 0) {}
@@ -660,10 +668,10 @@ theorem mem_evaluateAnnotated_epsWitness :
   unfold PathSum.wt
   rfl
 
-theorem overSchema_epsWitness : epsWitness.overSchema schemaR := by
+private theorem overSchema_epsWitness : epsWitness.overSchema schemaR := by
   simp [epsWitness, AggQueryIn.overSchema, schemaR_apply]
 
-theorem usesOnly_epsWitness : epsWitness.usesOnly plainRecOps :=
+private theorem usesOnly_epsWitness : epsWitness.usesOnly plainRecOps :=
   ⟨by simp [plainRecOps, plainOps, basisDD, basisOps], trivial⟩
 
 /-- **`ε` or `μ^∪` is in every set generating the annotated algebra over

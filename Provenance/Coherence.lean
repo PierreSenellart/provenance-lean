@@ -8,6 +8,10 @@ public import Provenance.ReadsCongr
 public import Provenance.JointHom
 import Mathlib.Tactic.NormNum.Inv
 import Mathlib.Tactic.NormNum.Pow
+import all Provenance.AggQuery
+import all Provenance.Frame
+import all Provenance.JointHom
+import all Provenance.Nested
 
 /-!
 # One family identifier, one value
@@ -103,7 +107,7 @@ def AggQueryIn.sourceCols : {c n : ℕ} → {κ : Fin n → ColKind} →
 
 /-- Frames containing the current row everywhere contain it in the
 multi-frame windows. -/
-theorem AggQueryIn.framesContainSelf_of_all :
+private theorem AggQueryIn.framesContainSelf_of_all :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l),
       q.allFramesContainSelf → q.framesContainSelf := by
   intro c n κ l q
@@ -200,15 +204,15 @@ def FamId.root : FamId T → FamId T
   | .mk l k p c _ => .mk l k p c []
 
 omit [ValueType T] in
-@[simp] theorem FamId.root_addTerm (t : TermIn T 1 0) (φ : FamId T) :
+@[simp] private theorem FamId.root_addTerm (t : TermIn T 1 0) (φ : FamId T) :
     (φ.addTerm t).root = φ.root := by cases φ; rfl
 
 omit [ValueType T] in
-@[simp] theorem FamId.terms'_addTerm (t : TermIn T 1 0) (φ : FamId T) :
+@[simp] private theorem FamId.terms'_addTerm (t : TermIn T 1 0) (φ : FamId T) :
     (φ.addTerm t).terms' = φ.terms' ++ [t] := by cases φ; rfl
 
 omit [ValueType T] in
-theorem FamId.eq_of_root_terms' {φ ψ : FamId T} (h₁ : φ.root = ψ.root)
+private theorem FamId.eq_of_root_terms' {φ ψ : FamId T} (h₁ : φ.root = ψ.root)
     (h₂ : φ.terms' = ψ.terms') : φ = ψ := by
   cases φ; cases ψ
   simp only [FamId.root, FamId.mk.injEq, and_true] at h₁
@@ -221,7 +225,7 @@ def AggTok.postcompTerms {K₀ : Type} (x : AggTok T K₀) : List (TermIn T 1 0)
   | [] => x
   | t :: ts => (x.postcompTerm t).postcompTerms ts
 
-theorem AggTok.postcompTerms_append {K₀ : Type} (x : AggTok T K₀) (ts : List (TermIn T 1 0))
+private theorem AggTok.postcompTerms_append {K₀ : Type} (x : AggTok T K₀) (ts : List (TermIn T 1 0))
     (t : TermIn T 1 0) : x.postcompTerms (ts ++ [t]) = (x.postcompTerms ts).postcompTerm t := by
   induction ts generalizing x with
   | nil => rfl
@@ -229,7 +233,7 @@ theorem AggTok.postcompTerms_append {K₀ : Type} (x : AggTok T K₀) (ts : List
 
 omit [DecidableEq K] [HasAltLinearOrder K] [CommSemiringWithMonus K] in
 /-- **A value derived by terms is its root's, the terms applied.** -/
-theorem TermCl.root {S : AggTok T K → Prop} (hS : ∀ x, S x → x.fam.terms' = []) {x : AggTok T K}
+private theorem TermCl.root {S : AggTok T K → Prop} (hS : ∀ x, S x → x.fam.terms' = []) {x : AggTok T K}
     (hx : TermCl S x) : ∃ x₀, S x₀ ∧ x₀.fam = x.fam.root ∧ x = x₀.postcompTerms x.fam.terms' := by
   induction hx with
   | @base x h =>
@@ -253,7 +257,7 @@ omit [DecidableEq K] [HasAltLinearOrder K] [CommSemiringWithMonus K] in
 omit [DecidableEq K] [HasAltLinearOrder K] in
 /-- **Terms keep one identifier to one value**, over values recording
 no term. -/
-theorem FamFun.termCl {S : AggTok T K → Prop} (hS : ∀ x, S x → x.fam.terms' = [])
+private theorem FamFun.termCl {S : AggTok T K → Prop} (hS : ∀ x, S x → x.fam.terms' = [])
     (hF : FamFun S) : FamFun (TermCl S) := by
   intro x y hx hy hxy
   obtain ⟨x₀, hx₀, hrx, hex⟩ := hx.root hS
@@ -266,7 +270,7 @@ end TermCl
 /-! ## What is built: the operator's label, no term -/
 
 omit [DecidableEq K] [HasAltLinearOrder K] [ValueType T] [CommSemiringWithMonus K] in
-theorem AggTok.stamp_spec {x y : AggTok T K} {lab : ℕ} {key : List T}
+private theorem AggTok.stamp_spec {x y : AggTok T K} {lab : ℕ} {key : List T}
     {ps : List (T ⊕ FamId T)} {j : ℕ} {ids : Option (List (OccId T))}
     (h : x = y.setFam (.mk lab key ps j []) ids) :
     x.fam.terms' = [] ∧ x.lab = lab := by
@@ -274,7 +278,7 @@ theorem AggTok.stamp_spec {x y : AggTok T K} {lab : ℕ} {key : List T}
   simp [AggTok.lab, AggTok.fam_setFam, FamId.lab, FamId.terms']
 
 /-- **A built value records no term and carries a label of the query.** -/
-theorem AggQueryIn.builds_spec :
+private theorem AggQueryIn.builds_spec :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l)
       (d : AnnotatedDatabase T K) (γ : Fin c → T) (E : EvalEnv T K) (x : AggTok T K),
       q.Builds d γ E x → x.fam.terms' = [] ∧ x.lab ∈ q.labels := by
@@ -414,7 +418,7 @@ def AggQueryIn.labWidths : {c n : ℕ} → {κ : Fin n → ColKind} → {l : Lis
       (lab, 1) :: q.labWidths
 
 omit [ValueType T] in
-theorem AggQueryIn.labels_eq_map_labWidths :
+private theorem AggQueryIn.labels_eq_map_labWidths :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l),
       q.labels = q.labWidths.map Prod.fst := by
   intro c n κ l q
@@ -432,7 +436,7 @@ theorem AggQueryIn.labels_eq_map_labWidths :
     simp only [AggQueryIn.labels, AggQueryIn.labWidths, List.map_cons, ih]
 
 omit [DecidableEq K] [HasAltLinearOrder K] [ValueType T] [CommSemiringWithMonus K] in
-theorem AggTok.stamp_col {x y : AggTok T K} {lab : ℕ} {key : List T}
+private theorem AggTok.stamp_col {x y : AggTok T K} {lab : ℕ} {key : List T}
     {ps : List (T ⊕ FamId T)} {j : ℕ} {ids : Option (List (OccId T))}
     (h : x = y.setFam (.mk lab key ps j []) ids) :
     x.fam.col = j := by
@@ -440,7 +444,7 @@ theorem AggTok.stamp_col {x y : AggTok T K} {lab : ℕ} {key : List T}
   simp [AggTok.fam_setFam, FamId.col]
 
 /-- **A built value's column is one its operator builds.** -/
-theorem AggQueryIn.builds_col :
+private theorem AggQueryIn.builds_col :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l)
       (d : AnnotatedDatabase T K) (γ : Fin c → T) (E : EvalEnv T K) (x : AggTok T K),
       q.Builds d γ E x → ∃ w, (x.lab, w) ∈ q.labWidths ∧ x.fam.col < w := by
@@ -547,14 +551,14 @@ end Widths
 section RowToks
 
 omit [DecidableEq K] [HasAltLinearOrder K] [CommSemiringWithMonus K] in
-theorem TermCl.mono {S S' : AggTok T K → Prop} (h : ∀ x, S x → S' x) {x : AggTok T K}
+private theorem TermCl.mono {S S' : AggTok T K → Prop} (h : ∀ x, S x → S' x) {x : AggTok T K}
     (hx : TermCl S x) : TermCl S' x := by
   induction hx with
   | base hs => exact TermCl.base (h _ hs)
   | step t _ ih => exact TermCl.step t ih
 
 omit [DecidableEq K] [HasAltLinearOrder K] [CommSemiringWithMonus K] in
-theorem TermCl.idem {S : AggTok T K → Prop} {x : AggTok T K} (hx : TermCl (TermCl S) x) :
+private theorem TermCl.idem {S : AggTok T K → Prop} {x : AggTok T K} (hx : TermCl (TermCl S) x) :
     TermCl S x := by
   induction hx with
   | base hs => exact hs
@@ -568,7 +572,7 @@ def EvalEnv.Toks {c : ℕ} (E : EvalEnv T K) (γ : Fin c → T) (l : List (Strin
   (∃ k, E.ctxAt c γ k = Sum.inr x)
     ∨ ∃ p ∈ l, ∃ r ∈ E.holes p.1 p.2, ∃ k, r.fst k = Sum.inr x
 
-theorem mem_iterate_of_mem_muSum {α : Type} (step : Multiset α → Multiset α) :
+private theorem mem_iterate_of_mem_muSum {α : Type} (step : Multiset α → Multiset α) :
     ∀ (b : ℕ) (M : Multiset α) {a : α}, a ∈ muSum step b M → ∃ k, a ∈ step^[k] M
   | 0, M, a, h => ⟨0, h⟩
   | b + 1, M, a, h => by
@@ -580,7 +584,7 @@ omit [DecidableEq K] [HasAltLinearOrder K] in
 omit [DecidableEq K] in
 /-- An alternative of a row holds an aggregate value only where the row
 does. -/
-theorem GenRow.inr_of_mem_alternativesAt' [DecidableEq K] {n : ℕ}
+private theorem GenRow.inr_of_mem_alternativesAt' [DecidableEq K] {n : ℕ}
     {r a : GenRow T K n} {k : Fin n} (ha : a ∈ r.alternativesAt k) {j : Fin n} {x : AggTok T K}
     (hj : a.fst j = Sum.inr x) : r.fst j = Sum.inr x := by
   unfold GenRow.alternativesAt at ha
@@ -827,7 +831,7 @@ theorem AggQueryIn.rowToks :
 section Params
 
 omit [ValueType T] in
-theorem filterMap_mask_agree {ι α : Type} (r : ι → Bool) (f g : ι → α) :
+private theorem filterMap_mask_agree {ι α : Type} (r : ι → Bool) (f g : ι → α) :
     ∀ l : List ι, l.filterMap (fun k => if r k then some (f k) else none)
         = l.filterMap (fun k => if r k then some (g k) else none) →
       ∀ k ∈ l, r k = true → f k = g k
@@ -846,12 +850,12 @@ theorem filterMap_mask_agree {ι α : Type} (r : ι → Bool) (f g : ι → α) 
 
 omit [ValueType T] in
 /-- **Equal recorded parameters agree at every recorded position.** -/
-theorem ctxKey_agree {c : ℕ} {α : Type} (r : Fin c → Bool) {f g : Fin c → α}
+private theorem ctxKey_agree {c : ℕ} {α : Type} (r : Fin c → Bool) {f g : Fin c → α}
     (h : ctxKey r f = ctxKey r g) : AgreeOn r f g :=
   fun k hk => filterMap_mask_agree r f g _ h k (List.mem_finRange k) hk
 
 omit [ValueType T] in
-theorem mem_ctxKey {c : ℕ} {α : Type} (r : Fin c → Bool) (f : Fin c → α) {k : Fin c}
+private theorem mem_ctxKey {c : ℕ} {α : Type} (r : Fin c → Bool) (f : Fin c → α) {k : Fin c}
     (hk : r k = true) : f k ∈ ctxKey r f := by
   unfold ctxKey
   exact List.mem_filterMap.mpr ⟨k, List.mem_finRange k, by simp [hk]⟩
@@ -859,7 +863,7 @@ theorem mem_ctxKey {c : ℕ} {α : Type} (r : Fin c → Bool) (f : Fin c → α)
 omit [ValueType T] in
 /-- **A parameter's identifier is smaller than the identifier recording
 it.** -/
-theorem FamId.sizeOf_param_lt {lab : ℕ} {key : List T} {ps : List (T ⊕ FamId T)} {col : ℕ}
+private theorem FamId.sizeOf_param_lt {lab : ℕ} {key : List T} {ps : List (T ⊕ FamId T)} {col : ℕ}
     {ts : List (TermIn T 1 0)} {φ : FamId T} (h : Sum.inr φ ∈ ps) :
     sizeOf φ < sizeOf (FamId.mk lab key ps col ts) := by
   have h₁ : sizeOf (Sum.inr φ : T ⊕ FamId T) < sizeOf ps := List.sizeOf_lt_of_mem h
@@ -879,7 +883,7 @@ omit [DecidableEq K] in
 /-- **A window's value over a frame containing its current row is the
 tuple's**: two rows of the relation carrying the same tuple read the same
 value. -/
-theorem tokenOfDist_congr_fst {c n m p : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
+private theorem tokenOfDist_congr_fst {c n m p : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
     (o : OrderSpec p) {w : ValueFrame T p} (hc : w.ContainsSelf) (t : TermIn T c n)
     (f : SeqAggFunc T) (dist : Bool) (X : AnnotatedRelation T K n)
     {x y : AnnotatedTuple T K n} (hx : Multiset.Mem X x) (hy : Multiset.Mem X y)
@@ -896,7 +900,7 @@ theorem tokenOfDist_congr_fst {c n m p : ℕ} (P : Tuple (Fin n) m) (O : Tuple (
 omit [CommSemiringWithMonus K] [DecidableEq K] in
 /-- The identities a window gives the occurrences of a frame depend on the
 row only through its tuple, where the frame contains its current row. -/
-theorem frameOids_congr_fst {n m p : ℕ} (lab : ℕ) (ck : List (T ⊕ FamId T))
+private theorem frameOids_congr_fst {n m p : ℕ} (lab : ℕ) (ck : List (T ⊕ FamId T))
     (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
     (o : OrderSpec p) {w : ValueFrame T p} (hc : w.ContainsSelf) (X : AnnotatedRelation T K n)
     {x y : AnnotatedTuple T K n} (hx : Multiset.Mem X x) (hy : Multiset.Mem X y)
@@ -910,7 +914,7 @@ theorem frameOids_congr_fst {n m p : ℕ} (lab : ℕ) (ck : List (T ⊕ FamId T)
   rw [hf, hxy]
 
 omit [DecidableEq K] in
-theorem exprWhenOf_congr_fst {c n m p : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
+private theorem exprWhenOf_congr_fst {c n m p : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
     (o : OrderSpec p) {w : ValueFrame T p} (hc : w.ContainsSelf) (t : TermIn T c n)
     (f : SeqAggFunc T) (dist : Bool) (keep : Tuple T n → Bool) (X : AnnotatedRelation T K n)
     {x y : AnnotatedTuple T K n} (hx : Multiset.Mem X x) (hy : Multiset.Mem X y)
@@ -927,7 +931,7 @@ theorem exprWhenOf_congr_fst {c n m p : ℕ} (P : Tuple (Fin n) m) (O : Tuple (F
 omit [CommSemiringWithMonus K] [DecidableEq K] in
 /-- **Two rows carrying one tuple read the same occurrences** of frames
 containing the current row. -/
-theorem exprIdx_congr_row {n m p q : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
+private theorem exprIdx_congr_row {n m p q : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
     (o : OrderSpec p) {ws : Fin q → ValueFrame T p} (hc : ∀ l, (ws l).ContainsSelf)
     (r : OccFam (AnnotatedTuple T K n)) {i i' : Fin r.size}
     (h : (r.row i).fst = (r.row i').fst) :
@@ -941,7 +945,7 @@ theorem exprIdx_congr_row {n m p q : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin 
 
 omit [CommSemiringWithMonus K] [DecidableEq K] in
 /-- **Two rows carrying one tuple give their occurrences one identity.** -/
-theorem exprOids_congr_row {n m p q : ℕ} (lab : ℕ) (ck : List (T ⊕ FamId T))
+private theorem exprOids_congr_row {n m p q : ℕ} (lab : ℕ) (ck : List (T ⊕ FamId T))
     (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
     (o : OrderSpec p) {ws : Fin q → ValueFrame T p} (hc : ∀ l, (ws l).ContainsSelf)
     (r : OccFam (AnnotatedTuple T K n)) {i i' : Fin r.size}
@@ -954,7 +958,7 @@ omit [CommSemiringWithMonus K] [DecidableEq K] in
 /-- **A multi-frame window's expression over frames containing their
 current row is the tuple's**: two occurrences carrying the same tuple get
 the same expression. -/
-theorem exprOfWhen_congr_row {c n m p q : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
+private theorem exprOfWhen_congr_row {c n m p q : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
     (o : OrderSpec p) {ws : Fin q → ValueFrame T p} (hc : ∀ l, (ws l).ContainsSelf)
     (ts : Fin q → TermIn T c n) (fs : Fin q → SeqAggFunc T) (g : (Fin q → T) → T)
     (keeps : Fin q → Option (Selection T n)) (r : OccFam (AnnotatedTuple T K n))
@@ -978,7 +982,7 @@ section NodeFun
 
 /-- **A grouping builds one value per identifier**: the identifier records
 the group key and the column. -/
-theorem AggQueryIn.newFun_Gamma {c m n₁ n₂ lab : ℕ} {rd : Fin c → Bool}
+private theorem AggQueryIn.newFun_Gamma {c m n₁ n₂ lab : ℕ} {rd : Fin c → Bool}
     (is : Tuple (Fin m) n₁) (ts : Tuple (TermIn T c m) n₂) (fs : Tuple (SeqAggFunc T) n₂)
     (q : AggQueryIn T c m (ColKind.allReg m)) (keep : Fin n₂ → Option (Selection T m))
     (ord : GroupOrder T m) (d : AnnotatedDatabase T K) (γ : Fin c → T) (E : EvalEnv T K)
@@ -1000,7 +1004,7 @@ theorem AggQueryIn.newFun_Gamma {c m n₁ n₂ lab : ℕ} {rd : Fin c → Bool}
   simp only [Fin.val_inj] at hj
   rw [hj]
 
-theorem AggQueryIn.newFun_GammaScalar {c m n₂ lab : ℕ} {rd : Fin c → Bool}
+private theorem AggQueryIn.newFun_GammaScalar {c m n₂ lab : ℕ} {rd : Fin c → Bool}
     (ts : Tuple (TermIn T c m) n₂) (fs : Tuple (SeqAggFunc T) n₂)
     (q : AggQueryIn T c m (ColKind.allReg m)) (ord : GroupOrder T m)
     (d : AnnotatedDatabase T K) (γ : Fin c → T) (E : EvalEnv T K) {r r' : GenRow T K n₂}
@@ -1018,7 +1022,7 @@ theorem AggQueryIn.newFun_GammaScalar {c m n₂ lab : ℕ} {rd : Fin c → Bool}
   simp only [Fin.val_inj] at hj
   rw [hj]
 
-theorem AggQueryIn.newFun_GammaNest {c m n₁ lab : ℕ} {κ : Fin m → ColKind}
+private theorem AggQueryIn.newFun_GammaNest {c m n₁ lab : ℕ} {κ : Fin m → ColKind}
     {rd : Fin c → Bool} (is : Tuple (Fin m) n₁) (his : ∀ k, κ (is k) ≠ ColKind.agg)
     (p : ProjColIn T c κ) (f : Multiset T → T) (q : AggQueryIn T c m κ)
     (d : AnnotatedDatabase T K) (γ : Fin c → T) (E : EvalEnv T K)
@@ -1037,7 +1041,7 @@ theorem AggQueryIn.newFun_GammaNest {c m n₁ lab : ℕ} {κ : Fin m → ColKind
   obtain ⟨-, hg, -⟩ := hxy
   rw [List.ofFn_injective hg]
 
-theorem AggQueryIn.newFun_GammaTok {c m n₁ n₂ lab : ℕ} {κ : Fin m → ColKind}
+private theorem AggQueryIn.newFun_GammaTok {c m n₁ n₂ lab : ℕ} {κ : Fin m → ColKind}
     {rd : Fin c → Bool} (is : Tuple (Fin m) n₁) (his : ∀ k, κ (is k) ≠ ColKind.agg)
     (ts : Tuple (TermIn T c m) n₂) (fs : Tuple (SeqAggFunc T) n₂) (a : TermGIn T c κ)
     (q : AggQueryIn T c m κ) (keep : Fin n₂ → Option (Selection T m))
@@ -1066,7 +1070,7 @@ theorem AggQueryIn.newFun_GammaTok {c m n₁ n₂ lab : ℕ} {κ : Fin m → Col
 /-- **A window over a frame containing its current row builds one value
 per identifier**: the identifier records the tuple the window reads, and
 the value is that tuple's. -/
-theorem AggQueryIn.newFun_Win {c n m p lab : ℕ} {κ : Fin n → ColKind} {rd : Fin c → Bool}
+private theorem AggQueryIn.newFun_Win {c n m p lab : ℕ} {κ : Fin n → ColKind} {rd : Fin c → Bool}
     (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p) {w : ValueFrame T p} {hsql :
       w.IsSQL o}
     (hc : w.ContainsSelf) (t : TermIn T c n) (f : SeqAggFunc T) (q : AggQueryIn T c n κ)
@@ -1103,7 +1107,7 @@ theorem AggQueryIn.newFun_Win {c n m p lab : ℕ} {κ : Fin n → ColKind} {rd :
 
 /-- **A multi-frame window over frames containing the current row builds
 one value per identifier.** -/
-theorem AggQueryIn.newFun_WinExpr {c n m p q lab : ℕ} {rd : Fin c → Bool}
+private theorem AggQueryIn.newFun_WinExpr {c n m p q lab : ℕ} {rd : Fin c → Bool}
     (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
     {ws : Fin q → ValueFrame T p} {hsql : ∀ l, (ws l).IsSQL o} (hc : ∀ l, (ws l).ContainsSelf)
     (ts : Fin q → TermIn T c n) (fs : Fin q → SeqAggFunc T) (g : (Fin q → T) → T)
@@ -1128,7 +1132,7 @@ theorem AggQueryIn.newFun_WinExpr {c n m p q lab : ℕ} {rd : Fin c → Bool}
     ValueFrame.exprOids_congr_row lab _ P O o hc _ (List.ofFn_injective hg), hg]
 
 /-- **The columns a grouping builds for one group share a class.** -/
-theorem AggQueryIn.newKey_Gamma {c m n₁ n₂ lab : ℕ} {rd : Fin c → Bool}
+private theorem AggQueryIn.newKey_Gamma {c m n₁ n₂ lab : ℕ} {rd : Fin c → Bool}
     (is : Tuple (Fin m) n₁) (ts : Tuple (TermIn T c m) n₂) (fs : Tuple (SeqAggFunc T) n₂)
     (q : AggQueryIn T c m (ColKind.allReg m)) (keep : Fin n₂ → Option (Selection T m))
     (ord : GroupOrder T m) (d : AnnotatedDatabase T K) (γ : Fin c → T) (E : EvalEnv T K)
@@ -1153,7 +1157,7 @@ theorem AggQueryIn.newKey_Gamma {c m n₁ n₂ lab : ℕ} {rd : Fin c → Bool}
     simp [AggTok.setFam, AggTok.classKey, AggTok.annList, AggTok.fam, FamId.family,
       AggValue.ofGroup, AggExpr.annList, AggExpr.ofGroupWhen, AggExpr.ofSeqWhen, List.map_map]
 
-theorem AggQueryIn.newKey_GammaScalar {c m n₂ lab : ℕ} {rd : Fin c → Bool}
+private theorem AggQueryIn.newKey_GammaScalar {c m n₂ lab : ℕ} {rd : Fin c → Bool}
     (ts : Tuple (TermIn T c m) n₂) (fs : Tuple (SeqAggFunc T) n₂)
     (q : AggQueryIn T c m (ColKind.allReg m)) (ord : GroupOrder T m)
     (d : AnnotatedDatabase T K) (γ : Fin c → T) (E : EvalEnv T K) {r r' : GenRow T K n₂}
@@ -1171,7 +1175,7 @@ theorem AggQueryIn.newKey_GammaScalar {c m n₂ lab : ℕ} {rd : Fin c → Bool}
   simp [AggTok.setFam, AggTok.classKey, AggTok.annList, AggTok.fam, AggValue.ofScalarGroup,
     AggValue.ofGroup, hxy]
 
-theorem AggQueryIn.newKey_GammaTok {c m n₁ n₂ lab : ℕ} {κ : Fin m → ColKind}
+private theorem AggQueryIn.newKey_GammaTok {c m n₁ n₂ lab : ℕ} {κ : Fin m → ColKind}
     {rd : Fin c → Bool} (is : Tuple (Fin m) n₁) (his : ∀ k, κ (is k) ≠ ColKind.agg)
     (ts : Tuple (TermIn T c m) n₂) (fs : Tuple (SeqAggFunc T) n₂) (a : TermGIn T c κ)
     (q : AggQueryIn T c m κ) (keep : Fin n₂ → Option (Selection T m))
@@ -1211,19 +1215,19 @@ def EvalEnv.SitOK {c : ℕ} (E : EvalEnv T K) (γ : Fin c → T) : Prop :=
   ∀ k, γ k = AggValue.collapseSum (E.ctxAt c γ k)
 
 omit [DecidableEq K] [HasAltLinearOrder K] [ValueType T] [CommSemiringWithMonus K] in
-theorem EvalEnv.sitOK_empty {c : ℕ} (γ : Fin c → T) : ({} : EvalEnv T K).SitOK γ := by
+private theorem EvalEnv.sitOK_empty {c : ℕ} (γ : Fin c → T) : ({} : EvalEnv T K).SitOK γ := by
   intro k
   simp
 
 omit [DecidableEq K] [HasAltLinearOrder K] [ValueType T] [CommSemiringWithMonus K] in
-theorem EvalEnv.SitOK.assignHole {c : ℕ} {E : EvalEnv T K} {γ : Fin c → T} (h : E.SitOK γ)
+private theorem EvalEnv.SitOK.assignHole {c : ℕ} {E : EvalEnv T K} {γ : Fin c → T} (h : E.SitOK γ)
     (s : String) {n : ℕ} (X : Multiset (GenRow T K n)) : (E.assignHole s X).SitOK γ := by
   intro k
   rw [EvalEnv.ctxAt_assignHole]
   exact h k
 
 omit [DecidableEq K] [HasAltLinearOrder K] [ValueType T] [CommSemiringWithMonus K] in
-theorem EvalEnv.SitOK.apply {c n₁ : ℕ} {E : EvalEnv T K} {γ : Fin c → T} (h : E.SitOK γ)
+private theorem EvalEnv.SitOK.apply {c n₁ : ℕ} {E : EvalEnv T K} {γ : Fin c → T} (h : E.SitOK γ)
     (u : Tuple (GenValue T K) n₁) :
     (E.withCtx (Fin.append u (E.ctxAt _ γ))).SitOK (Fin.append (GenRow.plainTuple u) γ) := by
   intro k
@@ -1238,7 +1242,7 @@ Where the parameters a family records are equal, the two contexts agree
 at every recorded position – an aggregate parameter is recorded by its
 identifier, which `hU` turns back into the value – and so do the plain
 contexts. -/
-theorem EvalEnv.agree_of_paramKey {c : ℕ} (rd : Fin c → Bool) {γ₁ γ₂ : Fin c → T}
+private theorem EvalEnv.agree_of_paramKey {c : ℕ} (rd : Fin c → Bool) {γ₁ γ₂ : Fin c → T}
     {E₁ E₂ : EvalEnv T K} (U : AggTok T K → Prop) (M : ℕ)
     (hU : ∀ x y, U x → U y → x.fam = y.fam → sizeOf x.fam < M → x = y)
     (hU₁ : ∀ k x, E₁.ctxAt c γ₁ k = Sum.inr x → U x)
@@ -1268,7 +1272,7 @@ theorem EvalEnv.agree_of_paramKey {c : ℕ} (rd : Fin c → Bool) {γ₁ γ₂ :
       rw [hU x y (hU₁ k x h₁) (hU₂ k y h₂) hk' (hM _ hm)]
 
 omit [DecidableEq K] [HasAltLinearOrder K] [ValueType T] [CommSemiringWithMonus K] in
-theorem EvalEnv.SitOK.agree {c : ℕ} {rd : Fin c → Bool} {γ₁ γ₂ : Fin c → T}
+private theorem EvalEnv.SitOK.agree {c : ℕ} {rd : Fin c → Bool} {γ₁ γ₂ : Fin c → T}
     {E₁ E₂ : EvalEnv T K} (h₁ : E₁.SitOK γ₁) (h₂ : E₂.SitOK γ₂)
     (h : AgreeOn rd (E₁.ctxAt c γ₁) (E₂.ctxAt c γ₂)) : AgreeOn rd γ₁ γ₂ := by
   intro k hk
@@ -1281,14 +1285,14 @@ end Situation
 section Provided
 
 omit [DecidableEq K] [HasAltLinearOrder K] [ValueType T] [CommSemiringWithMonus K] in
-theorem EvalEnv.Toks.mono {c : ℕ} {E : EvalEnv T K} {γ : Fin c → T}
+private theorem EvalEnv.Toks.mono {c : ℕ} {E : EvalEnv T K} {γ : Fin c → T}
     {l l' : List (String × ℕ)} (h : l ⊆ l') {x : AggTok T K} (hx : E.Toks γ l x) :
     E.Toks γ l' x :=
   hx.imp id (fun ⟨p, hp, hr⟩ => ⟨p, h hp, hr⟩)
 
 /-- **Every value a round of a bag recursion holds is built by the
 recursion or provided by the environment, up to terms.** -/
-theorem AggQueryIn.muRoundToks {c n : ℕ} {κ : Fin n → ColKind} (s : String)
+private theorem AggQueryIn.muRoundToks {c n : ℕ} {κ : Fin n → ColKind} (s : String)
     (q₀ : AggQueryIn T c n κ) (q₁ : AggQueryIn T c n κ [(s, n)])
     (hsc : (AggQueryIn.Mu s q₀ q₁).sourceCols) (d : AnnotatedDatabase T K) (γ : Fin c → T)
     (E : EvalEnv T K) :
@@ -1314,7 +1318,7 @@ theorem AggQueryIn.muRoundToks {c n : ℕ} {κ : Fin n → ColKind} (s : String)
       exact ihj r' hr' k' z hk'
 
 omit [DecidableEq K] [HasAltLinearOrder K] [ValueType T] [CommSemiringWithMonus K] in
-theorem AggTok.lab_of_fam {x : AggTok T K} {lab : ℕ} {key : List T}
+private theorem AggTok.lab_of_fam {x : AggTok T K} {lab : ℕ} {key : List T}
     {ps : List (T ⊕ FamId T)} {j : ℕ} {ts : List (TermIn T 1 0)}
     (h : x.fam = FamId.mk lab key ps j ts) : x.lab = lab := by
   unfold AggTok.lab
@@ -1327,7 +1331,7 @@ end Provided
 
 section NodeFam
 
-theorem AggQueryIn.newFam_Gamma {c m n₁ n₂ lab : ℕ} {rd : Fin c → Bool}
+private theorem AggQueryIn.newFam_Gamma {c m n₁ n₂ lab : ℕ} {rd : Fin c → Bool}
     (is : Tuple (Fin m) n₁) (ts : Tuple (TermIn T c m) n₂) (fs : Tuple (SeqAggFunc T) n₂)
     (q : AggQueryIn T c m (ColKind.allReg m)) (keep : Fin n₂ → Option (Selection T m))
     (ord : GroupOrder T m) (d : AnnotatedDatabase T K) (γ : Fin c → T) (E : EvalEnv T K)
@@ -1343,7 +1347,7 @@ theorem AggQueryIn.newFam_Gamma {c m n₁ n₂ lab : ℕ} {rd : Fin c → Bool}
   subst hx
   exact ⟨_, _, AggTok.fam_setFam _ _⟩
 
-theorem AggQueryIn.newFam_GammaScalar {c m n₂ lab : ℕ} {rd : Fin c → Bool}
+private theorem AggQueryIn.newFam_GammaScalar {c m n₂ lab : ℕ} {rd : Fin c → Bool}
     (ts : Tuple (TermIn T c m) n₂) (fs : Tuple (SeqAggFunc T) n₂)
     (q : AggQueryIn T c m (ColKind.allReg m)) (ord : GroupOrder T m)
     (d : AnnotatedDatabase T K) (γ : Fin c → T) (E : EvalEnv T K) {r : GenRow T K n₂}
@@ -1358,7 +1362,7 @@ theorem AggQueryIn.newFam_GammaScalar {c m n₂ lab : ℕ} {rd : Fin c → Bool}
   subst hx
   exact ⟨_, _, AggTok.fam_setFam _ _⟩
 
-theorem AggQueryIn.newFam_GammaNest {c m n₁ lab : ℕ} {κ : Fin m → ColKind}
+private theorem AggQueryIn.newFam_GammaNest {c m n₁ lab : ℕ} {κ : Fin m → ColKind}
     {rd : Fin c → Bool} (is : Tuple (Fin m) n₁) (his : ∀ k, κ (is k) ≠ ColKind.agg)
     (p : ProjColIn T c κ) (f : Multiset T → T) (q : AggQueryIn T c m κ)
     (d : AnnotatedDatabase T K) (γ : Fin c → T) (E : EvalEnv T K)
@@ -1373,7 +1377,7 @@ theorem AggQueryIn.newFam_GammaNest {c m n₁ lab : ℕ} {κ : Fin m → ColKind
   subst hx
   exact ⟨_, _, rfl⟩
 
-theorem AggQueryIn.newFam_GammaTok {c m n₁ n₂ lab : ℕ} {κ : Fin m → ColKind}
+private theorem AggQueryIn.newFam_GammaTok {c m n₁ n₂ lab : ℕ} {κ : Fin m → ColKind}
     {rd : Fin c → Bool} (is : Tuple (Fin m) n₁) (his : ∀ k, κ (is k) ≠ ColKind.agg)
     (ts : Tuple (TermIn T c m) n₂) (fs : Tuple (SeqAggFunc T) n₂) (a : TermGIn T c κ)
     (q : AggQueryIn T c m κ) (keep : Fin n₂ → Option (Selection T m))
@@ -1390,7 +1394,7 @@ theorem AggQueryIn.newFam_GammaTok {c m n₁ n₂ lab : ℕ} {κ : Fin m → Col
   subst hx
   exact ⟨_, _, AggTok.fam_setFam _ _⟩
 
-theorem AggQueryIn.newFam_Win {c n m p lab : ℕ} {κ : Fin n → ColKind} {rd : Fin c → Bool}
+private theorem AggQueryIn.newFam_Win {c n m p lab : ℕ} {κ : Fin n → ColKind} {rd : Fin c → Bool}
     (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p) (w : ValueFrame T p) {hsql :
       w.IsSQL o}
     (t : TermIn T c n) (f : SeqAggFunc T) (q : AggQueryIn T c n κ)
@@ -1406,7 +1410,7 @@ theorem AggQueryIn.newFam_Win {c n m p lab : ℕ} {κ : Fin n → ColKind} {rd :
   subst hx
   exact ⟨_, _, AggTok.fam_setFam _ _⟩
 
-theorem AggQueryIn.newFam_WinExpr {c n m p q lab : ℕ} {rd : Fin c → Bool}
+private theorem AggQueryIn.newFam_WinExpr {c n m p q lab : ℕ} {rd : Fin c → Bool}
     (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
     (ws : Fin q → ValueFrame T p) {hsql : ∀ l, (ws l).IsSQL o}
     (ts : Fin q → TermIn T c n) (fs : Fin q → SeqAggFunc T) (g : (Fin q → T) → T)
@@ -1431,7 +1435,7 @@ section NodeRow
 
 /-- **A grouping's row**: its key columns hold values, and its aggregate
 columns the values of one family, the `j`-th recording column `j`. -/
-theorem AggQueryIn.newRow_Gamma {c m n₁ n₂ lab : ℕ} {rd : Fin c → Bool}
+private theorem AggQueryIn.newRow_Gamma {c m n₁ n₂ lab : ℕ} {rd : Fin c → Bool}
     (is : Tuple (Fin m) n₁) (ts : Tuple (TermIn T c m) n₂) (fs : Tuple (SeqAggFunc T) n₂)
     (q : AggQueryIn T c m (ColKind.allReg m)) (keep : Fin n₂ → Option (Selection T m))
     (ord : GroupOrder T m) (d : AnnotatedDatabase T K) (γ : Fin c → T) (E : EvalEnv T K)
@@ -1446,7 +1450,7 @@ theorem AggQueryIn.newRow_Gamma {c m n₁ n₂ lab : ℕ} {rd : Fin c → Bool}
   · dsimp only; rw [Fin.append_left]
   · dsimp only; rw [Fin.append_right]; exact ⟨_, rfl, AggTok.fam_setFam _ _⟩
 
-theorem AggQueryIn.newRow_GammaScalar {c m n₂ lab : ℕ} {rd : Fin c → Bool}
+private theorem AggQueryIn.newRow_GammaScalar {c m n₂ lab : ℕ} {rd : Fin c → Bool}
     (ts : Tuple (TermIn T c m) n₂) (fs : Tuple (SeqAggFunc T) n₂)
     (q : AggQueryIn T c m (ColKind.allReg m)) (ord : GroupOrder T m)
     (d : AnnotatedDatabase T K) (γ : Fin c → T) (E : EvalEnv T K) {r : GenRow T K n₂}
@@ -1457,7 +1461,7 @@ theorem AggQueryIn.newRow_GammaScalar {c m n₂ lab : ℕ} {rd : Fin c → Bool}
   subst hr
   exact ⟨[], fun j => ⟨_, rfl, AggTok.fam_setFam _ _⟩⟩
 
-theorem AggQueryIn.newRow_GammaNest {c m n₁ lab : ℕ} {κ : Fin m → ColKind}
+private theorem AggQueryIn.newRow_GammaNest {c m n₁ lab : ℕ} {κ : Fin m → ColKind}
     {rd : Fin c → Bool} (is : Tuple (Fin m) n₁) (his : ∀ k, κ (is k) ≠ ColKind.agg)
     (p : ProjColIn T c κ) (f : Multiset T → T) (q : AggQueryIn T c m κ)
     (d : AnnotatedDatabase T K) (γ : Fin c → T) (E : EvalEnv T K)
@@ -1473,7 +1477,7 @@ theorem AggQueryIn.newRow_GammaNest {c m n₁ lab : ℕ} {κ : Fin m → ColKind
   · obtain rfl : j = 0 := Subsingleton.elim _ _
     dsimp only; rw [Fin.append_right]; exact ⟨_, rfl, rfl⟩
 
-theorem AggQueryIn.newRow_GammaTok {c m n₁ n₂ lab : ℕ} {κ : Fin m → ColKind}
+private theorem AggQueryIn.newRow_GammaTok {c m n₁ n₂ lab : ℕ} {κ : Fin m → ColKind}
     {rd : Fin c → Bool} (is : Tuple (Fin m) n₁) (his : ∀ k, κ (is k) ≠ ColKind.agg)
     (ts : Tuple (TermIn T c m) n₂) (fs : Tuple (SeqAggFunc T) n₂) (a : TermGIn T c κ)
     (q : AggQueryIn T c m κ) (keep : Fin n₂ → Option (Selection T m))
@@ -1491,7 +1495,7 @@ theorem AggQueryIn.newRow_GammaTok {c m n₁ n₂ lab : ℕ} {κ : Fin m → Col
   · dsimp only; rw [Fin.append_right]; exact ⟨_, rfl⟩
   · dsimp only; rw [Fin.append_left, Fin.append_right]; exact ⟨_, rfl, AggTok.fam_setFam _ _⟩
 
-theorem AggQueryIn.newRow_WinExpr {c n m p q lab : ℕ} {rd : Fin c → Bool}
+private theorem AggQueryIn.newRow_WinExpr {c n m p q lab : ℕ} {rd : Fin c → Bool}
     (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
     (ws : Fin q → ValueFrame T p) {hsql : ∀ l, (ws l).IsSQL o}
     (ts : Fin q → TermIn T c n) (fs : Fin q → SeqAggFunc T) (g : (Fin q → T) → T)
@@ -1567,12 +1571,12 @@ end CohNode
 section Combine
 
 omit [DecidableEq K] [HasAltLinearOrder K] [ValueType T] [CommSemiringWithMonus K] in
-theorem AggTok.lab_eq_of_fam {x y : AggTok T K} (h : x.fam = y.fam) : x.lab = y.lab := by
+private theorem AggTok.lab_eq_of_fam {x y : AggTok T K} (h : x.fam = y.fam) : x.lab = y.lab := by
   unfold AggTok.lab
   rw [h]
 
 omit [DecidableEq K] [HasAltLinearOrder K] [ValueType T] [CommSemiringWithMonus K] in
-theorem AggTok.lab_eq_of_family {x y : AggTok T K} (h : x.fam.family = y.fam.family) :
+private theorem AggTok.lab_eq_of_family {x y : AggTok T K} (h : x.fam.family = y.fam.family) :
     x.lab = y.lab := by
   unfold AggTok.lab
   cases hx : x.fam
@@ -1584,7 +1588,7 @@ theorem AggTok.lab_eq_of_family {x y : AggTok T K} (h : x.fam.family = y.fam.fam
 omit [DecidableEq K] [HasAltLinearOrder K] [ValueType T] [CommSemiringWithMonus K] in
 /-- **Values built by an operator and by its subquery**: their labels
 differ, so equal identifiers mean both come from the same place. -/
-theorem coh_cons {lab : ℕ} {L : List ℕ} (hnd : (lab :: L).Nodup)
+private theorem coh_cons {lab : ℕ} {L : List ℕ} (hnd : (lab :: L).Nodup)
     {N₁ N₂ C₁ C₂ : AggTok T K → Prop} (R : AggTok T K → AggTok T K → Prop)
     (hN₁ : ∀ x, N₁ x → x.lab = lab) (hN₂ : ∀ x, N₂ x → x.lab = lab)
     (hC₁ : ∀ x, C₁ x → x.lab ∈ L) (hC₂ : ∀ x, C₂ x → x.lab ∈ L)
@@ -1602,7 +1606,7 @@ theorem coh_cons {lab : ℕ} {L : List ℕ} (hnd : (lab :: L).Nodup)
 
 omit [DecidableEq K] [HasAltLinearOrder K] [ValueType T] [CommSemiringWithMonus K] in
 /-- **Values built by two subqueries**: their labels differ. -/
-theorem coh_append {L₁ L₂ : List ℕ} (hnd : (L₁ ++ L₂).Nodup)
+private theorem coh_append {L₁ L₂ : List ℕ} (hnd : (L₁ ++ L₂).Nodup)
     {A₁ A₂ B₁ B₂ : AggTok T K → Prop} (R : AggTok T K → AggTok T K → Prop)
     (hA₁ : ∀ x, A₁ x → x.lab ∈ L₁) (hA₂ : ∀ x, A₂ x → x.lab ∈ L₁)
     (hB₁ : ∀ x, B₁ x → x.lab ∈ L₂) (hB₂ : ∀ x, B₂ x → x.lab ∈ L₂)
@@ -1619,7 +1623,7 @@ theorem coh_append {L₁ L₂ : List ℕ} (hnd : (L₁ ++ L₂).Nodup)
   · exact hBB x y hx hy hxy
 omit [DecidableEq K] [HasAltLinearOrder K] [ValueType T] [CommSemiringWithMonus K] in
 /-- `coh_cons` for an operator that may build no column. -/
-theorem coh_labCons {w lab : ℕ} {L : List ℕ} (hnd : (labCons w lab L).Nodup)
+private theorem coh_labCons {w lab : ℕ} {L : List ℕ} (hnd : (labCons w lab L).Nodup)
     {N₁ N₂ C₁ C₂ : AggTok T K → Prop} (R : AggTok T K → AggTok T K → Prop)
     (hN₁ : ∀ x, N₁ x → x.lab = lab ∧ w ≠ 0) (hN₂ : ∀ x, N₂ x → x.lab = lab ∧ w ≠ 0)
     (hC₁ : ∀ x, C₁ x → x.lab ∈ L) (hC₂ : ∀ x, C₂ x → x.lab ∈ L)
@@ -1647,7 +1651,7 @@ one value, and one family, one class. -/
 def CohRel (x y : AggTok T K) : Prop := (x.fam = y.fam → x = y) ∧ x.classKey = y.classKey
 
 omit [DecidableEq K] [HasAltLinearOrder K] [ValueType T] in
-theorem CohRel.of_eq {x y : AggTok T K} (h : x = y) : CohRel x y := ⟨fun _ => h, by rw [h]⟩
+private theorem CohRel.of_eq {x y : AggTok T K} (h : x = y) : CohRel x y := ⟨fun _ => h, by rw [h]⟩
 
 /-- **What the induction carries**: in two coherent situations whose
 provided and built values lie in `U`, two values the query builds with the
@@ -1663,7 +1667,7 @@ def AggQueryIn.CohAt (U : AggTok T K → Prop) (M : ℕ) {c n : ℕ} {κ : Fin n
 /-- **Coherence at one size**: given that identifiers of size below `M`
 determine their values in `U`, identifiers of size `M` do among the values
 a query builds. -/
-theorem AggQueryIn.cohAt (U : AggTok T K → Prop) (hcl : ∀ x, TermCl U x → U x) (M : ℕ)
+private theorem AggQueryIn.cohAt (U : AggTok T K → Prop) (hcl : ∀ x, TermCl U x → U x) (M : ℕ)
     (hU : ∀ x y, U x → U y → x.fam = y.fam → sizeOf x.fam < M → x = y) :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l),
       q.labelsDistinct → q.readsRecorded → q.sourceCols → q.allFramesContainSelf →
@@ -1984,7 +1988,7 @@ end CohAll
 section Coherent
 
 omit [ValueType T] in
-theorem FamId.root_of_terms' {φ : FamId T} (h : φ.terms' = []) : φ.root = φ := by
+private theorem FamId.root_of_terms' {φ : FamId T} (h : φ.terms' = []) : φ.root = φ := by
   cases φ with
   | mk l k p c ts =>
     simp only [FamId.terms'] at h
@@ -1992,7 +1996,7 @@ theorem FamId.root_of_terms' {φ : FamId T} (h : φ.terms' = []) : φ.root = φ 
     rfl
 
 omit [ValueType T] in
-theorem FamId.sizeOf_root_lt {φ : FamId T} (h : φ.terms' ≠ []) : sizeOf φ.root < sizeOf φ := by
+private theorem FamId.sizeOf_root_lt {φ : FamId T} (h : φ.terms' ≠ []) : sizeOf φ.root < sizeOf φ := by
   cases φ with
   | mk l k p c ts =>
     cases ts with
@@ -2003,17 +2007,17 @@ theorem FamId.sizeOf_root_lt {φ : FamId T} (h : φ.terms' ≠ []) : sizeOf φ.r
       omega
 
 omit [ValueType T] in
-theorem FamId.sizeOf_param_lt' {ψ φ : FamId T} (h : Sum.inr φ ∈ ψ.family.2.2) :
+private theorem FamId.sizeOf_param_lt' {ψ φ : FamId T} (h : Sum.inr φ ∈ ψ.family.2.2) :
     sizeOf φ < sizeOf ψ := by
   cases ψ with
   | mk l k p c ts => exact FamId.sizeOf_param_lt h
 
 omit [ValueType T] in
-@[simp] theorem FamId.family_root (φ : FamId T) : φ.root.family = φ.family := by
+@[simp] private theorem FamId.family_root (φ : FamId T) : φ.root.family = φ.family := by
   cases φ; rfl
 
 omit [DecidableEq K] [HasAltLinearOrder K] in
-theorem AggTok.classKey_postcompTerms (x : AggTok T K) :
+private theorem AggTok.classKey_postcompTerms (x : AggTok T K) :
     ∀ ts, (x.postcompTerms ts).classKey = x.classKey
   | [] => rfl
   | t :: ts => by
@@ -2121,7 +2125,7 @@ theorem AggQueryIn.builds_coherent {c n : ℕ} {κ : Fin n → ColKind} {l : Lis
 
 /-- **A query evaluated from scratch**: what it builds has one value per
 identifier and one class per family, terms included. -/
-theorem AggQueryIn.builds_coherent_closed {c n : ℕ} {κ : Fin n → ColKind}
+private theorem AggQueryIn.builds_coherent_closed {c n : ℕ} {κ : Fin n → ColKind}
     (q : AggQueryIn T c n κ) (hld : q.labelsDistinct) (hrr : q.readsRecorded)
     (hsc : q.sourceCols) (hfc : q.allFramesContainSelf) (d : AnnotatedDatabase T K)
     (γ : Fin c → T) :

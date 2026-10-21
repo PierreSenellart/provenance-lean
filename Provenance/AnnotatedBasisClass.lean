@@ -11,6 +11,10 @@ public import Provenance.AnnotatedDiffRow
 import Mathlib.Analysis.SpecialFunctions.Pow.NNReal
 import Provenance.AnnotatedChains
 import Provenance.AnnotatedEpsRow
+import all Provenance.AnnotatedDatabase
+import all Provenance.AnnotatedDiffRow
+import all Provenance.AnnotatedMuUnion
+import all Provenance.Semirings.How
 
 /-!
 # The annotated basis over a class of semirings
@@ -52,34 +56,34 @@ open Classical in
 /-- Any linear order serves to list the occurrences of a family. -/
 noncomputable instance : HasAltLinearOrder PolyXY := ⟨linearOrderOfSTO WellOrderingRel⟩
 
-theorem delta_eq (p : PolyXY) : SemiringWithMonus.delta p = if p = 0 then 0 else 1 := rfl
+private theorem delta_eq (p : PolyXY) : SemiringWithMonus.delta p = if p = 0 then 0 else 1 := rfl
 
-theorem settlesEarly : PathSum.SettlesEarly PolyXY :=
+private theorem settlesEarly : PathSum.SettlesEarly PolyXY :=
   Or.inr ⟨fun _ _ h => add_eq_left.mp h, inferInstance⟩
 
 /-- The coefficient of a variable in a product. -/
-theorem coeff_single_mul (i : Fin 2) (p q : PolyXY) :
+private theorem coeff_single_mul (i : Fin 2) (p q : PolyXY) :
     (p * q).coeff (Finsupp.single i 1)
       = p.coeff 0 * q.coeff (Finsupp.single i 1) + p.coeff (Finsupp.single i 1) * q.coeff 0 := by
   rw [MvPolynomial.coeff_mul, Finsupp.antidiagonal_single]
   simp [Finset.Nat.antidiagonal_succ]
 
-theorem single_ne : (Finsupp.single (0 : Fin 2) 1 : Fin 2 →₀ ℕ) ≠ Finsupp.single 1 1 := by
+private theorem single_ne : (Finsupp.single (0 : Fin 2) 1 : Fin 2 →₀ ℕ) ≠ Finsupp.single 1 1 := by
   rw [Ne, Finsupp.single_left_inj one_ne_zero]
   decide
 
-theorem coeff_add' (a b : PolyXY) (m : Fin 2 →₀ ℕ) : (a + b).coeff m = a.coeff m + b.coeff m :=
+private theorem coeff_add' (a b : PolyXY) (m : Fin 2 →₀ ℕ) : (a + b).coeff m = a.coeff m + b.coeff m :=
   by simp
 
 /-- **The `x`-coefficient is at most the `y`-coefficient.** -/
 def XLeY (p : PolyXY) : Prop :=
   p.coeff (Finsupp.single 0 1) ≤ p.coeff (Finsupp.single 1 1)
 
-theorem xLeY_of_const (p : PolyXY) (h : ∀ i : Fin 2, p.coeff (Finsupp.single i 1) = 0) :
+private theorem xLeY_of_const (p : PolyXY) (h : ∀ i : Fin 2, p.coeff (Finsupp.single i 1) = 0) :
     XLeY p := by
   unfold XLeY; rw [h 0, h 1]
 
-theorem coeff_one_single (i : Fin 2) : (1 : PolyXY).coeff (Finsupp.single i 1) = 0 := by
+private theorem coeff_one_single (i : Fin 2) : (1 : PolyXY).coeff (Finsupp.single i 1) = 0 := by
   rw [MvPolynomial.coeff_one, ite_eq_right]
   intro h
   exact absurd (congrArg (fun f => f i) h) (by simp)
@@ -116,7 +120,7 @@ noncomputable def dDiffXY : AnnotatedDatabase ℕ PolyXY :=
       (({(((fun _ => 0) : Tuple ℕ 1), MvPolynomial.X 1)}
         : Multiset (AnnotatedTuple ℕ PolyXY 1)) : AnnotatedRelation ℕ PolyXY 1) [])
 
-theorem dDiffXY_xLeY : ∀ k t (r : AnnotatedRelation ℕ PolyXY k), dDiffXY.find k t = some r →
+private theorem dDiffXY_xLeY : ∀ k t (r : AnnotatedRelation ℕ PolyXY k), dDiffXY.find k t = some r →
     ∀ a ∈ r, PolyXY.XLeY a.2 := by
   intro k t r hr a ha
   unfold dDiffXY at hr
@@ -145,7 +149,7 @@ theorem dDiffXY_xLeY : ∀ k t (r : AnnotatedRelation ℕ PolyXY k), dDiffXY.fin
         simp)
 
 /-- **`R − S` there**: `(x ⊕ y) ⊖ y = x`. -/
-theorem evaluateAnnotated_diffWitness_xy :
+private theorem evaluateAnnotated_diffWitness_xy :
     diffWitness.evaluateAnnotated dDiffXY (fun _ => 0)
       = ({(((fun _ => 0) : Tuple ℕ 1), MvPolynomial.X 0 + MvPolynomial.X 1 - MvPolynomial.X 1)}
         : Multiset (AnnotatedTuple ℕ PolyXY 1)) := by
@@ -162,7 +166,7 @@ theorem evaluateAnnotated_diffWitness_xy :
   erw [Multiset.filter_singleton, ite_eq_left rfl, Multiset.map_singleton,
     Multiset.sum_singleton]
 
-theorem not_xLeY_x : ¬ PolyXY.XLeY (MvPolynomial.X 0 + MvPolynomial.X 1 - MvPolynomial.X 1) := by
+private theorem not_xLeY_x : ¬ PolyXY.XLeY (MvPolynomial.X 0 + MvPolynomial.X 1 - MvPolynomial.X 1) := by
   unfold PolyXY.XLeY
   rw [coeff_sub, coeff_sub]
   simp [MvPolynomial.coeff_X, PolyXY.single_ne, PolyXY.single_ne.symm]
@@ -198,18 +202,18 @@ def AnnBasisClass (K : Type) [CommSemiringWithMonus K] : Prop :=
   ((∀ a : K, a ≠ 0 → SemiringWithMonus.delta a = 1) ∧ PathSum.SettlesLinear K)
     ∨ ∀ a : K, SemiringWithMonus.delta a = a
 
-theorem annBasisClass_nat : AnnBasisClass ℕ := by
+private theorem annBasisClass_nat : AnnBasisClass ℕ := by
   refine Or.inl ⟨fun a ha => ?_, Or.inl (Or.inr ⟨fun _ _ h => add_eq_left.mp h, inferInstance⟩)⟩
   have := SemiringWithMonus.delta_natCast_pos (α := ℕ) (Nat.pos_of_ne_zero ha)
   rwa [Nat.cast_id] at this
 
-theorem annBasisClass_polyXY : AnnBasisClass PolyXY := by
+private theorem annBasisClass_polyXY : AnnBasisClass PolyXY := by
   refine Or.inl ⟨fun a ha => ?_, Or.inl PolyXY.settlesEarly⟩
   rw [PolyXY.delta_eq, ite_eq_right ha]
 
 /-- **In the lineage semiring `⊗` is `⊕` on non-zero values**, both being
 union, and `⊕` is idempotent. -/
-theorem Which.unionLike {α : Type} [DecidableEq α] : PathSum.UnionLike (Which α) := by
+private theorem Which.unionLike {α : Type} [DecidableEq α] : PathSum.UnionLike (Which α) := by
   refine ⟨fun a => ?_, fun a b ha hb => ?_⟩
   · cases a with
     | wbot => rfl
@@ -223,7 +227,7 @@ theorem Which.unionLike {α : Type} [DecidableEq α] : PathSum.UnionLike (Which 
 
 /-- **The lineage semiring is in the class**: `δ` is the support map, and `⊗`
 is `⊕` on non-zero values. -/
-theorem annBasisClass_which {α : Type} [DecidableEq α] : AnnBasisClass (Which α) := by
+private theorem annBasisClass_which {α : Type} [DecidableEq α] : AnnBasisClass (Which α) := by
   refine Or.inl ⟨fun a ha => ?_, Or.inr Which.unionLike⟩
   cases a with
   | wbot => exact absurd rfl ha

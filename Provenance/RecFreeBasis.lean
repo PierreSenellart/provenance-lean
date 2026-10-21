@@ -4,6 +4,17 @@ public import Provenance.DiffBasis
 public import Provenance.WinKept
 import Mathlib.Analysis.SpecialFunctions.Pow.NNReal
 import Provenance.WinRow
+import all Provenance.AggQuery
+import all Provenance.AllRegular
+import all Provenance.BasisAssembly
+import all Provenance.Decorrelate
+import all Provenance.DiffBasis
+import all Provenance.PlainBasis
+import all Provenance.RecursionBasis
+import all Provenance.RecursionBasisPass
+import all Provenance.SumByMu
+import all Provenance.WinKept
+import all Provenance.WinRow
 
 /-!
 # The bases of the recursion-free algebra in the minimal universe
@@ -29,56 +40,53 @@ def GeneratesOnRF (T : Type) [ValueType T] (sch : Schema) (cnt : SeqAggFunc T)
   ∀ {n : ℕ} {κ : Fin n → ColKind} (q : AggQuery T n κ), q.usesOnly plainOps →
     GeneratesAt T sch cnt S q
 
-theorem GeneratesOnRF.mono {sch : Schema} {cnt : SeqAggFunc T} {S S' : Set OpKind}
+private theorem GeneratesOnRF.mono {sch : Schema} {cnt : SeqAggFunc T} {S S' : Set OpKind}
     (hSS : S ⊆ S') (h : GeneratesOnRF T sch cnt S) : GeneratesOnRF T sch cnt S' := by
   intro n κ q hq ho hu hi
   obtain ⟨κ', q', h₁, h₂, h₃, h₄⟩ := h q hq ho hu hi
   exact ⟨κ', q', h₁, AggQueryIn.usesOnly_mono hSS q' h₂, h₃, h₄⟩
 
 /-- A set generating the whole algebra generates its recursion-free part. -/
-theorem GeneratesOnRec.toRF {sch : Schema} {cnt : SeqAggFunc T} {S : Set OpKind}
+private theorem GeneratesOnRec.toRF {sch : Schema} {cnt : SeqAggFunc T} {S : Set OpKind}
     (h : GeneratesOnRec T sch cnt S) : GeneratesOnRF T sch cnt S :=
   fun q _ => h q
 
 namespace RecFree
 
-theorem plainOps_subset_plainRecOps : plainOps ⊆ plainRecOps := fun _ h =>
-  Set.mem_insert_of_mem _ (Set.mem_insert_of_mem _ h)
-
-theorem settlesAt_plain {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)}
+private theorem settlesAt_plain {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)}
     (q : AggQueryIn T c n κ l) (hq : q.usesOnly plainOps) :
     ∀ (D : Database T) (γ : Fin c → T), q.SettlesAt D γ :=
   AggQueryIn.settlesAt_of_usesOnly (S := plainOps)
     (by simp [plainOps, basisDD, basisOps]) (by simp [plainOps, basisDD, basisOps]) q hq
 
 omit [ValueType T] in
-theorem usesOnly_unit :
+private theorem usesOnly_unit :
     (AggQueryIn.unit : AggQuery T 0 (ColKind.allReg 0)).usesOnly plainOps := by
   unfold AggQueryIn.unit
   rw [AggQueryIn.usesOnly_castKind]
   exact ⟨by simp [plainOps, basisDD, basisOps],
     show OpKind.empty ∈ plainOps by simp [plainOps, basisDD, basisOps]⟩
 
-theorem inSig_unit {Θ : Set (SeqAggFunc T)} :
+private theorem inSig_unit {Θ : Set (SeqAggFunc T)} :
     (AggQueryIn.unit : AggQuery T 0 (ColKind.allReg 0)).inSig Θ := by
   unfold AggQueryIn.unit
   rw [AggQueryIn.inSig_castKind]
   exact ⟨fun j => j.elim0, fun j => j.elim0, trivial⟩
 
 omit [ValueType T] in
-theorem usesOnly_rowOf {k : ℕ} (u : Tuple T k) : (AggQueryIn.rowOf u).usesOnly plainOps := by
+private theorem usesOnly_rowOf {k : ℕ} (u : Tuple T k) : (AggQueryIn.rowOf u).usesOnly plainOps := by
   unfold AggQueryIn.rowOf
   rw [AggQueryIn.usesOnly_castKind]
   exact ⟨⟨by simp [plainOps, basisDD, basisOps], fun _ => rfl⟩, usesOnly_unit⟩
 
-theorem inSig_rowOf {Θ : Set (SeqAggFunc T)} {k : ℕ} (u : Tuple T k) :
+private theorem inSig_rowOf {Θ : Set (SeqAggFunc T)} {k : ℕ} (u : Tuple T k) :
     (AggQueryIn.rowOf u).inSig Θ := by
   unfold AggQueryIn.rowOf
   rw [AggQueryIn.inSig_castKind]
   exact ⟨fun _ => rfl, inSig_unit⟩
 
 omit [ValueType T] in
-theorem overSchema_rowOf {sch : Schema} {k : ℕ} (u : Tuple T k) :
+private theorem overSchema_rowOf {sch : Schema} {k : ℕ} (u : Tuple T k) :
     (AggQueryIn.rowOf u).overSchema sch := by
   unfold AggQueryIn.rowOf
   rw [AggQueryIn.overSchema_castKind]
@@ -117,7 +125,7 @@ open RecFree in
 over `ℕ` with the counting aggregate, its classes holding no recursion:
 `∅`, `Π`, `⊎`, `γ` and `win`, one of `σ` and `−`, and one of `×` and the
 apply. -/
-theorem required_mem_of_generatesOnRF {S : Set OpKind} (hmb : OpKind.muBag ∉ S)
+private theorem required_mem_of_generatesOnRF {S : Set OpKind} (hmb : OpKind.muBag ∉ S)
     (hms : OpKind.muSet ∉ S)
     (hS : ∀ sch : Schema, GeneratesOnRF ℕ sch SeqAggFunc.count S) :
     OpKind.empty ∈ S ∧ OpKind.proj ∈ S ∧ OpKind.union ∈ S ∧ OpKind.gamma ∈ S
@@ -148,7 +156,7 @@ def pairU (a b : T ⊕ Fin C) : AggQueryIn T C 1 (ColKind.allReg 1) :=
 /-- The pair by a union. -/
 def prU : PairQ T := fun a b => pairU a b
 
-theorem pairSpec_prU : PairSpec (prU (T := T)) := by
+private theorem pairSpec_prU : PairSpec (prU (T := T)) := by
   intro C a b D γ
   refine ⟨⟨trivial, trivial, trivial⟩, ?_⟩
   show ({r1 (val γ a)} : Multiset (Tuple T 1))
@@ -164,7 +172,7 @@ theorem pairSpec_prU : PairSpec (prU (T := T)) := by
   · exact absurd ((hmem _ _).mpr h₂) h₁
   · exact Multiset.singleton_add _ _
 
-theorem pairOK_prU {S : Set OpKind} {Θ : Set (SeqAggFunc T)} {Q : Schema → Prop}
+private theorem pairOK_prU {S : Set OpKind} {Θ : Set (SeqAggFunc T)} {Q : Schema → Prop}
     (hS : selTestOps ⊆ S) (hu : OpKind.union ∈ S) : PairOK S Θ Q (prU (T := T)) :=
   fun a b => {
     uses := ⟨hu, (testOK_param1 (Θ := Θ) (Q := Q) hS a).uses,
@@ -295,7 +303,7 @@ section NotInProd
 
 variable {c k : ℕ} (cnt : SeqAggFunc T) (q₁ q₂ : AggQueryIn T c k (ColKind.allReg k))
 
-theorem inSig_notInDiff {Θ : Set (SeqAggFunc T)} (hc : cnt ∈ Θ) (h₁ : q₁.inSig Θ)
+private theorem inSig_notInDiff {Θ : Set (SeqAggFunc T)} (hc : cnt ∈ Θ) (h₁ : q₁.inSig Θ)
     (h₂ : q₂.inSig Θ) : (AggQueryIn.notInDiff cnt q₁ q₂).inSig Θ := by
   refine ⟨fun _ => rfl, AggQueryIn.noFun_notInCond, h₁, fun j => ?_, fun j => ?_, fun j => ?_,
     ⟨fun j => AggQueryIn.noFun_tagCols 0 j, h₁⟩, ⟨fun j => AggQueryIn.noFun_tagCols _ j, h₂⟩⟩
@@ -303,14 +311,14 @@ theorem inSig_notInDiff {Θ : Set (SeqAggFunc T)} (hc : cnt ∈ Θ) (h₁ : q₁
   · rw [Subsingleton.elim j 0]; exact hc
   · rw [Subsingleton.elim j 0]; rfl
 
-theorem settlesAt_notInDiff (D : Database T) (γ : Fin c → T) (h₁ : q₁.SettlesAt D γ)
+private theorem settlesAt_notInDiff (D : Database T) (γ : Fin c → T) (h₁ : q₁.SettlesAt D γ)
     (h₂ : q₂.SettlesAt D γ) : (AggQueryIn.notInDiff cnt q₁ q₂).SettlesAt D γ :=
   ⟨h₁, h₁, h₂⟩
 
 end NotInProd
 
 omit [ValueType T] in
-theorem paramsReg_explodeBelow {c n : ℕ} :
+private theorem paramsReg_explodeBelow {c n : ℕ} :
     ∀ (m : ℕ) {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l),
       (q.explodeBelow m).paramsReg ↔ q.paramsReg := by
   intro m
@@ -335,11 +343,11 @@ theorem paramsReg_explodeBelow {c n : ℕ} :
       exact ih q
 
 omit [ValueType T] in
-theorem paramsReg_allRegOf {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)}
+private theorem paramsReg_allRegOf {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)}
     (q : AggQueryIn T c n κ l) : (q.allRegOf).paramsReg ↔ q.paramsReg := by
   rw [AggQueryIn.allRegOf, AggQueryIn.paramsReg_castKind, paramsReg_explodeBelow]
 
-theorem paramsReg_winKept {c n m p : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
+private theorem paramsReg_winKept {c n m p : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
     (o : OrderSpec p) (w : ValueFrame T p) {hsql : w.IsSQL o} (t : TermIn T c n) (f : SeqAggFunc T)
     (κ : Fin n → ColKind) (q : AggQueryIn T c n (ColKind.allReg n)) (dist : Bool)
     (keep : Option (Selection T n)) (h : q.paramsReg) :
@@ -667,7 +675,7 @@ def rfDiffProdOps : Set OpKind :=
 
 /-- **`{∅, Π, σ, apply, ⊎, γ, win}` generates the recursion-free algebra**
 in the minimal universe. -/
-theorem rfSelApplyOps_generatesOnRF (sch : Schema) (cnt : SeqAggFunc T) (hcnt : cnt.IsCount) :
+private theorem rfSelApplyOps_generatesOnRF (sch : Schema) (cnt : SeqAggFunc T) (hcnt : cnt.IsCount) :
     GeneratesOnRF T sch cnt rfSelApplyOps := by
   intro n κ q hq ho _ hi
   obtain ⟨q', hu', hi', -, ho', he'⟩ := AggQueryIn.exists_rfPass (S := rfSelApplyOps)
@@ -678,7 +686,7 @@ theorem rfSelApplyOps_generatesOnRF (sch : Schema) (cnt : SeqAggFunc T) (hcnt : 
     cnt (Set.mem_singleton cnt) hcnt sch q rfl (Or.inl rfl) hq hi ho
   exact ⟨_, q', ho', hu', hi', AggQueryIn.Extends.of_settles he'⟩
 
-theorem selTestOps_subset_rfDiffApplyOps : DiffBasis.selTestOps ⊆ rfDiffApplyOps := by
+private theorem selTestOps_subset_rfDiffApplyOps : DiffBasis.selTestOps ⊆ rfDiffApplyOps := by
   intro k hk
   simp only [DiffBasis.selTestOps, Set.mem_insert_iff, Set.mem_singleton_iff] at hk
   simp only [rfDiffApplyOps, Set.mem_insert_iff, Set.mem_singleton_iff]
@@ -717,7 +725,7 @@ the signature, defined everywhere and equal to the source. The source is
 first matched over `{∅, Π, σ, ×, apply, ⊎, γ, win}`, every parameter leaf
 regular, and its applies are then decorrelated in the signature
 (`exists_applyFree_plainEquiv_sig`). -/
-theorem exists_rfDec (sch : Schema) {cnt : SeqAggFunc T} (hcnt : cnt.IsCount) {n : ℕ}
+private theorem exists_rfDec (sch : Schema) {cnt : SeqAggFunc T} (hcnt : cnt.IsCount) {n : ℕ}
     {κ : Fin n → ColKind} (q : AggQuery T n κ) (hq : q.usesOnly plainOps)
     (ho : q.overSchema sch) (hi : q.inSig {cnt}) :
     ∃ q₂ : AggQuery T n (ColKind.allReg n), q₂.usesOnly rfDecOps ∧ q₂.overSchema sch
@@ -747,7 +755,7 @@ theorem exists_rfDec (sch : Schema) {cnt : SeqAggFunc T} (hcnt : cnt.IsCount) {n
 /-- **`{∅, Π, σ, ×, ⊎, γ, win}` generates the recursion-free algebra** in
 the minimal universe: the match without applies, its duplicate
 eliminations and differences rewritten. -/
-theorem rfSelProdOps_generatesOnRF (sch : Schema) (cnt : SeqAggFunc T) (hcnt : cnt.IsCount) :
+private theorem rfSelProdOps_generatesOnRF (sch : Schema) (cnt : SeqAggFunc T) (hcnt : cnt.IsCount) :
     GeneratesOnRF T sch cnt rfSelProdOps := by
   intro n κ q hq ho _ hi
   obtain ⟨q₂, hu₂, ho₂, hi₂, hs₂, he₂⟩ := exists_rfDec sch hcnt q hq ho hi
@@ -770,7 +778,7 @@ theorem rfSelProdOps_generatesOnRF (sch : Schema) (cnt : SeqAggFunc T) (hcnt : c
 the minimal universe: the match without applies, its selections kept by
 their decorrelated tests (`AggQueryIn.exists_selByTest`), its duplicate
 eliminations rewritten. -/
-theorem rfDiffProdOps_generatesOnRF (sch : Schema) (cnt : SeqAggFunc T) (hcnt : cnt.IsCount) :
+private theorem rfDiffProdOps_generatesOnRF (sch : Schema) (cnt : SeqAggFunc T) (hcnt : cnt.IsCount) :
     GeneratesOnRF T sch cnt rfDiffProdOps := by
   intro n κ q hq ho _ hi
   obtain ⟨q₂, hu₂, ho₂, hi₂, hs₂, he₂⟩ := exists_rfDec sch hcnt q hq ho hi
@@ -809,7 +817,7 @@ theorem rfSelApplyOps_minimal {S : Set OpKind} (hS : S ⊂ rfSelApplyOps) :
   · exact hxS hg
   · exact hxS hw
 
-theorem rfSelProdOps_minimal {S : Set OpKind} (hS : S ⊂ rfSelProdOps) :
+private theorem rfSelProdOps_minimal {S : Set OpKind} (hS : S ⊂ rfSelProdOps) :
     ¬ ∀ sch : Schema, GeneratesOnRF ℕ sch SeqAggFunc.count S := by
   intro hgen
   have hsub := hS.subset
@@ -827,7 +835,7 @@ theorem rfSelProdOps_minimal {S : Set OpKind} (hS : S ⊂ rfSelProdOps) :
   · exact hxS hg
   · exact hxS hw
 
-theorem rfDiffApplyOps_minimal {S : Set OpKind} (hS : S ⊂ rfDiffApplyOps) :
+private theorem rfDiffApplyOps_minimal {S : Set OpKind} (hS : S ⊂ rfDiffApplyOps) :
     ¬ ∀ sch : Schema, GeneratesOnRF ℕ sch SeqAggFunc.count S := by
   intro hgen
   have hsub := hS.subset
@@ -845,7 +853,7 @@ theorem rfDiffApplyOps_minimal {S : Set OpKind} (hS : S ⊂ rfDiffApplyOps) :
   · exact hxS hg
   · exact hxS hw
 
-theorem rfDiffProdOps_minimal {S : Set OpKind} (hS : S ⊂ rfDiffProdOps) :
+private theorem rfDiffProdOps_minimal {S : Set OpKind} (hS : S ⊂ rfDiffProdOps) :
     ¬ ∀ sch : Schema, GeneratesOnRF ℕ sch SeqAggFunc.count S := by
   intro hgen
   have hsub := hS.subset

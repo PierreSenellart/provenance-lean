@@ -8,6 +8,13 @@ import Mathlib.Data.Fintype.BigOperators
 import Mathlib.Tactic.Ring.RingNF
 import Provenance.NestedPres
 import Provenance.RecursionBasisPass
+import all Provenance.AggQuery
+import all Provenance.Database
+import all Provenance.Decorrelate
+import all Provenance.Frame
+import all Provenance.NestedPres
+import all Provenance.PlainBasis
+import all Provenance.Query
 
 /-!
 # Genericity of the minimal universe: a query reads its parameters only up to order
@@ -38,25 +45,25 @@ namespace FaithfulOn
 
 variable {τ : T → T} {W : Set T}
 
-theorem mono {W' : Set T} (h : FaithfulOn τ W) (hW : W' ⊆ W) : FaithfulOn τ W' :=
+private theorem mono {W' : Set T} (h : FaithfulOn τ W) (hW : W' ⊆ W) : FaithfulOn τ W' :=
   ⟨fun a ha => h.isNull a (hW ha), fun a ha b hb => h.le_iff a (hW ha) b (hW hb)⟩
 
-theorem eq_iff (h : FaithfulOn τ W) {a b : T} (ha : a ∈ W) (hb : b ∈ W) :
+private theorem eq_iff (h : FaithfulOn τ W) {a b : T} (ha : a ∈ W) (hb : b ∈ W) :
     τ a = τ b ↔ a = b := by
   constructor
   · intro he
     exact le_antisymm ((h.le_iff a ha b hb).mp he.le) ((h.le_iff b hb a ha).mp he.ge)
   · intro he; rw [he]
 
-theorem lt_iff (h : FaithfulOn τ W) {a b : T} (ha : a ∈ W) (hb : b ∈ W) :
+private theorem lt_iff (h : FaithfulOn τ W) {a b : T} (ha : a ∈ W) (hb : b ∈ W) :
     (τ a < τ b) ↔ (a < b) := by
   rw [lt_iff_not_ge, lt_iff_not_ge, h.le_iff b hb a ha]
 
-theorem injOn (h : FaithfulOn τ W) : Set.InjOn τ W :=
+private theorem injOn (h : FaithfulOn τ W) : Set.InjOn τ W :=
   fun _ ha _ hb he => (h.eq_iff ha hb).mp he
 
 /-- A comparison of the signature is preserved. -/
-theorem compOp_eval (h : FaithfulOn τ W) (op : CompOp) {a b : T} (ha : a ∈ W) (hb : b ∈ W) :
+private theorem compOp_eval (h : FaithfulOn τ W) (op : CompOp) {a b : T} (ha : a ∈ W) (hb : b ∈ W) :
     op.eval (τ a) (τ b) ↔ op.eval a b := by
   cases op
   all_goals simp only [CompOp.eval]
@@ -70,7 +77,7 @@ theorem compOp_eval (h : FaithfulOn τ W) (op : CompOp) {a b : T} (ha : a ∈ W)
   · exact not_congr (h.eq_iff ha hb)
 
 /-- And its three-valued reading, the null kept apart. -/
-theorem compOp_eval3 (h : FaithfulOn τ W) (op : CompOp) {a b : T} (ha : a ∈ W) (hb : b ∈ W) :
+private theorem compOp_eval3 (h : FaithfulOn τ W) (op : CompOp) {a b : T} (ha : a ∈ W) (hb : b ∈ W) :
     op.eval3 (τ a) (τ b) = op.eval3 a b := by
   unfold CompOp.eval3
   rw [h.isNull a ha, h.isNull b hb]
@@ -80,7 +87,7 @@ theorem compOp_eval3 (h : FaithfulOn τ W) (op : CompOp) {a b : T} (ha : a ∈ W
       decide_eq_decide.mpr (h.compOp_eval op ha hb)]
 
 /-- A column of an `ORDER BY` reads alike. -/
-theorem orderCol_le (h : FaithfulOn τ W) (c : OrderCol) {a b : T} (ha : a ∈ W) (hb : b ∈ W) :
+private theorem orderCol_le (h : FaithfulOn τ W) (c : OrderCol) {a b : T} (ha : a ∈ W) (hb : b ∈ W) :
     c.le (τ a) (τ b) = c.le a b := by
   unfold OrderCol.le
   rw [h.isNull a ha, h.isNull b hb]
@@ -92,12 +99,12 @@ theorem orderCol_le (h : FaithfulOn τ W) (c : OrderCol) {a b : T} (ha : a ∈ W
   · simp only [↓reduceIte]
     exact decide_eq_decide.mpr (h.le_iff b hb a ha)
 
-theorem orderCol_peer (h : FaithfulOn τ W) (c : OrderCol) {a b : T} (ha : a ∈ W) (hb : b ∈ W) :
+private theorem orderCol_peer (h : FaithfulOn τ W) (c : OrderCol) {a b : T} (ha : a ∈ W) (hb : b ∈ W) :
     c.peer (τ a) (τ b) = c.peer a b := by
   unfold OrderCol.peer
   rw [h.orderCol_le c ha hb, h.orderCol_le c hb ha]
 
-theorem orderSpec_leOn (h : FaithfulOn τ W) {p : ℕ} (o : OrderSpec p) (ks : List (Fin p))
+private theorem orderSpec_leOn (h : FaithfulOn τ W) {p : ℕ} (o : OrderSpec p) (ks : List (Fin p))
     {x y : Tuple T p} (hx : ∀ k, x k ∈ W) (hy : ∀ k, y k ∈ W) :
     o.leOn ks (τ ∘ x) (τ ∘ y) = o.leOn ks x y := by
   induction ks with
@@ -106,25 +113,25 @@ theorem orderSpec_leOn (h : FaithfulOn τ W) {p : ℕ} (o : OrderSpec p) (ks : L
     simp only [OrderSpec.leOn, Function.comp]
     rw [h.orderCol_peer (o k) (hx k) (hy k), h.orderCol_le (o k) (hx k) (hy k), ih]
 
-theorem orderSpec_le (h : FaithfulOn τ W) {p : ℕ} (o : OrderSpec p)
+private theorem orderSpec_le (h : FaithfulOn τ W) {p : ℕ} (o : OrderSpec p)
     {x y : Tuple T p} (hx : ∀ k, x k ∈ W) (hy : ∀ k, y k ∈ W) :
     o.le (τ ∘ x) (τ ∘ y) = o.le x y :=
   h.orderSpec_leOn o _ hx hy
 
-theorem orderSpec_lt (h : FaithfulOn τ W) {p : ℕ} (o : OrderSpec p)
+private theorem orderSpec_lt (h : FaithfulOn τ W) {p : ℕ} (o : OrderSpec p)
     {x y : Tuple T p} (hx : ∀ k, x k ∈ W) (hy : ∀ k, y k ∈ W) :
     o.lt (τ ∘ x) (τ ∘ y) = o.lt x y := by
   unfold OrderSpec.lt
   rw [h.orderSpec_le o hy hx]
 
-theorem orderSpec_peer (h : FaithfulOn τ W) {p : ℕ} (o : OrderSpec p)
+private theorem orderSpec_peer (h : FaithfulOn τ W) {p : ℕ} (o : OrderSpec p)
     {x y : Tuple T p} (hx : ∀ k, x k ∈ W) (hy : ∀ k, y k ∈ W) :
     o.peer (τ ∘ x) (τ ∘ y) = o.peer x y := by
   unfold OrderSpec.peer
   rw [h.orderSpec_le o hx hy, h.orderSpec_le o hy hx]
 
 /-- A frame condition reads alike. -/
-theorem frameCond_holds (h : FaithfulOn τ W) {p : ℕ} (c : FrameCond T p)
+private theorem frameCond_holds (h : FaithfulOn τ W) {p : ℕ} (c : FrameCond T p)
     (hc : c.noOff = true)
     {x y : Tuple T p} (hx : ∀ k, x k ∈ W) (hy : ∀ k, y k ∈ W) :
     c.holds (τ ∘ x) (τ ∘ y) = c.holds x y := by
@@ -231,7 +238,7 @@ namespace FaithfulOn
 variable {τ : T → T} {W : Set T}
 
 /-- A function-free term read on mapped values is the mapped value. -/
-theorem termIn_eval {c k : ℕ} (t : TermIn T c k) (ht : t.noFun = true)
+private theorem termIn_eval {c k : ℕ} (t : TermIn T c k) (ht : t.noFun = true)
     (hc : ∀ a ∈ t.consts, τ a = a) (u : Tuple T k) (γ : Fin c → T) :
     t.eval (τ ∘ u) (τ ∘ γ) = τ (t.eval u γ) := by
   cases t with
@@ -244,7 +251,7 @@ theorem termIn_eval {c k : ℕ} (t : TermIn T c k) (ht : t.noFun = true)
   | caseWhen _ _ _ _ _ => exact absurd ht (by simp [TermIn.noFun])
   | coalesce _ _ => exact absurd ht (by simp [TermIn.noFun])
 
-theorem termGIn_evalPlain {c k : ℕ} {κ : Fin k → ColKind} (t : TermGIn T c κ)
+private theorem termGIn_evalPlain {c k : ℕ} {κ : Fin k → ColKind} (t : TermGIn T c κ)
     (ht : t.noFun = true) (hc : ∀ a ∈ t.consts, τ a = a) (u : Tuple T k) (γ : Fin c → T) :
     t.evalPlain (τ ∘ u) (τ ∘ γ) = τ (t.evalPlain u γ) := by
   cases t with
@@ -260,7 +267,7 @@ theorem termGIn_evalPlain {c k : ℕ} {κ : Fin k → ColKind} (t : TermGIn T c 
   | caseWhen _ _ _ _ _ => exact absurd ht (by simp [TermGIn.noFun])
   | coalesce _ _ => exact absurd ht (by simp [TermGIn.noFun])
 
-theorem projColIn_evalPlain {c k : ℕ} {κ : Fin k → ColKind} (p : ProjColIn T c κ)
+private theorem projColIn_evalPlain {c k : ℕ} {κ : Fin k → ColKind} (p : ProjColIn T c κ)
     (hp : p.noFun = true) (hc : ∀ a ∈ p.consts, τ a = a) (u : Tuple T k) (γ : Fin c → T) :
     p.evalPlain (τ ∘ u) (τ ∘ γ) = τ (p.evalPlain u γ) := by
   cases p with
@@ -279,7 +286,7 @@ theorem projColIn_evalPlain {c k : ℕ} {κ : Fin k → ColKind} (p : ProjColIn 
 
 /-- A function-free term's value is a value of the row, the context or a
 constant: it lies in any set holding those. -/
-theorem termIn_eval_mem {c k : ℕ} (t : TermIn T c k) (ht : t.noFun = true)
+private theorem termIn_eval_mem {c k : ℕ} (t : TermIn T c k) (ht : t.noFun = true)
     (hc : ∀ a ∈ t.consts, a ∈ W) {u : Tuple T k} (hu : ∀ j, u j ∈ W) {γ : Fin c → T}
     (hγ : ∀ j, γ j ∈ W) : t.eval u γ ∈ W := by
   cases t with
@@ -292,7 +299,7 @@ theorem termIn_eval_mem {c k : ℕ} (t : TermIn T c k) (ht : t.noFun = true)
   | caseWhen _ _ _ _ _ => exact absurd ht (by simp [TermIn.noFun])
   | coalesce _ _ => exact absurd ht (by simp [TermIn.noFun])
 
-theorem termGIn_evalPlain_mem {c k : ℕ} {κ : Fin k → ColKind} (t : TermGIn T c κ)
+private theorem termGIn_evalPlain_mem {c k : ℕ} {κ : Fin k → ColKind} (t : TermGIn T c κ)
     (ht : t.noFun = true) (hc : ∀ a ∈ t.consts, a ∈ W) {u : Tuple T k} (hu : ∀ j, u j ∈ W)
     {γ : Fin c → T} (hγ : ∀ j, γ j ∈ W) : t.evalPlain u γ ∈ W := by
   cases t with
@@ -309,7 +316,7 @@ theorem termGIn_evalPlain_mem {c k : ℕ} {κ : Fin k → ColKind} (t : TermGIn 
   | coalesce _ _ => exact absurd ht (by simp [TermGIn.noFun])
 
 /-- A Boolean term reads alike on mapped rows. -/
-theorem boolTerm_eval3 (h : FaithfulOn τ W) {k : ℕ} (b : BoolTerm T k) (hb : b.noFun = true)
+private theorem boolTerm_eval3 (h : FaithfulOn τ W) {k : ℕ} (b : BoolTerm T k) (hb : b.noFun = true)
     (hc : ∀ a ∈ b.consts, τ a = a ∧ a ∈ W) {u : Tuple T k} (hu : ∀ j, u j ∈ W) :
     b.eval3 (τ ∘ u) = b.eval3 u := by
   unfold BoolTerm.eval3
@@ -330,7 +337,7 @@ theorem boolTerm_eval3 (h : FaithfulOn τ W) {k : ℕ} (b : BoolTerm T k) (hb : 
       (γ := fun _ => 0) (fun j => j.elim0))
 
 /-- A classical selection reads alike on mapped rows. -/
-theorem selection_eval3 (h : FaithfulOn τ W) {k : ℕ} (φ : Selection T k) (hφ : φ.noFun = true)
+private theorem selection_eval3 (h : FaithfulOn τ W) {k : ℕ} (φ : Selection T k) (hφ : φ.noFun = true)
     (hc : ∀ a ∈ φ.consts, τ a = a ∧ a ∈ W) {u : Tuple T k} (hu : ∀ j, u j ∈ W) :
     φ.eval3 (τ ∘ u) = φ.eval3 u := by
   induction φ with
@@ -348,13 +355,13 @@ theorem selection_eval3 (h : FaithfulOn τ W) {k : ℕ} (φ : Selection T k) (h�
       ihψ h₁.2 (fun a ha => hc a (Finset.mem_union_right _ ha))]
   | True => rfl
 
-theorem selection_keeps (h : FaithfulOn τ W) {k : ℕ} (φ : Selection T k) (hφ : φ.noFun = true)
+private theorem selection_keeps (h : FaithfulOn τ W) {k : ℕ} (φ : Selection T k) (hφ : φ.noFun = true)
     (hc : ∀ a ∈ φ.consts, τ a = a ∧ a ∈ W) {u : Tuple T k} (hu : ∀ j, u j ∈ W) :
     φ.keeps (τ ∘ u) = φ.keeps u := by
   unfold Selection.keeps
   rw [h.selection_eval3 φ hφ hc hu]
 
-theorem selection_keepsOpt (h : FaithfulOn τ W) {k : ℕ} (keep : Option (Selection T k))
+private theorem selection_keepsOpt (h : FaithfulOn τ W) {k : ℕ} (keep : Option (Selection T k))
     (hφ : Selection.noFunOpt keep = true)
     (hc : ∀ a ∈ Selection.constsOpt keep, τ a = a ∧ a ∈ W) {u : Tuple T k}
     (hu : ∀ j, u j ∈ W) : Selection.keepsOpt keep (τ ∘ u) = Selection.keepsOpt keep u := by
@@ -363,7 +370,7 @@ theorem selection_keepsOpt (h : FaithfulOn τ W) {k : ℕ} (keep : Option (Selec
   | some φ => exact h.selection_keeps φ hφ hc hu
 
 /-- A predicate of the general syntax reads alike on mapped rows. -/
-theorem genPredIn_evalPlain3 (h : FaithfulOn τ W) {c k : ℕ} {κ : Fin k → ColKind}
+private theorem genPredIn_evalPlain3 (h : FaithfulOn τ W) {c k : ℕ} {κ : Fin k → ColKind}
     (φ : GenPredIn T c κ) (hφ : φ.noFun = true) (hc : ∀ a ∈ φ.consts, τ a = a ∧ a ∈ W)
     {u : Tuple T k} (hu : ∀ j, u j ∈ W) {γ : Fin c → T} (hγ : ∀ j, γ j ∈ W) :
     φ.evalPlain3 (τ ∘ u) (τ ∘ γ) = φ.evalPlain3 u γ := by
@@ -404,7 +411,7 @@ theorem genPredIn_evalPlain3 (h : FaithfulOn τ W) {c k : ℕ} {κ : Fin k → C
     simp only [GenPredIn.evalPlain3]
     rw [ih hφ hc]
 
-theorem genPredIn_holdsPlain (h : FaithfulOn τ W) {c k : ℕ} {κ : Fin k → ColKind}
+private theorem genPredIn_holdsPlain (h : FaithfulOn τ W) {c k : ℕ} {κ : Fin k → ColKind}
     (φ : GenPredIn T c κ) (hφ : φ.noFun = true) (hc : ∀ a ∈ φ.consts, τ a = a ∧ a ∈ W)
     {u : Tuple T k} (hu : ∀ j, u j ∈ W) {γ : Fin c → T} (hγ : ∀ j, γ j ∈ W) :
     φ.holdsPlain (τ ∘ u) (τ ∘ γ) ↔ φ.holdsPlain u γ := by
@@ -426,7 +433,7 @@ def Multiset.nonNullCount {c m : ℕ} (t : TermIn T c m) (γ : Fin c → T)
   S.countP (fun u => ValueType.isNull (t.eval u γ) = false)
 
 /-- A count over a listing of a bag is a function of the bag's non-null count. -/
-theorem SeqAggFunc.ReadsCount.eq_of_nonNullCount {cnt : SeqAggFunc T} (hc : cnt.ReadsCount)
+private theorem SeqAggFunc.ReadsCount.eq_of_nonNullCount {cnt : SeqAggFunc T} (hc : cnt.ReadsCount)
     {c m : ℕ} (t : TermIn T c m) (γ γ' : Fin c → T) {L L' : List (Tuple T m)}
     (h : Multiset.nonNullCount t γ (L : Multiset (Tuple T m))
       = Multiset.nonNullCount t γ' (L' : Multiset (Tuple T m))) :
@@ -442,7 +449,7 @@ theorem SeqAggFunc.ReadsCount.eq_of_nonNullCount {cnt : SeqAggFunc T} (hc : cnt.
   · exact List.countP_congr (fun v _ => by simp [Function.comp])
 
 /-- The non-null count over a listing of a bag is the bag's. -/
-theorem Multiset.nonNullCount_coe_perm {c m : ℕ} (t : TermIn T c m) (γ : Fin c → T)
+private theorem Multiset.nonNullCount_coe_perm {c m : ℕ} (t : TermIn T c m) (γ : Fin c → T)
     {L : List (Tuple T m)} {S : Multiset (Tuple T m)} (h : (L : Multiset (Tuple T m)) = S) :
     Multiset.nonNullCount t γ (L : Multiset (Tuple T m)) = Multiset.nonNullCount t γ S := by
   rw [h]
@@ -452,7 +459,7 @@ namespace FaithfulOn
 variable {τ : T → T} {W : Set T}
 
 /-- A faithful map keeps the non-null count of a bag whose rows it reads. -/
-theorem nonNullCount_map (h : FaithfulOn τ W) {c m : ℕ} (t : TermIn T c m) (ht : t.noFun = true)
+private theorem nonNullCount_map (h : FaithfulOn τ W) {c m : ℕ} (t : TermIn T c m) (ht : t.noFun = true)
     (hc : ∀ a ∈ t.consts, τ a = a ∧ a ∈ W) {γ : Fin c → T} (hγ : ∀ j, γ j ∈ W)
     {S : Multiset (Tuple T m)} (hS : ∀ u ∈ S, ∀ j, u j ∈ W) :
     Multiset.nonNullCount t (τ ∘ γ) (S.map (fun u => (τ ∘ u : Tuple T m)))
@@ -467,7 +474,7 @@ theorem nonNullCount_map (h : FaithfulOn τ W) {c m : ℕ} (t : TermIn T c m) (h
     h.isNull _ (termIn_eval_mem t ht (fun a ha => (hc a ha).2) (hS u hu) hγ)]
 
 /-- A group of the mapped relation is the mapped group. -/
-theorem filter_key_map (h : FaithfulOn τ W) {m n₁ : ℕ} (is : Tuple (Fin m) n₁)
+private theorem filter_key_map (h : FaithfulOn τ W) {m n₁ : ℕ} (is : Tuple (Fin m) n₁)
     {r : Multiset (Tuple T m)} (hr : ∀ u ∈ r, ∀ j, u j ∈ W) {g : Tuple T n₁}
     (hg : ∀ k, g k ∈ W) :
     (r.map (fun u => (τ ∘ u : Tuple T m))).filter
@@ -481,7 +488,7 @@ theorem filter_key_map (h : FaithfulOn τ W) {m n₁ : ℕ} (is : Tuple (Fin m) 
   exact forall_congr' (fun k' => h.eq_iff (hr u hu _) (hg k'))
 
 /-- A clause keeps the mapped rows it keeps. -/
-theorem filter_keeps_map (h : FaithfulOn τ W) {m : ℕ} (keep : Option (Selection T m))
+private theorem filter_keeps_map (h : FaithfulOn τ W) {m : ℕ} (keep : Option (Selection T m))
     (hk : Selection.noFunOpt keep = true)
     (hc : ∀ a ∈ Selection.constsOpt keep, τ a = a ∧ a ∈ W)
     {S : Multiset (Tuple T m)} (hS : ∀ u ∈ S, ∀ j, u j ∈ W) :
@@ -498,7 +505,7 @@ end FaithfulOn
 
 /-- The occurrence sequence of a group, as a bag: the group's rows, cut by
 the clause. -/
-theorem Relation.groupSeqOptOrd_coe {m n₁ : ℕ} (is : Tuple (Fin m) n₁) (ord : GroupOrder T m)
+private theorem Relation.groupSeqOptOrd_coe {m n₁ : ℕ} (is : Tuple (Fin m) n₁) (ord : GroupOrder T m)
     (r : Relation T m) (g : Tuple T n₁) (keep : Option (Selection T m)) :
     ((Relation.groupSeqOptOrd is ord r g keep : List (Tuple T m)) : Multiset (Tuple T m))
       = ((r : Multiset (Tuple T m)).filter (fun u => ∀ k' : Fin n₁, u (is k') = g k')).filter
@@ -526,7 +533,7 @@ namespace FaithfulOn
 variable {τ : T → T} {W : Set T}
 
 /-- Two rows over the set are mapped alike only if equal. -/
-theorem row_eq_iff (h : FaithfulOn τ W) {m : ℕ} {x y : Tuple T m}
+private theorem row_eq_iff (h : FaithfulOn τ W) {m : ℕ} {x y : Tuple T m}
     (hx : ∀ j, x j ∈ W) (hy : ∀ j, y j ∈ W) :
     (τ ∘ x : Tuple T m) = (τ ∘ y) ↔ x = y := by
   constructor
@@ -536,7 +543,7 @@ theorem row_eq_iff (h : FaithfulOn τ W) {m : ℕ} {x y : Tuple T m}
   · intro he; rw [he]
 
 /-- A row of a frame is the current row or a row of the relation. -/
-theorem _root_.ValueFrame.mem_frameOf_elim {n m p : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
+private theorem _root_.ValueFrame.mem_frameOf_elim {n m p : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
     (w : ValueFrame T p) {X : Multiset (Tuple T n)} {x u : Tuple T n}
     (hu : u ∈ ValueFrame.frameOf (α := Tuple T n) id P O w X x) : u = x ∨ u ∈ X := by
   unfold ValueFrame.frameOf at hu
@@ -549,7 +556,7 @@ theorem _root_.ValueFrame.mem_frameOf_elim {n m p : ℕ} (P : Tuple (Fin n) m) (
   · exact Or.inr (Multiset.mem_of_mem_filter (Multiset.mem_of_mem_erase hu))
 
 /-- Erasing commutes with a map injective at the erased element. -/
-theorem _root_.Multiset.erase_map_of_injAt {α : Type} [LinearOrder α] (f : α → α)
+private theorem _root_.Multiset.erase_map_of_injAt {α : Type} [LinearOrder α] (f : α → α)
     (S : Multiset α) (x : α) (hf : ∀ y ∈ S, f y = f x → y = x) :
     (S.map f).erase (f x) = (S.erase x).map f := by
   by_cases hmem : x ∈ S
@@ -560,7 +567,7 @@ theorem _root_.Multiset.erase_map_of_injAt {α : Type} [LinearOrder α] (f : α 
     exact hmem (hf y hy hyx ▸ hy)
 
 /-- The frame of a mapped row in the mapped relation is the mapped frame. -/
-theorem frameOf_map (h : FaithfulOn τ W) {n m p : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
+private theorem frameOf_map (h : FaithfulOn τ W) {n m p : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
     (w : ValueFrame T p) (hw : w.cond.noOff = true) {X : Multiset (Tuple T n)} (hX : ∀ u ∈ X, ∀ j,
       u j ∈ W)
     {x : Tuple T n} (hx : ∀ j, x j ∈ W) :
@@ -607,7 +614,7 @@ theorem frameOf_map (h : FaithfulOn τ W) {n m p : ℕ} (P : Tuple (Fin n) m) (O
   · exact herase _ (fun u hu => hX u (Multiset.mem_of_mem_filter hu))
 
 /-- The non-null count of a window's frame, under a clause or not. -/
-theorem frame_nonNullCount (h : FaithfulOn τ W) {c n m p : ℕ} (P : Tuple (Fin n) m)
+private theorem frame_nonNullCount (h : FaithfulOn τ W) {c n m p : ℕ} (P : Tuple (Fin n) m)
     (O : Tuple (Fin n) p) (o : OrderSpec p) (w : ValueFrame T p) (hw : w.cond.noOff = true)
     (t : TermIn T c n)
     (ht : t.noFun = true) (hc : ∀ a ∈ t.consts, τ a = a ∧ a ∈ W)
@@ -703,18 +710,18 @@ noncomputable def AggQueryIn.countValsAll : {c n : ℕ} → {κ : Fin n → ColK
   | _, _, _, _, .WinExpr _ _ _ _ _ _ _ q _, D => q.countValsAll D
 
 omit [ValueType T] in
-theorem Tuple.append_mem {V : Set T} {n₁ n₂ : ℕ} {u : Tuple T n₁} {v : Tuple T n₂}
+private theorem Tuple.append_mem {V : Set T} {n₁ n₂ : ℕ} {u : Tuple T n₁} {v : Tuple T n₂}
     (hu : ∀ i, u i ∈ V) (hv : ∀ j, v j ∈ V) : ∀ i, (Fin.append u v : Tuple T (n₁ + n₂)) i ∈ V :=
   Fin.addCases (fun i => by rw [Fin.append_left]; exact hu i)
     (fun j => by rw [Fin.append_right]; exact hv j)
 
 omit [ValueType T] in
-theorem Tuple.snoc_mem {V : Set T} {n : ℕ} {u : Tuple T n} {x : T} (hu : ∀ i, u i ∈ V)
+private theorem Tuple.snoc_mem {V : Set T} {n : ℕ} {u : Tuple T n} {x : T} (hu : ∀ i, u i ∈ V)
     (hx : x ∈ V) : ∀ i, (Fin.snoc u x : Tuple T (n + 1)) i ∈ V :=
   Fin.lastCases (by rw [Fin.snoc_last]; exact hx) (fun i => by rw [Fin.snoc_castSucc]; exact hu i)
 
 /-- A function-free projection column reads a value it was given. -/
-theorem ProjColIn.evalPlain_mem {W : Set T} {c k : ℕ} {κ : Fin k → ColKind} (p : ProjColIn T c κ)
+private theorem ProjColIn.evalPlain_mem {W : Set T} {c k : ℕ} {κ : Fin k → ColKind} (p : ProjColIn T c κ)
     (hp : p.noFun = true) (hc : ∀ a ∈ p.consts, a ∈ W) {u : Tuple T k} (hu : ∀ j, u j ∈ W)
     {γ : Fin c → T} (hγ : ∀ j, γ j ∈ W) : p.evalPlain u γ ∈ W := by
   cases p with
@@ -949,7 +956,7 @@ of the recursions: their rounds correspond one by one, settling or
 not. -/
 
 omit [ValueType T] in
-theorem Tuple.comp_append (τ : T → T) {n₁ n₂ : ℕ} (u : Tuple T n₁) (v : Tuple T n₂) :
+private theorem Tuple.comp_append (τ : T → T) {n₁ n₂ : ℕ} (u : Tuple T n₁) (v : Tuple T n₂) :
     (τ ∘ Fin.append u v : Tuple T (n₁ + n₂)) = Fin.append (τ ∘ u) (τ ∘ v) := by
   funext i
   refine Fin.addCases (fun i => ?_) (fun j => ?_) i
@@ -960,7 +967,7 @@ theorem Tuple.comp_append (τ : T → T) {n₁ n₂ : ℕ} (u : Tuple T n₁) (v
 
 /-- Reading a mapped row's regular columns is mapping the read row, the
 map fixing the zero the aggregate columns are read as. -/
-theorem ColKind.readTuple_comp {n : ℕ} (κ : Fin n → ColKind) {τ : T → T} (h0 : τ 0 = 0)
+private theorem ColKind.readTuple_comp {n : ℕ} (κ : Fin n → ColKind) {τ : T → T} (h0 : τ 0 = 0)
     (u : Tuple T n) : ColKind.readTuple κ (τ ∘ u) = τ ∘ ColKind.readTuple κ u := by
   funext k
   show (match (κ k).base with | ColKind.agg => 0 | _ => τ (u k))
@@ -968,7 +975,7 @@ theorem ColKind.readTuple_comp {n : ℕ} (κ : Fin n → ColKind) {τ : T → T}
   cases (κ k).base <;> simp [h0]
 
 /-- A count over a bag of values the map preserves nulls on reads alike. -/
-theorem SeqAggFunc.ReadsCount.onBag_map {cnt : SeqAggFunc T} (hc : cnt.ReadsCount)
+private theorem SeqAggFunc.ReadsCount.onBag_map {cnt : SeqAggFunc T} (hc : cnt.ReadsCount)
     (hsym : cnt.Symmetric) {τ : T → T} {W : Set T} (h : FaithfulOn τ W) {M : Multiset T}
     (hM : ∀ a ∈ M, a ∈ W) : cnt.onBag hsym (M.map τ) = cnt.onBag hsym M := by
   induction M using Quot.inductionOn with
@@ -987,7 +994,7 @@ namespace FaithfulOn
 variable {τ : T → T} {W : Set T}
 
 /-- Mapping the rows of two relations over `W` is injective. -/
-theorem map_tuple_inj (h : FaithfulOn τ W) {n : ℕ} {X Y : Multiset (Tuple T n)}
+private theorem map_tuple_inj (h : FaithfulOn τ W) {n : ℕ} {X Y : Multiset (Tuple T n)}
     (hX : ∀ u ∈ X, ∀ j, u j ∈ W) (hY : ∀ u ∈ Y, ∀ j, u j ∈ W) :
     X.map (fun u => (τ ∘ u : Tuple T n)) = Y.map (fun u => (τ ∘ u : Tuple T n)) ↔ X = Y := by
   refine ⟨fun he => ?_, fun he => by rw [he]⟩
@@ -1006,7 +1013,7 @@ theorem map_tuple_inj (h : FaithfulOn τ W) {n : ℕ} {X Y : Multiset (Tuple T n
   rw [← hback X hX, ← hback Y hY, he]
 
 /-- The key columns of a mapped row are the mapped key columns. -/
-theorem filter_key_map' (h : FaithfulOn τ W) {m n₁ : ℕ} (is : Tuple (Fin m) n₁)
+private theorem filter_key_map' (h : FaithfulOn τ W) {m n₁ : ℕ} (is : Tuple (Fin m) n₁)
     {r : Multiset (Tuple T m)} (hr : ∀ u ∈ r, ∀ j, u j ∈ W) {g : Tuple T n₁}
     (hg : ∀ k, g k ∈ W) :
     (r.map (fun u => (τ ∘ u : Tuple T m))).filter
@@ -1024,7 +1031,7 @@ theorem filter_key_map' (h : FaithfulOn τ W) {m n₁ : ℕ} (is : Tuple (Fin m)
   rw [e₁, e₂, h.filter_key_map is hr hg]
 
 /-- The keys of a mapped relation are the mapped keys. -/
-theorem keys_map (h : FaithfulOn τ W) {m n₁ : ℕ} [DecidableEq (Tuple T n₁)]
+private theorem keys_map (h : FaithfulOn τ W) {m n₁ : ℕ} [DecidableEq (Tuple T n₁)]
     (is : Tuple (Fin m) n₁) {r : Multiset (Tuple T m)} (hr : ∀ u ∈ r, ∀ j, u j ∈ W) :
     ((r.map (fun u => (τ ∘ u : Tuple T m))).map (fun u => (fun k => u (is k) : Tuple T n₁))).dedup
       = ((r.map (fun u => (fun k => u (is k) : Tuple T n₁))).dedup).map
@@ -1039,7 +1046,7 @@ theorem keys_map (h : FaithfulOn τ W) {m n₁ : ℕ} [DecidableEq (Tuple T n₁
 
 omit [ValueType T] in
 /-- A key of a relation over `W` is over `W`. -/
-theorem keys_mem_of_mem_dedup {m n₁ : ℕ} [DecidableEq (Tuple T n₁)] (is : Tuple (Fin m) n₁)
+private theorem keys_mem_of_mem_dedup {m n₁ : ℕ} [DecidableEq (Tuple T n₁)] (is : Tuple (Fin m) n₁)
     {r : Multiset (Tuple T m)}
     (hr : ∀ u ∈ r, ∀ j, u j ∈ W) {g : Tuple T n₁}
     (hg : g ∈ (r.map (fun u => (fun k => u (is k) : Tuple T n₁))).dedup) : ∀ k, g k ∈ W := by
@@ -1051,7 +1058,7 @@ end FaithfulOn
 /-- **The values of a recursion's body, read with its name bound**: those
 of the instance at its other leaves, of the bound relation, of the
 context, of its constants, or counts. -/
-theorem AggQueryIn.valsIn_evaluatePlain_assign {Θ : Set (SeqAggFunc T)} {c m : ℕ} (s : String)
+private theorem AggQueryIn.valsIn_evaluatePlain_assign {Θ : Set (SeqAggFunc T)} {c m : ℕ} (s : String)
     {l : List (String × ℕ)} {κ : Fin m → ColKind} (q₁ : AggQueryIn T c m κ l) (hs : q₁.inSig Θ)
     (D : Database T) (γ : Fin c → T) (V : Set T)
     (hD : ∀ p ∈ q₁.leaves, p ≠ (m, s) → ∀ r : Relation T p.1, D.find p.1 p.2 = some r →
@@ -1074,7 +1081,7 @@ variable {τ : T → T} {W : Set T}
 
 /-- **A grouping of a mapped relation**: the mapped keys, each with the
 counts of its group, which the map preserves. -/
-theorem gamma_map {lab1 lab2 : ℕ} (h : FaithfulOn τ W) {cnt : SeqAggFunc T} (hcnt : cnt.ReadsCount)
+private theorem gamma_map {lab1 lab2 : ℕ} (h : FaithfulOn τ W) {cnt : SeqAggFunc T} (hcnt : cnt.ReadsCount)
     {c m n₁ n₂ : ℕ} {rd1 rd2 : Fin c → Bool} (is : Tuple (Fin m) n₁) (ts : Tuple (TermIn T c m) n₂)
     (fs : Tuple (SeqAggFunc T) n₂) (hfs : ∀ j, fs j = cnt) (hts : ∀ j, (ts j).noFun = true)
     (hcts : ∀ j, ∀ a ∈ (ts j).consts, τ a = a ∧ a ∈ W)
@@ -1116,7 +1123,7 @@ theorem gamma_map {lab1 lab2 : ℕ} (h : FaithfulOn τ W) {cnt : SeqAggFunc T} (
 
 /-- **A scalar aggregation of a mapped relation** is the same row: it holds
 counts only. -/
-theorem gammaScalar_map {lab1 lab2 : ℕ} (h : FaithfulOn τ W) {cnt : SeqAggFunc T}
+private theorem gammaScalar_map {lab1 lab2 : ℕ} (h : FaithfulOn τ W) {cnt : SeqAggFunc T}
     (hcnt : cnt.ReadsCount)
     {c m n₂ : ℕ} {rd1 rd2 : Fin c → Bool} (ts : Tuple (TermIn T c m) n₂) (fs : Tuple (SeqAggFunc T)
         n₂)
@@ -1146,7 +1153,7 @@ theorem gammaScalar_map {lab1 lab2 : ℕ} (h : FaithfulOn τ W) {cnt : SeqAggFun
 
 /-- **A second-level aggregation of a mapped relation**, its aggregate a
 count: the mapped keys with the same counts. -/
-theorem gammaNest_map {lab1 lab2 : ℕ} (h : FaithfulOn τ W) {cnt : SeqAggFunc T}
+private theorem gammaNest_map {lab1 lab2 : ℕ} (h : FaithfulOn τ W) {cnt : SeqAggFunc T}
     (hcnt : cnt.ReadsCount)
     {c m n₁ : ℕ} {rd1 rd2 : Fin c → Bool} {κ : Fin m → ColKind} (is : Tuple (Fin m) n₁) (his : ∀ k,
         κ (is k) ≠ ColKind.agg)
@@ -1197,7 +1204,7 @@ theorem gammaNest_map {lab1 lab2 : ℕ} (h : FaithfulOn τ W) {cnt : SeqAggFunc 
 
 /-- **A window over a mapped relation**, its aggregate a count: the mapped
 rows, each with the count of its frame. -/
-theorem win_map {lab1 lab2 : ℕ} (h : FaithfulOn τ W) {cnt : SeqAggFunc T} (hcnt : cnt.ReadsCount)
+private theorem win_map {lab1 lab2 : ℕ} (h : FaithfulOn τ W) {cnt : SeqAggFunc T} (hcnt : cnt.ReadsCount)
     (h0 : τ 0 = 0)
     (h0W : (0 : T) ∈ W) {c n m p : ℕ} {rd1 rd2 : Fin c → Bool} {κ : Fin n → ColKind} (P : Tuple
         (Fin n) m)
@@ -1708,13 +1715,13 @@ def Finset.cardLe (S : Finset T) (x : T) : ℕ := (S.filter (· ≤ x)).card
 theorem Finset.cardLe_le_card (S : Finset T) (x : T) : S.cardLe x ≤ S.card :=
   Finset.card_filter_le _ _
 
-theorem Finset.cardLe_mono (S : Finset T) {x y : T} (h : x ≤ y) : S.cardLe x ≤ S.cardLe y :=
+private theorem Finset.cardLe_mono (S : Finset T) {x y : T} (h : x ≤ y) : S.cardLe x ≤ S.cardLe y :=
   Finset.card_le_card (fun _ ha => Finset.mem_filter.mpr
     ⟨(Finset.mem_filter.mp ha).1, le_trans (Finset.mem_filter.mp ha).2 h⟩)
 
 /-- For `b ∈ S`, `x < b` exactly when fewer values of `S` are at most `x`
 than at most `b`. -/
-theorem Finset.lt_iff_cardLe_lt (S : Finset T) {b : T} (hb : b ∈ S) (x : T) :
+private theorem Finset.lt_iff_cardLe_lt (S : Finset T) {b : T} (hb : b ∈ S) (x : T) :
     (x < b) ↔ (S.cardLe x < S.cardLe b) := by
   constructor
   · intro hxb
@@ -1729,7 +1736,7 @@ theorem Finset.lt_iff_cardLe_lt (S : Finset T) {b : T} (hb : b ∈ S) (x : T) :
 
 /-- For `a ∈ S`, `a ≤ x` exactly when no more values of `S` are at most
 `a` than at most `x`. -/
-theorem Finset.le_iff_cardLe_le (S : Finset T) {a : T} (ha : a ∈ S) (x : T) :
+private theorem Finset.le_iff_cardLe_le (S : Finset T) {a : T} (ha : a ∈ S) (x : T) :
     (a ≤ x) ↔ (S.cardLe a ≤ S.cardLe x) := by
   constructor
   · exact fun h => S.cardLe_mono h
@@ -1737,7 +1744,7 @@ theorem Finset.le_iff_cardLe_le (S : Finset T) {a : T} (ha : a ∈ S) (x : T) :
     by_contra hnot
     exact absurd ((S.lt_iff_cardLe_lt ha x).mp (not_le.mp hnot)) (not_lt.mpr hle)
 
-theorem Finset.eq_of_cardLe_eq (S : Finset T) {a b : T} (ha : a ∈ S) (hb : b ∈ S)
+private theorem Finset.eq_of_cardLe_eq (S : Finset T) {a b : T} (ha : a ∈ S) (hb : b ∈ S)
     (h : S.cardLe a = S.cardLe b) : a = b :=
   le_antisymm ((S.le_iff_cardLe_le ha b).mpr (le_of_eq h))
     ((S.le_iff_cardLe_le hb a).mpr (le_of_eq h.symm))
@@ -1814,7 +1821,7 @@ noncomputable def ordRep (S : Finset T) (c : ℕ) (ω : OrdType S c) : Fin c →
   open Classical in
   if h : ∃ u : Fin c → T, ordType S u = ω then Classical.choose h else fun _ => 0
 
-theorem ordType_ordRep (S : Finset T) {c : ℕ} (u : Fin c → T) :
+private theorem ordType_ordRep (S : Finset T) {c : ℕ} (u : Fin c → T) :
     ordType S (ordRep S c (ordType S u)) = ordType S u := by
   unfold ordRep
   rw [dite_eq_left (⟨u, rfl⟩ : ∃ v : Fin c → T, ordType S v = ordType S u)]
@@ -1824,7 +1831,7 @@ theorem ordType_ordRep (S : Finset T) {c : ℕ} (u : Fin c → T) :
 def Relation.valsAtCols {n : ℕ} (r : Multiset (Tuple T n)) (J : Finset (Fin n)) : Finset T :=
   J.biUnion (fun j => (r.map (fun u => u j)).toFinset)
 
-theorem Relation.mem_valsAtCols {n : ℕ} {r : Multiset (Tuple T n)} {J : Finset (Fin n)}
+private theorem Relation.mem_valsAtCols {n : ℕ} {r : Multiset (Tuple T n)} {J : Finset (Fin n)}
     {u : Tuple T n} (hu : u ∈ r) {j : Fin n} (hj : j ∈ J) : u j ∈ Relation.valsAtCols r J :=
   Finset.mem_biUnion.mpr ⟨j, hj, Multiset.mem_toFinset.mpr (Multiset.mem_map.mpr ⟨u, hu, rfl⟩)⟩
 
@@ -1896,7 +1903,7 @@ the input commutes. -/
 the node's input, read at the representative of the context's order type
 over `S`, is the mapped input. `S` holds the base set and the counts the
 input computes. -/
-theorem AggQueryIn.exists_faithful_rep {cnt : SeqAggFunc T} (hcnt : cnt.ReadsCount) {B : Finset T}
+private theorem AggQueryIn.exists_faithful_rep {cnt : SeqAggFunc T} (hcnt : cnt.ReadsCount) {B : Finset T}
     (hν : ∀ ν : T, ValueType.nullVal = some ν → ν ∈ B) (h0 : (0 : T) ∈ B)
     {c m : ℕ} {κ : Fin m → ColKind} (q : AggQueryIn T c m κ) (hs : q.inSig {cnt})
     {S : Finset T} (hBS : B ⊆ S) (D D' : Database T)
@@ -2248,15 +2255,15 @@ def PolyBounded (f : ℕ → ℕ) : Prop := ∃ a b : ℕ, ∀ m, f m ≤ a * (m
 
 namespace PolyBounded
 
-theorem const (k : ℕ) : PolyBounded (fun _ => k) := ⟨k, 0, fun m => by simp⟩
+private theorem const (k : ℕ) : PolyBounded (fun _ => k) := ⟨k, 0, fun m => by simp⟩
 
-theorem id : PolyBounded (fun m => m) := ⟨1, 1, fun m => by simp⟩
+private theorem id : PolyBounded (fun m => m) := ⟨1, 1, fun m => by simp⟩
 
-theorem mono {f g : ℕ → ℕ} (hg : PolyBounded g) (h : ∀ m, f m ≤ g m) : PolyBounded f := by
+private theorem mono {f g : ℕ → ℕ} (hg : PolyBounded g) (h : ∀ m, f m ≤ g m) : PolyBounded f := by
   obtain ⟨a, b, hb⟩ := hg
   exact ⟨a, b, fun m => le_trans (h m) (hb m)⟩
 
-theorem add {f g : ℕ → ℕ} (hf : PolyBounded f) (hg : PolyBounded g) :
+private theorem add {f g : ℕ → ℕ} (hf : PolyBounded f) (hg : PolyBounded g) :
     PolyBounded (fun m => f m + g m) := by
   obtain ⟨a, b, hb⟩ := hf
   obtain ⟨a', b', hb'⟩ := hg
@@ -2268,7 +2275,7 @@ theorem add {f g : ℕ → ℕ} (hf : PolyBounded f) (hg : PolyBounded g) :
         Nat.add_le_add (Nat.mul_le_mul_left _ h1) (Nat.mul_le_mul_left _ h2)
     _ = (a + a') * (m + 1) ^ max b b' := by ring
 
-theorem mul {f g : ℕ → ℕ} (hf : PolyBounded f) (hg : PolyBounded g) :
+private theorem mul {f g : ℕ → ℕ} (hf : PolyBounded f) (hg : PolyBounded g) :
     PolyBounded (fun m => f m * g m) := by
   obtain ⟨a, b, hb⟩ := hf
   obtain ⟨a', b', hb'⟩ := hg
@@ -2276,7 +2283,7 @@ theorem mul {f g : ℕ → ℕ} (hf : PolyBounded f) (hg : PolyBounded g) :
   calc f m * g m ≤ (a * (m + 1) ^ b) * (a' * (m + 1) ^ b') := Nat.mul_le_mul (hb m) (hb' m)
     _ = a * a' * (m + 1) ^ (b + b') := by ring
 
-theorem pow {f : ℕ → ℕ} (hf : PolyBounded f) (p : ℕ) : PolyBounded (fun m => f m ^ p) := by
+private theorem pow {f : ℕ → ℕ} (hf : PolyBounded f) (p : ℕ) : PolyBounded (fun m => f m ^ p) := by
   obtain ⟨a, b, hb⟩ := hf
   refine ⟨a ^ p, b * p, fun m => ?_⟩
   calc f m ^ p ≤ (a * (m + 1) ^ b) ^ p := Nat.pow_le_pow_left (hb m) p
@@ -2285,7 +2292,7 @@ theorem pow {f : ℕ → ℕ} (hf : PolyBounded f) (p : ℕ) : PolyBounded (fun 
 end PolyBounded
 
 /-- The values at `J` columns of a relation are at most `|J|` times its rows. -/
-theorem Relation.card_valsAtCols_le {n : ℕ} (r : Multiset (Tuple T n)) (J : Finset (Fin n)) :
+private theorem Relation.card_valsAtCols_le {n : ℕ} (r : Multiset (Tuple T n)) (J : Finset (Fin n)) :
     (Relation.valsAtCols r J).card ≤ J.card * Multiset.card r :=
   Finset.card_biUnion_le_card_mul _ _ _ (fun _ _ =>
     le_trans (Multiset.toFinset_card_le _) (le_of_eq (Multiset.card_map _ _)))
@@ -2301,7 +2308,7 @@ theorem card_ordType (S : Finset T) (c : ℕ) :
 
 /-- The representative values of a query are at most the order types times
 a bound on each. -/
-theorem AggQueryIn.card_repVals_le (S : Finset T) {c n : ℕ} {κ : Fin n → ColKind}
+private theorem AggQueryIn.card_repVals_le (S : Finset T) {c n : ℕ} {κ : Fin n → ColKind}
     {l : List (String × ℕ)} (Q : AggQueryIn T c n κ l) (J : Finset (Fin n)) (D : Database T)
     (N : ℕ) (hN : ∀ ω : OrdType S c,
       (Relation.valsAtCols (Q.evaluatePlain D (ordRep S c ω)) J).card ≤ N) :
@@ -2311,7 +2318,7 @@ theorem AggQueryIn.card_repVals_le (S : Finset T) {c n : ℕ} {κ : Fin n → Co
 
 /-- The values of a query's input at an aggregating node lie in the base
 set, the input's count types and the context: a finite set. -/
-theorem AggQueryIn.valsIn_of_countTypes {cnt : SeqAggFunc T} (hcnt : cnt.ReadsCount) {B : Finset T}
+private theorem AggQueryIn.valsIn_of_countTypes {cnt : SeqAggFunc T} (hcnt : cnt.ReadsCount) {B : Finset T}
     (hν : ∀ ν : T, ValueType.nullVal = some ν → ν ∈ B) (h0 : (0 : T) ∈ B)
     {c m : ℕ} {κ : Fin m → ColKind} (q : AggQueryIn T c m κ) (hs : q.inSig {cnt})
     (hh : q.hygienic) (D : Database T)
@@ -2332,7 +2339,7 @@ theorem AggQueryIn.valsIn_of_countTypes {cnt : SeqAggFunc T} (hcnt : cnt.ReadsCo
     (fun v hv => Finset.mem_coe.mpr (Finset.mem_union_left _ (hcv hv)))
 
 /-- A grouping has at most `|V|^n₁` groups, `V` the values of its input. -/
-theorem AggQueryIn.card_gamma_le {lab : ℕ} {cnt : SeqAggFunc T} (hcnt : cnt.ReadsCount)
+private theorem AggQueryIn.card_gamma_le {lab : ℕ} {cnt : SeqAggFunc T} (hcnt : cnt.ReadsCount)
     {B : Finset T}
     (hν : ∀ ν : T, ValueType.nullVal = some ν → ν ∈ B) (h0 : (0 : T) ∈ B)
     {c m n₁ n₂ : ℕ} {rd : Fin c → Bool} (is : Tuple (Fin m) n₁) (ts : Tuple (TermIn T c m) n₂)
@@ -2357,7 +2364,7 @@ theorem AggQueryIn.card_gamma_le {lab : ℕ} {cnt : SeqAggFunc T} (hcnt : cnt.Re
       (le_trans Finset.card_image_le (by rw [Finset.card_univ, Fintype.card_fin])) _)
 
 /-- A second-level aggregation has at most `|V|^n₁` groups. -/
-theorem AggQueryIn.card_gammaNest_le {lab : ℕ} {cnt : SeqAggFunc T} (hcnt : cnt.ReadsCount)
+private theorem AggQueryIn.card_gammaNest_le {lab : ℕ} {cnt : SeqAggFunc T} (hcnt : cnt.ReadsCount)
     {B : Finset T}
     (hν : ∀ ν : T, ValueType.nullVal = some ν → ν ∈ B) (h0 : (0 : T) ∈ B)
     {c m n₁ : ℕ} {rd : Fin c → Bool} {κ : Fin m → ColKind} (is : Tuple (Fin m) n₁) (his : ∀ k, κ
@@ -2383,7 +2390,7 @@ theorem AggQueryIn.card_gammaNest_le {lab : ℕ} {cnt : SeqAggFunc T} (hcnt : cn
 
 /-- A window's column takes at most `(|V|+1)^n` values, `V` the values of
 its input: it is a function of the row's regular columns. -/
-theorem AggQueryIn.card_win_vals_le {lab : ℕ} {cnt : SeqAggFunc T} (hcnt : cnt.ReadsCount)
+private theorem AggQueryIn.card_win_vals_le {lab : ℕ} {cnt : SeqAggFunc T} (hcnt : cnt.ReadsCount)
     {B : Finset T}
     (hν : ∀ ν : T, ValueType.nullVal = some ν → ν ∈ B) (h0 : (0 : T) ∈ B)
     {c n m p : ℕ} {rd : Fin c → Bool} {κ : Fin n → ColKind} (P : Tuple (Fin n) m) (O : Tuple (Fin

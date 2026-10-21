@@ -111,7 +111,7 @@ omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K]
   [HasAltLinearOrder K] in
 /-- A classical query builds no nested token, every aggregating operator
 being outside the fragment. -/
-theorem AggQueryIn.noGammaNest_of_classical :
+private theorem AggQueryIn.noGammaNest_of_classical :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l),
       q.classical → q.noGammaNest
   | _, _, _, _, .Rel _ _, _ => trivial
@@ -218,7 +218,7 @@ def ProjColIn.castComposite {c n : ℕ} {κ : Fin n → ColKind}
 omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 /-- The composite cast emits no indicator gate: a source gate, whose
 generic semantics is the junk constant, casts to that constant. -/
-theorem TermGIn.castComposite_chiFree {c n : ℕ} {κ : Fin n → ColKind}
+private theorem TermGIn.castComposite_chiFree {c n : ℕ} {κ : Fin n → ColKind}
     (hκ : ∀ k, κ k = ColKind.reg) :
     ∀ (t : TermGIn T c κ), (t.castComposite hκ (K := K)).chiFree
   | .const _ => trivial
@@ -240,7 +240,7 @@ theorem TermGIn.castComposite_chiFree {c n : ℕ} {κ : Fin n → ColKind}
 
 omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 /-- The composite cast of a predicate emits no indicator gate. -/
-theorem GenPredIn.castComposite_chiFree {c n : ℕ} {κ : Fin n → ColKind}
+private theorem GenPredIn.castComposite_chiFree {c n : ℕ} {κ : Fin n → ColKind}
     (hκ : ∀ k, κ k = ColKind.reg) :
     ∀ (φ : GenPredIn T c κ) (hφ : φ.hasAggAtom = false),
       (φ.castComposite hκ hφ (K := K)).chiFree
@@ -257,7 +257,7 @@ theorem GenPredIn.castComposite_chiFree {c n : ℕ} {κ : Fin n → ColKind}
 
 omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 /-- The composite cast of a projection column emits no indicator gate. -/
-theorem ProjColIn.castComposite_chiFree {c n : ℕ} {κ : Fin n → ColKind}
+private theorem ProjColIn.castComposite_chiFree {c n : ℕ} {κ : Fin n → ColKind}
     (hκ : ∀ k, κ k = ColKind.reg) :
     ∀ (p : ProjColIn T c κ) (hp : p.kind = ColKind.reg),
       (p.castComposite hκ hp (K := K)).chiFree

@@ -72,13 +72,13 @@ def CompOp.negate : CompOp → CompOp
   | .synne => .syneq
 
 /-- `op.negate` evaluates to the classical negation of `op`. -/
-theorem CompOp.negate_eval {V : Type*} [LinearOrder V] (op : CompOp) (a b : V) :
+private theorem CompOp.negate_eval {V : Type*} [LinearOrder V] (op : CompOp) (a b : V) :
     op.negate.eval a b ↔ ¬ op.eval a b := by
   cases op <;> simp only [CompOp.eval, CompOp.negate, ne_eq, not_not,
     not_lt, not_le, ge_iff_le, gt_iff_lt]
 
 /-- Negation preserves strictness: the negator of a null-strict comparison
 is null-strict, and the negator of a syntactic one is syntactic. -/
-@[simp] theorem CompOp.strict_negate (op : CompOp) :
+@[simp] private theorem CompOp.strict_negate (op : CompOp) :
     op.negate.strict = op.strict := by
   cases op <;> rfl

@@ -4,6 +4,17 @@ public import Provenance.SymCut
 import Mathlib.Algebra.Order.Ring.Nat
 import Mathlib.Tactic.NormNum.Inv
 import Mathlib.Tactic.NormNum.Pow
+import all Provenance.Database
+import all Provenance.MuUnion
+import all Provenance.PlainBasis
+import all Provenance.RecursionBasisPass
+import all Provenance.SumByMu
+import all Provenance.SumByProd
+import all Provenance.SymCorrect
+import all Provenance.SymCut
+import all Provenance.SymEnvBuild
+import all Provenance.SymMu
+import all Provenance.SymOrder
 
 /-!
 # The symbolic evaluation settles on every instance
@@ -92,23 +103,23 @@ structure EnvSettles {k c : ℕ} (env : SymEnv T k c) : Prop where
     (env.Lq n).evaluatePlain D γ = ({cs[0]'h} : Multiset _)
     ∧ (env.Sq n).evaluatePlain D γ = (succRel cs : Multiset _)
 
-theorem settlesAt_projQ {c N M : ℕ} {l : List (String × ℕ)} (F : Fin M → SA T c N)
+private theorem settlesAt_projQ {c N M : ℕ} {l : List (String × ℕ)} (F : Fin M → SA T c N)
     (q : AggQueryIn T c N (ColKind.allReg N) l) (D : Database T) (γ : Fin c → T)
     (h : q.SettlesAt D γ) : (projQ F q).SettlesAt D γ := by
   rw [projQ, AggQueryIn.settlesAt_castKind]; exact h
 
-theorem settlesAt_prodR {c a b : ℕ} {l₁ l₂ : List (String × ℕ)}
+private theorem settlesAt_prodR {c a b : ℕ} {l₁ l₂ : List (String × ℕ)}
     (q₁ : AggQueryIn T c a (ColKind.allReg a) l₁) (q₂ : AggQueryIn T c b (ColKind.allReg b) l₂)
     (D : Database T) (γ : Fin c → T) (h₁ : q₁.SettlesAt D γ) (h₂ : q₂.SettlesAt D γ) :
     (prodR q₁ q₂).SettlesAt D γ := by
   rw [prodR, AggQueryIn.settlesAt_castKind]; exact ⟨h₁, h₂⟩
 
-theorem settlesAt_junkB {c N M : ℕ} (s : String) (D : Database T) (γ : Fin c → T) :
+private theorem settlesAt_junkB {c N M : ℕ} (s : String) (D : Database T) (γ : Fin c → T) :
     (junkB (T := T) (c := c) N M s).SettlesAt D γ := by
   rw [junkB, AggQueryIn.settlesAt_castKind]; trivial
 
 /-- **The symbolic evaluation settles on every instance.** -/
-theorem settlesAt_sym_aux {k c : ℕ} (env : SymEnv T k c) (henv : EnvSettles env) :
+private theorem settlesAt_sym_aux {k c : ℕ} (env : SymEnv T k c) (henv : EnvSettles env) :
     ∀ (N : ℕ) (f : ℕ → String) {n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)}
       (q : AggQueryIn T (k + c) n κ l), sizeOf q ≤ N →
       (∀ i, q.noMention (f i) ∧ EnvNoMention env (f i)) →
@@ -237,35 +248,35 @@ section EnvSettle
 
 variable {c : ℕ} (D : Database T) (γ : Fin c → T)
 
-theorem settlesAt_ltQ {p : ℕ} (R : AggQueryIn T c p (ColKind.allReg p)) (h : R.SettlesAt D γ) :
+private theorem settlesAt_ltQ {p : ℕ} (R : AggQueryIn T c p (ColKind.allReg p)) (h : R.SettlesAt D γ) :
     (ltQ R).SettlesAt D γ := settlesAt_prodR R R D γ h h
 
-theorem settlesAt_midQ {p : ℕ} (R : AggQueryIn T c p (ColKind.allReg p)) (h : R.SettlesAt D γ) :
+private theorem settlesAt_midQ {p : ℕ} (R : AggQueryIn T c p (ColKind.allReg p)) (h : R.SettlesAt D γ) :
     (midQ R).SettlesAt D γ :=
   settlesAt_projQ _ _ D γ (settlesAt_prodR _ R D γ (settlesAt_prodR R R D γ h h) h)
 
-theorem settlesAt_succQ (s₁ s₂ : String) (cnt : SeqAggFunc T) {p : ℕ}
+private theorem settlesAt_succQ (s₁ s₂ : String) (cnt : SeqAggFunc T) {p : ℕ}
     (R : AggQueryIn T c p (ColKind.allReg p)) (h₁ : R.noMention s₁) (h₂ : R.noMention s₂)
     (h : R.SettlesAt D γ) : (succQ s₁ s₂ cnt R).SettlesAt D γ :=
   AggQueryIn.settlesAt_notInDiffX _ _ cnt _ _ (noMention_ltQ' h₁) (noMention_midQ' h₂) D γ
     (settlesAt_ltQ D γ R h) (settlesAt_midQ D γ R h)
 
-theorem settlesAt_leastQ (s₁ s₂ : String) (cnt : SeqAggFunc T) {p : ℕ}
+private theorem settlesAt_leastQ (s₁ s₂ : String) (cnt : SeqAggFunc T) {p : ℕ}
     (R : AggQueryIn T c p (ColKind.allReg p)) (h₁ : R.noMention s₁) (h₂ : R.noMention s₂)
     (h : R.SettlesAt D γ) : (leastQ s₁ s₂ cnt R).SettlesAt D γ :=
   AggQueryIn.settlesAt_notInDiffX _ _ cnt _ _ h₁ (noMention_aboveQ' h₂) D γ h
     (settlesAt_projQ _ _ D γ (settlesAt_ltQ D γ R h))
 
-theorem settlesAt_greatestQ (s₁ s₂ : String) (cnt : SeqAggFunc T) {p : ℕ}
+private theorem settlesAt_greatestQ (s₁ s₂ : String) (cnt : SeqAggFunc T) {p : ℕ}
     (R : AggQueryIn T c p (ColKind.allReg p)) (h₁ : R.noMention s₁) (h₂ : R.noMention s₂)
     (h : R.SettlesAt D γ) : (greatestQ s₁ s₂ cnt R).SettlesAt D γ :=
   AggQueryIn.settlesAt_notInDiffX _ _ cnt _ _ h₁ (noMention_belowQ' h₂) D γ h
     (settlesAt_projQ _ _ D γ (settlesAt_ltQ D γ R h))
 
-theorem settlesAt_constQ (a : T) : (constQ (c := c) a).SettlesAt D γ := by
+private theorem settlesAt_constQ (a : T) : (constQ (c := c) a).SettlesAt D γ := by
   unfold constQ; trivial
 
-theorem settlesAt_alphaQ (f : ℕ → String) (CQ : AggQueryIn T c 1 (ColKind.allReg 1))
+private theorem settlesAt_alphaQ (f : ℕ → String) (CQ : AggQueryIn T c 1 (ColKind.allReg 1))
     (hf : FreshFor f CQ) (h : CQ.SettlesAt D γ) : (alphaQ f CQ).SettlesAt D γ := by
   rw [alphaQ, AggQueryIn.settlesAt_dedupG]
   exact AggQueryIn.settlesAt_sumByMuX (f 0) (f 1) (nnQ CQ) _ (noMention_nnQ CQ (hf 0))
@@ -273,22 +284,22 @@ theorem settlesAt_alphaQ (f : ℕ → String) (CQ : AggQueryIn T c 1 (ColKind.al
     (AggQueryIn.settlesAt_sumByMuX _ _ _ _ (noMention_constQ _ _) (noMention_constQ _ _) D γ
       (settlesAt_constQ D γ _) (settlesAt_constQ D γ _))
 
-theorem settlesAt_powU (EQ : AggQueryIn T c 1 (ColKind.allReg 1)) (h : EQ.SettlesAt D γ) :
+private theorem settlesAt_powU (EQ : AggQueryIn T c 1 (ColKind.allReg 1)) (h : EQ.SettlesAt D γ) :
     ∀ K, (powU EQ K).SettlesAt D γ
   | 0 => by rw [powU]; exact AggQueryIn.settlesAt_unitC D γ
   | K + 1 => by rw [powU]; exact settlesAt_prodR _ _ D γ (settlesAt_powU EQ h K) h
 
-theorem settlesAt_powX {m : ℕ} (R : AggQueryIn T c m (ColKind.allReg m)) (h : R.SettlesAt D γ) :
+private theorem settlesAt_powX {m : ℕ} (R : AggQueryIn T c m (ColKind.allReg m)) (h : R.SettlesAt D γ) :
     ∀ K, (powX R K).SettlesAt D γ
   | 0 => by rw [powX]; exact AggQueryIn.settlesAt_unitC D γ
   | K + 1 => by rw [powX]; exact settlesAt_prodR _ _ D γ (settlesAt_powX R h K) h
 
-theorem settlesAt_thQ (f : ℕ → String) (k : ℕ) : ∀ r, (thQ (c := c) f k r).SettlesAt D γ
+private theorem settlesAt_thQ (f : ℕ → String) (k : ℕ) : ∀ r, (thQ (c := c) f k r).SettlesAt D γ
   | 0 => by unfold thQ thRowQ; trivial
   | r + 1 => AggQueryIn.settlesAt_sumByMuX _ _ _ _ (noMention_thQ f k _ r) (noMention_thRowQ _ _ _)
       D γ (settlesAt_thQ f k r) (by unfold thRowQ; trivial)
 
-theorem settlesAt_cellsQ (f : ℕ → String) (cnt : SeqAggFunc T) (k : ℕ)
+private theorem settlesAt_cellsQ (f : ℕ → String) (cnt : SeqAggFunc T) (k : ℕ)
     (CQ : AggQueryIn T c 1 (ColKind.allReg 1)) (hf : FreshFor f CQ) (h : CQ.SettlesAt D γ) :
     (cellsQ f cnt k CQ).SettlesAt D γ := by
   have hth : (thP (c := c) f k).SettlesAt D γ := settlesAt_thQ D γ _ k k
@@ -327,7 +338,7 @@ end EnvSettle
 
 /-- **The environment built from a cut settles** wherever the cut does,
 and its counters are always a list without repetition. -/
-theorem envSettles_envOf {c : ℕ} (f : ℕ → String) {cnt : SeqAggFunc T}
+private theorem envSettles_envOf {c : ℕ} (f : ℕ → String) {cnt : SeqAggFunc T}
     (hc : SeqAggFunc.Counts cnt) (k : ℕ) (CQ : AggQueryIn T c 1 (ColKind.allReg 1))
     (hfr : FreshFor f CQ) (h : ∀ D γ, CQ.SettlesAt D γ) : EnvSettles (envOf f cnt k CQ) where
   cq := h
@@ -350,7 +361,7 @@ section CutSettle
 
 variable {c : ℕ} (D : Database T) (γ : Fin c → T)
 
-theorem settlesAt_unionFin (f : ℕ → String) :
+private theorem settlesAt_unionFin (f : ℕ → String) :
     ∀ (n : ℕ) (F : Fin n → AggQueryIn T c 1 (ColKind.allReg 1)), (∀ i j, (F i).noMention (f j)) →
       (∀ i, (F i).SettlesAt D γ) → (unionFin f n F).SettlesAt D γ
   | 0, _, _, _ => by rw [unionFin]; exact AggQueryIn.settlesAt_emptyRel _ D γ
@@ -360,7 +371,7 @@ theorem settlesAt_unionFin (f : ℕ → String) :
       (noMention_unionFin _ n _ (fun i => hF i.succ 1)) D γ (h 0)
       (settlesAt_unionFin _ n _ (fun i j => hF i.succ (j + 2)) (fun i => h i.succ))
 
-theorem settlesAt_cutOf (f : ℕ → String) (S : Finset T) (core : AggQueryIn T c 1 (ColKind.allReg 1))
+private theorem settlesAt_cutOf (f : ℕ → String) (S : Finset T) (core : AggQueryIn T c 1 (ColKind.allReg 1))
     (hcore : ∀ i, core.noMention (f i)) (h : core.SettlesAt D γ) :
     (cutOf f S core).SettlesAt D γ := by
   have hnull : (nullQ (T := T) (c := c)).SettlesAt D γ := by
@@ -381,20 +392,20 @@ theorem settlesAt_cutOf (f : ℕ → String) (S : Finset T) (core : AggQueryIn T
       D γ hnull hamb
   · exact AggQueryIn.settlesAt_sumByMuX _ _ _ _ (noMention_constsQ _ S _) (hcore _) D γ hcs h
 
-theorem settlesAt_colsQ {N p : ℕ} (f : ℕ → String) (q : AggQueryIn T c N (ColKind.allReg N))
+private theorem settlesAt_colsQ {N p : ℕ} (f : ℕ → String) (q : AggQueryIn T c N (ColKind.allReg N))
     (idx : Fin p → Fin N) (hf : ∀ i, q.noMention (f i)) (h : q.SettlesAt D γ) :
     (colsQ f q idx).SettlesAt D γ :=
   settlesAt_unionFin D γ _ p _ (fun _ j => noMention_projQ _ _ (hf j))
     (fun _ => settlesAt_projQ _ _ D γ h)
 
-theorem settlesAt_valsOf {N : ℕ} (f : ℕ → String) (q : AggQueryIn T c N (ColKind.allReg N))
+private theorem settlesAt_valsOf {N : ℕ} (f : ℕ → String) (q : AggQueryIn T c N (ColKind.allReg N))
     (hf : ∀ i, q.noMention (f i)) (h : q.SettlesAt D γ) : (valsOf f q).SettlesAt D γ :=
   settlesAt_colsQ D γ f q id hf h
 
 end CutSettle
 
 /-- **The cut settles on every instance.** -/
-theorem settlesAt_cutCore {k c : ℕ} {cnt : SeqAggFunc T} (hc : SeqAggFunc.Counts cnt) :
+private theorem settlesAt_cutCore {k c : ℕ} {cnt : SeqAggFunc T} (hc : SeqAggFunc.Counts cnt) :
     ∀ (N : ℕ) (f : ℕ → String) {n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)}
       (q : AggQueryIn T (k + c) n κ l), sizeOf q ≤ N →
       (∀ i, q.noMention (f i)) →
@@ -536,7 +547,7 @@ theorem settlesAt_tabQ {k c : ℕ} {cnt : SeqAggFunc T} (hc : SeqAggFunc.Counts 
   exact (settlesAt_sym_aux _ henv _ (part f 2) q le_rfl
     (fun i => ⟨hf _, envNoMention_tabEnv cnt f q (hf _)⟩) D γ).1
 
-theorem envSettles_tabEnv {k c : ℕ} {cnt : SeqAggFunc T} (hc : SeqAggFunc.Counts cnt)
+private theorem envSettles_tabEnv {k c : ℕ} {cnt : SeqAggFunc T} (hc : SeqAggFunc.Counts cnt)
     (f : ℕ → String) {n : ℕ} {κ : Fin n → ColKind} (q : AggQueryIn T (k + c) n κ)
     (hf : ∀ i, q.noMention (f i)) : EnvSettles (tabEnv cnt f q) :=
   envSettles_envOf (part f 0) hc k (cutQ cnt (part f 1) q)

@@ -5,6 +5,9 @@ public import Provenance.AggQuery
 import Mathlib.Data.Sym.Basic
 import Mathlib.Tactic.NormNum.Inv
 import Mathlib.Tactic.NormNum.Pow
+import all Provenance.SymCode
+import all Provenance.Util.Kleene
+import all Provenance.Util.ValueTypeNull
 
 /-!
 # Codes as columns, and comparisons between them
@@ -75,7 +78,7 @@ def SA.toG {c n : ℕ} : SA T c n → TermGIn T c (ColKind.allReg n)
   | .col i => .index i rfl
   | .amb j => .outer j
 
-theorem SA.evalPlain_toG {c n : ℕ} (a : SA T c n) (u : Tuple T n) (γ : Fin c → T) :
+private theorem SA.evalPlain_toG {c n : ℕ} (a : SA T c n) (u : Tuple T n) (γ : Fin c → T) :
     a.toG.evalPlain u γ = a.eval u γ := by
   cases a <;> rfl
 
@@ -88,7 +91,7 @@ def SP.toGen {c n : ℕ} : SP T c n → GenPredIn T c (ColKind.allReg n)
   | .tru => .cmp .syneq (.const 0) (.const 0)
   | .fls => .cmp .syneq (.const 0) (.const ValueType.nonzero)
 
-theorem SP.evalPlain3_toGen {c n : ℕ} (p : SP T c n) (u : Tuple T n) (γ : Fin c → T) :
+private theorem SP.evalPlain3_toGen {c n : ℕ} (p : SP T c n) (u : Tuple T n) (γ : Fin c → T) :
     p.toGen.evalPlain3 u γ = p.eval3 u γ := by
   induction p with
   | atom op a b =>
@@ -128,7 +131,7 @@ def SA.toT {n : ℕ} : SA T 0 n → Term T n
   | .col i => .index i
   | .amb j => j.elim0
 
-theorem SA.eval_toT {n : ℕ} (a : SA T 0 n) (u : Tuple T n) (γ : Fin 0 → T) :
+private theorem SA.eval_toT {n : ℕ} (a : SA T 0 n) (u : Tuple T n) (γ : Fin 0 → T) :
     a.toT.eval u = a.eval u γ := by
   cases a with
   | const a => rfl
@@ -147,7 +150,7 @@ def boolOf {n : ℕ} (op : CompOp) (t₁ t₂ : Term T n) : BoolTerm T n :=
   | .syneq => .SYNEQ t₁ t₂
   | .synne => .SYNNE t₁ t₂
 
-theorem eval3_boolOf {n : ℕ} (op : CompOp) (t₁ t₂ : Term T n) (u : Tuple T n) :
+private theorem eval3_boolOf {n : ℕ} (op : CompOp) (t₁ t₂ : Term T n) (u : Tuple T n) :
     (boolOf op t₁ t₂).eval3 u = op.eval3 (t₁.eval u) (t₂.eval u) := by
   cases op <;> rfl
 
@@ -160,7 +163,7 @@ def SP.toSel {n : ℕ} : SP T 0 n → Selection T n
   | .tru => .True
   | .fls => .Not .True
 
-theorem SP.eval3_toSel {n : ℕ} (p : SP T 0 n) (u : Tuple T n) (γ : Fin 0 → T) :
+private theorem SP.eval3_toSel {n : ℕ} (p : SP T 0 n) (u : Tuple T n) (γ : Fin 0 → T) :
     p.toSel.eval3 u = p.eval3 u γ := by
   induction p with
   | atom op a b =>
@@ -260,18 +263,18 @@ abbrev iR {k : ℕ} (j : Fin k) : Fin (7 + k) := Fin.natAdd 7 j
 
 variable {C}
 
-@[simp] theorem enc_conc_F (k : ℕ) (a : T) : enc C k (.conc a) (iF k) = 0 := rfl
-@[simp] theorem enc_conc_V (k : ℕ) (a : T) : enc C k (.conc a) (iV k) = a := rfl
-@[simp] theorem enc_conc_B (k : ℕ) (a : T) : enc C k (.conc a) (iB k) = 0 := rfl
-@[simp] theorem enc_conc_R (k : ℕ) (a : T) (j : Fin k) : enc C k (.conc a) (iR j) = 0 := by
+@[simp] private theorem enc_conc_F (k : ℕ) (a : T) : enc C k (.conc a) (iF k) = 0 := rfl
+@[simp] private theorem enc_conc_V (k : ℕ) (a : T) : enc C k (.conc a) (iV k) = a := rfl
+@[simp] private theorem enc_conc_B (k : ℕ) (a : T) : enc C k (.conc a) (iB k) = 0 := rfl
+@[simp] private theorem enc_conc_R (k : ℕ) (a : T) (j : Fin k) : enc C k (.conc a) (iR j) = 0 := by
   simp [enc, iR]
-@[simp] theorem enc_fresh_F (k : ℕ) (l : WithBot T) (r : ℕ) :
+@[simp] private theorem enc_fresh_F (k : ℕ) (l : WithBot T) (r : ℕ) :
     enc C k (.fresh l r) (iF k) = ValueType.nonzero := rfl
-@[simp] theorem enc_fresh_V (k : ℕ) (l : WithBot T) (r : ℕ) :
+@[simp] private theorem enc_fresh_V (k : ℕ) (l : WithBot T) (r : ℕ) :
     enc C k (.fresh l r) (iV k) = lval C l := rfl
-@[simp] theorem enc_fresh_B (k : ℕ) (l : WithBot T) (r : ℕ) :
+@[simp] private theorem enc_fresh_B (k : ℕ) (l : WithBot T) (r : ℕ) :
     enc C k (.fresh l r) (iB k) = wbFlag l := rfl
-@[simp] theorem enc_fresh_R (k : ℕ) (l : WithBot T) (r : ℕ) (j : Fin k) :
+@[simp] private theorem enc_fresh_R (k : ℕ) (l : WithBot T) (r : ℕ) (j : Fin k) :
     enc C k (.fresh l r) (iR j) = therm k r j := by
   simp [enc, iR]
 
@@ -380,30 +383,30 @@ def cellCmp (op : CompOp) (x y : Fin (7 + k) → SA T c n) : SP T c n :=
 
 /-! ## What a comparison of cells reads -/
 
-theorem nonzero_ne_zero' : (ValueType.nonzero : T) ≠ 0 := ValueType.nonzero_ne_zero
+private theorem nonzero_ne_zero' : (ValueType.nonzero : T) ≠ 0 := ValueType.nonzero_ne_zero
 
-theorem eval3_isZ (a : SA T c n) (u : Tuple T n) (γ : Fin c → T) :
+private theorem eval3_isZ (a : SA T c n) (u : Tuple T n) (γ : Fin c → T) :
     (isZ a).eval3 u γ = Kleene.ofBool (decide (a.eval u γ = 0)) := by
   show CompOp.syneq.eval3 _ _ = _
   rw [CompOp.eval3_of_not_strict rfl]; rfl
 
-theorem eval3_isN (a : SA T c n) (u : Tuple T n) (γ : Fin c → T) :
+private theorem eval3_isN (a : SA T c n) (u : Tuple T n) (γ : Fin c → T) :
     (isN a).eval3 u γ = Kleene.ofBool (decide (a.eval u γ = ValueType.nonzero)) := by
   show CompOp.syneq.eval3 _ _ = _
   rw [CompOp.eval3_of_not_strict rfl]; rfl
 
-theorem eval3_atom_syneq (a b : SA T c n) (u : Tuple T n) (γ : Fin c → T) :
+private theorem eval3_atom_syneq (a b : SA T c n) (u : Tuple T n) (γ : Fin c → T) :
     (SP.atom .syneq a b).eval3 u γ = Kleene.ofBool (decide (a.eval u γ = b.eval u γ)) := by
   show CompOp.syneq.eval3 _ _ = _
   rw [CompOp.eval3_of_not_strict rfl]; rfl
 
-theorem eval3_atom_of_nonNull (op : CompOp) (a b : SA T c n) (u : Tuple T n) (γ : Fin c → T)
+private theorem eval3_atom_of_nonNull (op : CompOp) (a b : SA T c n) (u : Tuple T n) (γ : Fin c → T)
     (ha : ValueType.isNull (a.eval u γ) = false) (hb : ValueType.isNull (b.eval u γ) = false) :
     (SP.atom op a b).eval3 u γ = Kleene.ofBool (decide (op.eval (a.eval u γ) (b.eval u γ))) := by
   show CompOp.eval3 _ _ _ = _
   simp [CompOp.eval3, ha, hb]
 
-theorem eval3_orAll (ps : List (SP T c n)) (u : Tuple T n) (γ : Fin c → T)
+private theorem eval3_orAll (ps : List (SP T c n)) (u : Tuple T n) (γ : Fin c → T)
     (hd : ∀ p ∈ ps, p.eval3 u γ = Kleene.true ∨ p.eval3 u γ = Kleene.false) :
     (orAll ps).eval3 u γ = Kleene.ofBool (decide (∃ p ∈ ps, p.eval3 u γ = Kleene.true)) := by
   induction ps with
@@ -423,7 +426,7 @@ theorem eval3_orAll (ps : List (SP T c n)) (u : Tuple T n) (γ : Fin c → T)
         simp only [decide_eq_false hex, decide_eq_false hex']
         rfl
 
-theorem eval3_andAll (ps : List (SP T c n)) (u : Tuple T n) (γ : Fin c → T)
+private theorem eval3_andAll (ps : List (SP T c n)) (u : Tuple T n) (γ : Fin c → T)
     (hd : ∀ p ∈ ps, p.eval3 u γ = Kleene.true ∨ p.eval3 u γ = Kleene.false) :
     (andAll ps).eval3 u γ = Kleene.ofBool (decide (∀ p ∈ ps, p.eval3 u γ = Kleene.true)) := by
   induction ps with
@@ -448,35 +451,35 @@ theorem eval3_andAll (ps : List (SP T c n)) (u : Tuple T n) (γ : Fin c → T)
       cases decide (∀ q ∈ ps, q.eval3 u γ = Kleene.true) <;> rfl
 
 /-- A unary rank holds its two constants. -/
-theorem sLo_ne_sHi : (sLo : T) ≠ sHi := by
+private theorem sLo_ne_sHi : (sLo : T) ≠ sHi := by
   unfold sLo sHi
   split
   · exact nonzero_ne_zero'.symm
   · exact nonzero_ne_zero'
 
-theorem sLo_lt_sHi : LT.lt (sLo : T) sHi := by
+private theorem sLo_lt_sHi : LT.lt (sLo : T) sHi := by
   unfold sLo sHi
   split
   · assumption
   · rename_i h
     exact lt_of_le_of_ne (not_lt.mp h) nonzero_ne_zero'
 
-theorem isNull_sLo : ValueType.isNull (sLo : T) = false := by
+private theorem isNull_sLo : ValueType.isNull (sLo : T) = false := by
   unfold sLo; split
   · exact ValueType.isNull_zero
   · exact ValueType.isNull_nonzero
 
-theorem isNull_sHi : ValueType.isNull (sHi : T) = false := by
+private theorem isNull_sHi : ValueType.isNull (sHi : T) = false := by
   unfold sHi; split
   · exact ValueType.isNull_nonzero
   · exact ValueType.isNull_zero
 
-theorem therm_def (k r : ℕ) (j : Fin k) :
+private theorem therm_def (k r : ℕ) (j : Fin k) :
     therm (T := T) k r j = sLo ∨ therm (T := T) k r j = sHi := by
   unfold therm; split <;> simp
 
 /-- **Two unary ranks are ordered as the ranks**, below `k`. -/
-theorem therm_lt_iff {k r r' : ℕ} (hr : r < k) :
+private theorem therm_lt_iff {k r r' : ℕ} (hr : r < k) :
     (∃ j : Fin k, therm (T := T) k r j = sLo ∧ therm (T := T) k r' j = sHi)
       ↔ r < r' := by
   constructor
@@ -493,7 +496,7 @@ theorem therm_lt_iff {k r r' : ℕ} (hr : r < k) :
     · unfold therm; rw [ite_eq_left h]
 
 /-- **Two unary ranks are equal as the ranks are**, below `k`. -/
-theorem therm_eq_iff {k r r' : ℕ} (hr : r < k) (hr' : r' < k) :
+private theorem therm_eq_iff {k r r' : ℕ} (hr : r < k) (hr' : r' < k) :
     (∀ j : Fin k, therm (T := T) k r j = therm (T := T) k r' j) ↔ r = r' := by
   constructor
   · intro h
@@ -509,18 +512,18 @@ theorem therm_eq_iff {k r r' : ℕ} (hr : r < k) (hr' : r' < k) :
       exact sLo_ne_sHi this.symm
   · rintro rfl _; rfl
 
-theorem wbFlag_def (l : WithBot T) : wbFlag l = 0 ∨ wbFlag l = ValueType.nonzero := by
+private theorem wbFlag_def (l : WithBot T) : wbFlag l = 0 ∨ wbFlag l = ValueType.nonzero := by
   cases l <;> simp [wbFlag]
 
 /-- **The order of two lower bounds, read off their columns.** -/
-theorem withBot_lt_iff (l l' : WithBot T) :
+private theorem withBot_lt_iff (l l' : WithBot T) :
     LT.lt l l' ↔ (wbFlag l = ValueType.nonzero ∧ wbFlag l' = 0)
       ∨ (wbFlag l = wbFlag l' ∧ LT.lt (lval C l) (lval C l')) := by
   cases l <;> cases l' <;> simp [wbFlag, lval, nonzero_ne_zero', nonzero_ne_zero'.symm,
     WithBot.bot_lt_coe]
 
 /-- **The equality of two lower bounds, read off their columns.** -/
-theorem withBot_eq_iff (l l' : WithBot T) :
+private theorem withBot_eq_iff (l l' : WithBot T) :
     l = l' ↔ wbFlag l = wbFlag l' ∧ lval C l = lval C l' := by
   cases l <;> cases l' <;> simp [wbFlag, lval, nonzero_ne_zero', nonzero_ne_zero'.symm]
 
@@ -534,14 +537,14 @@ def CodeOK (par : Fin k → T) (x : Code T) : Prop :=
   (∃ i, IsFresh C (par i) ∧ x = code C par i)
     ∨ ∃ a, (a ∈ C ∨ ValueType.isNull a = true) ∧ x = Code.conc a
 
-@[simp] theorem Kleene.and_true_left (a : Kleene) : Kleene.true.and a = a := by cases a <;> rfl
-@[simp] theorem Kleene.and_false_left (a : Kleene) : Kleene.false.and a = Kleene.false := by
+@[simp] private theorem Kleene.and_true_left (a : Kleene) : Kleene.true.and a = a := by cases a <;> rfl
+@[simp] private theorem Kleene.and_false_left (a : Kleene) : Kleene.false.and a = Kleene.false := by
   cases a <;> rfl
-@[simp] theorem Kleene.or_false_right (a : Kleene) : a.or Kleene.false = a := by cases a <;> rfl
-@[simp] theorem Kleene.or_false_left (a : Kleene) : Kleene.false.or a = a := by cases a <;> rfl
+@[simp] private theorem Kleene.or_false_right (a : Kleene) : a.or Kleene.false = a := by cases a <;> rfl
+@[simp] private theorem Kleene.or_false_left (a : Kleene) : Kleene.false.or a = a := by cases a <;> rfl
 
 /-- The strict wrapper reads `Q` on a non-null value. -/
-theorem eval3_wrap_nonNull (a : SA T c n) (Q : SP T c n) (u : Tuple T n) (γ : Fin c → T)
+private theorem eval3_wrap_nonNull (a : SA T c n) (Q : SP T c n) (u : Tuple T n) (γ : Fin c → T)
     (ha : ValueType.isNull (a.eval u γ) = false) :
     (wrap a Q).eval3 u γ = Q.eval3 u γ := by
   have he : (SP.atom .eq a a).eval3 u γ = Kleene.true := by
@@ -553,7 +556,7 @@ theorem eval3_wrap_nonNull (a : SA T c n) (Q : SP T c n) (u : Tuple T n) (γ : F
   simp
 
 /-- And it is unknown on the null. -/
-theorem eval3_wrap_null (a : SA T c n) (Q : SP T c n) (u : Tuple T n) (γ : Fin c → T)
+private theorem eval3_wrap_null (a : SA T c n) (Q : SP T c n) (u : Tuple T n) (γ : Fin c → T)
     (ha : ValueType.isNull (a.eval u γ) = true) :
     (wrap a Q).eval3 u γ = Kleene.unknown := by
   have he : (SP.atom .eq a a).eval3 u γ = Kleene.unknown := by
@@ -563,28 +566,28 @@ theorem eval3_wrap_null (a : SA T c n) (Q : SP T c n) (u : Tuple T n) (γ : Fin 
   rw [he]
   cases Q.eval3 u γ <;> rfl
 
-@[simp] theorem Kleene.and_ofBool (p q : Bool) :
+@[simp] private theorem Kleene.and_ofBool (p q : Bool) :
     (Kleene.ofBool p).and (Kleene.ofBool q) = Kleene.ofBool (p && q) := by
   cases p <;> cases q <;> rfl
 
-@[simp] theorem Kleene.or_ofBool (p q : Bool) :
+@[simp] private theorem Kleene.or_ofBool (p q : Bool) :
     (Kleene.ofBool p).or (Kleene.ofBool q) = Kleene.ofBool (p || q) := by
   cases p <;> cases q <;> rfl
 
-theorem ofBool_congr {P Q : Prop} [Decidable P] [Decidable Q] (h : P ↔ Q) :
+private theorem ofBool_congr {P Q : Prop} [Decidable P] [Decidable Q] (h : P ↔ Q) :
     Kleene.ofBool (decide P) = Kleene.ofBool (decide Q) := by
   rw [decide_eq_decide.mpr h]
 
-theorem ofBool_and_congr {P Q R : Prop} [Decidable P] [Decidable Q] [Decidable R]
+private theorem ofBool_and_congr {P Q R : Prop} [Decidable P] [Decidable Q] [Decidable R]
     (h : P ∧ Q ↔ R) : Kleene.ofBool (decide P && decide Q) = Kleene.ofBool (decide R) := by
   rw [← Bool.decide_and]; exact ofBool_congr h
 
-theorem ofBool_nand_congr {P Q R : Prop} [Decidable P] [Decidable Q] [Decidable R]
+private theorem ofBool_nand_congr {P Q R : Prop} [Decidable P] [Decidable Q] [Decidable R]
     (h : ¬ (P ∧ Q) ↔ R) : Kleene.ofBool (!(decide P && decide Q)) = Kleene.ofBool (decide R) := by
   rw [← Bool.decide_and, ← decide_not]; exact ofBool_congr h
 
 /-- A gap's lower bound is never null as a column. -/
-theorem isNull_lval_lo (a : T) : ValueType.isNull (lval C (lo C a)) = false := by
+private theorem isNull_lval_lo (a : T) : ValueType.isNull (lval C (lo C a)) = false := by
   cases h : lo C a with
   | bot =>
     show ValueType.isNull (wtVal (upOf C ⊥)) = false
@@ -596,23 +599,23 @@ theorem isNull_lval_lo (a : T) : ValueType.isNull (lval C (lo C a)) = false := b
   | coe b => exact (lo_eq_coe h).2.1
 
 /-- **A value at most a lower bound**, read off its columns. -/
-theorem coe_le_iff (a : T) (l : WithBot T) :
+private theorem coe_le_iff (a : T) (l : WithBot T) :
     LE.le (a : WithBot T) l ↔ (wbFlag l = 0 ∧ LE.le a (lval C l)) := by
   cases l <;> simp [wbFlag, lval, nonzero_ne_zero']
 
-theorem fresh_ne {par : Fin k → T} {i : Fin k} {a : T} (hi : IsFresh C (par i))
+private theorem fresh_ne {par : Fin k → T} {i : Fin k} {a : T} (hi : IsFresh C (par i))
     (ha : a ∈ C ∨ ValueType.isNull a = true) : a ≠ par i := by
   rintro rfl
   rcases ha with ha | ha
   · exact hi.1 ha
   · rw [hi.2] at ha; exact absurd ha (by decide)
 
-theorem enc_code_fresh {par : Fin k → T} {i : Fin k} (hi : IsFresh C (par i)) :
+private theorem enc_code_fresh {par : Fin k → T} {i : Fin k} (hi : IsFresh C (par i)) :
     enc C k (code C par i) = enc C k (Code.fresh (lo C (par i)) (rank C par (par i))) := by
   rw [code_of_fresh hi]
 
 /-- **A concrete value of the cut below a fresh cell.** -/
-theorem eval3_ltCF {par : Fin k → T} {j : Fin k} (hj : IsFresh C (par j))
+private theorem eval3_ltCF {par : Fin k → T} {j : Fin k} (hj : IsFresh C (par j))
     (a : SA T c n) (y : Fin (7 + k) → SA T c n) (u : Tuple T n) (γ : Fin c → T)
     (haC : a.eval u γ ∈ C) (han : ValueType.isNull (a.eval u γ) = false)
     (hy : ∀ i, (y i).eval u γ = enc C k (code C par j) i) :
@@ -627,7 +630,7 @@ theorem eval3_ltCF {par : Fin k → T} {j : Fin k} (hj : IsFresh C (par j))
   rfl
 
 /-- **A fresh cell below a concrete value of the cut.** -/
-theorem eval3_ltFC {par : Fin k → T} {i : Fin k} (hi : IsFresh C (par i))
+private theorem eval3_ltFC {par : Fin k → T} {i : Fin k} (hi : IsFresh C (par i))
     (x : Fin (7 + k) → SA T c n) (b : SA T c n) (u : Tuple T n) (γ : Fin c → T)
     (hbC : b.eval u γ ∈ C) (hbn : ValueType.isNull (b.eval u γ) = false)
     (hx : ∀ i', (x i').eval u γ = enc C k (code C par i) i') :
@@ -645,15 +648,15 @@ theorem eval3_ltFC {par : Fin k → T} {i : Fin k} (hi : IsFresh C (par i))
   · intro h; exact lt_of_le_of_ne (not_lt.mp h) (Ne.symm hne)
   · intro h h'; exact absurd (h.trans h') (lt_irrefl _)
 
-theorem ofBool_definite (b : Bool) :
+private theorem ofBool_definite (b : Bool) :
     Kleene.ofBool b = Kleene.true ∨ Kleene.ofBool b = Kleene.false := by
   cases b <;> simp [Kleene.ofBool]
 
 /-- The unary rank of a fresh cell's code is below `k`. -/
-theorem rank_code_lt {par : Fin k → T} (i : Fin k) : rank C par (par i) < k :=
+private theorem rank_code_lt {par : Fin k → T} (i : Fin k) : rank C par (par i) < k :=
   rank_lt (mem_image par i)
 
-theorem eval3_thEq (x y : Fin (7 + k) → SA T c n) (u : Tuple T n) (γ : Fin c → T)
+private theorem eval3_thEq (x y : Fin (7 + k) → SA T c n) (u : Tuple T n) (γ : Fin c → T)
     {r r' : ℕ} (hx : ∀ j, (x (iR j)).eval u γ = therm k r j)
     (hy : ∀ j, (y (iR j)).eval u γ = therm k r' j) :
     (thEq x y).eval3 u γ = Kleene.ofBool (decide (∀ j, therm (T := T) k r j = therm k r' j)) := by
@@ -666,7 +669,7 @@ theorem eval3_thEq (x y : Fin (7 + k) → SA T c n) (u : Tuple T n) (γ : Fin c 
     forall_apply_eq_imp_iff, eval3_atom_syneq, hx, hy, Kleene.ofBool_eq_true_iff,
     decide_eq_true_eq]
 
-theorem eval3_thLt (x y : Fin (7 + k) → SA T c n) (u : Tuple T n) (γ : Fin c → T)
+private theorem eval3_thLt (x y : Fin (7 + k) → SA T c n) (u : Tuple T n) (γ : Fin c → T)
     {r r' : ℕ} (hx : ∀ j, (x (iR j)).eval u γ = therm k r j)
     (hy : ∀ j, (y (iR j)).eval u γ = therm k r' j) :
     (thLt x y).eval3 u γ
@@ -687,7 +690,7 @@ theorem eval3_thLt (x y : Fin (7 + k) → SA T c n) (u : Tuple T n) (γ : Fin c 
   rfl
 
 /-- **Two fresh cells are equal as their values are.** -/
-theorem eval3_eqFF {par : Fin k → T} {i j : Fin k} (hi : IsFresh C (par i))
+private theorem eval3_eqFF {par : Fin k → T} {i j : Fin k} (hi : IsFresh C (par i))
     (hj : IsFresh C (par j)) (x y : Fin (7 + k) → SA T c n) (u : Tuple T n) (γ : Fin c → T)
     (hx : ∀ i', (x i').eval u γ = enc C k (code C par i) i')
     (hy : ∀ i', (y i').eval u γ = enc C k (code C par j) i') :
@@ -707,7 +710,7 @@ theorem eval3_eqFF {par : Fin k → T} {i j : Fin k} (hi : IsFresh C (par i))
   exact ⟨fun ⟨h₁, h₂⟩ => h₁ ▸ h₂ ▸ rfl, fun h => by injection h with h₁ h₂; exact ⟨h₁, h₂⟩⟩
 
 /-- **A fresh cell below another, as their values are.** -/
-theorem eval3_ltFF {par : Fin k → T} {i j : Fin k} (hi : IsFresh C (par i))
+private theorem eval3_ltFF {par : Fin k → T} {i j : Fin k} (hi : IsFresh C (par i))
     (hj : IsFresh C (par j)) (x y : Fin (7 + k) → SA T c n) (u : Tuple T n) (γ : Fin c → T)
     (hx : ∀ i', (x i').eval u γ = enc C k (code C par i) i')
     (hy : ∀ i', (y i').eval u γ = enc C k (code C par j) i') :
@@ -745,7 +748,7 @@ theorem eval3_ltFF {par : Fin k → T} {i j : Fin k} (hi : IsFresh C (par i))
     · exact Or.inr ⟨h₁, Or.inr ⟨h₃, h₄⟩⟩
 
 /-- **A concrete value compared with a fresh cell**, as with its value. -/
-theorem eval3_branchCF {par : Fin k → T} {j : Fin k} (hj : IsFresh C (par j)) (op : CompOp)
+private theorem eval3_branchCF {par : Fin k → T} {j : Fin k} (hj : IsFresh C (par j)) (op : CompOp)
     (a : SA T c n) (y : Fin (7 + k) → SA T c n) (u : Tuple T n) (γ : Fin c → T)
     (ha : a.eval u γ ∈ C ∨ ValueType.isNull (a.eval u γ) = true)
     (hy : ∀ i, (y i).eval u γ = enc C k (code C par j) i) :
@@ -786,7 +789,7 @@ theorem eval3_branchCF {par : Fin k → T} {j : Fin k} (hj : IsFresh C (par j)) 
         ⟨fun _ => trivial, fun _ => hne⟩).symm
 
 /-- **A fresh cell compared with a concrete value**, as its value. -/
-theorem eval3_branchFC {par : Fin k → T} {i : Fin k} (hi : IsFresh C (par i)) (op : CompOp)
+private theorem eval3_branchFC {par : Fin k → T} {i : Fin k} (hi : IsFresh C (par i)) (op : CompOp)
     (x : Fin (7 + k) → SA T c n) (b : SA T c n) (u : Tuple T n) (γ : Fin c → T)
     (hb : b.eval u γ ∈ C ∨ ValueType.isNull (b.eval u γ) = true)
     (hx : ∀ i', (x i').eval u γ = enc C k (code C par i) i') :
@@ -827,7 +830,7 @@ theorem eval3_branchFC {par : Fin k → T} {i : Fin k} (hi : IsFresh C (par i)) 
         ⟨fun _ => trivial, fun _ => hne⟩).symm
 
 /-- **Two fresh cells compared**, as their values. -/
-theorem eval3_branchFF {par : Fin k → T} {i j : Fin k} (hi : IsFresh C (par i))
+private theorem eval3_branchFF {par : Fin k → T} {i j : Fin k} (hi : IsFresh C (par i))
     (hj : IsFresh C (par j)) (op : CompOp) (x y : Fin (7 + k) → SA T c n) (u : Tuple T n)
     (γ : Fin c → T) (hx : ∀ i', (x i').eval u γ = enc C k (code C par i) i')
     (hy : ∀ i', (y i').eval u γ = enc C k (code C par j) i') :

@@ -9,6 +9,7 @@ public import Provenance.SemiringWithMonus
 public import Provenance.Semirings.Regex
 import Mathlib.Algebra.Order.Sub.Basic
 import Mathlib.Tactic.Bound.Init
+import all Provenance.Semirings.Regex
 
 /-!
 # The min-cost-paths m-semiring (ProvSQL's `sr_tropical_paths`)
@@ -129,7 +130,7 @@ instance : SemilatticeSup (TropicalPathsVal C Λ) where
         · exact Or.inr ⟨hp1, sup_le hp2 hq2⟩
     · rw [sup_of_gt h]; exact hq
 
-theorem sup_def (p q : TropicalPathsVal C Λ) : p ⊔ q = sup p q := rfl
+private theorem sup_def (p q : TropicalPathsVal C Λ) : p ⊔ q = sup p q := rfl
 
 end TropicalPathsVal
 
@@ -178,7 +179,7 @@ theorem not_some_le_none (p : TropicalPathsVal C Λ) :
     ¬ (⟨some p⟩ : TropicalPaths C Λ) ≤ ⟨none⟩ :=
   fun h => lt_irrefl _ (lt_of_lt_of_le (WithBot.bot_lt_coe (TropicalPathsVal.key p)) h)
 
-theorem le_none_iff (a : TropicalPaths C Λ) : a ≤ ⟨none⟩ ↔ a = ⟨none⟩ := by
+private theorem le_none_iff (a : TropicalPaths C Λ) : a ≤ ⟨none⟩ ↔ a = ⟨none⟩ := by
   obtain ⟨a⟩ := a
   cases a with
   | none => exact ⟨fun _ => rfl, fun _ => le_refl _⟩
@@ -249,9 +250,9 @@ theorem add_eq_sup (a b : TropicalPaths C Λ) : a + b = a ⊔ b := rfl
 instance : Zero (TropicalPaths C Λ) := ⟨⟨none⟩⟩
 
 omit [LinearOrder C] in
-theorem zero_def : (0 : TropicalPaths C Λ) = ⟨none⟩ := rfl
+private theorem zero_def : (0 : TropicalPaths C Λ) = ⟨none⟩ := rfl
 
-theorem zero_le' (a : TropicalPaths C Λ) : (0 : TropicalPaths C Λ) ≤ a := none_le a
+private theorem zero_le' (a : TropicalPaths C Λ) : (0 : TropicalPaths C Λ) ≤ a := none_le a
 
 section Cost
 variable [AddCommMonoid C] [IsOrderedCancelAddMonoid C]
@@ -532,13 +533,13 @@ instance : SemiringWithMonus (TropicalPaths C Λ) where
     exact deltaInd_isIndicator.nonzero 1 one_ne_zero'
   delta_absorb := delta_absorb_indicator deltaInd_isIndicator
 
-theorem idempotent_add : idempotent (TropicalPaths C Λ) := fun a => by
+private theorem idempotent_add : idempotent (TropicalPaths C Λ) := fun a => by
   rw [add_eq_sup, sup_idem]
 
 omit [LinearOrder C] [IsOrderedCancelAddMonoid C] in
 /-- **Concatenation does not commute**: two distinct labels in either
 order are two distinct words. -/
-theorem not_commutative {a b : Λ} (hab : a ≠ b) (c : C) :
+private theorem not_commutative {a b : Λ} (hab : a ≠ b) (c : C) :
     (⟨some ⟨c, {[a]}⟩⟩ : TropicalPaths C Λ) * ⟨some ⟨c, {[b]}⟩⟩
       ≠ (⟨some ⟨c, {[b]}⟩⟩ : TropicalPaths C Λ) * ⟨some ⟨c, {[a]}⟩⟩ := by
   rw [some_mul_some, some_mul_some]
@@ -548,7 +549,7 @@ theorem not_commutative {a b : Λ} (hab : a ≠ b) (c : C) :
 
 /-- **Not exclusive**: a value of positive cost is beaten by `𝟙`, whose
 monus against it is `𝟙` again, and `a ⊗ 𝟙 = a ≠ 𝟘`. -/
-theorem not_exclusive {c : C} (hc : 0 < c) (L : Language Λ) :
+private theorem not_exclusive {c : C} (hc : 0 < c) (L : Language Λ) :
     (⟨some ⟨c, L⟩⟩ : TropicalPaths C Λ) * (1 - ⟨some ⟨c, L⟩⟩) ≠ 0 := by
   have h1 : (1 : TropicalPaths C Λ) - ⟨some ⟨c, L⟩⟩ = 1 := by
     show monus 1 _ = 1
@@ -562,7 +563,7 @@ theorem not_exclusive {c : C} (hc : 0 < c) (L : Language Λ) :
 
 /-- A cycle of positive cost is never followed on a shortest path: `𝟙`
 solves `s = 𝟙 ⊕ a ⊗ s`. -/
-theorem one_add_mul_one_of_pos {c : C} (hc : 0 < c) (L : Language Λ) :
+private theorem one_add_mul_one_of_pos {c : C} (hc : 0 < c) (L : Language Λ) :
     (1 : TropicalPaths C Λ) + ⟨some ⟨c, L⟩⟩ * 1 = 1 := by
   rw [mul_one, one_def, some_add_some, TropicalPathsVal.sup_def,
     TropicalPathsVal.sup_of_lt hc]
@@ -570,7 +571,7 @@ theorem one_add_mul_one_of_pos {c : C} (hc : 0 < c) (L : Language Λ) :
 omit [IsOrderedCancelAddMonoid C] in
 /-- A cycle of cost `0` is followed any number of times at no cost:
 `(0, L∗)` solves `s = 𝟙 ⊕ a ⊗ s` for `a = (0, L)`. -/
-theorem one_add_mul_kstar (L : Language Λ) :
+private theorem one_add_mul_kstar (L : Language Λ) :
     (1 : TropicalPaths C Λ) + ⟨some ⟨0, L⟩⟩ * ⟨some ⟨0, KStar.kstar L⟩⟩
       = ⟨some ⟨0, KStar.kstar L⟩⟩ := by
   rw [some_mul_some, one_def, some_add_some, TropicalPathsVal.sup_def,
@@ -579,7 +580,7 @@ theorem one_add_mul_kstar (L : Language Λ) :
 
 /-- A cycle of negative cost has no least cost: no value solves
 `s = 𝟙 ⊕ a ⊗ s`, which is what `recursion-cycle-no-value` refuses. -/
-theorem no_fixpoint_of_neg {c : C} (hc : c < 0) (L : Language Λ) (s : TropicalPaths C Λ) :
+private theorem no_fixpoint_of_neg {c : C} (hc : c < 0) (L : Language Λ) (s : TropicalPaths C Λ) :
     (1 : TropicalPaths C Λ) + ⟨some ⟨c, L⟩⟩ * s ≠ s := by
   obtain ⟨s⟩ := s
   cases s with

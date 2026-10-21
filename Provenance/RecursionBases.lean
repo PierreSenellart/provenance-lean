@@ -5,6 +5,10 @@ public import Provenance.SymCut
 import Mathlib.Analysis.SpecialFunctions.Pow.NNReal
 import Provenance.RecursionBasisTheorem
 import Provenance.SymPass
+import all Provenance.AggQuery
+import all Provenance.Database
+import all Provenance.PlainBasis
+import all Provenance.RecursionBasis
 
 /-!
 # The bases of the whole algebra, all of them
@@ -34,7 +38,7 @@ namespace AggQueryIn
 /-- **Without a selection and an apply, a recursive term multiplies its
 round**: it reads `X` as `k · |X| + C` rows, `k` and `C` fixed by the
 instance and the context. -/
-theorem card_body_of_noFilter {S : Set OpKind} (hsel : OpKind.sel ∉ S)
+private theorem card_body_of_noFilter {S : Set OpKind} (hsel : OpKind.sel ∉ S)
     (hap : OpKind.apply ∉ S) {s : String} {m : ℕ} :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l),
       l = [(s, m)] → q.usesOnly S → q.noMention s →
@@ -134,7 +138,7 @@ theorem evaluatePlain_mu_degenerate {S : Set OpKind} (hsel : OpKind.sel ∉ S)
 
 /-- **A set recursion matched base for base and term for term**, the term
 at the source's rounds, is defined and equal wherever the source is. -/
-theorem muSet_congr {c n : ℕ} (s : String) (q₀ q₀' : AggQueryIn T c n (ColKind.allReg n))
+private theorem muSet_congr {c n : ℕ} (s : String) (q₀ q₀' : AggQueryIn T c n (ColKind.allReg n))
     (q₁ q₁' : AggQueryIn T c n (ColKind.allReg n) [(s, n)]) (D : Database T) (γ : Fin c → T)
     (h : (AggQueryIn.MuSet s q₀ q₁).SettlesAt D γ)
     (h₀ : q₀'.SettlesAt D γ ∧ q₀.evaluatePlain D γ = q₀'.evaluatePlain D γ)
@@ -321,7 +325,7 @@ end AggQueryIn
 of diamonds again. Over classes with neither, every bag recursion of the
 match is its base, so the match is a query with no bag recursion, whose
 answers are polynomial in the instance. -/
-theorem sel_or_apply_mem_of_generatesAt {cnt : SeqAggFunc ℕ} (hcnt : cnt.ReadsCount)
+private theorem sel_or_apply_mem_of_generatesAt {cnt : SeqAggFunc ℕ} (hcnt : cnt.ReadsCount)
     {S : Set OpKind} (hS : GeneratesAt ℕ schemaSE cnt S chainWitness) :
     OpKind.sel ∈ S ∨ OpKind.apply ∈ S := by
   by_contra h

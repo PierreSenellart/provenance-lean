@@ -60,12 +60,12 @@ def minLo [LinearOrder α] (a b : Endpoint α) : Endpoint α :=
   if b.val < a.val then b else
   if ¬a.closed ∧ b.closed then b else a
 
-lemma minLo_or [LinearOrder α] (a b: Endpoint α) :
+private lemma minLo_or [LinearOrder α] (a b: Endpoint α) :
     minLo a b = a ∨ minLo a b = b := by
       unfold minLo
       split_ifs <;> simp
 
-lemma minLo_commutative [LinearOrder α] {a b: Endpoint α} :
+private lemma minLo_commutative [LinearOrder α] {a b: Endpoint α} :
   minLo a b = minLo b a := by
     simp[minLo]
     split_ifs with h₁ h₂ h₃ h₄ h₅ h₆ <;> try simp
@@ -83,7 +83,7 @@ lemma minLo_commutative [LinearOrder α] {a b: Endpoint α} :
           have := Eq.trans (Eq.symm h) (h₆ h')
           contradiction
 
-lemma minLo_le_left [LinearOrder α] {a b: Endpoint α} : (minLo a b).val ≤ a.val := by
+private lemma minLo_le_left [LinearOrder α] {a b: Endpoint α} : (minLo a b).val ≤ a.val := by
   simp[minLo]
   split_ifs with hab hba hc
   . tauto
@@ -96,12 +96,12 @@ def maxHi [LinearOrder α] (a b : Endpoint α) : Endpoint α :=
   if b.val > a.val then b else
   if ¬a.closed ∧ b.closed then b else a
 
-lemma maxHi_or [LinearOrder α] (a b: Endpoint α) :
+private lemma maxHi_or [LinearOrder α] (a b: Endpoint α) :
     maxHi a b = a ∨ maxHi a b = b := by
       unfold maxHi
       split_ifs <;> simp
 
-lemma maxHi_commutative [LinearOrder α] {a b: Endpoint α} :
+private lemma maxHi_commutative [LinearOrder α] {a b: Endpoint α} :
   maxHi a b = maxHi b a := by
     simp[maxHi]
     split_ifs with h₁ h₂ h₃ h₄ h₅ h₆ <;> try simp
@@ -119,7 +119,7 @@ lemma maxHi_commutative [LinearOrder α] {a b: Endpoint α} :
           have := Eq.trans (Eq.symm h) (h₆ h')
           contradiction
 
-lemma le_maxHi_left [LinearOrder α] {a b: Endpoint α} : a.val ≤ (maxHi a b).val := by
+private lemma le_maxHi_left [LinearOrder α] {a b: Endpoint α} : a.val ≤ (maxHi a b).val := by
   simp[maxHi]
   split_ifs with hab hba hc
   . tauto
@@ -137,19 +137,19 @@ respecting its closedness: `lo.val ≤ x` if closed, `lo.val < x` if open. -/
 def above [LinearOrder α] (x: α) (lo : Endpoint α) : Prop :=
   if(lo.closed) then lo.val ≤ x else lo.val < x
 
-lemma le_of_below [LinearOrder α] (x: α) (lo: Endpoint α) :
+private lemma le_of_below [LinearOrder α] (x: α) (lo: Endpoint α) :
     below x lo → x ≤ lo.val := by
       simp[below]
       by_cases h : lo.closed <;> simp[h]
       exact le_of_lt
 
-lemma ge_of_above [LinearOrder α] (x: α) (hi: Endpoint α) :
+private lemma ge_of_above [LinearOrder α] (x: α) (hi: Endpoint α) :
     above x hi → x ≥ hi.val := by
       simp[above]
       by_cases h : hi.closed <;> simp[h]
       exact le_of_lt
 
-lemma below_of_below_of_lt [LinearOrder α] {hi hi': Endpoint α} (h: hi.val < hi'.val) {x: α} :
+private lemma below_of_below_of_lt [LinearOrder α] {hi hi': Endpoint α} (h: hi.val < hi'.val) {x: α} :
   below x hi → below x hi' := by
     unfold below
     by_cases hc: hi.closed <;> simp[hc] <;>
@@ -163,7 +163,7 @@ lemma below_of_below_of_lt [LinearOrder α] {hi hi': Endpoint α} (h: hi.val < h
     . intro h'
       exact lt_trans h' h
 
-lemma below_of_below_of_le [LinearOrder α] {hi hi': Endpoint α}
+private lemma below_of_below_of_le [LinearOrder α] {hi hi': Endpoint α}
     (h: hi.val ≤ hi'.val) (hep: ¬hi.closed ∨ hi'.closed) {x: α} :
   below x hi → below x hi' := by
     unfold below
@@ -177,7 +177,7 @@ lemma below_of_below_of_le [LinearOrder α] {hi hi': Endpoint α}
     . intro h'
       exact lt_of_lt_of_le h' h
 
-lemma above_of_above_of_lt [LinearOrder α] {lo lo': Endpoint α} (h: lo'.val < lo.val) {x: α} :
+private lemma above_of_above_of_lt [LinearOrder α] {lo lo': Endpoint α} (h: lo'.val < lo.val) {x: α} :
   above x lo → above x lo' := by
     unfold above
     by_cases hc: lo.closed <;> simp[hc] <;>
@@ -191,7 +191,7 @@ lemma above_of_above_of_lt [LinearOrder α] {lo lo': Endpoint α} (h: lo'.val < 
     . intro h'
       exact lt_trans h h'
 
-lemma above_of_above_of_le [LinearOrder α] {lo lo': Endpoint α}
+private lemma above_of_above_of_le [LinearOrder α] {lo lo': Endpoint α}
     (h: lo'.val ≤ lo.val) (hep: ¬lo.closed ∨ lo'.closed) {x: α} :
   above x lo → above x lo' := by
     unfold above
@@ -221,7 +221,7 @@ def minHi [LinearOrder α] (a b : Endpoint α) : Endpoint α :=
 
 -- `h1 : ¬(b < a)` gives `not_lt.mp h1 : a ≤ b`; `h2 : ¬(a < b)` gives `not_lt.mp h2 : b ≤ a`
 -- so `le_antisymm (not_lt.mp h1) (not_lt.mp h2) : a = b`
-lemma above_maxLo [LinearOrder α] (x : α) (a b : Endpoint α) :
+private lemma above_maxLo [LinearOrder α] (x : α) (a b : Endpoint α) :
     above x (maxLo a b) ↔ above x a ∧ above x b := by
   constructor
   · intro h
@@ -247,7 +247,7 @@ lemma above_maxLo [LinearOrder α] (x : α) (a b : Endpoint α) :
 
 -- `h1 : ¬(a < b)` gives `not_lt.mp h1 : b ≤ a`; `h2 : ¬(b < a)` gives `not_lt.mp h2 : a ≤ b`
 -- so `le_antisymm (not_lt.mp h2) (not_lt.mp h1) : a = b`
-lemma below_minHi [LinearOrder α] (x : α) (a b : Endpoint α) :
+private lemma below_minHi [LinearOrder α] (x : α) (a b : Endpoint α) :
     below x (minHi a b) ↔ below x a ∧ below x b := by
   constructor
   · intro h
@@ -292,12 +292,12 @@ lemma le_lo_hi [LinearOrder α] (I: Interval α) : I.lo.val ≤ I.hi.val := by
   | inr hI => exact le_of_eq hI.left
 
 @[simp]
-lemma lo_below_hi [LinearOrder α] (I: Interval α) : Endpoint.below I.lo.val I.hi := by
+private lemma lo_below_hi [LinearOrder α] (I: Interval α) : Endpoint.below I.lo.val I.hi := by
   unfold Endpoint.below
   cases I.wf <;> simp_all
 
 @[simp]
-lemma hi_above_lo [LinearOrder α] (I: Interval α) : Endpoint.above I.hi.val I.lo := by
+private lemma hi_above_lo [LinearOrder α] (I: Interval α) : Endpoint.above I.hi.val I.lo := by
   unfold Endpoint.above
   cases I.wf <;> simp_all
 
@@ -305,7 +305,7 @@ lemma hi_above_lo [LinearOrder α] (I: Interval α) : Endpoint.above I.hi.val I.
 and below `hi` according to their respective closedness flags. -/
 def toSet [LinearOrder α] (I: Interval α) : Set α := {x | Endpoint.above x I.lo ∧ Endpoint.below x I.hi}
 
-lemma eq_closed_lo [LinearOrder α] [DenselyOrdered α] {I J : Interval α}
+private lemma eq_closed_lo [LinearOrder α] [DenselyOrdered α] {I J : Interval α}
     (h: I.toSet = J.toSet) : I.lo.closed → J.lo.closed := by
   intro hIc
   have h' : I.lo.val ∈ J.toSet ∧ ∀ x ∈ J.toSet, I.lo.val ≤ x := by
@@ -330,7 +330,7 @@ lemma eq_closed_lo [LinearOrder α] [DenselyOrdered α] {I J : Interval α}
     have := (lt_self_iff_false _).mp (lt_of_lt_of_le haIl (h'.2 a haJ))
     contradiction
 
-lemma eq_closed_hi [LinearOrder α] [DenselyOrdered α] {I J : Interval α}
+private lemma eq_closed_hi [LinearOrder α] [DenselyOrdered α] {I J : Interval α}
     (h: I.toSet = J.toSet) : I.hi.closed → J.hi.closed := by
   intro hIc
   have h' : I.hi.val ∈ J.toSet ∧ ∀ x ∈ J.toSet, x ≤ I.hi.val := by
@@ -353,7 +353,7 @@ lemma eq_closed_hi [LinearOrder α] [DenselyOrdered α] {I J : Interval α}
     have := (lt_self_iff_false _).mp (lt_of_lt_of_le haIu (h'.2 a haJ))
     contradiction
 
-theorem eq_closed [LinearOrder α] [DenselyOrdered α] {I J: Interval α}
+private theorem eq_closed [LinearOrder α] [DenselyOrdered α] {I J: Interval α}
     (h: I.toSet = J.toSet) : I.lo.closed=J.lo.closed ∧ I.hi.closed = J.hi.closed := by
       constructor
       . by_cases hIl: I.lo.closed <;> simp[hIl]
@@ -503,7 +503,7 @@ lemma mem {α: Type} [LinearOrder α] (x : α) (I: Interval α) :
 def disjoint [LinearOrder α] (I J : Interval α) : Prop :=
   Disjoint I.toSet J.toSet
 
-lemma not_mem_of_disjoint_right [LinearOrder α] {I J: Interval α} (h: I.disjoint J) :
+private lemma not_mem_of_disjoint_right [LinearOrder α] {I J: Interval α} (h: I.disjoint J) :
   ∀ x ∈ J.toSet, ¬(x ∈ I.toSet) := by
     simp[disjoint] at h
     intro x hx
@@ -614,7 +614,7 @@ instance [LinearOrder α] [DecidableEq α] [DecidableLE α] {I J: Interval α} :
     . exact isFalse (by simp[before,hlt,heq])
 
 @[simp]
-lemma le_of_before [LinearOrder α] {I J : Interval α} (h: I.before J) : I ≤ J := by
+private lemma le_of_before [LinearOrder α] {I J : Interval α} (h: I.before J) : I ≤ J := by
   simp[(· ≤ ·)]
   cases h with
   | inl h' =>
@@ -639,7 +639,7 @@ lemma le_of_before [LinearOrder α] {I J : Interval α} (h: I.before J) : I ≤ 
       . intro hhi hIhi
         simp[hIhi] at h'
 
-lemma before_of_before_of_le [LinearOrder α] {I J K : Interval α}
+private lemma before_of_before_of_le [LinearOrder α] {I J K : Interval α}
   (hIJ: I.before J) (hJK: J ≤ K) : I.before K := by
     simp[(· ≤ ·)] at hJK
     unfold before at hIJ
@@ -710,13 +710,13 @@ lemma mem_inter [LinearOrder α] (I J : Interval α) (x : α) :
 /-! ### Interval difference -/
 
 /-- `above x e` is the negation of `below x` at the complemented endpoint. -/
-lemma Endpoint.above_iff_not_below_complement [LinearOrder α] (x : α) (e : Endpoint α) :
+private lemma Endpoint.above_iff_not_below_complement [LinearOrder α] (x : α) (e : Endpoint α) :
     Endpoint.above x e ↔ ¬Endpoint.below x ⟨e.val, !e.closed⟩ := by
   simp only [Endpoint.above, Endpoint.below]
   cases e.closed <;> simp [not_le, not_lt]
 
 /-- `below x e` is the negation of `above x` at the complemented endpoint. -/
-lemma Endpoint.below_iff_not_above_complement [LinearOrder α] (x : α) (e : Endpoint α) :
+private lemma Endpoint.below_iff_not_above_complement [LinearOrder α] (x : α) (e : Endpoint α) :
     Endpoint.below x e ↔ ¬Endpoint.above x ⟨e.val, !e.closed⟩ := by
   simp only [Endpoint.above, Endpoint.below]
   cases e.closed <;> simp [not_le, not_lt]

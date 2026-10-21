@@ -6,6 +6,13 @@ public import Provenance.SymMu
 import Mathlib.Tactic.NormNum.Inv
 import Mathlib.Tactic.NormNum.Pow
 import Provenance.SymCorrect
+import all Provenance.MuUnion
+import all Provenance.OrderSpec
+import all Provenance.PlainBasis
+import all Provenance.SumByProd
+import all Provenance.SymCorrect
+import all Provenance.SymMu
+import all Provenance.Util.Kleene
 
 /-!
 # The successor relation of a finite relation, without a recursion
@@ -35,7 +42,7 @@ variable {α : Type} (r : α → α → Prop)
 
 /-- **Two elements of a strictly sorted list are consecutive** exactly
 when the first is below the second and no element lies between them. -/
-theorem mem_zip_tail_iff (htr : ∀ a b c, r a b → r b c → r a c) (hirr : ∀ a, ¬ r a a) :
+private theorem mem_zip_tail_iff (htr : ∀ a b c, r a b → r b c → r a c) (hirr : ∀ a, ¬ r a a) :
     ∀ (l : List α), l.Pairwise r → ∀ a b : α,
       (a, b) ∈ l.zip l.tail ↔ a ∈ l ∧ b ∈ l ∧ r a b ∧ ∀ c ∈ l, ¬ (r a c ∧ r c b)
   | List.nil => fun _ a b => by simp
@@ -81,7 +88,7 @@ theorem mem_zip_tail_iff (htr : ∀ a b c, r a b → r b c → r a c) (hirr : �
 
 /-- The pairs of consecutive elements of a list without repetition are
 listed once each. -/
-theorem nodup_zip_tail : ∀ (l : List α), l.Nodup → (l.zip l.tail).Nodup
+private theorem nodup_zip_tail : ∀ (l : List α), l.Nodup → (l.zip l.tail).Nodup
   | List.nil => fun _ => List.nodup_nil
   | List.cons x List.nil => fun _ => by simp
   | List.cons x (List.cons y l) => fun hl => by
@@ -98,15 +105,15 @@ end Consecutive
 noncomputable def sortedRows {p : ℕ} (R : Multiset (Tuple T p)) : List (Tuple T p) :=
   R.toFinset.sort (ascLe p)
 
-theorem mem_sortedRows {p : ℕ} {R : Multiset (Tuple T p)} {x : Tuple T p} :
+private theorem mem_sortedRows {p : ℕ} {R : Multiset (Tuple T p)} {x : Tuple T p} :
     x ∈ sortedRows R ↔ x ∈ R := by
   unfold sortedRows
   rw [Finset.mem_sort, Multiset.mem_toFinset]
 
-theorem nodup_sortedRows {p : ℕ} (R : Multiset (Tuple T p)) : (sortedRows R).Nodup :=
+private theorem nodup_sortedRows {p : ℕ} (R : Multiset (Tuple T p)) : (sortedRows R).Nodup :=
   Finset.sort_nodup _ _
 
-theorem pairwise_sortedRows {p : ℕ} (R : Multiset (Tuple T p)) :
+private theorem pairwise_sortedRows {p : ℕ} (R : Multiset (Tuple T p)) :
     (sortedRows R).Pairwise (ascLt p) := by
   have hp := Finset.pairwise_sort (s := R.toFinset) (r := ascLe p)
   have hnd := nodup_sortedRows R
@@ -116,14 +123,14 @@ theorem pairwise_sortedRows {p : ℕ} (R : Multiset (Tuple T p)) :
   refine OrderSpec.lt_of_le_of_ne_asc (hp i j hi hj hij) fun heq => ?_
   exact absurd ((List.Nodup.getElem_inj_iff hnd).mp heq) (Nat.ne_of_lt hij)
 
-theorem length_sortedRows {p : ℕ} (R : Multiset (Tuple T p)) :
+private theorem length_sortedRows {p : ℕ} (R : Multiset (Tuple T p)) :
     (sortedRows R).length = R.toFinset.card :=
   Finset.length_sort _
 
-theorem ascLt_trans {p : ℕ} (a b c : Tuple T p) (h₁ : ascLt p a b) (h₂ : ascLt p b c) :
+private theorem ascLt_trans {p : ℕ} (a b c : Tuple T p) (h₁ : ascLt p a b) (h₂ : ascLt p b c) :
     ascLt p a c := OrderSpec.lt_trans' _ h₁ h₂
 
-theorem ascLt_irrefl {p : ℕ} (a : Tuple T p) : ¬ ascLt p a a := by
+private theorem ascLt_irrefl {p : ℕ} (a : Tuple T p) : ¬ ascLt p a a := by
   unfold ascLt; rw [OrderSpec.lt_irrefl]; simp
 
 /-! ## The comparison as a predicate -/
@@ -134,7 +141,7 @@ def ltOn {c N p : ℕ} (x y : Fin p → Fin N) : GenPredIn T c (ColKind.allReg N
   OrderSpec.ltPredOn (OrderSpec.asc p) (fun k => TermGIn.index (x k) rfl)
     (fun k => TermGIn.index (y k) rfl) (List.finRange p)
 
-theorem holdsPlain_ltOn {c N p : ℕ} (x y : Fin p → Fin N) (u : Tuple T N) (γ : Fin c → T)
+private theorem holdsPlain_ltOn {c N p : ℕ} (x y : Fin p → Fin N) (u : Tuple T N) (γ : Fin c → T)
     (hx : ∀ k, ValueType.isNull (u (x k)) = false) (hy : ∀ k, ValueType.isNull (u (y k)) = false) :
     (ltOn (c := c) x y).holdsPlain u γ ↔ ascLt p (fun k => u (x k)) (fun k => u (y k)) := by
   rw [ltOn, OrderSpec.ltPredOn, OrderSpec.holdsPlain_ltPredOnOf (OrderSpec.asc p) _
@@ -146,7 +153,7 @@ theorem holdsPlain_ltOn {c N p : ℕ} (x y : Fin p → Fin N) (u : Tuple T N) (�
   unfold ascLt
   rw [OrderSpec.lt_iff]
 
-theorem noFun_ltOn {c N p : ℕ} (x y : Fin p → Fin N) : (ltOn (T := T) (c := c) x y).noFun = true
+private theorem noFun_ltOn {c N p : ℕ} (x y : Fin p → Fin N) : (ltOn (T := T) (c := c) x y).noFun = true
     := by
   rw [ltOn, OrderSpec.ltPredOn]
   exact OrderSpec.noFun_ltPredOnOf (fun k => OrderCol.noFun_ltPred _ rfl rfl)
@@ -161,15 +168,15 @@ def blockL' (a b : ℕ) (x : Tuple T (a + b)) : Tuple T a := fun i => x (Fin.cas
 def blockR' (a b : ℕ) (x : Tuple T (a + b)) : Tuple T b := fun i => x (Fin.natAdd a i)
 
 omit [ValueType T] in
-@[simp] theorem blockL'_append {a b : ℕ} (x : Tuple T a) (y : Tuple T b) :
+@[simp] private theorem blockL'_append {a b : ℕ} (x : Tuple T a) (y : Tuple T b) :
     blockL' a b (Fin.append x y) = x := funext fun i => Fin.append_left x y i
 
 omit [ValueType T] in
-@[simp] theorem blockR'_append {a b : ℕ} (x : Tuple T a) (y : Tuple T b) :
+@[simp] private theorem blockR'_append {a b : ℕ} (x : Tuple T a) (y : Tuple T b) :
     blockR' a b (Fin.append x y) = y := funext fun i => Fin.append_right x y i
 
 omit [ValueType T] in
-theorem append_inj {a b : ℕ} {x x' : Tuple T a} {y y' : Tuple T b}
+private theorem append_inj {a b : ℕ} {x x' : Tuple T a} {y y' : Tuple T b}
     (h : (Fin.append x y : Tuple T (a + b)) = Fin.append x' y') : x = x' ∧ y = y' := by
   have h₁ := congrArg (blockL' a b) h
   have h₂ := congrArg (blockR' a b) h
@@ -188,13 +195,13 @@ def projQ {N M : ℕ} {l : List (String × ℕ)} (F : Fin M → SA T c N)
     (q : AggQueryIn T c N (ColKind.allReg N) l) : AggQueryIn T c M (ColKind.allReg M) l :=
   (AggQueryIn.Proj (projSA F) q).castKind (projSA_kind F)
 
-theorem evaluatePlain_projQ {N M : ℕ} {l : List (String × ℕ)} (F : Fin M → SA T c N)
+private theorem evaluatePlain_projQ {N M : ℕ} {l : List (String × ℕ)} (F : Fin M → SA T c N)
     (q : AggQueryIn T c N (ColKind.allReg N) l) (D : Database T) (γ : Fin c → T) :
     ((projQ F q).evaluatePlain D γ : Multiset (Tuple T M))
       = (q.evaluatePlain D γ : Multiset (Tuple T N)).map (fun x i => (F i).eval x γ) :=
   evaluatePlain_projSA F q _ D γ
 
-theorem mem_prodR {a b : ℕ} {l₁ l₂ : List (String × ℕ)}
+private theorem mem_prodR {a b : ℕ} {l₁ l₂ : List (String × ℕ)}
     (q₁ : AggQueryIn T c a (ColKind.allReg a) l₁) (q₂ : AggQueryIn T c b (ColKind.allReg b) l₂)
     (D : Database T) (γ : Fin c → T) (v : Tuple T (a + b)) :
     Multiset.Mem ((prodR q₁ q₂).evaluatePlain D γ) v ↔
@@ -211,7 +218,7 @@ theorem mem_prodR {a b : ℕ} {l₁ l₂ : List (String × ℕ)}
     exact ⟨x, hx, Multiset.mem_map_of_mem _ hy⟩
 
 /-- A product of relations listed once each is listed once each. -/
-theorem nodup_prodR {a b : ℕ} {l₁ l₂ : List (String × ℕ)}
+private theorem nodup_prodR {a b : ℕ} {l₁ l₂ : List (String × ℕ)}
     (q₁ : AggQueryIn T c a (ColKind.allReg a) l₁) (q₂ : AggQueryIn T c b (ColKind.allReg b) l₂)
     (D : Database T) (γ : Fin c → T)
     (h₁ : (q₁.evaluatePlain D γ : Multiset (Tuple T a)).Nodup)
@@ -240,7 +247,7 @@ section OrderQueries
 
 variable {c p : ℕ}
 
-theorem holdsPlain_and' {N : ℕ} (φ ψ : GenPredIn T c (ColKind.allReg N)) (u : Tuple T N)
+private theorem holdsPlain_and' {N : ℕ} (φ ψ : GenPredIn T c (ColKind.allReg N)) (u : Tuple T N)
     (γ : Fin c → T) : (GenPredIn.and φ ψ).holdsPlain u γ ↔ φ.holdsPlain u γ ∧ ψ.holdsPlain u γ :=
   Kleene.and_eq_true_iff _ _
 
@@ -290,7 +297,7 @@ def NonNullRows : Prop :=
 
 variable {R D γ}
 
-theorem mem_ltQ (hR : NonNullRows R D γ) (v : Tuple T (p + p)) :
+private theorem mem_ltQ (hR : NonNullRows R D γ) (v : Tuple T (p + p)) :
     Multiset.Mem ((ltQ R).evaluatePlain D γ) v ↔
       ∃ a, Multiset.Mem (R.evaluatePlain D γ) a ∧ ∃ b, Multiset.Mem (R.evaluatePlain D γ) b
         ∧ v = Fin.append a b ∧ ascLt p a b := by
@@ -311,7 +318,7 @@ theorem mem_ltQ (hR : NonNullRows R D γ) (v : Tuple T (p + p)) :
       (fun k => by rw [Fin.append_right]; exact hR b hb k)).mpr ?_
     simpa only [Fin.append_left, Fin.append_right] using hlt
 
-theorem mem_midQ (hR : NonNullRows R D γ) (v : Tuple T (p + p)) :
+private theorem mem_midQ (hR : NonNullRows R D γ) (v : Tuple T (p + p)) :
     Multiset.Mem ((midQ R).evaluatePlain D γ) v ↔
       ∃ a, Multiset.Mem (R.evaluatePlain D γ) a ∧ ∃ b, Multiset.Mem (R.evaluatePlain D γ) b
         ∧ ∃ e, Multiset.Mem (R.evaluatePlain D γ) e ∧ v = Fin.append a e
@@ -354,15 +361,15 @@ theorem mem_midQ (hR : NonNullRows R D γ) (v : Tuple T (p + p)) :
       · simp only [Fin.addCases_left, SA.eval, Fin.append_left]
       · simp only [Fin.addCases_right, SA.eval, Fin.append_right]
 
-theorem noMention_ltQ' {s : String} (h : R.noMention s) : (ltQ R).noMention s :=
+private theorem noMention_ltQ' {s : String} (h : R.noMention s) : (ltQ R).noMention s :=
   (noMention_prodR R R).mpr ⟨h, h⟩
 
-theorem noMention_midQ' {s : String} (h : R.noMention s) : (midQ R).noMention s := by
+private theorem noMention_midQ' {s : String} (h : R.noMention s) : (midQ R).noMention s := by
   rw [midQ, projQ, AggQueryIn.noMention_castKind]
   exact (noMention_prodR _ R).mpr ⟨(noMention_prodR R R).mpr ⟨h, h⟩, h⟩
 
 /-- The successor relation of the sorted listing, row by row. -/
-theorem mem_succRel_iff (hR : NonNullRows R D γ) (v : Tuple T (p + p)) :
+private theorem mem_succRel_iff (hR : NonNullRows R D γ) (v : Tuple T (p + p)) :
     v ∈ (succRel (sortedRows (R.evaluatePlain D γ : Multiset (Tuple T p)))
         : Multiset (Tuple T (p + p))) ↔
       ∃ a, Multiset.Mem (R.evaluatePlain D γ) a ∧ ∃ b, Multiset.Mem (R.evaluatePlain D γ) b
@@ -383,7 +390,7 @@ theorem mem_succRel_iff (hR : NonNullRows R D γ) (v : Tuple T (p + p)) :
       fun e he => hn e (mem_sortedRows.mp he)⟩, rfl⟩
 
 omit [ValueType T] in
-theorem nodup_succRel (L : List (Tuple T p)) (hL : L.Nodup) :
+private theorem nodup_succRel (L : List (Tuple T p)) (hL : L.Nodup) :
     (succRel L : Multiset (Tuple T (p + p))).Nodup := by
   unfold succRel
   rw [Multiset.coe_nodup]
@@ -392,7 +399,7 @@ theorem nodup_succRel (L : List (Tuple T p)) (hL : L.Nodup) :
   exact Prod.ext h₁ h₂
 
 /-- **The successor relation, row by row**, whatever the multiplicities. -/
-theorem mem_succQ (s₁ s₂ : String) {cnt : SeqAggFunc T} (hc : SeqAggFunc.Counts cnt)
+private theorem mem_succQ (s₁ s₂ : String) {cnt : SeqAggFunc T} (hc : SeqAggFunc.Counts cnt)
     (h₁ : R.noMention s₁) (h₂ : R.noMention s₂) (hR : NonNullRows R D γ) (v : Tuple T (p + p)) :
     Multiset.Mem ((succQ s₁ s₂ cnt R).evaluatePlain D γ) v ↔
       ∃ a, Multiset.Mem (R.evaluatePlain D γ) a ∧ ∃ b, Multiset.Mem (R.evaluatePlain D γ) b
@@ -437,7 +444,7 @@ theorem evaluatePlain_succQ (s₁ s₂ : String) {cnt : SeqAggFunc T} (hc : SeqA
       obtain ⟨rfl, rfl⟩ := append_inj heq
       exact hn e he ⟨h₁, h₂⟩
 
-theorem mem_aboveQ (hR : NonNullRows R D γ) (x : Tuple T p) :
+private theorem mem_aboveQ (hR : NonNullRows R D γ) (x : Tuple T p) :
     Multiset.Mem ((aboveQ R).evaluatePlain D γ) x ↔
       Multiset.Mem (R.evaluatePlain D γ) x ∧ ∃ a, Multiset.Mem (R.evaluatePlain D γ) a ∧ ascLt p a
         x := by
@@ -455,7 +462,7 @@ theorem mem_aboveQ (hR : NonNullRows R D γ) (x : Tuple T p) :
     exact ⟨Fin.append a x, (mem_ltQ hR _).mpr ⟨a, ha, x, hx, rfl, hlt⟩,
       funext fun i => Fin.append_right a x i⟩
 
-theorem mem_belowQ (hR : NonNullRows R D γ) (x : Tuple T p) :
+private theorem mem_belowQ (hR : NonNullRows R D γ) (x : Tuple T p) :
     Multiset.Mem ((belowQ R).evaluatePlain D γ) x ↔
       Multiset.Mem (R.evaluatePlain D γ) x ∧ ∃ b, Multiset.Mem (R.evaluatePlain D γ) b ∧ ascLt p x
         b := by
@@ -473,14 +480,14 @@ theorem mem_belowQ (hR : NonNullRows R D γ) (x : Tuple T p) :
     exact ⟨Fin.append x b, (mem_ltQ hR _).mpr ⟨x, hx, b, hb, rfl, hlt⟩,
       funext fun i => Fin.append_left x b i⟩
 
-theorem noMention_aboveQ' {s : String} (h : R.noMention s) : (aboveQ R).noMention s := by
+private theorem noMention_aboveQ' {s : String} (h : R.noMention s) : (aboveQ R).noMention s := by
   rw [aboveQ, projQ, AggQueryIn.noMention_castKind]; exact noMention_ltQ' h
 
-theorem noMention_belowQ' {s : String} (h : R.noMention s) : (belowQ R).noMention s := by
+private theorem noMention_belowQ' {s : String} (h : R.noMention s) : (belowQ R).noMention s := by
   rw [belowQ, projQ, AggQueryIn.noMention_castKind]; exact noMention_ltQ' h
 
 /-- **The rows with no row below them.** -/
-theorem mem_leastQ (s₁ s₂ : String) {cnt : SeqAggFunc T} (hc : SeqAggFunc.Counts cnt)
+private theorem mem_leastQ (s₁ s₂ : String) {cnt : SeqAggFunc T} (hc : SeqAggFunc.Counts cnt)
     (h₁ : R.noMention s₁) (h₂ : R.noMention s₂) (hR : NonNullRows R D γ) (x : Tuple T p) :
     Multiset.Mem ((leastQ s₁ s₂ cnt R).evaluatePlain D γ) x ↔ Multiset.Mem (R.evaluatePlain D γ) x
       ∧ ∀ a, Multiset.Mem (R.evaluatePlain D γ) a → ¬ ascLt p a x := by
@@ -496,7 +503,7 @@ theorem mem_leastQ (s₁ s₂ : String) {cnt : SeqAggFunc T} (hc : SeqAggFunc.Co
     exact hn a ha hlt
 
 /-- **The rows with no row above them.** -/
-theorem mem_greatestQ (s₁ s₂ : String) {cnt : SeqAggFunc T} (hc : SeqAggFunc.Counts cnt)
+private theorem mem_greatestQ (s₁ s₂ : String) {cnt : SeqAggFunc T} (hc : SeqAggFunc.Counts cnt)
     (h₁ : R.noMention s₁) (h₂ : R.noMention s₂) (hR : NonNullRows R D γ) (x : Tuple T p) :
     Multiset.Mem ((greatestQ s₁ s₂ cnt R).evaluatePlain D γ) x ↔ Multiset.Mem (R.evaluatePlain D
       γ) x
@@ -512,14 +519,14 @@ theorem mem_greatestQ (s₁ s₂ : String) {cnt : SeqAggFunc T} (hc : SeqAggFunc
     obtain ⟨-, b, hb, hlt⟩ := (mem_belowQ hR x).mp hm
     exact hn b hb hlt
 
-theorem nodup_leastQ (s₁ s₂ : String) {cnt : SeqAggFunc T} (hc : SeqAggFunc.Counts cnt)
+private theorem nodup_leastQ (s₁ s₂ : String) {cnt : SeqAggFunc T} (hc : SeqAggFunc.Counts cnt)
     (h₁ : R.noMention s₁) (h₂ : R.noMention s₂)
     (hnd : (R.evaluatePlain D γ : Multiset (Tuple T p)).Nodup) :
     ((leastQ s₁ s₂ cnt R).evaluatePlain D γ : Multiset (Tuple T p)).Nodup := by
   rw [leastQ, AggQueryIn.evaluatePlain_notInDiffX s₁ s₂ cnt hc _ _ h₁ (noMention_aboveQ' h₂) D γ]
   exact Multiset.Nodup.filter _ hnd
 
-theorem nodup_greatestQ (s₁ s₂ : String) {cnt : SeqAggFunc T} (hc : SeqAggFunc.Counts cnt)
+private theorem nodup_greatestQ (s₁ s₂ : String) {cnt : SeqAggFunc T} (hc : SeqAggFunc.Counts cnt)
     (h₁ : R.noMention s₁) (h₂ : R.noMention s₂)
     (hnd : (R.evaluatePlain D γ : Multiset (Tuple T p)).Nodup) :
     ((greatestQ s₁ s₂ cnt R).evaluatePlain D γ : Multiset (Tuple T p)).Nodup := by

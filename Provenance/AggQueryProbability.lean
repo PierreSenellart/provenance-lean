@@ -16,6 +16,23 @@ import Mathlib.Tactic.NormNum.OfScientific
 import Provenance.AggQueryBridges
 import Provenance.AggQueryHom
 import Provenance.HavingProbability
+import all Provenance.AggExpr
+import all Provenance.AggQuery
+import all Provenance.AggQueryAdequacy
+import all Provenance.AggQueryBridges
+import all Provenance.AggValue
+import all Provenance.Database
+import all Provenance.Frame
+import all Provenance.HavingProbability
+import all Provenance.HavingSemantics
+import all Provenance.JointFamily
+import all Provenance.Nested
+import all Provenance.Occurrence
+import all Provenance.OrderSpec
+import all Provenance.Probability
+import all Provenance.QueryRewriting
+import all Provenance.Util.KeyAccValueList
+import all Provenance.Util.Kleene
 
 /-!
 # Possible-world foundations for the general evaluator
@@ -69,20 +86,20 @@ def _root_.AggTok.Realized (v : X → Bool) : AggTok T (BoolFunc X) → Prop
   | .expr e => e.IsWorld (e.realizedWorld (fun α => α v))
 
 omit [Fintype X] [DecidableEq X] in
-@[simp] theorem _root_.AggTok.Realized_tok (a : AggValue T (BoolFunc X))
+@[simp] private theorem _root_.AggTok.Realized_tok (a : AggValue T (BoolFunc X))
     (v : X → Bool) :
     (AggTok.tok a).Realized v ↔ (a.scalar = true ∨ (a.realized v).Nonempty) :=
   Iff.rfl
 
 omit [Fintype X] [DecidableEq X] in
-@[simp] theorem _root_.AggTok.Realized_nest (a : NestedValue T (BoolFunc X))
+@[simp] private theorem _root_.AggTok.Realized_nest (a : NestedValue T (BoolFunc X))
     (v : X → Bool) :
     (AggTok.nest a).Realized v
       ↔ (a.realizedWorld (fun α => α v)).IsWorld a :=
   Iff.rfl
 
 omit [Fintype X] [DecidableEq X] in
-@[simp] theorem _root_.AggTok.Realized_expr (e : AggExpr T (BoolFunc X))
+@[simp] private theorem _root_.AggTok.Realized_expr (e : AggExpr T (BoolFunc X))
     (v : X → Bool) :
     (AggTok.expr e).Realized v
       ↔ e.IsWorld (e.realizedWorld (fun α => α v)) :=
@@ -90,7 +107,7 @@ omit [Fintype X] [DecidableEq X] in
 
 omit [Fintype X] [DecidableEq X] in
 /-- The family a value is stamped with is not read by its guard. -/
-@[simp] theorem _root_.AggTok.Realized_setFam (φ : FamId T) {ids : Option (List (OccId T))}
+@[simp] private theorem _root_.AggTok.Realized_setFam (φ : FamId T) {ids : Option (List (OccId T))}
     (x : AggTok T (BoolFunc X))
     (v : X → Bool) : (x.setFam φ ids).Realized v ↔ x.Realized v := by
   cases x <;> exact Iff.rfl
@@ -98,7 +115,7 @@ omit [Fintype X] [DecidableEq X] in
 omit [Fintype X] [DecidableEq X] in
 /-- **Reading a column through a function leaves its guard alone**: the
 occurrences, the conventions and so the worlds are the ones it had. -/
-@[simp] theorem _root_.AggTok.Realized_postcomp (gf : T → T)
+@[simp] private theorem _root_.AggTok.Realized_postcomp (gf : T → T)
     (x : AggTok T (BoolFunc X)) (v : X → Bool) :
     (x.postcomp gf).Realized v ↔ x.Realized v := by
   cases x <;> exact Iff.rfl
@@ -106,7 +123,7 @@ occurrences, the conventions and so the worlds are the ones it had. -/
 omit [ValueType T] [Fintype X] [DecidableEq X] in
 /-- A token has a realized occurrence as soon as one of its occurrences is
 realized. -/
-theorem realized_nonempty_of_mem (a : AggValue T (BoolFunc X)) (v : X → Bool)
+private theorem realized_nonempty_of_mem (a : AggValue T (BoolFunc X)) (v : X → Bool)
     {x : T × BoolFunc X} (hx : x ∈ a.occs) (hv : x.snd v = true) :
     (a.realized v).Nonempty := by
   obtain ⟨j, hj⟩ := List.mem_iff_get.mp hx
@@ -133,13 +150,13 @@ with no condition on the aggregate, which is what the order being a
 function of the values buys. -/
 
 omit [ValueType T] [Fintype X] [DecidableEq X] in
-theorem zero_boolFunc_eval (v : X → Bool) : (0 : BoolFunc X) v = false := rfl
+private theorem zero_boolFunc_eval (v : X → Bool) : (0 : BoolFunc X) v = false := rfl
 
 
 omit [Fintype X] [DecidableEq X] in
 /-- A class sum is realized by a valuation exactly when one of the
 class's occurrences is. -/
-theorem classSum_eval_iff (v : X → Bool) (u : T) :
+private theorem classSum_eval_iff (v : X → Bool) (u : T) :
     ∀ l : List (T × BoolFunc X),
       (classSum l u) v = true ↔ ∃ p ∈ l, p.1 = u ∧ p.2 v = true
   | [] => by
@@ -179,7 +196,7 @@ private theorem map_fst_filter_map_pair (p : BoolFunc X → Bool)
     by_cases hu : p (g u) <;>
       simp [hu, map_fst_filter_map_pair p g t]
 
-theorem nodup_sort_dedup (l : List T) :
+private theorem nodup_sort_dedup (l : List T) :
     (sortList (Multiset.ofList (List.dedup l))).Nodup :=
   (Quotient.exact (sortList_coe (Multiset.ofList (List.dedup l)))).symm.nodup
       (List.nodup_dedup l)
@@ -251,7 +268,7 @@ theorem predProv_eval_iff (a : AggValue T (BoolFunc X)) (op : CompOp)
 the comparison holds under a valuation exactly when it holds of the
 aggregate over the realized occurrences – whether or not any is realized.
 The hypothesis of `predProv_eval_iff` is what the scalar convention drops. -/
-theorem predProvScalar_eval_iff (a : AggValue T (BoolFunc X)) (op : CompOp)
+private theorem predProvScalar_eval_iff (a : AggValue T (BoolFunc X)) (op : CompOp)
     (c : T) (v : X → Bool) :
     (a.predProvScalar op c) v = true
       ↔ op.eval3 (a.specialize (fun α => α v)) c = Kleene.true := by
@@ -279,7 +296,7 @@ theorem predProvScalar_eval_iff (a : AggValue T (BoolFunc X)) (op : CompOp)
 
 /-- **The token-level PQE bridge for a test**, as `predProv_eval_iff`
 with an arbitrary three-valued test in place of the comparison. -/
-theorem predProvWith_eval_iff (a : AggValue T (BoolFunc X)) (P : T → Kleene)
+private theorem predProvWith_eval_iff (a : AggValue T (BoolFunc X)) (P : T → Kleene)
     (v : X → Bool) :
     (a.predProvWith P) v = true
       ↔ (a.realized v).Nonempty
@@ -329,7 +346,7 @@ two cannot be told apart. -/
 omit [ValueType T] [Fintype X] [DecidableEq X] in
 /-- The left half of the world a valuation realizes in a concatenated
 family is the left family's own realized world. -/
-theorem leftPart_realized (a b : AggValue T (BoolFunc X)) (v : X → Bool) :
+private theorem leftPart_realized (a b : AggValue T (BoolFunc X)) (v : X → Bool) :
     Having.leftPart (Finset.univ.filter (fun k =>
         Having.catAnn a.anns b.anns k v = true))
       = a.realized v := by
@@ -340,7 +357,7 @@ theorem leftPart_realized (a b : AggValue T (BoolFunc X)) (v : X → Bool) :
 
 omit [ValueType T] [Fintype X] [DecidableEq X] in
 /-- And the right half is the right family's. -/
-theorem rightPart_realized (a b : AggValue T (BoolFunc X)) (v : X → Bool) :
+private theorem rightPart_realized (a b : AggValue T (BoolFunc X)) (v : X → Bool) :
     Having.rightPart (Finset.univ.filter (fun k =>
         Having.catAnn a.anns b.anns k v = true))
       = b.realized v := by
@@ -436,7 +453,7 @@ theorem row_agree_of_delta_id (a b : AggValue T (BoolFunc X))
   tauto
 
 /-- The scalar counterpart for a test. -/
-theorem predProvScalarWith_eval_iff (a : AggValue T (BoolFunc X))
+private theorem predProvScalarWith_eval_iff (a : AggValue T (BoolFunc X))
     (P : T → Kleene) (v : X → Bool) :
     (a.predProvScalarWith P) v = true
       ↔ P (a.specialize (fun α => α v)) = Kleene.true := by
@@ -463,7 +480,7 @@ theorem predProvScalarWith_eval_iff (a : AggValue T (BoolFunc X))
     exact hgoal
 
 /-- The token PQE bridge for a test, in the token's own convention. -/
-theorem predProvOfWith_eval_iff (a : AggValue T (BoolFunc X))
+private theorem predProvOfWith_eval_iff (a : AggValue T (BoolFunc X))
     (P : T → Kleene) (v : X → Bool) :
     (a.predProvOfWith P) v = true
       ↔ (a.scalar = true ∨ (a.realized v).Nonempty)
@@ -478,7 +495,7 @@ theorem predProvOfWith_eval_iff (a : AggValue T (BoolFunc X))
 /-- **The token PQE bridge, in the token's own convention.** A grouped
 token needs a realized occurrence; a scalar one does not, the empty world
 being one of its worlds. -/
-theorem predProvOf_eval_iff (a : AggValue T (BoolFunc X)) (op : CompOp)
+private theorem predProvOf_eval_iff (a : AggValue T (BoolFunc X)) (op : CompOp)
     (c : T) (v : X → Bool) :
     (a.predProvOf op c) v = true
       ↔ (a.scalar = true ∨ (a.realized v).Nonempty)
@@ -497,7 +514,7 @@ namespace AggExpr
 omit [ValueType T] [Fintype X] [DecidableEq X] in
 /-- The world-faithful reading of an expression under a valuation is its
 reading in the world the valuation cuts out. -/
-theorem specialize_eval (e : AggExpr T (BoolFunc X)) (v : X → Bool) :
+private theorem specialize_eval (e : AggExpr T (BoolFunc X)) (v : X → Bool) :
     e.specialize (fun α => α v)
       = e.valOn (e.realizedWorld (fun α => α v)) := rfl
 
@@ -507,7 +524,7 @@ valuation keeps – so the world sum is true exactly when that subfamily
 is a world of the expression and the test holds of its value there. This
 is `AggValue.predProvWith_eval_iff` with `IsWorld` in place of “the
 group is non-empty if grouped”. -/
-theorem predProvWith_eval_iff (e : AggExpr T (BoolFunc X)) (P : T → Kleene)
+private theorem predProvWith_eval_iff (e : AggExpr T (BoolFunc X)) (P : T → Kleene)
     (v : X → Bool) :
     (e.predProvWith P) v = true
       ↔ e.IsWorld (e.realizedWorld (fun α => α v))
@@ -543,7 +560,7 @@ namespace NestedValue
 omit [Fintype X] [DecidableEq X] in
 /-- The world-faithful reading of a nested value under a valuation is its
 reading in the world the valuation cuts out. -/
-theorem specialize_eval (a : NestedValue T (BoolFunc X)) (v : X → Bool) :
+private theorem specialize_eval (a : NestedValue T (BoolFunc X)) (v : X → Bool) :
     a.specialize (fun α => α v)
       = a.valOn (a.realizedWorld (fun α => α v)) := rfl
 
@@ -551,7 +568,7 @@ omit [ValueType T] in
 /-- **What it takes for a decision over a bag of occurrences to hold under
 a valuation**: every occurrence it keeps has a true annotation, and every
 one it drops a false one. -/
-theorem decEval_iff {Y : Type} (D : Multiset (Y × BoolFunc X × Bool)) (v : X → Bool) :
+private theorem decEval_iff {Y : Type} (D : Multiset (Y × BoolFunc X × Bool)) (v : X → Bool) :
     (decProd D v = true ∧ decAbs D v = false) ↔ ∀ m ∈ D, m.2.2 = m.2.1 v := by
   unfold decProd decAbs
   rw [multiset_prod_eval_eq_true_iff, ← Bool.not_eq_true, multiset_sum_eval_eq_true_iff]
@@ -583,7 +600,7 @@ omit [ValueType T] in
 /-- **What it takes for a decision about an expression family to hold
 under a valuation**: the positions it keeps are those whose annotation the
 valuation makes true. -/
-theorem leafEval_iff (e : LeafKey T (BoolFunc X) × Finset ℕ)
+private theorem leafEval_iff (e : LeafKey T (BoolFunc X) × Finset ℕ)
     (he : e.2 ⊆ Finset.range e.1.2.length) (v : X → Bool) :
     (leafProd e v = true ∧ leafAbs e v = false)
       ↔ e.2 = (NestInner.realDec (T := T) (fun α : BoolFunc X => α v)).leaf e.1 := by
@@ -621,7 +638,7 @@ theorem leafEval_iff (e : LeafKey T (BoolFunc X) × Finset ℕ)
 omit [ValueType T] in
 /-- Every factor of a product holds where the product does, and every
 summand of a sum fails where the sum does: the two together, per part. -/
-theorem multiset_eval_parts {Y : Type} (s : Multiset Y) (f g : Y → BoolFunc X) (v : X → Bool) :
+private theorem multiset_eval_parts {Y : Type} (s : Multiset Y) (f g : Y → BoolFunc X) (v : X → Bool) :
     ((s.map f).prod v = true ∧ (s.map g).sum v = false)
       ↔ ∀ y ∈ s, f y v = true ∧ g y v = false := by
   rw [multiset_prod_eval_eq_true_iff, ← Bool.not_eq_true, multiset_sum_eval_eq_true_iff]
@@ -641,7 +658,7 @@ theorem multiset_eval_parts {Y : Type} (s : Multiset Y) (f g : Y → BoolFunc X)
 omit [ValueType T] in
 /-- **What it takes for a world of a nested value to hold under a
 valuation**: each of its decisions is the one the valuation makes. -/
-theorem World.ann_eval_eq_true_iff {d : ℕ} (W : World T (BoolFunc X) d)
+private theorem World.ann_eval_eq_true_iff {d : ℕ} (W : World T (BoolFunc X) d)
     (hL : ∀ e ∈ W.leaf, e.2 ⊆ Finset.range e.1.2.length) (v : X → Bool) :
     W.ann v = true ↔ (∀ m ∈ W.root, m.2.2 = m.2.1 v)
       ∧ (∀ e ∈ W.leaf, e.2 = (NestInner.realDec (T := T) (fun α : BoolFunc X => α v)).leaf e.1)
@@ -666,7 +683,7 @@ theorem World.ann_eval_eq_true_iff {d : ℕ} (W : World T (BoolFunc X) d)
     exact ⟨⟨⟨h1, h2⟩, h3⟩, ⟨h4, h5⟩, h6⟩
 
 omit [ValueType T] [Fintype X] [DecidableEq X] in
-theorem map_realize_of {Y : Type} {D : Multiset (Y × BoolFunc X × Bool)} (v : X → Bool)
+private theorem map_realize_of {Y : Type} {D : Multiset (Y × BoolFunc X × Bool)} (v : X → Bool)
     (h : ∀ m ∈ D, m.2.2 = m.2.1 v) :
     D = (D.map (fun m => (m.1, m.2.1))).map (fun o => (o.1, o.2, o.2 v)) := by
   rw [Multiset.map_map]
@@ -716,7 +733,7 @@ annotated true, so the world sum holds under a valuation exactly when
 that world is a world of the value and the test holds of its reading
 there. This is `AggExpr.predProvWith_eval_iff` over every family the
 value holds. -/
-theorem predProvWith_eval_iff (a : NestedValue T (BoolFunc X))
+private theorem predProvWith_eval_iff (a : NestedValue T (BoolFunc X))
     (P : T → Kleene) (v : X → Bool) :
     (a.predProvWith P) v = true
       ↔ (a.realizedWorld (fun α => α v)).IsWorld a
@@ -749,7 +766,7 @@ theorem predProvWith_eval_iff (a : NestedValue T (BoolFunc X))
 omit [Fintype X] [DecidableEq X] in
 /-- **The reading a valuation gives a nested value is one of its
 values**, as soon as the world it cuts out is a world of it. -/
-theorem specialize_mem_vals (a : NestedValue T (BoolFunc X)) (v : X → Bool)
+private theorem specialize_mem_vals (a : NestedValue T (BoolFunc X)) (v : X → Bool)
     (hr : (a.realizedWorld (fun α => α v)).IsWorld a) :
     a.specialize (fun α => α v) ∈ a.vals := by
   rw [vals, Multiset.mem_toFinset, Multiset.mem_map]
@@ -766,7 +783,7 @@ noncomputable def GenValue.specializeAt (v : X → Bool) :
   Sum.elim id (fun a => a.specialize (fun α => α v))
 
 omit [Fintype X] [DecidableEq X] in
-@[simp] theorem GenValue.specializeAt_inr_setFam (v : X → Bool) (φ : FamId T)
+@[simp] private theorem GenValue.specializeAt_inr_setFam (v : X → Bool) (φ : FamId T)
     {ids : Option (List (OccId T))}
     (x : AggTok T (BoolFunc X)) :
     GenValue.specializeAt v (Sum.inr (x.setFam φ ids)) = GenValue.specializeAt v (Sum.inr x) :=
@@ -840,7 +857,7 @@ omit [ValueType T] [Fintype X] [DecidableEq X] in
 world.** This is what makes a filtered aggregate of a group guarded: its
 family is the whole group, so the group's existence guard gives it an
 occurrence the valuation keeps. -/
-theorem AggExpr.realizedWorld_nonempty_of_annGuard
+private theorem AggExpr.realizedWorld_nonempty_of_annGuard
     (e : AggExpr T (BoolFunc X)) (v : X → Bool)
     (hG : annGuard e.annList v) :
     (e.realizedWorld (fun α => α v)).Nonempty := by
@@ -864,7 +881,7 @@ world of the expression meets that leaf's occurrences – so the family
 carries a realized annotation, which is the group's existence guard.
 This is `AggValue.annGuard_iff_realized`'s forward use for an
 expression column. -/
-theorem AggExpr.annGuard_of_predProvWith (e : AggExpr T (BoolFunc X))
+private theorem AggExpr.annGuard_of_predProvWith (e : AggExpr T (BoolFunc X))
     (hsc : e.isScalar = false) (P : T → Kleene) (v : X → Bool)
     (hp : (e.predProvWith P) v = true) : annGuard e.annList v := by
   obtain ⟨hiw, -⟩ := (AggExpr.predProvWith_eval_iff e P v).mp hp
@@ -881,7 +898,7 @@ occurrence.** Not read in the scalar convention, the world the valuation
 cuts out keeps an occurrence, whose annotation is therefore realized –
 and that is the family's existence guard, which for a nested value is the
 one annotation its bag sums to. -/
-theorem NestedValue.annGuard_of_predProvWith (a : NestedValue T (BoolFunc X))
+private theorem NestedValue.annGuard_of_predProvWith (a : NestedValue T (BoolFunc X))
     (hsc : a.scalar = false) (P : T → Kleene) (v : X → Bool)
     (hp : (a.predProvWith P) v = true) :
     annGuard [(a.occs.map Prod.snd).sum] v := by
@@ -905,7 +922,7 @@ omit [Fintype X] [DecidableEq X] in
 /-- Pointwise truth of a finalized factored annotation: the concrete part
 holds and every pending group is realized non-empty (`δ` is the identity
 on `𝔹[X]`). -/
-theorem GenAnn.finalize_eval_iff (a : GenAnn (BoolFunc X)) (v : X → Bool) :
+private theorem GenAnn.finalize_eval_iff (a : GenAnn (BoolFunc X)) (v : X → Bool) :
     a.finalize v = true
       ↔ a.base v = true ∧ ∀ l ∈ a.pending, annGuard l v := by
   show (a.base v
@@ -920,7 +937,7 @@ theorem GenAnn.finalize_eval_iff (a : GenAnn (BoolFunc X)) (v : X → Bool) :
 
 omit [ValueType T] [Fintype X] [DecidableEq X] in
 /-- A token's existence guard is the non-emptiness of its realized world. -/
-theorem AggValue.annGuard_iff_realized (a : AggValue T (BoolFunc X))
+private theorem AggValue.annGuard_iff_realized (a : AggValue T (BoolFunc X))
     (v : X → Bool) :
     annGuard (a.occs.map Prod.snd) v ↔ (a.realized v).Nonempty := by
   unfold annGuard AggValue.realized
@@ -939,7 +956,7 @@ theorem AggValue.annGuard_iff_realized (a : AggValue T (BoolFunc X))
 
 omit [ValueType T] [Fintype X] [DecidableEq X] in
 /-- A regular-kinded value is a left injection. -/
-theorem GenValue.eq_inl_of_kindOf_reg {K' : Type} {x : GenValue T K'}
+private theorem GenValue.eq_inl_of_kindOf_reg {K' : Type} {x : GenValue T K'}
     (h : GenValue.kindOf x = ColKind.reg) : ∃ w, x = Sum.inl w := by
   cases x with
   | inl w => exact ⟨w, rfl⟩
@@ -947,7 +964,7 @@ theorem GenValue.eq_inl_of_kindOf_reg {K' : Type} {x : GenValue T K'}
 
 omit [ValueType T] [Fintype X] [DecidableEq X] in
 /-- A token-kinded value is a right injection. -/
-theorem GenValue.eq_inr_of_kindOf_agg {K' : Type} {x : GenValue T K'}
+private theorem GenValue.eq_inr_of_kindOf_agg {K' : Type} {x : GenValue T K'}
     (h : GenValue.kindOf x = ColKind.agg) : ∃ a, x = Sum.inr a := by
   cases x with
   | inl w => exact absurd h (by simp [GenValue.kindOf])
@@ -957,7 +974,7 @@ omit [Fintype X] [DecidableEq X] in
 /-- On a kind-conformant tuple, a term's lifted evaluation is its plain
 evaluation on the specialized tuple (regular columns hold regular values,
 on which both readings are the identity). -/
-theorem TermGIn.eval_specialize {c n : ℕ} {κ : Fin n → ColKind}
+private theorem TermGIn.eval_specialize {c n : ℕ} {κ : Fin n → ColKind}
     (t : TermGIn T c κ) {γ : Fin c → T} (u : Tuple (GenValue T (BoolFunc X)) n)
     (hconf : ∀ k, GenValue.kindOf (u k) = (κ k).base) (v : X → Bool) :
     t.eval u γ = t.evalPlain (GenRow.specializeTuple v u) γ := by
@@ -992,7 +1009,7 @@ omit [Fintype X] [DecidableEq X] in
 /-- On a kind-conformant tuple, an aggregate-atom-free predicate evaluates
 as its plain reading does on the specialized tuple – three-valuedly, so the
 statement covers the unknown case too. -/
-theorem GenPredIn.eval3_eq_specialize {c n : ℕ} {κ : Fin n → ColKind}
+private theorem GenPredIn.eval3_eq_specialize {c n : ℕ} {κ : Fin n → ColKind}
     (φ : GenPredIn T c κ) {γ : Fin c → T} (hφ : φ.hasAggAtom = false)
     (u : Tuple (GenValue T (BoolFunc X)) n)
     (hconf : ∀ k, GenValue.kindOf (u k) = (κ k).base) (v : X → Bool) :
@@ -1017,7 +1034,7 @@ theorem GenPredIn.eval3_eq_specialize {c n : ℕ} {κ : Fin n → ColKind}
 omit [Fintype X] [DecidableEq X] in
 /-- On a kind-conformant tuple, an aggregate-atom-free predicate holds
 iff its plain reading holds on the specialized tuple. -/
-theorem GenPredIn.holds_iff_specialize {c n : ℕ} {κ : Fin n → ColKind}
+private theorem GenPredIn.holds_iff_specialize {c n : ℕ} {κ : Fin n → ColKind}
     (φ : GenPredIn T c κ) {γ : Fin c → T} (hφ : φ.hasAggAtom = false)
     (u : Tuple (GenValue T (BoolFunc X)) n)
     (hconf : ∀ k, GenValue.kindOf (u k) = (κ k).base) (v : X → Bool) :
@@ -1064,7 +1081,7 @@ def GenPredIn.selPending {K' : Type} [AddCommMonoid K'] [DecidableEq K']
 omit [ValueType T] [Fintype X] [DecidableEq X] in
 /-- **The world a valuation cuts out of an embedded token is the one it
 cuts out of the token.** -/
-theorem AggExpr.realizedWorld_ofValue (a : AggValue T (BoolFunc X))
+private theorem AggExpr.realizedWorld_ofValue (a : AggValue T (BoolFunc X))
     (v : X → Bool) :
     (AggExpr.ofValue a).realizedWorld (fun α => α v)
       = (a.realized v).map
@@ -1083,7 +1100,7 @@ theorem AggExpr.realizedWorld_ofValue (a : AggValue T (BoolFunc X))
 
 omit [ValueType T] [Fintype X] [DecidableEq X] in
 /-- **An embedded token specializes as the token does.** -/
-theorem AggExpr.specialize_ofValue (a : AggValue T (BoolFunc X))
+private theorem AggExpr.specialize_ofValue (a : AggValue T (BoolFunc X))
     (v : X → Bool) :
     (AggExpr.ofValue a).specialize (fun α => α v)
       = a.specialize (fun α => α v) := by
@@ -1100,7 +1117,7 @@ takes in those worlds, which are the specialized ones. -/
 omit [Fintype X] [DecidableEq X] in
 /-- An aggregate value that is not nested is realized exactly when the
 world a valuation cuts out of its expression is one of its worlds. -/
-theorem AggTok.realized_iff_flatExpr {x : AggTok T (BoolFunc X)} (hx : x.isNested = false)
+private theorem AggTok.realized_iff_flatExpr {x : AggTok T (BoolFunc X)} (hx : x.isNested = false)
     (v : X → Bool) :
     x.Realized v ↔ x.flatExpr.IsWorld (x.flatExpr.realizedWorld (fun α => α v)) := by
   cases x with
@@ -1114,7 +1131,7 @@ theorem AggTok.realized_iff_flatExpr {x : AggTok T (BoolFunc X)} (hx : x.isNeste
 omit [Fintype X] [DecidableEq X] in
 /-- An aggregate value that is not nested specializes as its expression
 does. -/
-theorem AggTok.flatExpr_specialize {x : AggTok T (BoolFunc X)} (hx : x.isNested = false)
+private theorem AggTok.flatExpr_specialize {x : AggTok T (BoolFunc X)} (hx : x.isNested = false)
     (v : X → Bool) :
     x.flatExpr.specialize (fun α => α v) = x.specialize (fun α => α v) := by
   cases x with
@@ -1125,7 +1142,7 @@ theorem AggTok.flatExpr_specialize {x : AggTok T (BoolFunc X)} (hx : x.isNested 
 omit [ValueType T] [Fintype X] [DecidableEq X] in
 /-- Two expressions carrying the same annotations have the same realized
 world, read position by position. -/
-theorem AggExpr.trW_realizedWorld {e e' : AggExpr T (BoolFunc X)} (h : e.annList = e'.annList)
+private theorem AggExpr.trW_realizedWorld {e e' : AggExpr T (BoolFunc X)} (h : e.annList = e'.annList)
     (ν : BoolFunc X → Bool) :
     trW (e.realizedWorld ν) = e'.realizedWorld ν := by
   have hl : e.occs.length = e'.occs.length := by
@@ -1157,12 +1174,12 @@ private lemma good_combineW {n : ℕ} (w₁ w₂ : BoolFunc X × BoolFunc X × (
   cases w₁.1 v <;> cases w₂.1 v <;> cases w₁.2.1 v <;> cases w₂.2.1 v <;> decide
 
 omit [ValueType T] [Fintype X] [DecidableEq X] in
-theorem AggTok.classKey_eq_none_iff (x : AggTok T (BoolFunc X)) :
+private theorem AggTok.classKey_eq_none_iff (x : AggTok T (BoolFunc X)) :
     x.classKey.2.2 = none ↔ x.isNested = false := by
   cases x <;> simp [AggTok.classKey, AggTok.isNested]
 
 omit [ValueType T] [Fintype X] [DecidableEq X] in
-theorem AggTok.eq_nest_of_classKey (x : AggTok T (BoolFunc X)) {a : NestedValue T (BoolFunc X)}
+private theorem AggTok.eq_nest_of_classKey (x : AggTok T (BoolFunc X)) {a : NestedValue T (BoolFunc X)}
     (h : x.classKey.2.2 = some ⟨a.lev, a.occs⟩) :
     ∃ agg sc φ, x = AggTok.nest ⟨a.lev, agg, a.occs, sc, φ⟩ := by
   cases x with
@@ -1180,7 +1197,7 @@ open Classical in
 /-- **One family, under a valuation**: a world annotated true gives each
 of the family's columns its specialized value, and there is one – the
 world the valuation cuts out. -/
-theorem classWorlds_realized {n : ℕ} (u : Tuple (GenValue T (BoolFunc X)) n) (M : List (Fin n))
+private theorem classWorlds_realized {n : ℕ} (u : Tuple (GenValue T (BoolFunc X)) n) (M : List (Fin n))
     (x₀ : AggTok T (BoolFunc X)) (v : X → Bool)
     (hM : ∀ k ∈ M, ∃ y, u k = Sum.inr y ∧ y.classKey = x₀.classKey ∧ y.Realized v) :
     (∀ w ∈ classWorlds u M x₀, (w.1 * (1 - w.2.1)) v = true →
@@ -1258,7 +1275,7 @@ open Classical in
 /-- **The joint worlds, under a valuation**: a joint world annotated true
 gives every aggregate column it reads its specialized value, and there is
 one, as soon as each of those columns is realized. -/
-theorem jointWorlds_realized {n : ℕ} (u : Tuple (GenValue T (BoolFunc X)) n)
+private theorem jointWorlds_realized {n : ℕ} (u : Tuple (GenValue T (BoolFunc X)) n)
     (cols : List (Fin n)) (v : X → Bool)
     (hR : ∀ k ∈ cols, ∀ x, u k = Sum.inr x → x.Realized v) :
     (∀ w ∈ jointWorlds u cols, (w.1 * (1 - w.2.1)) v = true →
@@ -1279,7 +1296,7 @@ omit [Fintype X] [DecidableEq X] in
 /-- The predicate read at values that are the specialized ones on its
 compared aggregate columns is its plain reading on the specialized
 tuple. -/
-theorem GenPredIn.eval3W_specialize {c n : ℕ} {κ : Fin n → ColKind}
+private theorem GenPredIn.eval3W_specialize {c n : ℕ} {κ : Fin n → ColKind}
     (φ : GenPredIn T c κ) {γ : Fin c → T} (vals : Fin n → Option T)
     (u : Tuple (GenValue T (BoolFunc X)) n)
     (hconf : ∀ k, GenValue.kindOf (u k) = (κ k).base) (v : X → Bool)
@@ -1326,7 +1343,7 @@ private lemma mul_ite_eval (a : BoolFunc X) (p : Prop) [Decidable p] (v : X → 
 row whose compared aggregate columns are realized, the joint reading is
 true under a valuation iff the (polarity-adjusted) plain predicate holds
 on the specialized tuple. -/
-theorem GenPredIn.predsemJ_eval_iff {c n : ℕ} {κ : Fin n → ColKind}
+private theorem GenPredIn.predsemJ_eval_iff {c n : ℕ} {κ : Fin n → ColKind}
     (φ : GenPredIn T c κ) {γ : Fin c → T} (neg : Bool)
     (u : Tuple (GenValue T (BoolFunc X)) n)
     (hconf : ∀ k, GenValue.kindOf (u k) = (κ k).base) (v : X → Bool)
@@ -1364,7 +1381,7 @@ omit [Fintype X] [DecidableEq X] in
 compared values are all grouped and carry the annotation list `ℓ₀`, and
 one of the compared columns holds a value, a true joint reading realizes
 `ℓ₀`: every world it is read in meets that group. -/
-theorem GenPredIn.entails_guardJ {c n : ℕ} {κ : Fin n → ColKind}
+private theorem GenPredIn.entails_guardJ {c n : ℕ} {κ : Fin n → ColKind}
     (φ : GenPredIn T c κ) {γ : Fin c → T} (neg : Bool)
     (u : Tuple (GenValue T (BoolFunc X)) n) (v : X → Bool)
     (ℓ₀ : List (BoolFunc X))
@@ -1693,7 +1710,7 @@ theorem GenPredIn.entails_guard {c n : ℕ} {κ : Fin n → ColKind}
 
 /-- The finalized annotation of a product row is the product of the
 finalized annotations. -/
-theorem GenAnn.finalize_mul {K' : Type} [CommSemiringWithMonus K']
+private theorem GenAnn.finalize_mul {K' : Type} [CommSemiringWithMonus K']
     (a₁ a₂ : GenAnn K') :
     (GenAnn.mk (a₁.base * a₂.base) (a₁.pending + a₂.pending)).finalize
       = a₁.finalize * a₂.finalize := by
@@ -1708,7 +1725,7 @@ omit [Fintype X] [DecidableEq X] in
 finalized updated annotation implies the finalized original one (the
 superseded factors are recovered from the predicate provenance through
 existence entailment). -/
-theorem GenPredIn.sel_finalize_old {c n : ℕ} {κ : Fin n → ColKind}
+private theorem GenPredIn.sel_finalize_old {c n : ℕ} {κ : Fin n → ColKind}
     (φ : GenPredIn T c κ) {γ : Fin c → T} (u : Tuple (GenValue T (BoolFunc X)) n)
     (b : BoolFunc X) (p : Multiset (List (BoolFunc X))) (v : X → Bool)
     (h : (GenAnn.mk (b * φ.predsemJ false u γ) (φ.selPending u p)).finalize v
@@ -1816,7 +1833,7 @@ omit [Fintype X] [DecidableEq X] in
 term reads no token at all, and the two token cases read a column of the
 row itself – through a function in the second, which
 `AggTok.Realized_postcomp` carries. -/
-theorem ProjColIn.realized_eval {c n : ℕ} {κ : Fin n → ColKind}
+private theorem ProjColIn.realized_eval {c n : ℕ} {κ : Fin n → ColKind}
     (p : ProjColIn T c κ) (u : Tuple (GenValue T (BoolFunc X)) n)
     {γ : Fin c → T} (v : X → Bool)
     (hrow : ∀ (k : Fin n) (a : AggTok T (BoolFunc X)),
@@ -1854,7 +1871,7 @@ theorem ProjColIn.realized_eval {c n : ℕ} {κ : Fin n → ColKind}
 omit [ValueType T] [Fintype X] [DecidableEq X] in
 /-- **A reading that reads nothing returns its value**, whatever the
 valuation. -/
-theorem NestedValue.specialize_constInner (w : T) (v : X → Bool) :
+private theorem NestedValue.specialize_constInner (w : T) (v : X → Bool) :
     (NestedValue.constInner w : AggExpr T (BoolFunc X)).specialize
       (fun α => α v) = w := rfl
 
@@ -1866,7 +1883,7 @@ through the embedding (`AggExpr.isWorld_ofValue`); and a reading that
 reads nothing is scalar, so the empty world is one of its worlds. This
 is the condition a world of the nested value owes each inner reading it
 keeps. -/
-theorem GenValue.realized_innerValue (x : GenValue T (BoolFunc X))
+private theorem GenValue.realized_innerValue (x : GenValue T (BoolFunc X))
     (v : X → Bool)
     (hx : ∀ a : AggTok T (BoolFunc X), x = Sum.inr a → a.Realized v) :
     (GenValue.innerValue x).IsWorld
@@ -1902,7 +1919,7 @@ column. So an occurrence of a nested token reads what the realized row
 reads there. A *nested* column is the one case this excludes – the
 second storey is read through its collapse, which is the deterministic
 reading and not the world one – and `GenRow.NoNested` rules it out. -/
-theorem ProjColIn.specialize_innerValue {c n : ℕ} {κ : Fin n → ColKind}
+private theorem ProjColIn.specialize_innerValue {c n : ℕ} {κ : Fin n → ColKind}
     (p : ProjColIn T c κ) (u : Tuple (GenValue T (BoolFunc X)) n)
     {γ : Fin c → T} (hconf : ∀ k, GenValue.kindOf (u k) = (κ k).base)
     (hnn : GenRow.NoNested u) (v : X → Bool) :
@@ -1969,7 +1986,7 @@ omit [Fintype X] [DecidableEq X] in
 world a valuation cuts out**: a nested value its own world-faithful
 reading, read through the occurrences the valuation keeps at every storey
 below; anything else what its expression reads. -/
-theorem GenValue.specialize_innerAt (x : GenValue T (BoolFunc X)) (v : X → Bool) :
+private theorem GenValue.specialize_innerAt (x : GenValue T (BoolFunc X)) (v : X → Bool) :
     ∀ D : ℕ, x.innerLev ≤ D →
       NestInner.specialize (fun α : BoolFunc X => α v) D (x.innerAt D)
         = GenValue.specializeAt v x
@@ -2016,7 +2033,7 @@ omit [Fintype X] [DecidableEq X] in
 it, has the world the valuation cuts out among its own**: on a nested
 value that is what `AggTok.Realized` says of it, and otherwise what
 `GenValue.realized_innerValue` does. -/
-theorem GenValue.realized_innerAt (x : GenValue T (BoolFunc X)) (v : X → Bool)
+private theorem GenValue.realized_innerAt (x : GenValue T (BoolFunc X)) (v : X → Bool)
     (hx : ∀ a : AggTok T (BoolFunc X), x = Sum.inr a → a.Realized v) :
     ∀ D : ℕ, x.innerLev ≤ D →
       NestInner.ok (NestInner.realDec (fun α : BoolFunc X => α v)) D (x.innerAt D)
@@ -2054,7 +2071,7 @@ omit [Fintype X] [DecidableEq X] in
 /-- **The world-faithful reading of a second-level aggregation's value**:
 the outer aggregate over the rows the valuation keeps, each read in the
 world it cuts out of the row's own column – at every storey. -/
-theorem specialize_nestOfGroup {c m : ℕ} {κ : Fin m → ColKind} (p : ProjColIn T c κ)
+private theorem specialize_nestOfGroup {c m : ℕ} {κ : Fin m → ColKind} (p : ProjColIn T c κ)
     (γ : Fin c → T) (f : Multiset T → T) (φ : FamId T)
     (grp : Multiset (GenRow T (BoolFunc X) m)) (v : X → Bool) :
     (nestOfGroup p γ f φ grp).specialize (fun α => α v)
@@ -2075,7 +2092,7 @@ omit [Fintype X] [DecidableEq X] in
 /-- **A second-level aggregation's value is guarded by its group**: where
 one of the group's rows is realized, and every realized row's column is,
 the world the valuation cuts out is a world of it. -/
-theorem realized_nestOfGroup {c m : ℕ} {κ : Fin m → ColKind} (p : ProjColIn T c κ)
+private theorem realized_nestOfGroup {c m : ℕ} {κ : Fin m → ColKind} (p : ProjColIn T c κ)
     (γ : Fin c → T) (f : Multiset T → T) (φ : FamId T)
     (grp : Multiset (GenRow T (BoolFunc X) m)) (v : X → Bool)
     (hex : ∃ row ∈ grp, row.snd.finalize v = true)
@@ -2102,7 +2119,7 @@ omit [Fintype X] [DecidableEq X] in
 /-- **A value column specializes to its collapse**: a valuation moves
 only what a token reads, and a column that holds no token holds its
 value. -/
-theorem GenValue.specializeAt_of_ne_agg {x : GenValue T (BoolFunc X)}
+private theorem GenValue.specializeAt_of_ne_agg {x : GenValue T (BoolFunc X)}
     (h : GenValue.kindOf x ≠ ColKind.agg) (v : X → Bool) :
     GenValue.specializeAt v x = AggValue.collapseSum x := by
   cases x with
@@ -2119,7 +2136,7 @@ for.** Where that row is in its own frame it contributes an occurrence to
 the family – its own where the clause rejects it, its value's class where
 the clause keeps it – and a valuation that realizes the row realizes that
 occurrence's annotation. -/
-theorem annGuard_annList_exprWhen {n' m' p' : ℕ} (P : Tuple (Fin n') m')
+private theorem annGuard_annList_exprWhen {n' m' p' : ℕ} (P : Tuple (Fin n') m')
     (O : Tuple (Fin n') p') (o : OrderSpec p') (w : ValueFrame T p')
     {c : ℕ} (t : TermIn T c n') (f : SeqAggFunc T) (dist : Bool)
     (keep : Tuple T n' → Bool)
@@ -2163,11 +2180,11 @@ def EvalEnv.Guarded (E : EvalEnv T (BoolFunc X)) (v : X → Bool) : Prop :=
     ∧ ∀ (k : Fin E.ctx.1) (a : AggTok T (BoolFunc X)), E.ctx.2 k = Sum.inr a → a.Realized v
 
 omit [Fintype X] [DecidableEq X] [HasAltLinearOrder (BoolFunc X)] in
-theorem EvalEnv.guarded_empty (v : X → Bool) : ({} : EvalEnv T (BoolFunc X)).Guarded v :=
+private theorem EvalEnv.guarded_empty (v : X → Bool) : ({} : EvalEnv T (BoolFunc X)).Guarded v :=
   ⟨fun _ _ r hr => absurd hr (Multiset.notMem_zero r), fun k => k.elim0⟩
 
 omit [Fintype X] [DecidableEq X] [HasAltLinearOrder (BoolFunc X)] in
-theorem EvalEnv.Guarded.ctxAt {E : EvalEnv T (BoolFunc X)} {v : X → Bool} (hE : E.Guarded v)
+private theorem EvalEnv.Guarded.ctxAt {E : EvalEnv T (BoolFunc X)} {v : X → Bool} (hE : E.Guarded v)
     {c : ℕ} (γ : Fin c → T) (k : Fin c) (a : AggTok T (BoolFunc X))
     (ha : E.ctxAt c γ k = Sum.inr a) : a.Realized v := by
   unfold EvalEnv.ctxAt at ha
@@ -2176,7 +2193,7 @@ theorem EvalEnv.Guarded.ctxAt {E : EvalEnv T (BoolFunc X)} {v : X → Bool} (hE 
   · exact absurd ha (by simp)
 
 omit [Fintype X] [DecidableEq X] [HasAltLinearOrder (BoolFunc X)] in
-theorem EvalEnv.Guarded.enter {E : EvalEnv T (BoolFunc X)} {v : X → Bool} (hE : E.Guarded v)
+private theorem EvalEnv.Guarded.enter {E : EvalEnv T (BoolFunc X)} {v : X → Bool} (hE : E.Guarded v)
     {c n₁ : ℕ} (γ : Fin c → T) {x : Tuple (GenValue T (BoolFunc X)) n₁}
     (hx : ∀ (k : Fin n₁) (a : AggTok T (BoolFunc X)), x k = Sum.inr a → a.Realized v) :
     (E.withCtx (Fin.append x (E.ctxAt c γ))).Guarded v := by
@@ -2188,7 +2205,7 @@ theorem EvalEnv.Guarded.enter {E : EvalEnv T (BoolFunc X)} {v : X → Bool} (hE 
   · rw [Fin.append_right] at ha; exact hE.ctxAt γ j a ha
 
 omit [Fintype X] [DecidableEq X] [HasAltLinearOrder (BoolFunc X)] in
-theorem EvalEnv.Guarded.assignHole {E : EvalEnv T (BoolFunc X)} {v : X → Bool}
+private theorem EvalEnv.Guarded.assignHole {E : EvalEnv T (BoolFunc X)} {v : X → Bool}
     (hE : E.Guarded v) (s : String) {n : ℕ} {Y : Multiset (GenRow T (BoolFunc X) n)}
     (hY : ∀ r ∈ Y, r.snd.finalize v = true →
       ∀ (k : Fin n) (a : AggTok T (BoolFunc X)), r.fst k = Sum.inr a → a.Realized v) :
@@ -2212,7 +2229,7 @@ A scalar token is exempt, and has to be: its row exists on its own, and the
 empty world is one of its worlds, so there is no occurrence to realize. This
 is the case split the possible-world reading of an aggregate comparison
 makes anyway. -/
-theorem AggQueryIn.evaluate_guarded :
+private theorem AggQueryIn.evaluate_guarded :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l)
       (d : AnnotatedDatabase T (BoolFunc X)) {γ : Fin c → T} (E : EvalEnv T (BoolFunc X))
       (r : GenRow T (BoolFunc X) n),
@@ -2663,7 +2680,7 @@ private lemma filter_map_comm {α β : Type} (f : α → β) (p : β → Prop)
 
 omit [Fintype X] [DecidableEq X]
   [HasAltLinearOrder (BoolFunc X)] in
-theorem genRandomWorld_add {n : ℕ}
+private theorem genRandomWorld_add {n : ℕ}
     (R₁ R₂ : Multiset (GenRow T (BoolFunc X) n)) (v : X → Bool) :
     genRandomWorld v (R₁ + R₂)
       = genRandomWorld v R₁ + genRandomWorld v R₂ := by
@@ -2674,7 +2691,7 @@ omit [Fintype X] [DecidableEq X]
   [HasAltLinearOrder (BoolFunc X)] in
 /-- On embedded annotated tuples, the general realized world is the
 plain one. -/
-theorem genRandomWorld_ofAnnotated {n : ℕ}
+private theorem genRandomWorld_ofAnnotated {n : ℕ}
     (R : AnnotatedRelation T (BoolFunc X) n) (v : X → Bool) :
     genRandomWorld v (R.map GenRow.ofAnnotated) = randomWorld v R := by
   unfold genRandomWorld randomWorld
@@ -2724,7 +2741,7 @@ omit [Fintype X] [DecidableEq X] in
 /-- On an all-regular subquery, the plain and general realized worlds
 coincide (every column is a regular value, on which the specialized and
 plain readings agree). -/
-theorem genRandomWorld_allReg {c n : ℕ} {l : List (String × ℕ)}
+private theorem genRandomWorld_allReg {c n : ℕ} {l : List (String × ℕ)}
     (q : AggQueryIn T c n (ColKind.allReg n) l)
     (d : AnnotatedDatabase T (BoolFunc X)) (v : X → Bool)
     {γ : Fin c → T} {E : EvalEnv T (BoolFunc X)} :
@@ -2811,7 +2828,7 @@ omit [Fintype X] [DecidableEq X] [HasAltLinearOrder (BoolFunc X)] in
 /-- The realized world of a `groupByKey`-deduplicated relation is the
 deduplicated realized world (a grouped annotation is realized iff some
 contributing annotation is). -/
-theorem randomWorld_groupByKey {n : ℕ}
+private theorem randomWorld_groupByKey {n : ℕ}
     (r : AnnotatedRelation T (BoolFunc X) n) (v : X → Bool) :
     randomWorld v (Multiset.ofList (groupByKey r).val)
       = (randomWorld v r).dedup := by
@@ -3163,7 +3180,7 @@ omit [Fintype X] [DecidableEq X] in
 reads as the plain aggregate the realized world gives its row: restricting
 the relation to a world restricts every frame to that world, which is the
 only property of frames the annotated semantics uses. -/
-theorem tokenOf_filter_agg {c n' m' p' : ℕ} (P : Tuple (Fin n') m')
+private theorem tokenOf_filter_agg {c n' m' p' : ℕ} (P : Tuple (Fin n') m')
     (O : Tuple (Fin n') p') (o : OrderSpec p') (w : ValueFrame T p')
     (t : TermIn T c n')
     (f g : SeqAggFunc T) (R : AnnotatedRelation T (BoolFunc X) n')
@@ -3327,7 +3344,7 @@ omit [Fintype X] [DecidableEq X] in
 the world keeps give the plain window value the realized world gives the
 row. This is the single-frame statement in the form a leaf of an
 expression needs it, the family being listed by occurrence. -/
-theorem frameSeq_filter_agg {c n' m' p' : ℕ} (P : Tuple (Fin n') m')
+private theorem frameSeq_filter_agg {c n' m' p' : ℕ} (P : Tuple (Fin n') m')
     (O : Tuple (Fin n') p') (o : OrderSpec p') (w : ValueFrame T p')
     (t : TermIn T c n') (f : SeqAggFunc T)
     (r : OccFam (AnnotatedTuple T (BoolFunc X) n')) (i : Fin r.size)
@@ -3351,7 +3368,7 @@ theorem frameSeq_filter_agg {c n' m' p' : ℕ} (P : Tuple (Fin n') m')
 omit [Fintype X] [DecidableEq X] in
 /-- **The same under a `FILTER` clause**: the clause cuts the frame by the
 rows, which the restriction to a world does not move. -/
-theorem frameSeq_filter_agg_when {c n' m' p' : ℕ} (P : Tuple (Fin n') m')
+private theorem frameSeq_filter_agg_when {c n' m' p' : ℕ} (P : Tuple (Fin n') m')
     (O : Tuple (Fin n') p') (o : OrderSpec p') (w : ValueFrame T p')
     (t : TermIn T c n') (f : SeqAggFunc T) (keep : Tuple T n' → Bool)
     (r : OccFam (AnnotatedTuple T (BoolFunc X) n')) (i : Fin r.size)
@@ -3386,7 +3403,7 @@ the clause's order, and that is the plain window value the realized world
 gives the row. The leaf aggregates need not be symmetric: both readings
 are sorted by the clause, so they differ only inside blocks of equal rows
 (`OrderSpec.map_eq_of_sorted`). -/
-theorem exprOf_specialize {c n' m' p' q' : ℕ} (P : Tuple (Fin n') m')
+private theorem exprOf_specialize {c n' m' p' q' : ℕ} (P : Tuple (Fin n') m')
     (O : Tuple (Fin n') p') (o : OrderSpec p') (ws : Fin q' → ValueFrame T p')
     (ts : Fin q' → TermIn T c n') (fs : Fin q' → SeqAggFunc T)
     (g : (Fin q' → T) → T)
@@ -3498,7 +3515,7 @@ omit [Fintype X] [DecidableEq X] in
 /-- **A filtered token specializes to the filtered aggregate of the
 realized frame**: the case of `tokenOfWhen_filter_agg` where the
 aggregate applied is the token's own. -/
-theorem tokenOfWhen_specialize {c n' m' p' : ℕ} (P : Tuple (Fin n') m')
+private theorem tokenOfWhen_specialize {c n' m' p' : ℕ} (P : Tuple (Fin n') m')
     (O : Tuple (Fin n') p') (o : OrderSpec p') (w : ValueFrame T p')
     (t : TermIn T c n') (f : SeqAggFunc T) (keep : Tuple T n' → Bool)
     (R : AnnotatedRelation T (BoolFunc X) n')
@@ -3534,7 +3551,7 @@ occurrences the clause keeps among those the valuation realizes – merged
 by value under `DISTINCT` – which is the plain filtered window value the
 realized world gives the row: a clause tests the row and the valuation
 reads the annotation, so the two cuts commute. -/
-theorem exprWhenOf_specialize {c n' m' p' : ℕ} (P : Tuple (Fin n') m')
+private theorem exprWhenOf_specialize {c n' m' p' : ℕ} (P : Tuple (Fin n') m')
     (O : Tuple (Fin n') p') (o : OrderSpec p') (w : ValueFrame T p')
     (t : TermIn T c n') (f : SeqAggFunc T) (dist : Bool)
     (keep : Tuple T n' → Bool) (R : AnnotatedRelation T (BoolFunc X) n')
@@ -3631,7 +3648,7 @@ private lemma specialize_mem_vals (a : AggValue T (BoolFunc X)) (v : X → Bool)
 omit [Fintype X] [DecidableEq X] [HasAltLinearOrder (BoolFunc X)] in
 /-- The value an expression takes in the world a valuation cuts out is
 one of its values, as soon as that world is a world of it. -/
-theorem AggExpr.specialize_mem_vals (e : AggExpr T (BoolFunc X)) (v : X → Bool)
+private theorem AggExpr.specialize_mem_vals (e : AggExpr T (BoolFunc X)) (v : X → Bool)
     (hr : e.IsWorld (e.realizedWorld (fun α => α v))) :
     e.specialize (fun α => α v) ∈ e.vals :=
   Finset.mem_image.mpr ⟨e.realizedWorld (fun α => α v),
@@ -3640,7 +3657,7 @@ theorem AggExpr.specialize_mem_vals (e : AggExpr T (BoolFunc X)) (v : X → Bool
 omit [Fintype X] [DecidableEq X] [HasAltLinearOrder (BoolFunc X)] in
 /-- **The reading a column takes under a valuation is one of its
 values**, whichever kind of token it holds. -/
-theorem AggTok.specialize_mem_vals {x : AggTok T (BoolFunc X)}
+private theorem AggTok.specialize_mem_vals {x : AggTok T (BoolFunc X)}
     (v : X → Bool) (hr : x.Realized v) :
     x.specialize (fun α => α v) ∈ x.vals := by
   cases x with
@@ -3652,7 +3669,7 @@ omit [HasAltLinearOrder (BoolFunc X)] in
 /-- **Exactly one value of a column is realized**: the alternative test
 `[a ≐ v']` holds under a valuation precisely of the reading the valuation
 gives the column. -/
-theorem AggTok.altProv_eval_iff {x : AggTok T (BoolFunc X)}
+private theorem AggTok.altProv_eval_iff {x : AggTok T (BoolFunc X)}
     (v : X → Bool) (hr : x.Realized v) (v' : T) :
     (x.altProv v') v = true ↔ v' = x.specialize (fun α => α v) := by
   cases x with
@@ -3760,7 +3777,7 @@ private lemma genRandomWorld_bind_alternativesAt {n : ℕ} (k : Fin n)
 omit [Fintype X] [DecidableEq X] [HasAltLinearOrder (BoolFunc X)] in
 /-- On a kinded environment, a context column that is not aggregate reads
 in every world as it reads plainly. -/
-theorem EvalEnv.Kinded.ctx_ok {E : EvalEnv T (BoolFunc X)} {c : ℕ} {γ : Fin c → T}
+private theorem EvalEnv.Kinded.ctx_ok {E : EvalEnv T (BoolFunc X)} {c : ℕ} {γ : Fin c → T}
     {ρc : Fin c → ColKind} {HK : HoleKinds} (hE : E.Kinded γ ρc HK) (v : X → Bool)
     (k : Fin c) (hk : (ρc k).base ≠ ColKind.agg) :
     γ k = GenRow.specializeTuple v (E.ctxAt c γ) k := by
@@ -3769,7 +3786,7 @@ theorem EvalEnv.Kinded.ctx_ok {E : EvalEnv T (BoolFunc X)} {c : ℕ} {γ : Fin c
   exact (GenValue.specializeAt_of_ne_agg (by rw [hE.1 k]; exact hk) v).symm
 
 omit [ValueType T] [Fintype X] [DecidableEq X] [HasAltLinearOrder (BoolFunc X)] in
-theorem Database.agree_assign_rw {D D₀ : Database T} {N : Set String}
+private theorem Database.agree_assign_rw {D D₀ : Database T} {N : Set String}
     (hD : ∀ (n' : ℕ) (s' : String), s' ∉ N → D.find n' s' = D₀.find n' s')
     (s : String) {m : ℕ} (Y : Relation T m) :
     ∀ (n' : ℕ) (s' : String), s' ∉ insert s N → (D.assign s Y).find n' s' = D₀.find n' s' := by

@@ -5,6 +5,10 @@ import Mathlib.Tactic.NormNum.Inv
 import Mathlib.Tactic.NormNum.Pow
 import Provenance.AggQueryAdequacy
 import Provenance.AggQueryRewritingValid
+import all Provenance.AggQuery
+import all Provenance.AggQueryAdequacy
+import all Provenance.AggQueryRewriting
+import all Provenance.Util.ValueTypeNull
 
 /-! # The rewritten world's evaluator: tokens as ordinary column values
 
@@ -364,7 +368,7 @@ world as its plain evaluation – including the `cmpAgg` gate, whose junk
 reading `𝟘` is definitionally the composite zero on a row with no
 token. The indicator gate has no such escape: it returns a genuine
 annotation, which is why it is excluded here. -/
-theorem TermGIn.evalRew_inl {c n : ℕ} {κ : Fin n → ColKind}
+private theorem TermGIn.evalRew_inl {c n : ℕ} {κ : Fin n → ColKind}
     {γ : Fin c → (T ⊕ K)} :
     ∀ (t : TermGIn (T ⊕ K) c κ), t.chiFree → ∀ (u : Tuple (T ⊕ K) n),
       t.evalRew (fun k => Sum.inl (u k)) γ = t.evalPlain u γ
@@ -395,7 +399,7 @@ theorem TermGIn.evalRew_inl {c n : ℕ} {κ : Fin n → ColKind}
 
 /-- Gate-free projection columns on `inl`-embedded rows evaluate to the
 embedded plain reading. -/
-theorem ProjColIn.evalRew_inl {c n : ℕ} {κ : Fin n → ColKind}
+private theorem ProjColIn.evalRew_inl {c n : ℕ} {κ : Fin n → ColKind}
     {γ : Fin c → (T ⊕ K)} (p : ProjColIn (T ⊕ K) c κ) (hp : p.chiFree)
     (u : Tuple (T ⊕ K) n) :
     p.evalRew (fun k => Sum.inl (u k)) γ = Sum.inl (p.evalPlain u γ) := by
@@ -408,7 +412,7 @@ theorem ProjColIn.evalRew_inl {c n : ℕ} {κ : Fin n → ColKind}
 
 /-- Gate-free predicates on `inl`-embedded rows hold as their plain
 reading. -/
-theorem GenPredIn.evalRew3_inl {c n : ℕ} {κ : Fin n → ColKind}
+private theorem GenPredIn.evalRew3_inl {c n : ℕ} {κ : Fin n → ColKind}
     {γ : Fin c → (T ⊕ K)} :
     ∀ (φ : GenPredIn (T ⊕ K) c κ), φ.chiFree → ∀ (u : Tuple (T ⊕ K) n),
       φ.evalRew3 (fun k => Sum.inl (u k)) γ = φ.evalPlain3 u γ
@@ -434,7 +438,7 @@ theorem GenPredIn.evalRew3_inl {c n : ℕ} {κ : Fin n → ColKind}
 
 /-- Gate-free predicates on `inl`-embedded rows hold as their plain
 reading. -/
-theorem GenPredIn.holdsRew_inl {c n : ℕ} {κ : Fin n → ColKind}
+private theorem GenPredIn.holdsRew_inl {c n : ℕ} {κ : Fin n → ColKind}
     {γ : Fin c → (T ⊕ K)} (φ : GenPredIn (T ⊕ K) c κ) (hφ : φ.chiFree)
     (u : Tuple (T ⊕ K) n) :
     φ.holdsRew (fun k => Sum.inl (u k)) γ ↔ φ.holdsPlain u γ := by
@@ -442,7 +446,7 @@ theorem GenPredIn.holdsRew_inl {c n : ℕ} {κ : Fin n → ColKind}
   rw [GenPredIn.evalRew3_inl φ hφ u]
 
 /-- Maps push through the multiset product. -/
-theorem Multiset.map_product_map {α β α' β' : Type _} (f : α → α')
+private theorem Multiset.map_product_map {α β α' β' : Type _} (f : α → α')
     (g : β → β') (s : Multiset α) (t : Multiset β) :
     (s.map f).product (t.map g) = (s.product t).map (Prod.map f g) := by
   unfold Multiset.product
@@ -454,7 +458,7 @@ theorem Multiset.map_product_map {α β α' β' : Type _} (f : α → α')
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K]
   [HasAltLinearOrder K] in
 /-- Collapsing `inl`-embedded rows is the identity. -/
-theorem map_plainTuple_map_inl {m : ℕ} (X : Multiset (Tuple (T ⊕ K) m)) :
+private theorem map_plainTuple_map_inl {m : ℕ} (X : Multiset (Tuple (T ⊕ K) m)) :
     Multiset.map (fun u : Tuple (GenValue (T ⊕ K) K) m =>
         (GenRow.plainTuple u : Tuple (T ⊕ K) m))
       (X.map (fun t => ((fun k => Sum.inl (t k))
@@ -671,7 +675,7 @@ def SeqAggFunc.liftComposite (f : SeqAggFunc T) : SeqAggFunc (T ⊕ K) :=
 
 omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 /-- The lifted aggregate on `inl`-embedded values. -/
-theorem SeqAggFunc.liftComposite_map_inl (f : SeqAggFunc T)
+private theorem SeqAggFunc.liftComposite_map_inl (f : SeqAggFunc T)
     (l : List T) :
     (f.liftComposite (K := K)) (l.map Sum.inl) = Sum.inl (f l) := by
   unfold SeqAggFunc.liftComposite
@@ -688,7 +692,7 @@ def NestedValue.liftComposite (f : Multiset T → T) :
 
 omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 /-- The lifted bag aggregate on `inl`-embedded values. -/
-theorem NestedValue.liftComposite_map_inl (f : Multiset T → T)
+private theorem NestedValue.liftComposite_map_inl (f : Multiset T → T)
     (s : Multiset T) :
     (NestedValue.liftComposite (K := K) f) (s.map Sum.inl) = Sum.inl (f s) := by
   unfold NestedValue.liftComposite
@@ -699,7 +703,7 @@ theorem NestedValue.liftComposite_map_inl (f : Multiset T → T)
 
 omit [DecidableEq K] in
 /-- The comparison indicator restricts along the `inl` embedding. -/
-theorem Having.chi_inl (op : CompOp) (x y : T) :
+private theorem Having.chi_inl (op : CompOp) (x y : T) :
     (Having.chi op (Sum.inl x : T ⊕ K) (Sum.inl y) : K)
       = Having.chi op x y := by
   unfold Having.chi
@@ -709,7 +713,7 @@ theorem Having.chi_inl (op : CompOp) (x y : T) :
 
 omit [DecidableEq K] in
 /-- The classical rewriting emits no token-building grouping. -/
-theorem AggQueryIn.rewriting_noGammaTok :
+private theorem AggQueryIn.rewriting_noGammaTok :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l)
       (hq : q.classical),
       ((q.rewriting hq
@@ -742,7 +746,7 @@ termination_by structural _ _ _ _ q _ => q
 omit [DecidableEq K] in
 /-- The classical rewriting emits no `FILTER` clause: it emits no
 grouping at all, a classical query having none. -/
-theorem AggQueryIn.rewriting_noFilter :
+private theorem AggQueryIn.rewriting_noFilter :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l)
       (hq : q.classical),
       ((q.rewriting hq
@@ -841,7 +845,7 @@ termination_by structural _ _ _ _ q _ => q
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K]
   [HasAltLinearOrder K] in
 /-- Coordinates of the composite embedding of an annotated tuple. -/
-theorem AnnotatedTuple.toComposite_coord {m : ℕ}
+private theorem AnnotatedTuple.toComposite_coord {m : ℕ}
     (p : AnnotatedTuple T K m) (j : Fin (m + 1)) :
     p.toComposite j
       = if h : ((j : ℕ) < m : Prop) then Sum.inl (p.fst ⟨j, h⟩)
@@ -860,14 +864,14 @@ theorem AnnotatedTuple.toComposite_coord {m : ℕ}
 
 omit [DecidableEq K] in
 /-- The composite order restricts to the value order on `inl`. -/
-theorem Sum.inl_lt_inl_composite (x y : T) :
+private theorem Sum.inl_lt_inl_composite (x y : T) :
     LT.lt (Sum.inl x : T ⊕ K) (Sum.inl y) ↔ LT.lt x y := by
   rw [lt_iff_le_not_ge, lt_iff_le_not_ge]
   exact and_congr Iff.rfl (not_congr Iff.rfl)
 
 omit [DecidableEq K] in
 /-- The composite order restricts to the alternative order on `inr`. -/
-theorem Sum.inr_lt_inr_composite (x y : K) :
+private theorem Sum.inr_lt_inr_composite (x y : K) :
     LT.lt (Sum.inr x : T ⊕ K) (Sum.inr y)
       ↔ HasAltLinearOrder.altOrder.lt x y := by
   rw [lt_iff_le_not_ge, HasAltLinearOrder.altOrder.lt_iff_le_not_ge]
@@ -969,7 +973,7 @@ theorem Having.havingGroup_toComposite {m n₁ : ℕ}
 
 /-- Mapping a key-only function over a grouped relation is mapping it
 over the deduplicated keys (the accumulated annotations are unread). -/
-theorem map_comp_fst_groupByKey {n : ℕ} {β : Type}
+private theorem map_comp_fst_groupByKey {n : ℕ} {β : Type}
     (G : Tuple (T ⊕ K) n → β) (Y : AnnotatedRelation (T ⊕ K) K n) :
     Multiset.map (G ∘ Prod.fst) (Multiset.ofList (groupByKey Y).val)
       = Multiset.map G ((Y.map Prod.fst).dedup) := by

@@ -93,7 +93,7 @@ namespace OccFam
 /-- Two families are the same when they have the same size and the same row
 at every index. The sizes being equal is not a matter of definition, so the
 indices have to be transported along the equality. -/
-theorem ext_cast {r r' : OccFam α} (h : r.size = r'.size)
+private theorem ext_cast {r r' : OccFam α} (h : r.size = r'.size)
     (hr : ∀ i, r.row i = r'.row (Fin.cast h i)) : r = r' := by
   obtain ⟨m, f⟩ := r
   obtain ⟨m', g⟩ := r'
@@ -105,7 +105,7 @@ def toMultiset (r : OccFam α) : Multiset α :=
   (Finset.univ : Finset (Fin r.size)).val.map r.row
 
 /-- Every occurrence's row is one of the relation's. -/
-theorem row_mem_toMultiset (r : OccFam α) (i : Fin r.size) :
+private theorem row_mem_toMultiset (r : OccFam α) (i : Fin r.size) :
     r.row i ∈ r.toMultiset :=
   Multiset.mem_map.mpr ⟨i, Finset.mem_val.mpr (Finset.mem_univ i), rfl⟩
 
@@ -113,15 +113,15 @@ theorem row_mem_toMultiset (r : OccFam α) (i : Fin r.size) :
 def nil : OccFam α := ⟨0, fun i => i.elim0⟩
 
 /-- Mapping the rows of a family is mapping the multiset it stands for. -/
-theorem toMultiset_map {β : Type} (f : α → β) (r : OccFam α) :
+private theorem toMultiset_map {β : Type} (f : α → β) (r : OccFam α) :
     Multiset.map f r.toMultiset = (OccFam.mk r.size (fun i => f (r.row i))).toMultiset := by
   unfold toMultiset
   rw [Multiset.map_map]
   rfl
 
-@[simp] theorem toMultiset_nil : (nil : OccFam α).toMultiset = 0 := rfl
+@[simp] private theorem toMultiset_nil : (nil : OccFam α).toMultiset = 0 := rfl
 
-@[simp] theorem card_toMultiset (r : OccFam α) :
+@[simp] private theorem card_toMultiset (r : OccFam α) :
     Multiset.card r.toMultiset = r.size := by
   simp [toMultiset]
 
@@ -131,14 +131,14 @@ to respect: the choice of index is not data, only the occurrences are. -/
 def Congr (r r' : OccFam α) : Prop :=
   ∃ e : Fin r.size ≃ Fin r'.size, ∀ i, r'.row (e i) = r.row i
 
-theorem Congr.refl (r : OccFam α) : Congr r r :=
+private theorem Congr.refl (r : OccFam α) : Congr r r :=
   ⟨Equiv.refl _, fun _ => rfl⟩
 
-theorem Congr.symm {r r' : OccFam α} (h : Congr r r') : Congr r' r := by
+private theorem Congr.symm {r r' : OccFam α} (h : Congr r r') : Congr r' r := by
   obtain ⟨e, he⟩ := h
   exact ⟨e.symm, fun i => by rw [← he (e.symm i), Equiv.apply_symm_apply]⟩
 
-theorem Congr.trans {r r' r'' : OccFam α}
+private theorem Congr.trans {r r' r'' : OccFam α}
     (h : Congr r r') (h' : Congr r' r'') : Congr r r'' := by
   obtain ⟨e, he⟩ := h
   obtain ⟨e', he'⟩ := h'
@@ -146,7 +146,7 @@ theorem Congr.trans {r r' r'' : OccFam α}
 
 /-- Congruent families stand for the same relation: re-indexing is invisible
 once the index is forgotten. -/
-theorem toMultiset_congr {r r' : OccFam α} (h : Congr r r') :
+private theorem toMultiset_congr {r r' : OccFam α} (h : Congr r r') :
     r.toMultiset = r'.toMultiset := by
   obtain ⟨e, he⟩ := h
   show Multiset.map r.row _ = Multiset.map r'.row _
@@ -172,10 +172,10 @@ does not depend on the choice. -/
 noncomputable def ofMultiset (s : Multiset α) : OccFam α :=
   ⟨s.toList.length, fun i => s.toList.get i⟩
 
-@[simp] theorem size_ofMultiset (s : Multiset α) :
+@[simp] private theorem size_ofMultiset (s : Multiset α) :
     (ofMultiset s).size = Multiset.card s := Multiset.length_toList s
 
-@[simp] theorem toMultiset_ofMultiset (s : Multiset α) :
+@[simp] private theorem toMultiset_ofMultiset (s : Multiset α) :
     (ofMultiset s).toMultiset = s := by
   show Multiset.map s.toList.get
       (Finset.univ : Finset (Fin s.toList.length)).val = s

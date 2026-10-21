@@ -12,6 +12,9 @@ public import Provenance.Util.ValueTypeNull
 import Mathlib.Algebra.Order.Group.Nat
 import Mathlib.Algebra.Order.Monoid.NatCast
 import Mathlib.Tactic.Bound.Init
+import all Provenance.Database
+import all Provenance.Util.Kleene
+import all Provenance.Util.ValueTypeNull
 
 /-!
 # Relational algebra
@@ -113,7 +116,7 @@ def TermIn.eval {c : ℕ} (term : TermIn T c n) (tuple : Tuple T n)
     if ValueType.isNull (t₁.eval tuple γ) then t₂.eval tuple γ
     else t₁.eval tuple γ
 
-theorem TermIn.castToAnnotatedTuple_eval [HasAltLinearOrder K] [SemiringWithMonus K] (t: Term T n) (tuple: Tuple T n) :
+private theorem TermIn.castToAnnotatedTuple_eval [HasAltLinearOrder K] [SemiringWithMonus K] (t: Term T n) (tuple: Tuple T n) :
 ∀ α: K,
   t.castToAnnotatedTuple.eval (Fin.append (λ k ↦ Sum.inl (tuple k)) ![Sum.inr α]) = Sum.inl (t.eval tuple) := by
   intro α
@@ -227,7 +230,7 @@ def BoolTerm.eval3 (φ: BoolTerm T n) (tuple: Tuple T n) : Kleene :=
 def BoolTerm.eval (φ: BoolTerm T n) (tuple: Tuple T n) : Prop :=
   φ.eval3 tuple = Kleene.true
 
-theorem BoolTerm.castToAnnotatedTuple_eval3 [HasAltLinearOrder K]
+private theorem BoolTerm.castToAnnotatedTuple_eval3 [HasAltLinearOrder K]
     [SemiringWithMonus K] (t: BoolTerm T n) (tuple: Tuple T n) (α : K) :
     t.castToAnnotatedTuple.eval3
         (Fin.append (λ k ↦ Sum.inl (tuple k)) ![Sum.inr α])
@@ -260,7 +263,7 @@ theorem BoolTerm.castToAnnotatedTuple_eval3 [HasAltLinearOrder K]
        BoolTerm.args, TermIn.castToAnnotatedTuple_eval];
      exact hop _ _)
 
-theorem BoolTerm.castToAnnotatedTuple_eval [HasAltLinearOrder K]
+private theorem BoolTerm.castToAnnotatedTuple_eval [HasAltLinearOrder K]
     [SemiringWithMonus K] (t: BoolTerm T n) (tuple: Tuple T n) :
     ∀ α: K, t.castToAnnotatedTuple.eval
         (Fin.append (λ k ↦ Sum.inl (tuple k)) ![Sum.inr α]) = t.eval tuple := by
@@ -307,7 +310,7 @@ def Selection.eval3 (φ: Selection T n) (tuple: Tuple T n) : Kleene := match φ 
 def Selection.eval (φ: Selection T n) (tuple: Tuple T n) : Prop :=
   φ.eval3 tuple = Kleene.true
 
-theorem Selection.castToAnnotatedTuple_eval3 [HasAltLinearOrder K]
+private theorem Selection.castToAnnotatedTuple_eval3 [HasAltLinearOrder K]
     [SemiringWithMonus K] (φ: Selection T n) (tuple: Tuple T n) (α : K) :
     φ.castToAnnotatedTuple.eval3
         (Fin.append (λ k ↦ Sum.inl (tuple k)) ![Sum.inr α])
@@ -319,7 +322,7 @@ theorem Selection.castToAnnotatedTuple_eval3 [HasAltLinearOrder K]
   | Or φ₁ φ₂ ih₁ ih₂ => show (_ : Kleene).or _ = _; rw [ih₁, ih₂]; rfl
   | True => rfl
 
-theorem Selection.castToAnnotatedTuple_eval [HasAltLinearOrder K]
+private theorem Selection.castToAnnotatedTuple_eval [HasAltLinearOrder K]
     [SemiringWithMonus K] (φ: Selection T n) (tuple: Tuple T n) :
     ∀ α: K, φ.castToAnnotatedTuple.eval
         (Fin.append (λ k ↦ Sum.inl (tuple k)) ![Sum.inr α]) = φ.eval tuple := by
@@ -334,10 +337,10 @@ three-valued reading becomes two-valued here. This is the form a
 def Selection.keeps (φ : Selection T n) (u : Tuple T n) : Bool :=
   decide (φ.eval3 u = Kleene.true)
 
-@[simp] theorem Selection.keeps_true (u : Tuple T n) :
+@[simp] private theorem Selection.keeps_true (u : Tuple T n) :
     (Selection.True : Selection T n).keeps u = true := rfl
 
-theorem Selection.keeps_iff (φ : Selection T n) (u : Tuple T n) :
+private theorem Selection.keeps_iff (φ : Selection T n) (u : Tuple T n) :
     φ.keeps u = true ↔ φ.eval u := by
   rw [Selection.keeps, decide_eq_true_eq]
   rfl
@@ -345,21 +348,21 @@ theorem Selection.keeps_iff (φ : Selection T n) (u : Tuple T n) :
 @[reducible] def Selection.evalDecidable (φ : Selection T n) : DecidablePred φ.eval :=
   fun _ => inferInstanceAs (Decidable (_ = _))
 
-@[simp] theorem Selection.eval_bt (b : BoolTerm T n) (t : Tuple T n) :
+@[simp] private theorem Selection.eval_bt (b : BoolTerm T n) (t : Tuple T n) :
     (Selection.BT b).eval t ↔ b.eval t := Iff.rfl
 
 /-- Where nothing is null a comparison reads two-valuedly. -/
-@[simp] theorem BoolTerm.eval_iff [NoNulls T] (b : BoolTerm T n)
+@[simp] private theorem BoolTerm.eval_iff [NoNulls T] (b : BoolTerm T n)
     (t : Tuple T n) :
     b.eval t ↔ b.toCompOp.eval ((b.args).1.eval t) ((b.args).2.eval t) := by
   unfold BoolTerm.eval BoolTerm.eval3
   rw [CompOp.eval3_eq_true_iff _ (isNull_eq_false _) (isNull_eq_false _)]
 
-@[simp] theorem Selection.eval_and (φ ψ : Selection T n) (t : Tuple T n) :
+@[simp] private theorem Selection.eval_and (φ ψ : Selection T n) (t : Tuple T n) :
     (Selection.And φ ψ).eval t ↔ φ.eval t ∧ ψ.eval t :=
   Kleene.and_eq_true_iff _ _
 
-@[simp] theorem Selection.eval_or (φ ψ : Selection T n) (t : Tuple T n) :
+@[simp] private theorem Selection.eval_or (φ ψ : Selection T n) (t : Tuple T n) :
     (Selection.Or φ ψ).eval t ↔ φ.eval t ∨ ψ.eval t :=
   Kleene.or_eq_true_iff _ _
 
@@ -369,7 +372,7 @@ theorem Selection.keeps_iff (φ : Selection T n) (u : Tuple T n) :
     (Selection.Not φ).eval t ↔ φ.eval3 t = Kleene.false :=
   Kleene.not_eq_true_iff _
 
-@[simp] theorem Selection.eval_true (t : Tuple T n) :
+@[simp] private theorem Selection.eval_true (t : Tuple T n) :
     (Selection.True : Selection T n).eval t := rfl
 
 /-- Where nothing is null no selection is ever unknown. -/
@@ -419,7 +422,7 @@ linear order admits one sorted list of a multiset, so the two agree, and a
 statement about one transfers to the other. The library's evaluators read a
 relation as a sequence through `sortList`, so that a `decide`-checked
 equation about a computed relation reduces. -/
-theorem sort_eq_sortList {α : Type} [LinearOrder α] (M : Multiset α) :
+private theorem sort_eq_sortList {α : Type} [LinearOrder α] (M : Multiset α) :
     Multiset.sort M (· ≤ ·) = sortList M :=
   sortList_eq (Multiset.pairwise_sort _ _) (Multiset.sort_eq _ _)
 
@@ -487,7 +490,7 @@ offset `0`. It is the aggregate SQL's `nth_value`, `lag(t, k)` and
 it reads one end of the frame and no other position. -/
 def pickNth (i : ℕ) : SeqAggFunc T := fun L => L.getD i 0
 
-@[simp] theorem pickNth_zero : (pickNth 0 : SeqAggFunc T) = pickFirst := by
+@[simp] private theorem pickNth_zero : (pickNth 0 : SeqAggFunc T) = pickFirst := by
   funext L; cases L <;> rfl
 
 /-- **SQL's reading of an aggregate on a domain with a null**: skip the
@@ -503,13 +506,13 @@ def sqlOf {V : Type} [ValueTypeNull V] (f : SeqAggFunc V) : SeqAggFunc V := fun 
 convention needed and could not have: an aggregation without grouping over
 an empty input, and a frame that excludes the row it is computed for, both
 read their value here. -/
-@[simp] theorem sqlOf_nil {V : Type} [ValueTypeNull V] (f : SeqAggFunc V) :
+@[simp] private theorem sqlOf_nil {V : Type} [ValueTypeNull V] (f : SeqAggFunc V) :
     f.sqlOf [] = ValueTypeNull.null := rfl
 
 /-- **Away from the null the SQL reading is the aggregate itself.** The
 results proved of an aggregate over a domain with no null are recovered:
 they are this case. -/
-theorem sqlOf_eq_of_no_null {V : Type} [ValueTypeNull V] (f : SeqAggFunc V)
+private theorem sqlOf_eq_of_no_null {V : Type} [ValueTypeNull V] (f : SeqAggFunc V)
     {L : List V} (hne : L ≠ [])
     (h : ∀ a ∈ L, a ≠ ValueTypeNull.null) : f.sqlOf L = f L := by
   have hfil : L.filter (fun a => decide (a ≠ ValueTypeNull.null)) = L :=
@@ -518,7 +521,7 @@ theorem sqlOf_eq_of_no_null {V : Type} [ValueTypeNull V] (f : SeqAggFunc V)
   rw [hfil, ite_eq_right (by simpa using hne)]
 
 /-- An aggregate over nothing but nulls is null, as it is over no row. -/
-theorem sqlOf_eq_null_of_all_null {V : Type} [ValueTypeNull V]
+private theorem sqlOf_eq_null_of_all_null {V : Type} [ValueTypeNull V]
     (f : SeqAggFunc V) {L : List V} (h : ∀ a ∈ L, a = ValueTypeNull.null) :
     f.sqlOf L = ValueTypeNull.null := by
   have hfil : L.filter (fun a => decide (a ≠ ValueTypeNull.null)) = [] :=
@@ -540,11 +543,11 @@ def counting {V : Type} [ValueType V] (f : SeqAggFunc V) : SeqAggFunc V :=
 
 /-- A count over nothing is what the underlying count gives the empty
 sequence – `0`, and not the `NULL` of a null-skipping aggregate. -/
-@[simp] theorem counting_nil {V : Type} [ValueType V] (f : SeqAggFunc V) :
+@[simp] private theorem counting_nil {V : Type} [ValueType V] (f : SeqAggFunc V) :
     f.counting [] = f [] := rfl
 
 /-- Away from the nulls the counting policy reads the whole sequence. -/
-theorem counting_eq_of_no_null {V : Type} [ValueType V] (f : SeqAggFunc V)
+private theorem counting_eq_of_no_null {V : Type} [ValueType V] (f : SeqAggFunc V)
     {L : List V} (h : ∀ a ∈ L, ValueType.isNull a = false) :
     f.counting L = f L := by
   unfold counting
@@ -552,7 +555,7 @@ theorem counting_eq_of_no_null {V : Type} [ValueType V] (f : SeqAggFunc V)
 
 /-- **On a domain where nothing is null the counting policy is the count
 itself**, which is why the results proved at `ℕ` are untouched by it. -/
-theorem counting_of_noNulls {V : Type} [ValueType V] [NoNulls V]
+private theorem counting_of_noNulls {V : Type} [ValueType V] [NoNulls V]
     (f : SeqAggFunc V) : f.counting = f :=
   funext fun _L => counting_eq_of_no_null f (fun a _ => isNull_eq_false a)
 
@@ -570,7 +573,7 @@ count is one that is never null and is zero only over the empty sequence;
 reading it through the counting policy, which drops the nulls, gives an
 aggregate that is zero exactly when there was nothing but nulls to
 count. -/
-theorem counts_counting {V : Type} [ValueType V] {cnt : SeqAggFunc V}
+private theorem counts_counting {V : Type} [ValueType V] {cnt : SeqAggFunc V}
     (hnn : ∀ L : List V, ValueType.isNull (cnt L) = false)
     (hz : ∀ L : List V, cnt L = 0 ↔ L = []) :
     Counts (SeqAggFunc.counting cnt) where
@@ -583,7 +586,7 @@ theorem counts_counting {V : Type} [ValueType V] {cnt : SeqAggFunc V}
 /-- **Over a domain with no null a plain count counts.** The counting
 policy has nothing to drop there, so an aggregate that is never null and
 is zero only over the empty sequence is a count as it stands. -/
-theorem counts_of_noNulls {V : Type} [ValueType V] [NoNulls V]
+private theorem counts_of_noNulls {V : Type} [ValueType V] [NoNulls V]
     {cnt : SeqAggFunc V} (hnn : ∀ L : List V, ValueType.isNull (cnt L) = false)
     (hz : ∀ L : List V, cnt L = 0 ↔ L = []) : Counts cnt where
   not_null := hnn
@@ -623,7 +626,7 @@ def onBag (f : SeqAggFunc T) (hf : f.Symmetric) : Multiset T → T :=
   fun s => Quot.liftOn s f (fun _ _ hp => hf hp)
 
 omit [ValueType T] in
-@[simp] theorem onBag_coe (f : SeqAggFunc T) (hf : f.Symmetric) (L : List T) :
+@[simp] private theorem onBag_coe (f : SeqAggFunc T) (hf : f.Symmetric) (L : List T) :
     f.onBag hf (↑L : Multiset T) = f L := rfl
 
 theorem sum_symmetric : (SeqAggFunc.sum : SeqAggFunc T).Symmetric := by
@@ -652,7 +655,7 @@ order fixes it. This is SQL's own rule – `array_agg(DISTINCT t)` is
 legal and ordered by the values, while `array_agg(DISTINCT t ORDER BY
 u)` is rejected – and it is why `distinct` needs no hypothesis on `f`
 where a dedup-order reading would have needed symmetry. -/
-theorem distinct_symmetric (f : SeqAggFunc T) : f.distinct.Symmetric := by
+private theorem distinct_symmetric (f : SeqAggFunc T) : f.distinct.Symmetric := by
   intro L L' hp
   show f (sortList _) = f (sortList _)
   exact congrArg f (congrArg sortList (Quot.sound hp.dedup))
@@ -660,7 +663,7 @@ theorem distinct_symmetric (f : SeqAggFunc T) : f.distinct.Symmetric := by
 /-- **Any enumeration of the distinct values gives the distinct
 aggregate its value**, for a symmetric aggregate: what the order is
 fixed by does not matter once the aggregate does not read it. -/
-theorem distinct_eq_of_perm {f : SeqAggFunc T} (hf : f.Symmetric)
+private theorem distinct_eq_of_perm {f : SeqAggFunc T} (hf : f.Symmetric)
     {L L' : List T} (h : L'.Perm L.dedup) : f.distinct L = f L' :=
   hf ((Quotient.exact (by
       rw [← sort_eq_sortList]; exact Multiset.sort_eq (L.dedup : Multiset T) (· ≤ ·)
@@ -729,7 +732,7 @@ private theorem foldr_max_seed_mem (hs : s ∈ L) (hs' : s' ∈ L) :
     (foldr_max_le (fun _x hx => le_foldr_max_of_mem hx s') (le_foldr_max_of_mem hs s'))
     (foldr_max_le (fun _x hx => le_foldr_max_of_mem hx s) (le_foldr_max_of_mem hs' s))
 
-theorem min_symmetric : (SeqAggFunc.min : SeqAggFunc T).Symmetric := by
+private theorem min_symmetric : (SeqAggFunc.min : SeqAggFunc T).Symmetric := by
   have : LeftCommutative (Min.min : T → T → T) := ⟨min_left_comm⟩
   intro L L' hp
   cases L with
@@ -747,7 +750,7 @@ theorem min_symmetric : (SeqAggFunc.min : SeqAggFunc T).Symmetric := by
       exact foldr_min_seed_mem (hp.mem_iff.mp List.mem_cons_self)
         List.mem_cons_self
 
-theorem max_symmetric : (SeqAggFunc.max : SeqAggFunc T).Symmetric := by
+private theorem max_symmetric : (SeqAggFunc.max : SeqAggFunc T).Symmetric := by
   have : LeftCommutative (Max.max : T → T → T) := ⟨max_left_comm⟩
   intro L L' hp
   cases L with
@@ -803,20 +806,20 @@ private theorem foldr_max_mem (x : T) :
       · exact List.mem_cons_of_mem x (List.mem_cons_of_mem y h')
 
 /-- **`MIN` over a non-empty sequence is one of its values.** -/
-theorem min_mem {L : List T} (hL : L ≠ []) : SeqAggFunc.min L ∈ L := by
+private theorem min_mem {L : List T} (hL : L ≠ []) : SeqAggFunc.min L ∈ L := by
   cases L with
   | nil => exact absurd rfl hL
   | cons x xs => exact foldr_min_mem x xs
 
 /-- **`MAX` over a non-empty sequence is one of its values.** -/
-theorem max_mem {L : List T} (hL : L ≠ []) : SeqAggFunc.max L ∈ L := by
+private theorem max_mem {L : List T} (hL : L ≠ []) : SeqAggFunc.max L ∈ L := by
   cases L with
   | nil => exact absurd rfl hL
   | cons x xs => exact foldr_max_mem x xs
 
 /-- **SQL's reading of an aggregate that returns one of its inputs** gives a
 non-null value of the sequence, unless the sequence has none to give. -/
-theorem sqlOf_mem_or_null {V : Type} [ValueTypeNull V] (f : SeqAggFunc V)
+private theorem sqlOf_mem_or_null {V : Type} [ValueTypeNull V] (f : SeqAggFunc V)
     (hmem : ∀ {L : List V}, L ≠ [] → f L ∈ L) (L : List V) :
     f.sqlOf L = ValueTypeNull.null
       ∨ (f.sqlOf L ∈ L ∧ f.sqlOf L ≠ ValueTypeNull.null) := by
@@ -831,7 +834,7 @@ theorem sqlOf_mem_or_null {V : Type} [ValueTypeNull V] (f : SeqAggFunc V)
 
 /-- **SQL's reading preserves symmetry**: skipping the nulls and answering
 `NULL` over what is left of nothing does not look at the order. -/
-theorem Symmetric.sqlOf {V : Type} [ValueTypeNull V] {f : SeqAggFunc V}
+private theorem Symmetric.sqlOf {V : Type} [ValueTypeNull V] {f : SeqAggFunc V}
     (hf : f.Symmetric) : f.sqlOf.Symmetric := by
   intro L L' hp
   have hfil := hp.filter (fun a => decide (a ≠ ValueTypeNull.null))
@@ -843,14 +846,14 @@ theorem Symmetric.sqlOf {V : Type} [ValueTypeNull V] {f : SeqAggFunc V}
 
 /-- The counting policy preserves symmetry: dropping the nulls does not
 look at the order. -/
-theorem Symmetric.counting {V : Type} [ValueType V] {f : SeqAggFunc V}
+private theorem Symmetric.counting {V : Type} [ValueType V] {f : SeqAggFunc V}
     (hf : f.Symmetric) : (SeqAggFunc.counting f).Symmetric := fun hp =>
   hf (hp.filter _)
 
 /-- **`PICKFIRST` is not symmetric**, on any domain with two values: it is
 the aggregate for which the order a group or a frame is read in is the
 answer. -/
-theorem not_symmetric_pickFirst {a b : T} (hab : a ≠ b) :
+private theorem not_symmetric_pickFirst {a b : T} (hab : a ≠ b) :
     ¬ (SeqAggFunc.pickFirst : SeqAggFunc T).Symmetric :=
   fun h => hab (h (List.Perm.swap b a []))
 
@@ -1048,24 +1051,24 @@ def Relation.groupSeqOpt (is : Tuple (Fin m) n₁) (r : Relation T m)
   | none => Relation.groupSeq is r g
   | some φ => (Relation.groupSeq is r g).filter φ.keeps
 
-@[simp] theorem Relation.groupSeqOpt_none (is : Tuple (Fin m) n₁)
+@[simp] private theorem Relation.groupSeqOpt_none (is : Tuple (Fin m) n₁)
     (r : Relation T m) (g : Tuple T n₁) :
     Relation.groupSeqOpt is r g none = Relation.groupSeq is r g := rfl
 
-@[simp] theorem Relation.groupSeqOpt_some (is : Tuple (Fin m) n₁)
+@[simp] private theorem Relation.groupSeqOpt_some (is : Tuple (Fin m) n₁)
     (r : Relation T m) (g : Tuple T n₁) (φ : Selection T m) :
     Relation.groupSeqOpt is r g (some φ)
       = (Relation.groupSeq is r g).filter φ.keeps := rfl
 
 /-- **What a group holds**: the tuples of the relation whose key is the
 group's. -/
-theorem Relation.mem_groupSeq {m n₁ : ℕ} {is : Tuple (Fin m) n₁}
+private theorem Relation.mem_groupSeq {m n₁ : ℕ} {is : Tuple (Fin m) n₁}
     {r : Multiset (Tuple T m)} {g : Tuple T n₁} {u : Tuple T m} :
     u ∈ Relation.groupSeq is r g ↔ u ∈ r ∧ ∀ k, u (is k) = g k := by
   rw [Relation.groupSeq, mem_sortList, Multiset.mem_filter]
 
 /-- A group of a relation that has no duplicate row has none either. -/
-theorem Relation.nodup_groupSeq {m n₁ : ℕ} (is : Tuple (Fin m) n₁)
+private theorem Relation.nodup_groupSeq {m n₁ : ℕ} (is : Tuple (Fin m) n₁)
     {r : Multiset (Tuple T m)} (h : r.Nodup) (g : Tuple T n₁) :
     (Relation.groupSeq is r g).Nodup := by
   rw [← Multiset.coe_nodup, Relation.groupSeq, sortList_coe]

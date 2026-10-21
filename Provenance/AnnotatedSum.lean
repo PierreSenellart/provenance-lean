@@ -2,6 +2,15 @@ module
 
 public import Provenance.AnnotatedProd
 import Mathlib.Analysis.SpecialFunctions.Pow.NNReal
+import all Provenance.AggQuery
+import all Provenance.AggQueryAdequacy
+import all Provenance.AggQuerySubst
+import all Provenance.AnnotatedBasis
+import all Provenance.AnnotatedProd
+import all Provenance.PlainBasis
+import all Provenance.SelRow
+import all Provenance.SumByMu
+import all Provenance.Util.Kleene
 
 /-!
 # The union from the bag recursion, annotated
@@ -28,7 +37,7 @@ variable {K : Type} [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder
 
 /-- **A query reads the rounds of the environment only at its holes**, and
 its context only at the arity it reads. -/
-theorem AggQueryIn.evaluate_congr_holes :
+private theorem AggQueryIn.evaluate_congr_holes :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l)
       (dB : AnnotatedDatabase T K) (γ : Fin c → T) {E E' : EvalEnv T K},
       (∀ p ∈ l, E.holes p.1 p.2 = E'.holes p.1 p.2) → E.ctxAt c γ = E'.ctxAt c γ →
@@ -100,7 +109,7 @@ theorem AggQueryIn.evaluate_congr_holes :
       show E.paramKey rd γ = E'.paramKey rd γ by simp only [EvalEnv.paramKey, hc]]
 
 /-- A closed query reads no round. -/
-theorem AggQueryIn.evaluate_assignHole_closed {c n : ℕ} {κ : Fin n → ColKind}
+private theorem AggQueryIn.evaluate_assignHole_closed {c n : ℕ} {κ : Fin n → ColKind}
     (q : AggQueryIn T c n κ) (dB : AnnotatedDatabase T K) (γ : Fin c → T) (E : EvalEnv T K)
     (s : String) {m : ℕ} (X : Multiset (GenRow T K m)) :
     q.evaluate dB γ (E.assignHole s X) = q.evaluate dB γ E :=
@@ -108,7 +117,7 @@ theorem AggQueryIn.evaluate_assignHole_closed {c n : ℕ} {κ : Fin n → ColKin
 
 /-- **Settling reads the rounds of the environment only at the holes**,
 and its context only at the arity it reads. -/
-theorem AggQueryIn.annSettlesAt_congr_holes :
+private theorem AggQueryIn.annSettlesAt_congr_holes :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l)
       (dB : AnnotatedDatabase T K) (γ : Fin c → T) {E E' : EvalEnv T K},
       (∀ p ∈ l, E.holes p.1 p.2 = E'.holes p.1 p.2) → E.ctxAt c γ = E'.ctxAt c γ →
@@ -181,14 +190,14 @@ theorem AggQueryIn.annSettlesAt_congr_holes :
   | WinExpr P O o ws ts fs g q keeps ih => exact fun dB γ _ _ hh hc h => ih dB γ hh hc h
 
 /-- A closed query settles alike at two environments with one context. -/
-theorem AggQueryIn.annSettlesAt_closed {c n : ℕ} {κ : Fin n → ColKind}
+private theorem AggQueryIn.annSettlesAt_closed {c n : ℕ} {κ : Fin n → ColKind}
     (q : AggQueryIn T c n κ) (dB : AnnotatedDatabase T K) (γ : Fin c → T) {E E' : EvalEnv T K}
     (hc : E.ctxAt c γ = E'.ctxAt c γ) (h : q.AnnSettlesAt dB γ E) : q.AnnSettlesAt dB γ E' :=
   AggQueryIn.annSettlesAt_congr_holes q dB γ (fun _ hp => absurd hp List.not_mem_nil) hc h
 
 omit [ValueType T] [DecidableEq K] [HasAltLinearOrder K] in
 /-- **Well-kindedness reads the kinds of the rounds only at the holes.** -/
-theorem AggQueryIn.wellKinded_congr_holes :
+private theorem AggQueryIn.wellKinded_congr_holes :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l)
       (ρc : Fin c → ColKind) {HK HK' : HoleKinds},
       (∀ p ∈ l, ∀ k, (HK p.1 p.2 k).base = (HK' p.1 p.2 k).base) →
@@ -275,7 +284,7 @@ def padColK (κ : Fin k → ColKind) (i : Fin k) : ProjColIn T c (fun _ : Fin k 
   | ColKind.agg => .token i rfl
   | ColKind.prov => .provTerm (TermGIn.const 0)
 
-theorem padColK_kind (κ : Fin k → ColKind) (i : Fin k) :
+private theorem padColK_kind (κ : Fin k → ColKind) (i : Fin k) :
     (padColK (T := T) (c := c) κ i).kind = κ i := by
   unfold padColK
   split
@@ -380,7 +389,7 @@ variable {c k : ℕ}
 def tagG (t : T) (u : Tuple (GenValue T K) k) : Tuple (GenValue T K) (k + 1) :=
   Fin.cons (Sum.inl t) u
 
-theorem holdsPlain_sameTagK {κ : Fin k → ColKind} (u : Tuple T ((k + 1) + (k + 1)))
+private theorem holdsPlain_sameTagK {κ : Fin k → ColKind} (u : Tuple T ((k + 1) + (k + 1)))
     (γ : Fin c → T) :
     (sameTagK (c := c) κ).holdsPlain u γ
       ↔ u (Fin.castAdd (k + 1) 0) = u (Fin.natAdd (k + 1) 0) := by
@@ -388,7 +397,7 @@ theorem holdsPlain_sameTagK {κ : Fin k → ColKind} (u : Tuple T ((k + 1) + (k 
     = Kleene.true ↔ _
   simp [CompOp.eval3, CompOp.strict, CompOp.eval]
 
-theorem holdsPlain_notTagK {κ : Fin k → ColKind} (p₀ : T) (u : Tuple T (k + 1))
+private theorem holdsPlain_notTagK {κ : Fin k → ColKind} (p₀ : T) (u : Tuple T (k + 1))
     (γ : Fin c → T) : (notTagK (c := c) κ p₀).holdsPlain u γ ↔ u 0 ≠ p₀ := by
   show (CompOp.eval3 CompOp.syneq (u 0) p₀).not = Kleene.true ↔ _
   rw [Kleene.not_eq_true_iff]
@@ -397,7 +406,7 @@ theorem holdsPlain_notTagK {κ : Fin k → ColKind} (p₀ : T) (u : Tuple T (k +
 omit [HasAltLinearOrder K] in
 /-- The finalization of a projected row: its columns, and the
 finalization of the row it is projected from. -/
-theorem fin_proj {n m : ℕ} {κ : Fin n → ColKind} (ps : Fin m → ProjColIn T c κ)
+private theorem fin_proj {n m : ℕ} {κ : Fin n → ColKind} (ps : Fin m → ProjColIn T c κ)
     (x : GenRow T K n) (γ : Fin c → T) :
     GenRow.fin ((fun j => (ps j).eval x.1 γ,
         (⟨x.2.base * (Multiset.map (fun l => SemiringWithMonus.delta l.sum)
@@ -408,7 +417,7 @@ theorem fin_proj {n m : ℕ} {κ : Fin n → ColKind} (ps : Fin m → ProjColIn 
 
 /-- **The rows of a tagged relation**: the relation's rows, the tag
 prepended, the finalized annotation kept. -/
-theorem evaluate_withTagK_fin {κ : Fin k → ColKind} (t : T) (q : AggQueryIn T c k κ)
+private theorem evaluate_withTagK_fin {κ : Fin k → ColKind} (t : T) (q : AggQueryIn T c k κ)
     (d : AnnotatedDatabase T K) (γ : Fin c → T) (E : EvalEnv T K) :
     ((withTagK t q).evaluate d γ E).map GenRow.fin
       = (q.evaluate d γ E).map (fun r => (tagG t r.fst, r.snd.finalize)) := by
@@ -424,7 +433,7 @@ theorem evaluate_withTagK_fin {κ : Fin k → ColKind} (t : T) (q : AggQueryIn T
 
 /-- **The driver row**: one row, tagged `t`, its annotation finalizing to
 `𝟙`. -/
-theorem evaluate_driverK (κ : Fin k → ColKind) (cnt : SeqAggFunc T) (t : T)
+private theorem evaluate_driverK (κ : Fin k → ColKind) (cnt : SeqAggFunc T) (t : T)
     (d : AnnotatedDatabase T K) (γ : Fin c → T) (E : EvalEnv T K) :
     ∃ r₀ : GenRow T K (k + 1), (driverK (c := c) κ cnt t).evaluate d γ E = {r₀}
       ∧ GenRow.plainTuple r₀.fst 0 = t ∧ r₀.snd.finalize = 1 := by
@@ -437,7 +446,7 @@ theorem evaluate_driverK (κ : Fin k → ColKind) (cnt : SeqAggFunc T) (t : T)
 
 
 /-- The rows of a tagged relation carry the tag. -/
-theorem tag_of_mem_withTagK {κ : Fin k → ColKind} (t : T) (q : AggQueryIn T c k κ)
+private theorem tag_of_mem_withTagK {κ : Fin k → ColKind} (t : T) (q : AggQueryIn T c k κ)
     (d : AnnotatedDatabase T K) (γ : Fin c → T) (E : EvalEnv T K) {w : GenRow T K (k + 1)}
     (hw : w ∈ (withTagK t q).evaluate d γ E) : GenRow.plainTuple w.fst 0 = t := by
   have hm : GenRow.fin w ∈ ((withTagK t q).evaluate d γ E).map GenRow.fin :=
@@ -451,7 +460,7 @@ theorem tag_of_mem_withTagK {κ : Fin k → ColKind} (t : T) (q : AggQueryIn T c
 /-- **One round of the construction**, up to finalization: each row of
 the round carrying the tag `t₀` is replaced by the rows of `q`, re-tagged
 `p₁`, their annotations multiplied by the row's. -/
-theorem evaluate_phaseBodyK_fin {κ : Fin k → ColKind} (s : String) (p₁ t₀ : T)
+private theorem evaluate_phaseBodyK_fin {κ : Fin k → ColKind} (s : String) (p₁ t₀ : T)
     (q : AggQueryIn T c k κ) (d : AnnotatedDatabase T K) (γ : Fin c → T) (E : EvalEnv T K)
     (X : Multiset (GenRow T K (k + 1))) (hX : ∀ x ∈ X, GenRow.Conforms (tagKind κ) x.fst) :
     ((phaseBodyK s p₁ (withTagK t₀ q)).evaluate d γ (E.assignHole s X)).map GenRow.fin
@@ -507,14 +516,14 @@ theorem evaluate_phaseBodyK_fin {κ : Fin k → ColKind} (s : String) (p₁ t₀
 
 /-- A bag recursion whose second round is empty is its base and its first
 round. -/
-theorem muSumFix_two {α : Type} {step : Multiset α → Multiset α} {M : Multiset α}
+private theorem muSumFix_two {α : Type} {step : Multiset α → Multiset α} {M : Multiset α}
     (h0 : step 0 = 0) (h2 : step (step M) = 0) : muSumFix step M = M + step M := by
   rw [muSumFix_eq_of_empty (k := 1) h0 h2]
   rfl
 
 omit [ValueType T] [DecidableEq K] [HasAltLinearOrder K] in
 /-- A map reading only a row's finalization factors through it. -/
-theorem map_via_fin {n : ℕ} (X : Multiset (GenRow T K n)) {β : Type}
+private theorem map_via_fin {n : ℕ} (X : Multiset (GenRow T K n)) {β : Type}
     (G : GenRow T K n → β) (G' : Tuple (GenValue T K) n × K → β)
     (h : ∀ x ∈ X, G x = G' (GenRow.fin x)) : X.map G = (X.map GenRow.fin).map G' := by
   rw [Multiset.map_map]
@@ -522,7 +531,7 @@ theorem map_via_fin {n : ℕ} (X : Multiset (GenRow T K n)) {β : Type}
 
 /-- The rows of one round that carry a tag other than the round's operand
 read nothing. -/
-theorem evaluate_phaseBodyK_of_tags {κ : Fin k → ColKind} (s : String) (p₁ t₀ : T)
+private theorem evaluate_phaseBodyK_of_tags {κ : Fin k → ColKind} (s : String) (p₁ t₀ : T)
     (q : AggQueryIn T c k κ) (d : AnnotatedDatabase T K) (γ : Fin c → T) (E : EvalEnv T K)
     (X : Multiset (GenRow T K (k + 1))) (hX : ∀ x ∈ X, GenRow.Conforms (tagKind κ) x.fst)
     (ht : ∀ x ∈ X, GenRow.plainTuple x.fst 0 ≠ t₀) :
@@ -533,7 +542,7 @@ theorem evaluate_phaseBodyK_of_tags {κ : Fin k → ColKind} (s : String) (p₁ 
   simp
 
 /-- The tag of a row of one round. -/
-theorem tag_of_mem_phaseBodyK {κ : Fin k → ColKind} (s : String) (p₁ t₀ : T)
+private theorem tag_of_mem_phaseBodyK {κ : Fin k → ColKind} (s : String) (p₁ t₀ : T)
     (q : AggQueryIn T c k κ) (d : AnnotatedDatabase T K) (γ : Fin c → T) (E : EvalEnv T K)
     (X : Multiset (GenRow T K (k + 1))) (hX : ∀ x ∈ X, GenRow.Conforms (tagKind κ) x.fst)
     {w : GenRow T K (k + 1)} (hw : w ∈ (phaseBodyK s p₁ (withTagK t₀ q)).evaluate d γ
@@ -552,7 +561,7 @@ theorem tag_of_mem_phaseBodyK {κ : Fin k → ColKind} (s : String) (p₁ t₀ :
 
 /-- **What the union by recursion computes**: the rows of both operands,
 with their columns and their finalized annotations. -/
-theorem evaluate_sumByMuK_fin {κ : Fin k → ColKind} (s₁ s₂ : String) (cnt : SeqAggFunc T)
+private theorem evaluate_sumByMuK_fin {κ : Fin k → ColKind} (s₁ s₂ : String) (cnt : SeqAggFunc T)
     (q₁ q₂ : AggQueryIn T c k κ) (d : AnnotatedDatabase T K) (γ : Fin c → T)
     (E : EvalEnv T K) :
     ((sumByMuK s₁ s₂ cnt q₁ q₂).evaluate d γ E).map GenRow.fin
@@ -665,7 +674,7 @@ def emptyK (κ : Fin k → ColKind) (cnt : SeqAggFunc T) : AggQueryIn T c k κ :
   (AggQueryIn.Proj (unwithTagColsK κ)
     (AggQueryIn.Sel (notTagK κ 0) (driverK κ cnt 0))).castKind (unwithTagColsK_kind κ)
 
-theorem evaluate_emptyK (κ : Fin k → ColKind) (cnt : SeqAggFunc T) (d : AnnotatedDatabase T K)
+private theorem evaluate_emptyK (κ : Fin k → ColKind) (cnt : SeqAggFunc T) (d : AnnotatedDatabase T K)
     (γ : Fin c → T) (E : EvalEnv T K) : (emptyK κ cnt).evaluate d γ E = 0 := by
   obtain ⟨r₀, hM, hr₀t, -⟩ := evaluate_driverK (c := c) κ cnt (0 : T) d γ E
   rw [emptyK, AggQueryIn.evaluate_castKind]
@@ -685,100 +694,100 @@ namespace AggQueryIn
 
 variable {c k : ℕ}
 
-theorem padColK_sourceCol (κ : Fin k → ColKind) (i : Fin k) :
+private theorem padColK_sourceCol (κ : Fin k → ColKind) (i : Fin k) :
     (padColK (T := T) (c := c) κ i).sourceCol = true := by
   unfold padColK; split <;> rfl
 
-theorem padColK_noFun (κ : Fin k → ColKind) (i : Fin k) :
+private theorem padColK_noFun (κ : Fin k → ColKind) (i : Fin k) :
     (padColK (T := T) (c := c) κ i).noFun = true := by
   unfold padColK; split <;> rfl
 
-theorem padColK_outerOk (κ : Fin k → ColKind) (i : Fin k) (ok : Fin c → Prop) :
+private theorem padColK_outerOk (κ : Fin k → ColKind) (i : Fin k) (ok : Fin c → Prop) :
     (padColK (T := T) (c := c) κ i).outerOk ok := by
   unfold padColK; split <;> trivial
 
-theorem usesOnly_driverK {S : Set OpKind} (hS : sumMuOps ⊆ S) (κ : Fin k → ColKind)
+private theorem usesOnly_driverK {S : Set OpKind} (hS : sumMuOps ⊆ S) (κ : Fin k → ColKind)
     (cnt : SeqAggFunc T) (t : T) : (driverK (c := c) κ cnt t).usesOnly S := by
   rw [driverK, AggQueryIn.usesOnly_castKind]
   exact ⟨⟨hS (by simp [sumMuOps]), fun j => Fin.cases rfl (padColK_sourceCol κ) j⟩,
     hS (by simp [sumMuOps]), hS (by simp [sumMuOps])⟩
 
-theorem inSig_driverK {Θ : Set (SeqAggFunc T)} (κ : Fin k → ColKind) {cnt : SeqAggFunc T}
+private theorem inSig_driverK {Θ : Set (SeqAggFunc T)} (κ : Fin k → ColKind) {cnt : SeqAggFunc T}
     (hcnt : cnt ∈ Θ) (t : T) : (driverK (c := c) κ cnt t).inSig Θ := by
   rw [driverK, AggQueryIn.inSig_castKind]
   exact ⟨fun j => Fin.cases rfl (padColK_noFun κ) j, fun _ => rfl, fun _ => hcnt, trivial⟩
 
-theorem wellKinded_driverK (κ : Fin k → ColKind) (cnt : SeqAggFunc T) (t : T)
+private theorem wellKinded_driverK (κ : Fin k → ColKind) (cnt : SeqAggFunc T) (t : T)
     (ρc : Fin c → ColKind) (HK : HoleKinds) : (driverK (c := c) κ cnt t).wellKinded ρc HK := by
   rw [driverK, AggQueryIn.wellKinded_castKind]
   exact ⟨fun j => Fin.cases trivial (fun i => padColK_outerOk κ i _) j, fun _ => trivial, trivial⟩
 
-theorem names_driverK (κ : Fin k → ColKind) (cnt : SeqAggFunc T) (t : T) :
+private theorem names_driverK (κ : Fin k → ColKind) (cnt : SeqAggFunc T) (t : T) :
     (driverK (c := c) κ cnt t).names = ∅ := by
   rw [driverK, AggQueryIn.names_castKind]; rfl
 
-theorem noMention_driverK (κ : Fin k → ColKind) (cnt : SeqAggFunc T) (t : T) (s : String) :
+private theorem noMention_driverK (κ : Fin k → ColKind) (cnt : SeqAggFunc T) (t : T) (s : String) :
     (driverK (c := c) κ cnt t).noMention s := by
   rw [driverK, AggQueryIn.noMention_castKind]; trivial
 
-theorem hygienic_driverK (κ : Fin k → ColKind) (cnt : SeqAggFunc T) (t : T) :
+private theorem hygienic_driverK (κ : Fin k → ColKind) (cnt : SeqAggFunc T) (t : T) :
     (driverK (c := c) κ cnt t).hygienic := by
   rw [driverK, AggQueryIn.hygienic_castKind]; trivial
 
-theorem noExplode_driverK (κ : Fin k → ColKind) (cnt : SeqAggFunc T) (t : T) :
+private theorem noExplode_driverK (κ : Fin k → ColKind) (cnt : SeqAggFunc T) (t : T) :
     (driverK (c := c) κ cnt t).noExplode := by
   rw [driverK, AggQueryIn.noExplode_castKind]; trivial
 
-theorem overSchema_driverK (sch : Schema) (κ : Fin k → ColKind) (cnt : SeqAggFunc T) (t : T) :
+private theorem overSchema_driverK (sch : Schema) (κ : Fin k → ColKind) (cnt : SeqAggFunc T) (t : T) :
     (driverK (c := c) κ cnt t).overSchema sch := by
   rw [driverK, AggQueryIn.overSchema_castKind]; trivial
 
 omit [ValueType T] in
-theorem usesOnly_withTagK {S : Set OpKind} (hS : sumMuOps ⊆ S) {κ : Fin k → ColKind} (t : T)
+private theorem usesOnly_withTagK {S : Set OpKind} (hS : sumMuOps ⊆ S) {κ : Fin k → ColKind} (t : T)
     (q : AggQueryIn T c k κ) (hq : q.usesOnly S) : (withTagK t q).usesOnly S := by
   rw [withTagK, AggQueryIn.usesOnly_castKind]
   exact ⟨⟨hS (by simp [sumMuOps]), fun j => Fin.cases rfl (fun i => carryColIn_sourceCol κ i) j⟩,
     hq⟩
 
-theorem inSig_withTagK {Θ : Set (SeqAggFunc T)} {κ : Fin k → ColKind} (t : T)
+private theorem inSig_withTagK {Θ : Set (SeqAggFunc T)} {κ : Fin k → ColKind} (t : T)
     (q : AggQueryIn T c k κ) (hq : q.inSig Θ) : (withTagK t q).inSig Θ := by
   rw [withTagK, AggQueryIn.inSig_castKind]
   exact ⟨fun j => Fin.cases rfl (fun i => carryColIn_noFun κ i) j, hq⟩
 
 omit [ValueType T] in
-theorem wellKinded_withTagK {κ : Fin k → ColKind} (t : T) (q : AggQueryIn T c k κ)
+private theorem wellKinded_withTagK {κ : Fin k → ColKind} (t : T) (q : AggQueryIn T c k κ)
     {ρc : Fin c → ColKind} {HK : HoleKinds} (hq : q.wellKinded ρc HK) :
     (withTagK t q).wellKinded ρc HK := by
   rw [withTagK, AggQueryIn.wellKinded_castKind]
   exact ⟨fun j => Fin.cases trivial (fun i => carryColIn_outerOk κ i _) j, hq⟩
 
 omit [ValueType T] in
-theorem names_withTagK {κ : Fin k → ColKind} (t : T) (q : AggQueryIn T c k κ) :
+private theorem names_withTagK {κ : Fin k → ColKind} (t : T) (q : AggQueryIn T c k κ) :
     (withTagK t q).names = q.names := by
   rw [withTagK, AggQueryIn.names_castKind]; rfl
 
 omit [ValueType T] in
-theorem noMention_withTagK {κ : Fin k → ColKind} (t : T) (q : AggQueryIn T c k κ) (s : String) :
+private theorem noMention_withTagK {κ : Fin k → ColKind} (t : T) (q : AggQueryIn T c k κ) (s : String) :
     (withTagK t q).noMention s ↔ q.noMention s := by
   rw [withTagK, AggQueryIn.noMention_castKind]; exact Iff.rfl
 
 omit [ValueType T] in
-theorem hygienic_withTagK {κ : Fin k → ColKind} (t : T) (q : AggQueryIn T c k κ) :
+private theorem hygienic_withTagK {κ : Fin k → ColKind} (t : T) (q : AggQueryIn T c k κ) :
     (withTagK t q).hygienic ↔ q.hygienic := by
   rw [withTagK, AggQueryIn.hygienic_castKind]; exact Iff.rfl
 
 omit [ValueType T] in
-theorem noExplode_withTagK {κ : Fin k → ColKind} (t : T) (q : AggQueryIn T c k κ) :
+private theorem noExplode_withTagK {κ : Fin k → ColKind} (t : T) (q : AggQueryIn T c k κ) :
     (withTagK t q).noExplode ↔ q.noExplode := by
   rw [withTagK, AggQueryIn.noExplode_castKind]; exact Iff.rfl
 
 omit [ValueType T] in
-theorem overSchema_withTagK (sch : Schema) {κ : Fin k → ColKind} (t : T)
+private theorem overSchema_withTagK (sch : Schema) {κ : Fin k → ColKind} (t : T)
     (q : AggQueryIn T c k κ) : (withTagK t q).overSchema sch ↔ q.overSchema sch := by
   rw [withTagK, AggQueryIn.overSchema_castKind]; exact Iff.rfl
 
 omit [ValueType T] in
-theorem usesOnly_phaseBodyK {S : Set OpKind} (hS : sumMuOps ⊆ S) {κ : Fin k → ColKind}
+private theorem usesOnly_phaseBodyK {S : Set OpKind} (hS : sumMuOps ⊆ S) {κ : Fin k → ColKind}
     (s : String) (p₁ : T) (Z : AggQueryIn T c (k + 1) (tagKind κ)) (hZ : Z.usesOnly S) :
     (phaseBodyK s p₁ Z).usesOnly S := by
   rw [phaseBodyK, AggQueryIn.usesOnly_castKind]
@@ -786,7 +795,7 @@ theorem usesOnly_phaseBodyK {S : Set OpKind} (hS : sumMuOps ⊆ S) {κ : Fin k �
     hS (by simp [sumMuOps]), trivial, (AggQueryIn.usesOnly_substMap Z _).mpr hZ⟩
   exact Fin.cases rfl (fun i => carryColIn_sourceCol _ _) j
 
-theorem inSig_phaseBodyK {Θ : Set (SeqAggFunc T)} {κ : Fin k → ColKind} (s : String) (p₁ : T)
+private theorem inSig_phaseBodyK {Θ : Set (SeqAggFunc T)} {κ : Fin k → ColKind} (s : String) (p₁ : T)
     (Z : AggQueryIn T c (k + 1) (tagKind κ)) (hZ : Z.inSig Θ) :
     (phaseBodyK s p₁ Z).inSig Θ := by
   rw [phaseBodyK, AggQueryIn.inSig_castKind]
@@ -794,7 +803,7 @@ theorem inSig_phaseBodyK {Θ : Set (SeqAggFunc T)} {κ : Fin k → ColKind} (s :
     (AggQueryIn.inSig_substMap Z _).mpr hZ⟩
 
 omit [ValueType T] in
-theorem wellKinded_phaseBodyK {κ : Fin k → ColKind} (s : String) (p₁ : T)
+private theorem wellKinded_phaseBodyK {κ : Fin k → ColKind} (s : String) (p₁ : T)
     (Z : AggQueryIn T c (k + 1) (tagKind κ)) {ρc : Fin c → ColKind} {HK : HoleKinds}
     (hs : ∀ i, (tagKind κ i).base = (HK s (k + 1) i).base) (hZ : Z.wellKinded ρc HK) :
     (phaseBodyK s p₁ Z).wellKinded ρc HK := by
@@ -808,42 +817,42 @@ theorem wellKinded_phaseBodyK {κ : Fin k → ColKind} (s : String) (p₁ : T)
     hs, AggQueryIn.wellKinded_substMap Z _ hθ hZ⟩
 
 omit [ValueType T] in
-theorem names_phaseBodyK {κ : Fin k → ColKind} (s : String) (p₁ : T)
+private theorem names_phaseBodyK {κ : Fin k → ColKind} (s : String) (p₁ : T)
     (Z : AggQueryIn T c (k + 1) (tagKind κ)) :
     (phaseBodyK s p₁ Z).names = Union.union {s} Z.names := by
   rw [phaseBodyK, AggQueryIn.names_castKind]
   simp only [AggQueryIn.names, AggQueryIn.names_substMap]
 
 omit [ValueType T] in
-theorem noMention_phaseBodyK {κ : Fin k → ColKind} (s' : String) (p₁ : T)
+private theorem noMention_phaseBodyK {κ : Fin k → ColKind} (s' : String) (p₁ : T)
     (Z : AggQueryIn T c (k + 1) (tagKind κ)) {s : String} (hZ : Z.noMention s) :
     (phaseBodyK s' p₁ Z).noMention s := by
   rw [phaseBodyK, AggQueryIn.noMention_castKind]
   exact ⟨trivial, (AggQueryIn.noMention_substMap Z _).mpr hZ⟩
 
 omit [ValueType T] in
-theorem hygienic_phaseBodyK {κ : Fin k → ColKind} (s : String) (p₁ : T)
+private theorem hygienic_phaseBodyK {κ : Fin k → ColKind} (s : String) (p₁ : T)
     (Z : AggQueryIn T c (k + 1) (tagKind κ)) (hZ : Z.hygienic) :
     (phaseBodyK s p₁ Z).hygienic := by
   rw [phaseBodyK, AggQueryIn.hygienic_castKind]
   exact ⟨trivial, (AggQueryIn.hygienic_substMap Z _).mpr hZ⟩
 
 omit [ValueType T] in
-theorem noExplode_phaseBodyK {κ : Fin k → ColKind} (s : String) (p₁ : T)
+private theorem noExplode_phaseBodyK {κ : Fin k → ColKind} (s : String) (p₁ : T)
     (Z : AggQueryIn T c (k + 1) (tagKind κ)) (hZ : Z.noExplode) :
     (phaseBodyK s p₁ Z).noExplode := by
   rw [phaseBodyK, AggQueryIn.noExplode_castKind]
   exact ⟨trivial, (AggQueryIn.noExplode_substMap Z _).mpr hZ⟩
 
 omit [ValueType T] in
-theorem overSchema_phaseBodyK {sch : Schema} {s : String} {κ : Fin k → ColKind}
+private theorem overSchema_phaseBodyK {sch : Schema} {s : String} {κ : Fin k → ColKind}
     (hs : sch s = some (k + 1)) (p₁ : T) (Z : AggQueryIn T c (k + 1) (tagKind κ))
     (hZ : Z.overSchema sch) : (phaseBodyK s p₁ Z).overSchema sch := by
   rw [phaseBodyK, AggQueryIn.overSchema_castKind]
   exact ⟨hs, (AggQueryIn.overSchema_substMap Z _ sch).mpr hZ⟩
 
 /-- **The construction uses the classes of `sumMuOps`** and its operands'. -/
-theorem usesOnly_sumByMuK {S : Set OpKind} (hS : sumMuOps ⊆ S) {κ : Fin k → ColKind}
+private theorem usesOnly_sumByMuK {S : Set OpKind} (hS : sumMuOps ⊆ S) {κ : Fin k → ColKind}
     (s₁ s₂ : String) (cnt : SeqAggFunc T) (q₁ q₂ : AggQueryIn T c k κ) (h₁ : q₁.usesOnly S)
     (h₂ : q₂.usesOnly S) : (sumByMuK s₁ s₂ cnt q₁ q₂).usesOnly S := by
   rw [sumByMuK, AggQueryIn.usesOnly_castKind]
@@ -855,7 +864,7 @@ theorem usesOnly_sumByMuK {S : Set OpKind} (hS : sumMuOps ⊆ S) {κ : Fin k →
 
 /-- **The construction applies no function**, and adds the one aggregate
 its padding row needs. -/
-theorem inSig_sumByMuK {Θ : Set (SeqAggFunc T)} {κ : Fin k → ColKind} (s₁ s₂ : String)
+private theorem inSig_sumByMuK {Θ : Set (SeqAggFunc T)} {κ : Fin k → ColKind} (s₁ s₂ : String)
     {cnt : SeqAggFunc T} (hcnt : cnt ∈ Θ) (q₁ q₂ : AggQueryIn T c k κ) (h₁ : q₁.inSig Θ)
     (h₂ : q₂.inSig Θ) : (sumByMuK s₁ s₂ cnt q₁ q₂).inSig Θ := by
   rw [sumByMuK, AggQueryIn.inSig_castKind]
@@ -863,7 +872,7 @@ theorem inSig_sumByMuK {Θ : Set (SeqAggFunc T)} {κ : Fin k → ColKind} (s₁ 
     ⟨inSig_driverK κ hcnt 0, inSig_phaseBodyK _ _ _ (inSig_withTagK 0 q₁ h₁)⟩,
     inSig_phaseBodyK _ _ _ (inSig_withTagK 0 q₂ h₂)⟩
 
-theorem noExplode_sumByMuK {κ : Fin k → ColKind} (s₁ s₂ : String) (cnt : SeqAggFunc T)
+private theorem noExplode_sumByMuK {κ : Fin k → ColKind} (s₁ s₂ : String) (cnt : SeqAggFunc T)
     (q₁ q₂ : AggQueryIn T c k κ) (h₁ : q₁.noExplode) (h₂ : q₂.noExplode) :
     (sumByMuK s₁ s₂ cnt q₁ q₂).noExplode := by
   rw [sumByMuK, AggQueryIn.noExplode_castKind]
@@ -874,7 +883,7 @@ theorem noExplode_sumByMuK {κ : Fin k → ColKind} (s₁ s₂ : String) (cnt : 
 /-- **The construction is well-kinded where its operands are**: each
 recursion binds its name to rounds of the tagged kinds, and the operands,
 being closed, read no round. -/
-theorem wellKinded_sumByMuK {κ : Fin k → ColKind} (s₁ s₂ : String) (cnt : SeqAggFunc T)
+private theorem wellKinded_sumByMuK {κ : Fin k → ColKind} (s₁ s₂ : String) (cnt : SeqAggFunc T)
     (q₁ q₂ : AggQueryIn T c k κ) {ρc : Fin c → ColKind} {HK : HoleKinds}
     (h₁ : q₁.wellKinded ρc HK) (h₂ : q₂.wellKinded ρc HK) :
     (sumByMuK s₁ s₂ cnt q₁ q₂).wellKinded ρc HK := by
@@ -889,7 +898,7 @@ theorem wellKinded_sumByMuK {κ : Fin k → ColKind} (s₁ s₂ : String) (cnt :
       (wellKinded_withTagK 0 q₂ (hcl q₂ _ h₂))⟩
 
 /-- **The construction's recursions are hygienic**, given fresh names. -/
-theorem hygienic_sumByMuK {κ : Fin k → ColKind} (s₁ s₂ : String) (cnt : SeqAggFunc T)
+private theorem hygienic_sumByMuK {κ : Fin k → ColKind} (s₁ s₂ : String) (cnt : SeqAggFunc T)
     (q₁ q₂ : AggQueryIn T c k κ) (h₁ : q₁.noMention s₁) (h₂₁ : q₁.noMention s₂)
     (h₂₂ : q₂.noMention s₂) (hr₁ : q₁.hygienic) (hr₂ : q₂.hygienic) :
     (sumByMuK s₁ s₂ cnt q₁ q₂).hygienic := by
@@ -904,7 +913,7 @@ theorem hygienic_sumByMuK {κ : Fin k → ColKind} (s₁ s₂ : String) (cnt : S
 
 /-- **The construction is well-formed over a schema declaring neither
 bound name**, its operands being so and naming neither. -/
-theorem overSchema_sumByMuK (sch : Schema) {κ : Fin k → ColKind} (s₁ s₂ : String)
+private theorem overSchema_sumByMuK (sch : Schema) {κ : Fin k → ColKind} (s₁ s₂ : String)
     (cnt : SeqAggFunc T) (q₁ q₂ : AggQueryIn T c k κ)
     (hs₁ : sch s₁ = none) (hs₂ : sch s₂ = none) (hn₁ : s₁ ∉ q₁.names) (hn₂ : s₂ ∉ q₂.names)
     (h₁ : q₁.overSchema sch) (h₂ : q₂.overSchema sch) :
@@ -923,7 +932,7 @@ theorem overSchema_sumByMuK (sch : Schema) {κ : Fin k → ColKind} (s₁ s₂ :
         (AggQueryIn.overSchema_update_of_not_mem_names q₂ h₂ hn₂))⟩
 
 /-- **The construction names its two bound names and its operands'.** -/
-theorem names_sumByMuK {κ : Fin k → ColKind} (s₁ s₂ : String) (cnt : SeqAggFunc T)
+private theorem names_sumByMuK {κ : Fin k → ColKind} (s₁ s₂ : String) (cnt : SeqAggFunc T)
     (q₁ q₂ : AggQueryIn T c k κ) :
     (sumByMuK s₁ s₂ cnt q₁ q₂).names ⊆ insert s₁ (insert s₂ (Union.union q₁.names q₂.names)) := by
   intro x hx
@@ -934,7 +943,7 @@ theorem names_sumByMuK {κ : Fin k → ColKind} (s₁ s₂ : String) (cnt : SeqA
   simp only [Finset.mem_insert, Finset.mem_union]
   tauto
 
-theorem noMention_sumByMuK {κ : Fin k → ColKind} (s₁ s₂ : String) (cnt : SeqAggFunc T)
+private theorem noMention_sumByMuK {κ : Fin k → ColKind} (s₁ s₂ : String) (cnt : SeqAggFunc T)
     (q₁ q₂ : AggQueryIn T c k κ) {s : String} (h₁ : q₁.noMention s) (h₂ : q₂.noMention s) :
     (sumByMuK s₁ s₂ cnt q₁ q₂).noMention s := by
   rw [sumByMuK, AggQueryIn.noMention_castKind]
@@ -942,50 +951,50 @@ theorem noMention_sumByMuK {κ : Fin k → ColKind} (s₁ s₂ : String) (cnt : 
       ((noMention_withTagK 0 q₁ s).mpr h₁)⟩,
     noMention_phaseBodyK s₂ _ _ ((noMention_withTagK 0 q₂ s).mpr h₂)⟩
 
-theorem usesOnly_emptyK {S : Set OpKind} (hS : sumMuOps ⊆ S) (κ : Fin k → ColKind)
+private theorem usesOnly_emptyK {S : Set OpKind} (hS : sumMuOps ⊆ S) (κ : Fin k → ColKind)
     (cnt : SeqAggFunc T) : (emptyK (c := c) κ cnt).usesOnly S := by
   rw [emptyK, AggQueryIn.usesOnly_castKind]
   exact ⟨⟨hS (by simp [sumMuOps]), fun j => carryColIn_sourceCol _ _⟩, hS (by simp [sumMuOps]),
     usesOnly_driverK hS κ cnt 0⟩
 
-theorem inSig_emptyK {Θ : Set (SeqAggFunc T)} (κ : Fin k → ColKind) {cnt : SeqAggFunc T}
+private theorem inSig_emptyK {Θ : Set (SeqAggFunc T)} (κ : Fin k → ColKind) {cnt : SeqAggFunc T}
     (hcnt : cnt ∈ Θ) : (emptyK (c := c) κ cnt).inSig Θ := by
   rw [emptyK, AggQueryIn.inSig_castKind]
   exact ⟨fun _ => carryColIn_noFun _ _, rfl, inSig_driverK κ hcnt 0⟩
 
-theorem noExplode_emptyK (κ : Fin k → ColKind) (cnt : SeqAggFunc T) :
+private theorem noExplode_emptyK (κ : Fin k → ColKind) (cnt : SeqAggFunc T) :
     (emptyK (c := c) κ cnt).noExplode := by
   rw [emptyK, AggQueryIn.noExplode_castKind]; exact noExplode_driverK κ cnt 0
 
-theorem wellKinded_emptyK (κ : Fin k → ColKind) (cnt : SeqAggFunc T) (ρc : Fin c → ColKind)
+private theorem wellKinded_emptyK (κ : Fin k → ColKind) (cnt : SeqAggFunc T) (ρc : Fin c → ColKind)
     (HK : HoleKinds) : (emptyK κ cnt).wellKinded ρc HK := by
   rw [emptyK, AggQueryIn.wellKinded_castKind]
   exact ⟨fun _ => carryColIn_outerOk _ _ _, ⟨trivial, trivial⟩, wellKinded_driverK κ cnt 0 ρc HK⟩
 
-theorem hygienic_emptyK (κ : Fin k → ColKind) (cnt : SeqAggFunc T) :
+private theorem hygienic_emptyK (κ : Fin k → ColKind) (cnt : SeqAggFunc T) :
     (emptyK (c := c) κ cnt).hygienic := by
   rw [emptyK, AggQueryIn.hygienic_castKind]; exact hygienic_driverK κ cnt 0
 
-theorem overSchema_emptyK (sch : Schema) (κ : Fin k → ColKind) (cnt : SeqAggFunc T) :
+private theorem overSchema_emptyK (sch : Schema) (κ : Fin k → ColKind) (cnt : SeqAggFunc T) :
     (emptyK (c := c) κ cnt).overSchema sch := by
   rw [emptyK, AggQueryIn.overSchema_castKind]; exact overSchema_driverK sch κ cnt 0
 
-theorem names_emptyK (κ : Fin k → ColKind) (cnt : SeqAggFunc T) :
+private theorem names_emptyK (κ : Fin k → ColKind) (cnt : SeqAggFunc T) :
     (emptyK (c := c) κ cnt).names = ∅ := by
   rw [emptyK, AggQueryIn.names_castKind]; exact names_driverK κ cnt 0
 
-theorem noMention_emptyK (κ : Fin k → ColKind) (cnt : SeqAggFunc T) (s : String) :
+private theorem noMention_emptyK (κ : Fin k → ColKind) (cnt : SeqAggFunc T) (s : String) :
     (emptyK (c := c) κ cnt).noMention s := by
   rw [emptyK, AggQueryIn.noMention_castKind]; exact noMention_driverK κ cnt 0 s
 
-theorem annSettlesAt_emptyK (κ : Fin k → ColKind) (cnt : SeqAggFunc T) (d : AnnotatedDatabase T K)
+private theorem annSettlesAt_emptyK (κ : Fin k → ColKind) (cnt : SeqAggFunc T) (d : AnnotatedDatabase T K)
     (γ : Fin c → T) (E : EvalEnv T K) : (emptyK κ cnt).AnnSettlesAt d γ E := by
   rw [emptyK, AggQueryIn.annSettlesAt_castKind]
   show (driverK κ cnt 0).AnnSettlesAt d γ E
   rw [driverK, AggQueryIn.annSettlesAt_castKind]
   trivial
 
-theorem annSettlesAt_driverK (κ : Fin k → ColKind) (cnt : SeqAggFunc T) (t : T)
+private theorem annSettlesAt_driverK (κ : Fin k → ColKind) (cnt : SeqAggFunc T) (t : T)
     (d : AnnotatedDatabase T K) (γ : Fin c → T) (E : EvalEnv T K) :
     (driverK κ cnt t).AnnSettlesAt d γ E := by
   rw [driverK, AggQueryIn.annSettlesAt_castKind]
@@ -993,7 +1002,7 @@ theorem annSettlesAt_driverK (κ : Fin k → ColKind) (cnt : SeqAggFunc T) (t : 
 
 /-- A round of the construction settles wherever its operand does under
 the same context. -/
-theorem annSettlesAt_phaseBodyK_withTagK {κ : Fin k → ColKind} (s : String) (p₁ t : T)
+private theorem annSettlesAt_phaseBodyK_withTagK {κ : Fin k → ColKind} (s : String) (p₁ t : T)
     (q : AggQueryIn T c k κ) (d : AnnotatedDatabase T K) (γ : Fin c → T) {E : EvalEnv T K}
     (hq : q.AnnSettlesAt d γ E) (F : EvalEnv T K) (hF : F.ctxAt c γ = E.ctxAt c γ) :
     (phaseBodyK s p₁ (withTagK t q)).AnnSettlesAt d γ F := by
@@ -1007,7 +1016,7 @@ theorem annSettlesAt_phaseBodyK_withTagK {κ : Fin k → ColKind} (s : String) (
 
 /-- **The construction settles where its operands do**: each recursion
 stops after its second round. -/
-theorem annSettlesAt_sumByMuK {κ : Fin k → ColKind} (s₁ s₂ : String) (cnt : SeqAggFunc T)
+private theorem annSettlesAt_sumByMuK {κ : Fin k → ColKind} (s₁ s₂ : String) (cnt : SeqAggFunc T)
     (q₁ q₂ : AggQueryIn T c k κ) (d : AnnotatedDatabase T K) (γ : Fin c → T)
     (E : EvalEnv T K) (hq₁ : q₁.AnnSettlesAt d γ E) (hq₂ : q₂.AnnSettlesAt d γ E) :
     (sumByMuK s₁ s₂ cnt q₁ q₂).AnnSettlesAt d γ E := by
@@ -1083,7 +1092,7 @@ end AggQueryIn
 omit [ValueType T] [DecidableEq K] [HasAltLinearOrder K] in
 /-- What the annotated reading reads of a bag of rows is determined by
 their finalizations. -/
-theorem GenRow.map_toAnnotated_of_fin {n : ℕ} {A B : Multiset (GenRow T K n)}
+private theorem GenRow.map_toAnnotated_of_fin {n : ℕ} {A B : Multiset (GenRow T K n)}
     (h : A.map GenRow.fin = B.map GenRow.fin) :
     A.map GenRow.toAnnotated = B.map GenRow.toAnnotated :=
   Multiset.map_eq_of_factor (f := GenRow.fin) (fun a b hab => by
@@ -1094,7 +1103,7 @@ theorem GenRow.map_toAnnotated_of_fin {n : ℕ} {A B : Multiset (GenRow T K n)}
 /-- **A bag recursion whose body splits** into a body and a closed part:
 where the recursion settles, its body is empty on the empty round, so the
 closed part is empty and the body alone gives the same rounds. -/
-theorem AggQueryIn.mu_of_splitAnn {c n : ℕ} {κ : Fin n → ColKind} (s : String)
+private theorem AggQueryIn.mu_of_splitAnn {c n : ℕ} {κ : Fin n → ColKind} (s : String)
     (q₀ q₀' : AggQueryIn T c n κ) (q₁ q₁' : AggQueryIn T c n κ [(s, n)])
     (qC : AggQueryIn T c n κ) (d : AnnotatedDatabase T K) (γ : Fin c → T) {E E' : EvalEnv T K}
     (hE : E.FinRel γ E') (hset : (AggQueryIn.Mu s q₀ q₁).AnnSettlesAt d γ E)
@@ -1150,7 +1159,7 @@ theorem AggQueryIn.mu_of_splitAnn {c n : ℕ} {κ : Fin n → ColKind} (s : Stri
 /-- **A set recursion whose body splits** into a body and a closed part:
 the closed part moves into the base, where the union by recursion adds it
 to the base's rows. -/
-theorem AggQueryIn.muSet_of_splitAnn {c n : ℕ} (s : String)
+private theorem AggQueryIn.muSet_of_splitAnn {c n : ℕ} (s : String)
     (q₀ q₀' : AggQueryIn T c n (ColKind.allReg n))
     (q₁ q₁' : AggQueryIn T c n (ColKind.allReg n) [(s, n)])
     (qC B : AggQueryIn T c n (ColKind.allReg n)) (d : AnnotatedDatabase T K) (γ : Fin c → T)
@@ -1220,14 +1229,14 @@ namespace AggQueryIn
 
 variable {c : ℕ}
 
-theorem evaluate_proj_sum {n m : ℕ} {κ : Fin n → ColKind} {l l' : List (String × ℕ)}
+private theorem evaluate_proj_sum {n m : ℕ} {κ : Fin n → ColKind} {l l' : List (String × ℕ)}
     (ps : Tuple (ProjColIn T c κ) m) (a : AggQueryIn T c n κ l) (b : AggQueryIn T c n κ l')
     (d : AnnotatedDatabase T K) (γ : Fin c → T) (E : EvalEnv T K) :
     (AggQueryIn.Proj ps (AggQueryIn.Sum a b)).evaluate d γ E
       = (AggQueryIn.Proj ps a).evaluate d γ E + (AggQueryIn.Proj ps b).evaluate d γ E := by
   simp only [AggQueryIn.evaluate, Multiset.map_add]
 
-theorem evaluate_sel_sum {n : ℕ} {κ : Fin n → ColKind} {l l' : List (String × ℕ)}
+private theorem evaluate_sel_sum {n : ℕ} {κ : Fin n → ColKind} {l l' : List (String × ℕ)}
     (φ : GenPredIn T c κ) (a : AggQueryIn T c n κ l) (b : AggQueryIn T c n κ l')
     (hab : SelOK (l ++ l') φ) (ha : SelOK l φ) (hb : SelOK l' φ)
     (d : AnnotatedDatabase T K) (γ : Fin c → T) (E : EvalEnv T K) :
@@ -1236,7 +1245,7 @@ theorem evaluate_sel_sum {n : ℕ} {κ : Fin n → ColKind} {l l' : List (String
   simp only [AggQueryIn.evaluate]
   split_ifs <;> simp only [Multiset.map_add, Multiset.filter_add]
 
-theorem evaluate_prod_sum_left {n₁ n₂ : ℕ} {κ₁ : Fin n₁ → ColKind} {κ₂ : Fin n₂ → ColKind}
+private theorem evaluate_prod_sum_left {n₁ n₂ : ℕ} {κ₁ : Fin n₁ → ColKind} {κ₂ : Fin n₂ → ColKind}
     {l l' l₂ : List (String × ℕ)} (a : AggQueryIn T c n₁ κ₁ l) (b : AggQueryIn T c n₁ κ₁ l')
     (q₂ : AggQueryIn T c n₂ κ₂ l₂) (d : AnnotatedDatabase T K) (γ : Fin c → T)
     (E : EvalEnv T K) :
@@ -1246,7 +1255,7 @@ theorem evaluate_prod_sum_left {n₁ n₂ : ℕ} {κ₁ : Fin n₁ → ColKind} 
   rw [← Multiset.map_add]
   exact congrArg _ (Multiset.add_product _ _ _)
 
-theorem evaluate_prod_sum_right {n₁ n₂ : ℕ} {κ₁ : Fin n₁ → ColKind} {κ₂ : Fin n₂ → ColKind}
+private theorem evaluate_prod_sum_right {n₁ n₂ : ℕ} {κ₁ : Fin n₁ → ColKind} {κ₂ : Fin n₂ → ColKind}
     {l₁ l l' : List (String × ℕ)} (q₁ : AggQueryIn T c n₁ κ₁ l₁) (a : AggQueryIn T c n₂ κ₂ l)
     (b : AggQueryIn T c n₂ κ₂ l') (d : AnnotatedDatabase T K) (γ : Fin c → T)
     (E : EvalEnv T K) :
@@ -1256,7 +1265,7 @@ theorem evaluate_prod_sum_right {n₁ n₂ : ℕ} {κ₁ : Fin n₁ → ColKind}
   rw [← Multiset.map_add]
   exact congrArg _ (Multiset.product_add _ _ _)
 
-theorem evaluate_apply_sum {n₁ n₂ : ℕ} {κ₁ : Fin n₁ → ColKind} {κ₂ : Fin n₂ → ColKind}
+private theorem evaluate_apply_sum {n₁ n₂ : ℕ} {κ₁ : Fin n₁ → ColKind} {κ₂ : Fin n₂ → ColKind}
     {l l' : List (String × ℕ)} (a : AggQueryIn T c n₁ κ₁ l) (b : AggQueryIn T c n₁ κ₁ l')
     (q₂ : AggQueryIn T (n₁ + c) n₂ κ₂) (d : AnnotatedDatabase T K) (γ : Fin c → T)
     (E : EvalEnv T K) :
@@ -1264,7 +1273,7 @@ theorem evaluate_apply_sum {n₁ n₂ : ℕ} {κ₁ : Fin n₁ → ColKind} {κ�
       = (AggQueryIn.Apply a q₂).evaluate d γ E + (AggQueryIn.Apply b q₂).evaluate d γ E := by
   simp only [AggQueryIn.evaluate, Multiset.add_bind]
 
-theorem evaluate_explode_sum {n : ℕ} {κ : Fin n → ColKind} {l l' : List (String × ℕ)}
+private theorem evaluate_explode_sum {n : ℕ} {κ : Fin n → ColKind} {l l' : List (String × ℕ)}
     (k : Fin n) (hk : κ k = ColKind.agg) (a : AggQueryIn T c n κ l) (b : AggQueryIn T c n κ l')
     (d : AnnotatedDatabase T K) (γ : Fin c → T) (E : EvalEnv T K) :
     (AggQueryIn.Explode k hk (AggQueryIn.Sum a b)).evaluate d γ E
@@ -1273,7 +1282,7 @@ theorem evaluate_explode_sum {n : ℕ} {κ : Fin n → ColKind} {l l' : List (St
   simp only [AggQueryIn.evaluate, Multiset.add_bind]
 
 /-- A split, read as the evaluation of a union. -/
-theorem fin_sum_of_split {n : ℕ} {κ : Fin n → ColKind} {l l' : List (String × ℕ)}
+private theorem fin_sum_of_split {n : ℕ} {κ : Fin n → ColKind} {l l' : List (String × ℕ)}
     {a : AggQueryIn T c n κ l} {b : AggQueryIn T c n κ l'} {d : AnnotatedDatabase T K}
     {γ : Fin c → T} {E : EvalEnv T K} {X : Multiset (GenRow T K n)}
     (h : X.map GenRow.fin = (a.evaluate d γ E).map GenRow.fin + (b.evaluate d γ E).map GenRow.fin) :
@@ -1330,7 +1339,7 @@ def AggQueryIn.BodySplit {c n : ℕ} {κ : Fin n → ColKind} {l l' : List (Stri
         ∧ (q.evaluate d γ E).map GenRow.fin
           = (q'.evaluate d γ E').map GenRow.fin + (qC.evaluate d γ E').map GenRow.fin
 
-theorem AggQueryIn.closedMatch_refl {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)}
+private theorem AggQueryIn.closedMatch_refl {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)}
     (q : AggQueryIn T c n κ l) : AggQueryIn.ClosedMatch (K := K) q q :=
   fun d γ _ _ hE h =>
     ⟨AggQueryIn.annSettlesAt_finRel q d γ hE h, AggQueryIn.FinEq.refl q d γ _ _ hE⟩
@@ -1348,13 +1357,13 @@ def AggQueryIn.BodySplitU {c n : ℕ} {κ : Fin n → ColKind} {l l' : List (Str
   ∀ {K : Type} [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K],
     AggQueryIn.BodySplit (K := K) q q' qC
 
-theorem AggQueryIn.closedMatchU_refl {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)}
+private theorem AggQueryIn.closedMatchU_refl {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)}
     (q : AggQueryIn T c n κ l) : AggQueryIn.ClosedMatchU q q :=
   fun {_} _ _ _ => AggQueryIn.closedMatch_refl q
 
 /-- The right side of an apply settles at every row of the match's left
 side, those rows being the source's up to finalization. -/
-theorem AggQueryIn.apply_right_settles {c n₁ n₂ : ℕ} {κ₁ : Fin n₁ → ColKind}
+private theorem AggQueryIn.apply_right_settles {c n₁ n₂ : ℕ} {κ₁ : Fin n₁ → ColKind}
     {κ₂ : Fin n₂ → ColKind} {l₁ : List (String × ℕ)} {q₁ : AggQueryIn T c n₁ κ₁ l₁}
     {q₂ q₂' : AggQueryIn T (n₁ + c) n₂ κ₂} (h₂ : AggQueryIn.ClosedMatch (K := K) q₂ q₂')
     {d : AnnotatedDatabase T K} {γ : Fin c → T} {E E' : EvalEnv T K} (hE : E.FinRel γ E')

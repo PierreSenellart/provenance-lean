@@ -2,6 +2,7 @@ module
 
 public import Provenance.SemiringWithMonus
 import Mathlib.Tactic.Bound.Init
+import all Provenance.SemiringWithMonus
 
 /-!
 # Boolean-function m-semiring `Bool[X]`
@@ -222,13 +223,13 @@ homomorphism `BoolFunc X →+* K` impossible. Similarly if `K`'s multiplication
 is not idempotent. -/
 
 /-- `BoolFunc.var i * BoolFunc.var i = BoolFunc.var i`. -/
-lemma BoolFunc.var_mul_self {X : Type} (i : X) :
+private lemma BoolFunc.var_mul_self {X : Type} (i : X) :
     BoolFunc.var i * BoolFunc.var i = BoolFunc.var i := by
   funext τ
   simp [(· * ·), Mul.mul, BoolFunc.var]
 
 /-- `f + (1 - f) = 1` in `BoolFunc X` (Boolean complement on the join side). -/
-lemma BoolFunc.add_sub_self {X : Type} (f : BoolFunc X) : f + (1 - f) = 1 := by
+private lemma BoolFunc.add_sub_self {X : Type} (f : BoolFunc X) : f + (1 - f) = 1 := by
   funext τ
   simp [(· + ·), Add.add, (· - ·), Sub.sub]
   have h1 : (1 : BoolFunc X) τ = true := rfl
@@ -236,7 +237,7 @@ lemma BoolFunc.add_sub_self {X : Type} (f : BoolFunc X) : f + (1 - f) = 1 := by
   cases f τ <;> simp
 
 /-- `f * (1 - f) = 0` in `BoolFunc X` (Boolean complement on the meet side). -/
-lemma BoolFunc.mul_sub_self {X : Type} (f : BoolFunc X) : f * (1 - f) = 0 := by
+private lemma BoolFunc.mul_sub_self {X : Type} (f : BoolFunc X) : f * (1 - f) = 0 := by
   funext τ
   simp [(· * ·), Mul.mul, (· - ·), Sub.sub]
   have h1 : (1 : BoolFunc X) τ = true := rfl
@@ -256,7 +257,7 @@ the image of a variable under a homomorphism from `BoolFunc` inherits it
 are out of that reach, neither being absorptive
 (`BoolFunc.no_hom_of_not_absorptive`); they are exclusive for the other
 reason, their monus against `𝟙` collapsing to `𝟘`. -/
-theorem BoolFunc.exclusive : _root_.exclusive (BoolFunc X) :=
+private theorem BoolFunc.exclusive : _root_.exclusive (BoolFunc X) :=
   fun f => BoolFunc.mul_sub_self f
 
 /-- If the target `K` is not absorptive, there is no semiring homomorphism
@@ -264,7 +265,7 @@ from `BoolFunc X` (with `X` inhabited) sending the variables to arbitrary
 values. Picking `ν` constant equal to a witness `a` of `1 + a ≠ 1` blocks
 any homomorphism: `var i + 1 = 1` in `BoolFunc X`, so `1 + a = 1` is forced
 in `K`. -/
-theorem BoolFunc.no_hom_of_not_absorptive {K : Type} [Semiring K]
+private theorem BoolFunc.no_hom_of_not_absorptive {K : Type} [Semiring K]
     {X : Type} [Inhabited X] (hna : ¬ _root_.absorptive K) :
     ∃ ν : X → K, ¬ ∃ φ : BoolFunc X →+* K, ∀ i : X, φ (BoolFunc.var i) = ν i := by
   simp only [_root_.absorptive] at hna
@@ -283,7 +284,7 @@ semiring homomorphism from `BoolFunc X` (with `X` inhabited) sending the
 variables to arbitrary values. Picking `ν` constant equal to a witness `a`
 of `a * a ≠ a` blocks any homomorphism, since `var i * var i = var i` in
 `BoolFunc X`. -/
-theorem BoolFunc.no_hom_of_not_mul_idem {K : Type} [Semiring K]
+private theorem BoolFunc.no_hom_of_not_mul_idem {K : Type} [Semiring K]
     {X : Type} [Inhabited X] (hna : ¬ ∀ a : K, a * a = a) :
     ∃ ν : X → K, ¬ ∃ φ : BoolFunc X →+* K, ∀ i : X, φ (BoolFunc.var i) = ν i := by
   push Not at hna
@@ -300,7 +301,7 @@ theorem BoolFunc.no_hom_of_not_mul_idem {K : Type} [Semiring K]
 `BoolFunc X → BoolFunc Y` sending each variable `BoolFunc.var i` to `ν i`.
 This realizes `BoolFunc X` as a “free” object: variables can be sent to
 arbitrary Boolean functions. -/
-theorem BoolFunc.homomorphism_from_BoolFunc {X Y : Type} :
+private theorem BoolFunc.homomorphism_from_BoolFunc {X Y : Type} :
     ∀ ν : X → BoolFunc Y,
       ∃ h : SemiringWithMonusHom (BoolFunc X) (BoolFunc Y),
         ∀ i : X, h (BoolFunc.var i) = ν i := by
@@ -319,7 +320,7 @@ theorem BoolFunc.homomorphism_from_BoolFunc {X Y : Type} :
   rfl
 
 /-- **`𝔹[X]` is complemented**: `𝟙 ⊖ ·` is pointwise negation. -/
-theorem BoolFunc.complemented : _root_.complemented (BoolFunc X) := by
+private theorem BoolFunc.complemented : _root_.complemented (BoolFunc X) := by
   intro a b
   simp[(· - ·),Sub.sub,(· + ·),Add.add,(· * ·),Mul.mul]
   apply funext

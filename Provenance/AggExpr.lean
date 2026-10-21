@@ -7,6 +7,8 @@ module
 public import Provenance.AggValue
 import Mathlib.Algebra.BigOperators.Group.Finset.Basic
 import Mathlib.Tactic.Bound.Init
+import all Provenance.AggValue
+import all Provenance.HavingSemantics
 
 /-!
 # Aggregate expressions
@@ -114,14 +116,14 @@ def reads (e : AggExpr T K) (j : Fin e.arity) : Finset (Fin e.occs.length) :=
     ((e.occs.get i).snd.snd.fst j && (e.occs.get i).snd.snd.snd j) = true)
 
 /-- Membership of the group is the occurrence's own flag. -/
-@[simp] theorem mem_inFrame (e : AggExpr T K) (j : Fin e.arity)
+@[simp] private theorem mem_inFrame (e : AggExpr T K) (j : Fin e.arity)
     (i : Fin e.occs.length) :
     i ∈ e.inFrame j ↔ (e.occs.get i).snd.snd.fst j = true := by
   rw [inFrame, Finset.mem_filter]
   exact and_iff_right (Finset.mem_univ _)
 
 /-- Membership of `U_j` is the occurrence's own two flags. -/
-@[simp] theorem mem_reads (e : AggExpr T K) (j : Fin e.arity)
+@[simp] private theorem mem_reads (e : AggExpr T K) (j : Fin e.arity)
     (i : Fin e.occs.length) :
     i ∈ e.reads j
       ↔ ((e.occs.get i).snd.snd.fst j && (e.occs.get i).snd.snd.snd j)
@@ -130,7 +132,7 @@ def reads (e : AggExpr T K) (j : Fin e.arity) : Finset (Fin e.occs.length) :=
   exact and_iff_right (Finset.mem_univ _)
 
 /-- What a leaf reads is part of its group. -/
-theorem reads_subset_inFrame (e : AggExpr T K) (j : Fin e.arity) :
+private theorem reads_subset_inFrame (e : AggExpr T K) (j : Fin e.arity) :
     e.reads j ⊆ e.inFrame j := by
   intro i hi
   exact mem_inFrame e j i |>.mpr (Bool.and_eq_true _ _ |>.mp
@@ -215,7 +217,7 @@ def predProvWith [ValueType T] [CommSemiringWithMonus K] [DecidableEq K]
     Having.worldAnn e.anns W * Having.chiOf P (e.valOn W)
 
 /-- A comparison is the test that compares against the constant. -/
-theorem predProv_eq_predProvWith [ValueType T] [CommSemiringWithMonus K]
+private theorem predProv_eq_predProvWith [ValueType T] [CommSemiringWithMonus K]
     [DecidableEq K] (e : AggExpr T K) (op : CompOp) (c : T) :
     e.predProv op c = e.predProvWith (fun v => op.eval3 v c) := rfl
 
@@ -235,7 +237,7 @@ def isScalar (e : AggExpr T K) : Bool :=
   (List.finRange e.arity).all e.scalar
 
 /-- The empty world is a world exactly in the scalar convention. -/
-theorem isWorld_empty_iff (e : AggExpr T K) :
+private theorem isWorld_empty_iff (e : AggExpr T K) :
     e.IsWorld ∅ ↔ e.isScalar = true := by
   unfold IsWorld isScalar
   rw [List.all_eq_true]
@@ -249,7 +251,7 @@ theorem isWorld_empty_iff (e : AggExpr T K) :
 
 /-- Where the expression is not read in the scalar convention, some leaf
 is grouped – which is what the guard absorption needs. -/
-theorem exists_grouped_of_not_isScalar {e : AggExpr T K}
+private theorem exists_grouped_of_not_isScalar {e : AggExpr T K}
     (h : e.isScalar = false) : ∃ l, e.scalar l = false := by
   by_contra hcon
   have hall : e.isScalar = true := by
@@ -278,7 +280,7 @@ def specialize (e : AggExpr T K) (ν : K → Bool) : T :=
   e.valOn (e.realizedWorld ν)
 
 /-- A valuation that keeps every occurrence reads the collapse. -/
-theorem specialize_of_forall (e : AggExpr T K) (ν : K → Bool)
+private theorem specialize_of_forall (e : AggExpr T K) (ν : K → Bool)
     (h : ∀ x : K, ν x = true) : e.specialize ν = e.collapse := by
   unfold specialize collapse realizedWorld
   exact congrArg e.valOn (Finset.filter_true_of_mem (fun i _ => h _))
@@ -292,7 +294,7 @@ def vals [DecidableEq T] (e : AggExpr T K) : Finset T :=
 Stripping the annotations off the family and selecting there is
 selecting and then stripping, so two families with the same stripped
 list give every leaf the same sequence in corresponding worlds. -/
-theorem leafSeq_of_strip {q : ℕ} {K₁ K₂ : Type} {φ₁ φ₂ : FamId T} {os₁ os₂ : List (OccId T)}
+private theorem leafSeq_of_strip {q : ℕ} {K₁ K₂ : Type} {φ₁ φ₂ : FamId T} {os₁ os₂ : List (OccId T)}
     {occs₁ : List ((Fin q → T) × K₁ × (Fin q → Bool) × (Fin q → Bool))}
     {occs₂ : List ((Fin q → T) × K₂ × (Fin q → Bool) × (Fin q → Bool))}
     (hstrip : occs₁.map (fun z => (z.fst, z.snd.snd))
@@ -346,7 +348,7 @@ theorem leafSeq_of_strip {q : ℕ} {K₁ K₂ : Type} {φ₁ φ₂ : FamId T} {o
 /-- Two families with the same stripped list have the same worlds: the
 condition reads the leaf flags and the conventions, not the
 annotations. -/
-theorem isWorld_of_strip {q : ℕ} {K₁ K₂ : Type} {φ₁ φ₂ : FamId T} {os₁ os₂ : List (OccId T)}
+private theorem isWorld_of_strip {q : ℕ} {K₁ K₂ : Type} {φ₁ φ₂ : FamId T} {os₁ os₂ : List (OccId T)}
     {occs₁ : List ((Fin q → T) × K₁ × (Fin q → Bool) × (Fin q → Bool))}
     {occs₂ : List ((Fin q → T) × K₂ × (Fin q → Bool) × (Fin q → Bool))}
     (hstrip : occs₁.map (fun z => (z.fst, z.snd.snd))
@@ -391,7 +393,7 @@ theorem isWorld_of_strip {q : ℕ} {K₁ K₂ : Type} {φ₁ φ₂ : FamId T} {o
 /-- **The deterministic reading depends only on the values and the leaf
 flags**: every occurrence is present, so each leaf reads the same
 sequence. -/
-theorem collapse_of_strip {q : ℕ} {K₁ K₂ : Type} {φ₁ φ₂ : FamId T} {os₁ os₂ : List (OccId T)}
+private theorem collapse_of_strip {q : ℕ} {K₁ K₂ : Type} {φ₁ φ₂ : FamId T} {os₁ os₂ : List (OccId T)}
     {occs₁ : List ((Fin q → T) × K₁ × (Fin q → Bool) × (Fin q → Bool))}
     {occs₂ : List ((Fin q → T) × K₂ × (Fin q → Bool) × (Fin q → Bool))}
     (aggs : Fin q → SeqAggFunc T) (sc : Fin q → Bool) (g : (Fin q → T) → T)
@@ -414,7 +416,7 @@ theorem collapse_of_strip {q : ℕ} {K₁ K₂ : Type} {φ₁ φ₂ : FamId T} {
 families that differ by a tie-block permutation – occurrences carrying
 the same value vector and read by the same leaves – give the same set of
 values. This is what lets an aggregate expression be read as a key. -/
-theorem vals_congr [DecidableEq T] {q : ℕ} {K₁ K₂ : Type} {φ₁ φ₂ : FamId T}
+private theorem vals_congr [DecidableEq T] {q : ℕ} {K₁ K₂ : Type} {φ₁ φ₂ : FamId T}
     {os₁ os₂ : List (OccId T)}
     {occs₁ : List ((Fin q → T) × K₁ × (Fin q → Bool) × (Fin q → Bool))}
     {occs₂ : List ((Fin q → T) × K₂ × (Fin q → Bool) × (Fin q → Bool))}
@@ -457,7 +459,7 @@ theorem vals_congr [DecidableEq T] {q : ℕ} {K₁ K₂ : Type} {φ₁ φ₂ : F
 
 /-- **An expression is its own fields**, so rewriting its family rewrites
 the expression. -/
-theorem eq_mk_of_occs {e : AggExpr T K}
+private theorem eq_mk_of_occs {e : AggExpr T K}
     {occs' : List ((Fin e.arity → T) × K × (Fin e.arity → Bool) × (Fin e.arity → Bool))}
     (h : e.occs = occs') :
     e = AggExpr.mk e.arity occs' e.aggs e.scalar e.g e.fam e.oids := by
@@ -469,32 +471,32 @@ which is again an expression over the same family. -/
 def postcomp (gf : T → T) (e : AggExpr T K) : AggExpr T K :=
   { e with g := fun v => gf (e.g v) }
 
-@[simp] theorem valOn_postcomp (gf : T → T) (e : AggExpr T K)
+@[simp] private theorem valOn_postcomp (gf : T → T) (e : AggExpr T K)
     (W : Finset (Fin (postcomp gf e).occs.length)) :
     (postcomp gf e).valOn W = gf (e.valOn W) := rfl
 
 /-- Reading through a function touches neither the family nor the
 conventions, so it moves none of the worlds; it moves only the value in
 each. -/
-@[simp] theorem collapse_postcomp (gf : T → T) (e : AggExpr T K) :
+@[simp] private theorem collapse_postcomp (gf : T → T) (e : AggExpr T K) :
     (e.postcomp gf).collapse = gf e.collapse := rfl
 
-@[simp] theorem isScalar_postcomp (gf : T → T) (e : AggExpr T K) :
+@[simp] private theorem isScalar_postcomp (gf : T → T) (e : AggExpr T K) :
     (e.postcomp gf).isScalar = e.isScalar := rfl
 
-@[simp] theorem annList_postcomp (gf : T → T) (e : AggExpr T K) :
+@[simp] private theorem annList_postcomp (gf : T → T) (e : AggExpr T K) :
     (e.postcomp gf).annList = e.annList := rfl
 
 /-- The values it takes are the values of the expression, read through
 the function. -/
-theorem vals_postcomp [DecidableEq T] (gf : T → T) (e : AggExpr T K) :
+private theorem vals_postcomp [DecidableEq T] (gf : T → T) (e : AggExpr T K) :
     (e.postcomp gf).vals = e.vals.image gf := by
   unfold vals
   rw [Finset.image_image]
   rfl
 
 /-- And a test of `gf(e)` is the composed test of `e`. -/
-theorem predProvWith_postcomp [ValueType T] [CommSemiringWithMonus K]
+private theorem predProvWith_postcomp [ValueType T] [CommSemiringWithMonus K]
     [DecidableEq K] (gf : T → T) (e : AggExpr T K) (P : T → Kleene) :
     (e.postcomp gf).predProvWith P = e.predProvWith (fun v => P (gf v)) := rfl
 
@@ -512,13 +514,13 @@ def mapAnn {K' : Type} (h : K → K') (e : AggExpr T K) : AggExpr T K' where
 
 /-- Mapping the annotations leaves the occurrence list's length, hence
 the index type of a world, where it was. -/
-theorem length_map_occs {K' : Type} (h : K → K') (e : AggExpr T K) :
+private theorem length_map_occs {K' : Type} (h : K → K') (e : AggExpr T K) :
     e.occs.length = (e.mapAnn h).occs.length := by
   show _ = (e.occs.map _).length
   rw [List.length_map]
 
 /-- The pushforward's occurrence list, by definition. -/
-theorem occs_mapAnn {K' : Type} (h : K → K') (e : AggExpr T K) :
+private theorem occs_mapAnn {K' : Type} (h : K → K') (e : AggExpr T K) :
     (e.mapAnn h).occs
       = e.occs.map (fun o => (o.fst, h o.snd.fst, o.snd.snd)) := rfl
 
@@ -526,7 +528,7 @@ theorem occs_mapAnn {K' : Type} (h : K → K') (e : AggExpr T K) :
 in the transported world, so the expression takes the same value. The
 leaf flags travel in the occurrences, so nothing has to be transported
 but the world. -/
-theorem leafSeq_mapAnn {K' : Type} (h : K → K') (e : AggExpr T K)
+private theorem leafSeq_mapAnn {K' : Type} (h : K → K') (e : AggExpr T K)
     (j : Fin e.arity) (W : Finset (Fin e.occs.length)) :
     (e.mapAnn h).leafSeq j (W.map (finCongr (length_map_occs h e)).toEmbedding)
       = e.leafSeq j W := by
@@ -540,7 +542,7 @@ theorem leafSeq_mapAnn {K' : Type} (h : K → K') (e : AggExpr T K)
   rfl
 
 /-- Hence the value in a world, and the deterministic reading with it. -/
-theorem valOn_mapAnn {K' : Type} (h : K → K') (e : AggExpr T K)
+private theorem valOn_mapAnn {K' : Type} (h : K → K') (e : AggExpr T K)
     (W : Finset (Fin e.occs.length)) :
     (e.mapAnn h).valOn (W.map (finCongr (length_map_occs h e)).toEmbedding)
       = e.valOn W :=
@@ -548,7 +550,7 @@ theorem valOn_mapAnn {K' : Type} (h : K → K') (e : AggExpr T K)
     (funext (fun j => congrArg ((e.mapAnn h).aggs j) (leafSeq_mapAnn h e j W)))
 
 /-- The group flags travel with the occurrences. -/
-theorem inFrame_mapAnn {K' : Type} (h : K → K') (e : AggExpr T K)
+private theorem inFrame_mapAnn {K' : Type} (h : K → K') (e : AggExpr T K)
     (j : Fin e.arity) :
     (e.mapAnn h).inFrame j
       = (e.inFrame j).map (finCongr (length_map_occs h e)).toEmbedding := by
@@ -563,7 +565,7 @@ theorem inFrame_mapAnn {K' : Type} (h : K → K') (e : AggExpr T K)
 
 /-- The leaf flags travel with the occurrences, so each leaf reads the
 transported occurrences of the ones it read. -/
-theorem reads_mapAnn {K' : Type} (h : K → K') (e : AggExpr T K)
+private theorem reads_mapAnn {K' : Type} (h : K → K') (e : AggExpr T K)
     (j : Fin e.arity) :
     (e.mapAnn h).reads j
       = (e.reads j).map (finCongr (length_map_occs h e)).toEmbedding := by
@@ -579,7 +581,7 @@ theorem reads_mapAnn {K' : Type} (h : K → K') (e : AggExpr T K)
 /-- **A transported world is a world of the pushforward exactly when the
 world it came from is one**: the conventions and the leaves' occurrences
 are the ones they were. -/
-theorem isWorld_mapAnn {K' : Type} (h : K → K') (e : AggExpr T K)
+private theorem isWorld_mapAnn {K' : Type} (h : K → K') (e : AggExpr T K)
     (W : Finset (Fin e.occs.length)) :
     (e.mapAnn h).IsWorld (W.map (finCongr (length_map_occs h e)).toEmbedding)
       ↔ e.IsWorld W := by
@@ -588,7 +590,7 @@ theorem isWorld_mapAnn {K' : Type} (h : K → K') (e : AggExpr T K)
   rw [inFrame_mapAnn, ← Finset.map_inter, Finset.map_nonempty]
 
 /-- The annotation of a transported occurrence is the pushed one. -/
-@[simp] theorem anns_mapAnn {K' : Type} (h : K → K') (e : AggExpr T K)
+@[simp] private theorem anns_mapAnn {K' : Type} (h : K → K') (e : AggExpr T K)
     (i : Fin e.occs.length) :
     (e.mapAnn h).anns (finCongr (length_map_occs h e) i) = h (e.anns i) := by
   show ((e.mapAnn h).occs.get (finCongr (length_map_occs h e) i)).snd.fst
@@ -599,7 +601,7 @@ theorem isWorld_mapAnn {K' : Type} (h : K → K') (e : AggExpr T K)
     rfl
   exact h1
 
-@[simp] theorem collapse_mapAnn {K' : Type} (h : K → K') (e : AggExpr T K) :
+@[simp] private theorem collapse_mapAnn {K' : Type} (h : K → K') (e : AggExpr T K) :
     (e.mapAnn h).collapse = e.collapse := by
   unfold collapse
   rw [← valOn_mapAnn h e Finset.univ]
@@ -607,20 +609,20 @@ theorem isWorld_mapAnn {K' : Type} (h : K → K') (e : AggExpr T K)
 
 /-- The conventions and the family travel unchanged, so the pushforward
 is read in the same convention. -/
-@[simp] theorem isScalar_mapAnn {K' : Type} (h : K → K') (e : AggExpr T K) :
+@[simp] private theorem isScalar_mapAnn {K' : Type} (h : K → K') (e : AggExpr T K) :
     (e.mapAnn h).isScalar = e.isScalar := rfl
 
 /-- **The pushforward takes the same values**: it is a family with the
 same stripped list, so `vals_congr` applies across the two annotation
 types. -/
-@[simp] theorem vals_mapAnn [DecidableEq T] {K' : Type} (h : K → K')
+@[simp] private theorem vals_mapAnn [DecidableEq T] {K' : Type} (h : K → K')
     (e : AggExpr T K) : (e.mapAnn h).vals = e.vals :=
   vals_congr (q := e.arity) (occs₁ := (e.mapAnn h).occs) (occs₂ := e.occs)
     e.aggs e.scalar e.g (by rw [occs_mapAnn, List.map_map]; rfl)
 
 /-- Reading through a function and pushing the annotations forward
 commute: the one moves `g`, the other the occurrences. -/
-theorem mapAnn_postcomp {K' : Type} (h : K → K') (gf : T → T)
+private theorem mapAnn_postcomp {K' : Type} (h : K → K') (gf : T → T)
     (e : AggExpr T K) :
     (e.postcomp gf).mapAnn h = (e.mapAnn h).postcomp gf := rfl
 
@@ -656,10 +658,10 @@ def subStats [CommSemiringWithMonus K] :
         + ((subStats L).map (fun z => (z.fst, o.snd.fst + z.snd.fst,
             z.snd.snd)))
 
-@[simp] theorem subStats_nil [CommSemiringWithMonus K] :
+@[simp] private theorem subStats_nil [CommSemiringWithMonus K] :
     subStats ([] : List ((Fin q → T) × K × (Fin q → Bool) × (Fin q → Bool))) = {(1, 0, [])} := rfl
 
-@[simp] theorem subStats_cons [CommSemiringWithMonus K] (o : (Fin q → T) × K × (Fin q → Bool) × (Fin q → Bool))
+@[simp] private theorem subStats_cons [CommSemiringWithMonus K] (o : (Fin q → T) × K × (Fin q → Bool) × (Fin q → Bool))
     (L : List ((Fin q → T) × K × (Fin q → Bool) × (Fin q → Bool))) :
     subStats (o :: L)
       = ((subStats L).map (fun z => (o.snd.fst * z.fst, z.snd.fst,
@@ -681,7 +683,7 @@ def isWorldOfSel (e : AggExpr T K) (sel : List ((Fin e.arity → T) × (Fin e.ar
   decide (∀ j, e.scalar j = false → ∃ z ∈ sel, z.snd.fst j = true)
 
 /-- The value in a world is read off what the world selects. -/
-theorem valOn_eq_valOfSel (e : AggExpr T K)
+private theorem valOn_eq_valOfSel (e : AggExpr T K)
     (W : Finset (Fin e.occs.length)) :
     e.valOn W = e.valOfSel ((Having.seqOf e.occs W).map strip) := by
   unfold valOn valOfSel leafVal
@@ -690,7 +692,7 @@ theorem valOn_eq_valOfSel (e : AggExpr T K)
   rfl
 
 /-- And so is whether it is a world. -/
-theorem isWorld_eq_isWorldOfSel (e : AggExpr T K)
+private theorem isWorld_eq_isWorldOfSel (e : AggExpr T K)
     (W : Finset (Fin e.occs.length)) :
     decide (e.IsWorld W) = e.isWorldOfSel ((Having.seqOf e.occs W).map strip) := by
   unfold isWorldOfSel
@@ -739,7 +741,7 @@ def worldStats [CommSemiringWithMonus K] (e : AggExpr T K) :
 /-- **Reading the expression through a function moves the value and
 nothing else**: the family, the annotations and the worlds are the ones it
 had, so a term over an aggregate column carries the statistics. -/
-@[simp] theorem worldStats_postcomp [CommSemiringWithMonus K] (gf : T → T)
+@[simp] private theorem worldStats_postcomp [CommSemiringWithMonus K] (gf : T → T)
     (e : AggExpr T K) :
     (e.postcomp gf).worldStats
       = e.worldStats.map (fun z =>
@@ -766,18 +768,18 @@ def ofValue (a : AggValue T K) : AggExpr T K where
   g := fun v => v 0
   fam := a.fam
 
-@[simp] theorem arity_ofValue (a : AggValue T K) : (ofValue a).arity = 1 := rfl
+@[simp] private theorem arity_ofValue (a : AggValue T K) : (ofValue a).arity = 1 := rfl
 
-@[simp] theorem scalar_ofValue (a : AggValue T K) (j : Fin (ofValue a).arity) :
+@[simp] private theorem scalar_ofValue (a : AggValue T K) (j : Fin (ofValue a).arity) :
     (ofValue a).scalar j = a.scalar := rfl
 
 /-- The scalar convention of a token survives the embedding. -/
-@[simp] theorem isScalar_ofValue (a : AggValue T K) :
+@[simp] private theorem isScalar_ofValue (a : AggValue T K) :
     (ofValue a).isScalar = a.scalar := by
   unfold isScalar
   simp [ofValue, List.finRange_succ]
 
-@[simp] theorem annList_ofValue (a : AggValue T K) :
+@[simp] private theorem annList_ofValue (a : AggValue T K) :
     (ofValue a).annList = a.occs.map Prod.snd := by
   unfold annList ofValue
   rw [List.map_map]
@@ -785,7 +787,7 @@ def ofValue (a : AggValue T K) : AggExpr T K where
 
 /-- Every leaf of a token's expression has every occurrence in its group:
 a token carries no clause. -/
-@[simp] theorem inFrame_ofValue (a : AggValue T K)
+@[simp] private theorem inFrame_ofValue (a : AggValue T K)
     (j : Fin (ofValue a).arity) :
     (ofValue a).inFrame j = Finset.univ := by
   refine Finset.eq_univ_of_forall (fun i => ?_)
@@ -793,17 +795,17 @@ a token carries no clause. -/
   simp only [ofValue, List.get_eq_getElem, List.getElem_map]
 
 /-- And reads every one of them. -/
-@[simp] theorem reads_ofValue (a : AggValue T K) (j : Fin (ofValue a).arity) :
+@[simp] private theorem reads_ofValue (a : AggValue T K) (j : Fin (ofValue a).arity) :
     (ofValue a).reads j = Finset.univ := by
   refine Finset.eq_univ_of_forall (fun i => ?_)
   rw [mem_reads]
   simp only [ofValue, List.get_eq_getElem, List.getElem_map]
   rfl
 
-theorem length_ofValue_occs (a : AggValue T K) :
+private theorem length_ofValue_occs (a : AggValue T K) :
     a.occs.length = (ofValue a).occs.length := (List.length_map _).symm
 
-@[simp] theorem anns_ofValue (a : AggValue T K) (i : Fin a.occs.length) :
+@[simp] private theorem anns_ofValue (a : AggValue T K) (i : Fin a.occs.length) :
     (ofValue a).anns (finCongr (length_ofValue_occs a) i) = a.anns i := by
   show ((a.occs.map (fun o => ((fun _ : Fin 1 => o.fst), o.snd,
       (fun _ : Fin 1 => true), (fun _ : Fin 1 => true)))).get
@@ -811,7 +813,7 @@ theorem length_ofValue_occs (a : AggValue T K) :
   simp [AggValue.anns]
 
 /-- The embedded token reads, in each world, what the token reads. -/
-theorem valOn_ofValue (a : AggValue T K)
+private theorem valOn_ofValue (a : AggValue T K)
     (W : Finset (Fin a.occs.length)) :
     (ofValue a).valOn
         (W.map (finCongr (length_ofValue_occs a)).toEmbedding)
@@ -825,7 +827,7 @@ theorem valOn_ofValue (a : AggValue T K)
 
 /-- A world of the embedded token is a world of the token: every world
 where it is read scalar, the non-empty ones where it is not. -/
-theorem isWorld_ofValue (a : AggValue T K)
+private theorem isWorld_ofValue (a : AggValue T K)
     (W : Finset (Fin a.occs.length)) :
     (ofValue a).IsWorld
         (W.map (finCongr (length_ofValue_occs a)).toEmbedding)
@@ -851,7 +853,7 @@ variable [ValueType T] [CommSemiringWithMonus K] [DecidableEq K]
 
 omit [ValueType T] [DecidableEq K] in
 /-- The world annotation of an embedded world is the token's. -/
-theorem worldAnn_ofValue (a : AggValue T K)
+private theorem worldAnn_ofValue (a : AggValue T K)
     (W : Finset (Fin a.occs.length)) :
     Having.worldAnn (ofValue a).anns
         (W.map (finCongr (length_ofValue_occs a)).toEmbedding)
@@ -897,7 +899,7 @@ theorem predProv_ofValue (a : AggValue T K) (op : CompOp) (c : T) :
 
 /-- **A token's expression reads as the token does, for every test.**
 `predProv_ofValue` is the case of a comparison against a constant. -/
-theorem predProvWith_ofValue (a : AggValue T K) (P : T → Kleene) :
+private theorem predProvWith_ofValue (a : AggValue T K) (P : T → Kleene) :
     (ofValue a).predProvWith P = a.predProvOfWith P := by
   unfold predProvWith
   rw [Finset.sum_filter]
@@ -932,7 +934,7 @@ theorem predProvWith_ofValue (a : AggValue T K) (P : T → Kleene) :
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] in
 /-- The embedded token collapses to the token's collapse. -/
-theorem collapse_ofValue (a : AggValue T K) :
+private theorem collapse_ofValue (a : AggValue T K) :
     (ofValue a).collapse = a.collapse := by
   unfold collapse
   rw [AggValue.collapse_eq_valOn_univ,
@@ -943,7 +945,7 @@ omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] in
 /-- **The displayed value of an embedded token is the token's displayed
 value**: `AggValue.specialize`, its reading in the family of occurrences
 the valuation realizes. -/
-theorem disp_ofValue (a : AggValue T K) (hTop : K → Bool) :
+private theorem disp_ofValue (a : AggValue T K) (hTop : K → Bool) :
     (ofValue a).disp hTop = a.specialize hTop := by
   unfold disp
   rw [AggValue.specialize_eq_valOn, ← valOn_ofValue]
@@ -982,22 +984,22 @@ predicate provenance. -/
 def _root_.AggValue.postcomp (gf : T → T) (a : AggValue T K) : AggValue T K :=
   ⟨fun L => gf (a.agg L), a.occs, a.scalar, a.fam, a.oids⟩
 
-@[simp] theorem _root_.AggValue.occs_postcomp (gf : T → T) (a : AggValue T K) :
+@[simp] private theorem _root_.AggValue.occs_postcomp (gf : T → T) (a : AggValue T K) :
     (a.postcomp gf).occs = a.occs := rfl
 
-@[simp] theorem _root_.AggValue.scalar_postcomp (gf : T → T) (a : AggValue T K) :
+@[simp] private theorem _root_.AggValue.scalar_postcomp (gf : T → T) (a : AggValue T K) :
     (a.postcomp gf).scalar = a.scalar := rfl
 
-@[simp] theorem _root_.AggValue.anns_postcomp (gf : T → T) (a : AggValue T K) :
+@[simp] private theorem _root_.AggValue.anns_postcomp (gf : T → T) (a : AggValue T K) :
     (a.postcomp gf).anns = a.anns := rfl
 
 /-- **The value in a world is the function of the value there**, which is
 `val_e(W) = g(val_a(W))` for a unary expression. -/
-@[simp] theorem _root_.AggValue.valOn_postcomp (gf : T → T) (a : AggValue T K)
+@[simp] private theorem _root_.AggValue.valOn_postcomp (gf : T → T) (a : AggValue T K)
     (W : Finset (Fin a.occs.length)) :
     (a.postcomp gf).valOn W = gf (a.valOn W) := rfl
 
-@[simp] theorem _root_.AggValue.collapse_postcomp (gf : T → T) (a : AggValue T K) :
+@[simp] private theorem _root_.AggValue.collapse_postcomp (gf : T → T) (a : AggValue T K) :
     (a.postcomp gf).collapse = gf a.collapse := rfl
 
 /-- The unary aggregate expression `gf(a)`: one leaf, read through
@@ -1071,10 +1073,10 @@ variable [ValueType T] [AddCommMonoid K] {c m : ℕ} (f : SeqAggFunc T)
   (t : TermIn T c m) (keep : Tuple T m → Bool)
   (U : List (AnnotatedTuple T K m)) (sc : Bool) (γ : Fin c → T)
 
-@[simp] theorem arity_ofSeqDistWhen :
+@[simp] private theorem arity_ofSeqDistWhen :
     (ofSeqDistWhen f t keep U sc γ).arity = 1 := rfl
 
-@[simp] theorem scalar_ofSeqDistWhen
+@[simp] private theorem scalar_ofSeqDistWhen
     (j : Fin (ofSeqDistWhen f t keep U sc γ).arity) :
     (ofSeqDistWhen f t keep U sc γ).scalar j = sc := rfl
 
@@ -1083,7 +1085,7 @@ def distPayload : List (T × K) :=
   AggValue.mergeOccs ((U.filter (fun p => keep p.fst)).map
     (fun p => (t.eval p.fst γ, p.snd)))
 
-@[simp] theorem occs_ofSeqDistWhen :
+@[simp] private theorem occs_ofSeqDistWhen :
     (ofSeqDistWhen f t keep U sc γ).occs
       = (distPayload t keep U γ).map
           (fun z => ((fun _ : Fin 1 => z.fst), z.snd,
@@ -1095,7 +1097,7 @@ def distPayload : List (T × K) :=
 /-- **What the leaf reads in a world**: the merged classes the world
 holds, and nothing of the rejected occurrences – they are in the family,
 which is what holds the worlds, and out of the reading. -/
-theorem leafSeq_ofSeqDistWhen_eq
+private theorem leafSeq_ofSeqDistWhen_eq
     {W : Finset (Fin (ofSeqDistWhen f t keep U sc γ).occs.length)}
     {M R : List ((Fin 1 → T) × K × (Fin 1 → Bool) × (Fin 1 → Bool))}
     (hM : ∀ z ∈ M, z.snd.snd = ((fun _ => true), (fun _ => true)))
@@ -1112,7 +1114,7 @@ theorem leafSeq_ofSeqDistWhen_eq
 /-- **The deterministic reading of a filtered `DISTINCT` aggregate**: the
 aggregate over the distinct values of the rows the clause keeps, which is
 `SeqAggFunc.distinct` of them. -/
-theorem collapse_ofSeqDistWhen :
+private theorem collapse_ofSeqDistWhen :
     (ofSeqDistWhen f t keep U sc γ).collapse
       = f.distinct (((U.map Prod.fst).filter keep).map
           (fun u => t.eval u γ)) := by
@@ -1137,7 +1139,7 @@ theorem collapse_ofSeqDistWhen :
 /-- **What the leaf reads in the world a valuation realizes**: the merged
 classes whose annotation it keeps. The rejected occurrences it keeps are
 in the world and out of the reading. -/
-theorem leafSeq_realizedWorld_ofSeqDistWhen (ν : K → Bool) :
+private theorem leafSeq_realizedWorld_ofSeqDistWhen (ν : K → Bool) :
     (ofSeqDistWhen f t keep U sc γ).leafSeq ⟨0, by simp⟩
         ((ofSeqDistWhen f t keep U sc γ).realizedWorld ν)
       = ((distPayload t keep U γ).filter
@@ -1170,7 +1172,7 @@ theorem leafSeq_realizedWorld_ofSeqDistWhen (ν : K → Bool) :
 
 /-- The leaf's group is the whole family: both the merged classes and the
 occurrences the clause rejected. -/
-@[simp] theorem inFrame_ofSeqDistWhen
+@[simp] private theorem inFrame_ofSeqDistWhen
     (j : Fin (ofSeqDistWhen f t keep U sc γ).arity) :
     (ofSeqDistWhen f t keep U sc γ).inFrame j = Finset.univ := by
   refine Finset.eq_univ_of_forall (fun i => ?_)
@@ -1191,7 +1193,7 @@ occurrences the clause rejected. -/
 
 /-- The occurrence annotations: the kept classes' sums and the rejected
 occurrences' own. -/
-@[simp] theorem annList_ofSeqDistWhen :
+@[simp] private theorem annList_ofSeqDistWhen :
     (ofSeqDistWhen f t keep U sc γ).annList
       = (distPayload t keep U γ).map Prod.snd
         ++ (U.filter (fun p => !keep p.fst)).map Prod.snd := by
@@ -1203,7 +1205,7 @@ occurrences' own. -/
 clause and the classes read the values, which the pushforward leaves
 alone, so pushing the annotations of the sequence and building the family
 are the same thing (`AggValue.mergeOccs_map`). -/
-theorem ofSeqDistWhen_mapAnn {K' : Type} [AddCommMonoid K'] {hm : K → K'}
+private theorem ofSeqDistWhen_mapAnn {K' : Type} [AddCommMonoid K'] {hm : K → K'}
     (hg0 : hm 0 = 0) (hg : ∀ x y, hm (x + y) = hm x + hm y) :
     (ofSeqDistWhen f t keep U sc γ).mapAnn hm
       = ofSeqDistWhen f t keep
@@ -1239,36 +1241,36 @@ section OfGroupWhen
 variable [ValueType T] {c m : ℕ} (f : SeqAggFunc T) (t : TermIn T c m)
   (keep : Tuple T m → Bool) (U : List (AnnotatedTuple T K m)) (γ : Fin c → T)
 
-@[simp] theorem arity_ofGroupWhen : (ofGroupWhen f t keep U γ).arity = 1 := rfl
+@[simp] private theorem arity_ofGroupWhen : (ofGroupWhen f t keep U γ).arity = 1 := rfl
 
-@[simp] theorem scalar_ofGroupWhen (j : Fin (ofGroupWhen f t keep U γ).arity) :
+@[simp] private theorem scalar_ofGroupWhen (j : Fin (ofGroupWhen f t keep U γ).arity) :
     (ofGroupWhen f t keep U γ).scalar j = false := rfl
 
 /-- **A filtered aggregate of a group is grouped**, as the unfiltered one
 is: the clause does not change which worlds there are. -/
-@[simp] theorem isScalar_ofGroupWhen :
+@[simp] private theorem isScalar_ofGroupWhen :
     (ofGroupWhen f t keep U γ).isScalar = false := by
   unfold isScalar
   simp [ofGroupWhen, ofSeqWhen, List.finRange_succ]
 
-@[simp] theorem occs_ofGroupWhen :
+@[simp] private theorem occs_ofGroupWhen :
     (ofGroupWhen f t keep U γ).occs
       = U.map (fun p => ((fun _ : Fin 1 => t.eval p.fst γ), p.snd,
         (fun _ : Fin 1 => true), (fun _ : Fin 1 => keep p.fst))) := rfl
 
 /-- **The occurrence annotations are the group's**, clause or no clause:
 what the group's existence guard reads. -/
-@[simp] theorem annList_ofGroupWhen :
+@[simp] private theorem annList_ofGroupWhen :
     (ofGroupWhen f t keep U γ).annList = U.map Prod.snd := by
   unfold annList
   rw [occs_ofGroupWhen, List.map_map]
   rfl
 
-theorem length_ofGroupWhen_occs :
+private theorem length_ofGroupWhen_occs :
     U.length = (ofGroupWhen f t keep U γ).occs.length := (List.length_map _).symm
 
 /-- The leaf's group is the whole family. -/
-@[simp] theorem inFrame_ofGroupWhen (j : Fin (ofGroupWhen f t keep U γ).arity) :
+@[simp] private theorem inFrame_ofGroupWhen (j : Fin (ofGroupWhen f t keep U γ).arity) :
     (ofGroupWhen f t keep U γ).inFrame j = Finset.univ := by
   refine Finset.eq_univ_of_forall (fun i => ?_)
   rw [mem_inFrame]
@@ -1276,7 +1278,7 @@ theorem length_ofGroupWhen_occs :
 
 /-- **A world of a filtered aggregate of a group is a non-empty
 subfamily of the group**, as with no clause. -/
-theorem isWorld_ofGroupWhen (W : Finset (Fin (ofGroupWhen f t keep U γ).occs.length)) :
+private theorem isWorld_ofGroupWhen (W : Finset (Fin (ofGroupWhen f t keep U γ).occs.length)) :
     (ofGroupWhen f t keep U γ).IsWorld W ↔ W.Nonempty := by
   unfold IsWorld
   constructor
@@ -1290,7 +1292,7 @@ theorem isWorld_ofGroupWhen (W : Finset (Fin (ofGroupWhen f t keep U γ).occs.le
 /-- **The deterministic reading**: the aggregate over the kept rows of
 the group, which a cut family gives as well – the two readings part on
 the *worlds*, not on the full one. -/
-theorem collapse_ofGroupWhen :
+private theorem collapse_ofGroupWhen :
     (ofGroupWhen f t keep U γ).collapse
       = f (((U.map Prod.fst).filter keep).map (fun u => t.eval u γ)) := by
   show f ((ofGroupWhen f t keep U γ).leafSeq ⟨0, by simp⟩ Finset.univ) = _
@@ -1302,19 +1304,19 @@ theorem collapse_ofGroupWhen :
   rfl
 
 /-- The leaf's group is the whole family, whatever the convention. -/
-@[simp] theorem inFrame_ofSeqWhen (sc : Bool)
+@[simp] private theorem inFrame_ofSeqWhen (sc : Bool)
     (j : Fin (ofSeqWhen f t keep U sc γ).arity) :
     (ofSeqWhen f t keep U sc γ).inFrame j = Finset.univ := by
   refine Finset.eq_univ_of_forall (fun i => ?_)
   rw [mem_inFrame]
   simp only [ofSeqWhen, List.get_eq_getElem, List.getElem_map]
 
-@[simp] theorem occs_ofSeqWhen (sc : Bool) :
+@[simp] private theorem occs_ofSeqWhen (sc : Bool) :
     (ofSeqWhen f t keep U sc γ).occs
       = U.map (fun p => ((fun _ : Fin 1 => t.eval p.fst γ), p.snd,
         (fun _ : Fin 1 => true), (fun _ : Fin 1 => keep p.fst))) := rfl
 
-@[simp] theorem annList_ofSeqWhen (sc : Bool) :
+@[simp] private theorem annList_ofSeqWhen (sc : Bool) :
     (ofSeqWhen f t keep U sc γ).annList = U.map Prod.snd := by
   unfold annList
   rw [occs_ofSeqWhen, List.map_map]
@@ -1322,7 +1324,7 @@ theorem collapse_ofGroupWhen :
 
 /-- **The deterministic reading**: the aggregate over the rows the clause
 keeps, whatever the convention. -/
-theorem collapse_ofSeqWhen (sc : Bool) :
+private theorem collapse_ofSeqWhen (sc : Bool) :
     (ofSeqWhen f t keep U sc γ).collapse
       = f (((U.map Prod.fst).filter keep).map (fun u => t.eval u γ)) := by
   show f ((ofSeqWhen f t keep U sc γ).leafSeq ⟨0, Nat.zero_lt_one⟩
@@ -1336,7 +1338,7 @@ theorem collapse_ofSeqWhen (sc : Bool) :
 
 /-- **What the leaf reads in the world a valuation realizes**: the kept
 occurrences the valuation keeps. -/
-theorem leafSeq_realizedWorld_ofSeqWhen (sc : Bool) (ν : K → Bool) :
+private theorem leafSeq_realizedWorld_ofSeqWhen (sc : Bool) (ν : K → Bool) :
     (ofSeqWhen f t keep U sc γ).leafSeq ⟨0, Nat.zero_lt_one⟩
         ((ofSeqWhen f t keep U sc γ).realizedWorld ν)
       = ((U.filter (fun p => keep p.fst && ν p.snd)).map
@@ -1354,7 +1356,7 @@ theorem leafSeq_realizedWorld_ofSeqWhen (sc : Bool) (ν : K → Bool) :
 
 /-- **The family is carried by a pushforward of the annotations**: the
 clause reads the values, which the pushforward leaves alone. -/
-theorem ofSeqWhen_mapAnn (sc : Bool) {K' : Type} (hm : K → K') :
+private theorem ofSeqWhen_mapAnn (sc : Bool) {K' : Type} (hm : K → K') :
     (ofSeqWhen f t keep U sc γ).mapAnn hm
       = ofSeqWhen f t keep
         (U.map (fun p => ((p.fst, hm p.snd) : AnnotatedTuple T K' m))) sc γ := by
@@ -1367,13 +1369,13 @@ end OfGroupWhen
 
 /-- **Post-composing the aggregate is the unary expression**: the two
 read the same value in each world. -/
-theorem valOn_ofUnary (gf : T → T) (a : AggValue T K)
+private theorem valOn_ofUnary (gf : T → T) (a : AggValue T K)
     (W : Finset (Fin (ofValue (a.postcomp gf)).occs.length)) :
     (ofValue (a.postcomp gf)).valOn W = (ofUnary gf a).valOn W := rfl
 
 /-- … and they have the same worlds, the convention being the token's in
 both. -/
-theorem isWorld_ofUnary (gf : T → T) (a : AggValue T K)
+private theorem isWorld_ofUnary (gf : T → T) (a : AggValue T K)
     (W : Finset (Fin (ofValue (a.postcomp gf)).occs.length)) :
     (ofValue (a.postcomp gf)).IsWorld W ↔ (ofUnary gf a).IsWorld W := Iff.rfl
 
@@ -1383,7 +1385,7 @@ theorem isWorld_ofUnary (gf : T → T) (a : AggValue T K)
 have the same worlds and the same value in each, so a comparison against
 either has the same predicate provenance. This is the sense in which
 `ProjColIn.aggTerm` is not a shortcut. -/
-theorem predProv_ofUnary [ValueType T] [CommSemiringWithMonus K] [DecidableEq K]
+private theorem predProv_ofUnary [ValueType T] [CommSemiringWithMonus K] [DecidableEq K]
     (gf : T → T) (a : AggValue T K) (op : CompOp) (c : T) :
     (ofUnary gf a).predProv op c = (a.postcomp gf).predProvOf op c := by
   rw [← predProv_ofValue (a.postcomp gf) op c]
@@ -1391,7 +1393,7 @@ theorem predProv_ofUnary [ValueType T] [CommSemiringWithMonus K] [DecidableEq K]
 
 /-- The same for an arbitrary three-valued test, which is what a range
 atom and a null test read with. -/
-theorem predProvWith_ofUnary [ValueType T] [CommSemiringWithMonus K]
+private theorem predProvWith_ofUnary [ValueType T] [CommSemiringWithMonus K]
     [DecidableEq K] (gf : T → T) (a : AggValue T K) (P : T → Kleene) :
     (ofUnary gf a).predProvWith P = (a.postcomp gf).predProvOfWith P := by
   rw [← predProvWith_ofValue (a.postcomp gf) P]

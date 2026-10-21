@@ -40,7 +40,7 @@ def List.addKV [DecidableEq β] [Add β] (l: List (α×β)) (a: α) (b: β) :=
   | none        => l.orderedIns LEByKey (a,b)
   | some (a,b') => (l.eraseP (Prod.fst · = a)).orderedIns LEByKey (a,b+b')
 
-theorem KeyValueList.sorted (l: List (α×β)) (h: KeyValueList l) :
+private theorem KeyValueList.sorted (l: List (α×β)) (h: KeyValueList l) :
   l.Pairwise LEByKey := by
     induction l with
     | nil           => simp
@@ -61,7 +61,7 @@ theorem KeyValueList.sorted (l: List (α×β)) (h: KeyValueList l) :
             exact le_of_lt (lt_of_lt_of_le h.right (sorted_tail.left b hb))
       . exact ih h.left
 
-theorem KeyValueList.nodup (l: List (α×β)) (hl: KeyValueList l) :
+private theorem KeyValueList.nodup (l: List (α×β)) (hl: KeyValueList l) :
   l.Nodup := by
     induction l with
     | nil => simp
@@ -94,7 +94,7 @@ theorem KeyValueList.nodup (l: List (α×β)) (hl: KeyValueList l) :
             exact h' hkvl
       . exact ih hl.left
 
-theorem KeyValueList.nodupkey (l : List (α×β)) (h: KeyValueList l):
+private theorem KeyValueList.nodupkey (l : List (α×β)) (h: KeyValueList l):
   List.Pairwise (·.1≠·.1) l := by
     induction l with
     | nil => tauto
@@ -128,7 +128,7 @@ theorem KeyValueList.nodupkey (l : List (α×β)) (h: KeyValueList l):
             exact ih' hb hc a' ha'
       . exact ih h.left
 
-theorem KeyValueList.functional (l : List (α×β)) (hl: KeyValueList l):
+private theorem KeyValueList.functional (l : List (α×β)) (hl: KeyValueList l):
   ∀ x ∈ l, ∀ y ∈ l, x.1=y.1 → x.2=y.2 := by
   induction l with
   | nil => simp
@@ -152,7 +152,7 @@ theorem KeyValueList.functional (l : List (α×β)) (hl: KeyValueList l):
         rename_i ytl
         exact ih hl.left x xtl y ytl
 
-theorem KeyValueList.eq_iff_forall_mem [DecidableEq β]
+private theorem KeyValueList.eq_iff_forall_mem [DecidableEq β]
   (l₁ l₂ : List (α×β)) (h₁: KeyValueList l₁) (h₂: KeyValueList l₂):
   l₁=l₂ ↔ ∀ x, x∈l₁ ↔ x∈l₂ := by
     apply Iff.intro
@@ -237,7 +237,7 @@ theorem KeyValueList.eq_iff_forall_mem [DecidableEq β]
               . exact htl
           exact ih tl₂ h₁.left h₂.left hcondtl₂
 
-theorem KeyValueList.erase (l : List (α×β)) (h: KeyValueList l) (a: α):
+private theorem KeyValueList.erase (l : List (α×β)) (h: KeyValueList l) (a: α):
   KeyValueList (l.eraseP (·.1=a)) := by
   induction l with
   | nil           =>
@@ -269,7 +269,7 @@ theorem KeyValueList.erase (l : List (α×β)) (h: KeyValueList l) (a: α):
           . simp[h'']
             exact h.right
 
-theorem KeyValueList.erase_find (l : List (α×β)) (h: KeyValueList l) (a: α):
+private theorem KeyValueList.erase_find (l : List (α×β)) (h: KeyValueList l) (a: α):
   (l.eraseP (·.1=a)).find? (·.1=a) = none := by
     induction l with
     | nil => tauto
@@ -289,7 +289,7 @@ theorem KeyValueList.erase_find (l : List (α×β)) (h: KeyValueList l) (a: α):
         simp at hi
         exact hi a' b ha'b
 
-theorem KeyValueList.orderedInsert [DecidableEq β]
+private theorem KeyValueList.orderedInsert [DecidableEq β]
   (l : List (α×β)) (h: KeyValueList l) (a: α) (b: β) (hp: l.find? (·.1=a) = none):
   KeyValueList (l.orderedInsert LEByKey (a,b)) := by
     induction l with
@@ -348,7 +348,7 @@ theorem KeyValueList.addKV [DecidableEq β] [Add β] (l : List (α×β)) (h: Key
           (b+b')
           (erase_find (hd :: tl) h a)
 
-lemma KeyValueList.eraseP_eq_filter {l : List (α×β)} (hl: KeyValueList l) (a: α):
+private lemma KeyValueList.eraseP_eq_filter {l : List (α×β)} (hl: KeyValueList l) (a: α):
     l.eraseP (·.1=a) = l.filter (·.1≠a) := by
   induction l with
   | nil => simp [List.eraseP, List.filter]
@@ -374,7 +374,7 @@ lemma KeyValueList.eraseP_eq_filter {l : List (α×β)} (hl: KeyValueList l) (a:
       simp at this
       exact this
 
-lemma KeyValueList.addKV_spec_not_key [DecidableEq β] [Add β] (l: List (α×β)) (hl: KeyValueList l) (a: α) (b: β):
+private lemma KeyValueList.addKV_spec_not_key [DecidableEq β] [Add β] (l: List (α×β)) (hl: KeyValueList l) (a: α) (b: β):
   ∀ x, (x.1 ≠ a) → (x ∈ l.addKV a b ↔ x ∈ l) := by
     intro x hxa
     cases l with
@@ -451,7 +451,7 @@ lemma KeyValueList.addKV_spec_not_key [DecidableEq β] [Add β] (l: List (α×β
             . exact hyp₂
             . simp[hxa]
 
-lemma KeyValueList.addKV_spec_key_not_before [DecidableEq β] [Add β] (l: List (α×β)) (hl: KeyValueList l) (a: α) (b: β):
+private lemma KeyValueList.addKV_spec_key_not_before [DecidableEq β] [Add β] (l: List (α×β)) (hl: KeyValueList l) (a: α) (b: β):
   ∀ x, (x.1 = a) → ¬ (∃ z, (a,z) ∈ l) → (x ∈ l.addKV a b ↔ x=(a,b)) := by
     intro x hxa hz
     cases l with
@@ -475,7 +475,7 @@ lemma KeyValueList.addKV_spec_key_not_before [DecidableEq β] [Add β] (l: List 
       simp at hz
       by_cases hle: a≤hd.1 <;> simp[hle,LEByKey,hz]
 
-lemma KeyValueList.addKV_spec_key_before [DecidableEq β] [Add β] (l: List (α×β)) (hl: KeyValueList l) (a: α) (b: β):
+private lemma KeyValueList.addKV_spec_key_before [DecidableEq β] [Add β] (l: List (α×β)) (hl: KeyValueList l) (a: α) (b: β):
   ∀ x, (x.1 = a) → ∀ z, (a,z) ∈ l → (x ∈ l.addKV a b ↔ x=(a,b+z)) := by
     intro x hxa z hz
     cases l with
@@ -513,7 +513,7 @@ lemma KeyValueList.addKV_spec_key_before [DecidableEq β] [Add β] (l: List (α�
       have := hx.right
       simp[hxa] at this
 
-theorem KeyValueList.addKV_spec [DecidableEq β] [Add β]
+private theorem KeyValueList.addKV_spec [DecidableEq β] [Add β]
   (l: List (α×β)) (hl: KeyValueList l) (a: α) (b: β):
   ∀ x, x ∈ l.addKV a b ↔
     (x.1 ≠ a ∧ x ∈ l) ∨
@@ -556,7 +556,7 @@ theorem KeyValueList.addKV_spec [DecidableEq β] [Add β]
     exact addKV_spec_not_key l hl a b x hxa
 
 
-theorem KeyValueList.addKV_mem [DecidableEq β] [Add β] (l: List (α×β)) (h: KeyValueList l) (a: α) (b: β):
+private theorem KeyValueList.addKV_mem [DecidableEq β] [Add β] (l: List (α×β)) (h: KeyValueList l) (a: α) (b: β):
   ∃ b', (a,b') ∈ l.addKV a b := by
     simp[List.addKV]
     induction l with
@@ -602,7 +602,7 @@ def KeyValueList.addKVFold [DecidableEq β] [Add β]
   (ab: α×β) (l : {l: List (α×β) // KeyValueList l}) :
   {l: List (α×β) // KeyValueList l} := ⟨l.val.addKV ab.1 ab.2, KeyValueList.addKV _ l.property _ _⟩
 
-lemma KeyValueList.add_comm_internal [DecidableEq β] [AddCommSemigroup β]
+private lemma KeyValueList.add_comm_internal [DecidableEq β] [AddCommSemigroup β]
   (l: List (α×β)) (hl: KeyValueList l) (a₁ a₂ a: α) (b₁ b₂ b: β):
   (a,b) ∈ (l.addKV a₂ b₂).addKV a₁ b₁ → (a,b) ∈ (l.addKV a₁ b₁).addKV a₂ b₂ := by
   repeat rw[KeyValueList.addKV_spec _ (KeyValueList.addKV l hl _ _)]

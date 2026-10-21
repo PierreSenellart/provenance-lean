@@ -4,6 +4,7 @@ public import Provenance.MuUnion
 public import Mathlib.Order.BourbakiWitt
 import Mathlib.Analysis.SpecialFunctions.Pow.NNReal
 import Provenance.WinRow
+import all Provenance.RecursionBasis
 
 /-!
 # The bases of the whole algebra in the minimal universe

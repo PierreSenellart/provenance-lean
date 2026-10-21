@@ -69,54 +69,54 @@ def or : Kleene → Kleene → Kleene
   | _, Kleene.unknown => Kleene.unknown
   | Kleene.false, Kleene.false => Kleene.false
 
-@[simp] theorem not_not (a : Kleene) : a.not.not = a := by cases a <;> rfl
+@[simp] private theorem not_not (a : Kleene) : a.not.not = a := by cases a <;> rfl
 
-@[simp] theorem not_and (a b : Kleene) : (a.and b).not = a.not.or b.not := by
+@[simp] private theorem not_and (a b : Kleene) : (a.and b).not = a.not.or b.not := by
   cases a <;> cases b <;> rfl
 
-@[simp] theorem not_or (a b : Kleene) : (a.or b).not = a.not.and b.not := by
+@[simp] private theorem not_or (a b : Kleene) : (a.or b).not = a.not.and b.not := by
   cases a <;> cases b <;> rfl
 
-@[simp] theorem and_eq_true_iff (a b : Kleene) :
+@[simp] private theorem and_eq_true_iff (a b : Kleene) :
     a.and b = Kleene.true ↔ a = Kleene.true ∧ b = Kleene.true := by
   cases a <;> cases b <;> simp [and]
 
-@[simp] theorem or_eq_true_iff (a b : Kleene) :
+@[simp] private theorem or_eq_true_iff (a b : Kleene) :
     a.or b = Kleene.true ↔ a = Kleene.true ∨ b = Kleene.true := by
   cases a <;> cases b <;> simp [or]
 
-@[simp] theorem and_eq_false_iff (a b : Kleene) :
+@[simp] private theorem and_eq_false_iff (a b : Kleene) :
     a.and b = Kleene.false ↔ a = Kleene.false ∨ b = Kleene.false := by
   cases a <;> cases b <;> simp [and]
 
-@[simp] theorem or_eq_false_iff (a b : Kleene) :
+@[simp] private theorem or_eq_false_iff (a b : Kleene) :
     a.or b = Kleene.false ↔ a = Kleene.false ∧ b = Kleene.false := by
   cases a <;> cases b <;> simp [or]
 
-@[simp] theorem not_eq_true_iff (a : Kleene) :
+@[simp] private theorem not_eq_true_iff (a : Kleene) :
     a.not = Kleene.true ↔ a = Kleene.false := by cases a <;> simp [not]
 
-@[simp] theorem not_eq_false_iff (a : Kleene) :
+@[simp] private theorem not_eq_false_iff (a : Kleene) :
     a.not = Kleene.false ↔ a = Kleene.true := by cases a <;> simp [not]
 
-@[simp] theorem isTrue_ofBool (b : Bool) : (ofBool b).isTrue = b := by
+@[simp] private theorem isTrue_ofBool (b : Bool) : (ofBool b).isTrue = b := by
   cases b <;> rfl
 
-@[simp] theorem ofBool_eq_true_iff {b : Bool} :
+@[simp] private theorem ofBool_eq_true_iff {b : Bool} :
     ofBool b = Kleene.true ↔ b = Bool.true := by
   cases b <;> simp [ofBool]
 
-@[simp] theorem not_ofBool (b : Bool) : (ofBool b).not = ofBool (!b) := by
+@[simp] private theorem not_ofBool (b : Bool) : (ofBool b).not = ofBool (!b) := by
   cases b <;> rfl
 
 /-- **Unknown is neither true nor false.** A row on which a predicate is
 unknown is selected by neither the predicate nor its negation, which is the
 one thing a two-valued reading cannot say. -/
-theorem isTrue_unknown_and_not : Kleene.unknown.isTrue = Bool.false
+private theorem isTrue_unknown_and_not : Kleene.unknown.isTrue = Bool.false
     ∧ Kleene.unknown.not.isTrue = Bool.false := ⟨rfl, rfl⟩
 
 /-- The excluded middle fails, and exactly at `unknown`. -/
-theorem or_not_eq_true_iff (a : Kleene) : a.or a.not = Kleene.true ↔ a ≠ Kleene.unknown := by
+private theorem or_not_eq_true_iff (a : Kleene) : a.or a.not = Kleene.true ↔ a ≠ Kleene.unknown := by
   cases a <;> simp [or, not]
 
 end Kleene

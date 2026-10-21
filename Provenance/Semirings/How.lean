@@ -6,6 +6,8 @@ public import Provenance.SemiringWithMonus
 public import Provenance.Semirings.BoolFunc
 public import Provenance.Semirings.Nat
 import Mathlib.Algebra.MvPolynomial.Eval
+import all Provenance.SemiringWithMonus
+import all Provenance.Semirings.BoolFunc
 
 /-!
 # How-provenance m-semiring `ℕ[X]`
@@ -47,7 +49,7 @@ noncomputable instance : Sub (MvPolynomial X ℕ) where
 
 
 omit [DecidableEq X] in
-theorem coeff_sub (p q : MvPolynomial X ℕ) (n : X →₀ ℕ) :
+private theorem coeff_sub (p q : MvPolynomial X ℕ) (n : X →₀ ℕ) :
   (p-q).coeff n = p.coeff n - q.coeff n := rfl
 
 
@@ -147,7 +149,7 @@ omit [DecidableEq X] in
 /-- On `ℕ[X]` the identity is not an admissible `δ`: `δ(𝟙 ⊕ 𝟙) = 𝟙` would make
 the semiring idempotent, and `ℕ[X]` counts (`1 + 1 = 2 ≠ 1`). This is why the
 instance above takes the support indicator (ProvSQL's `How::delta`). -/
-theorem How.not_isDelta_id :
+private theorem How.not_isDelta_id :
     ¬ IsDelta (id : MvPolynomial X ℕ → MvPolynomial X ℕ) :=
   not_isDelta_id_of_not_idempotent How.not_idempotent
 
@@ -214,7 +216,7 @@ universal semiring, the one every provenance circuit is built in, is exactly
 the one where two distinct worlds of an aggregate value fail to annihilate
 each other. The spurious terms vanish under any homomorphism into an
 exclusive semiring, since homomorphisms commute with `⊖`. -/
-theorem How.not_exclusive [Inhabited X] : ¬ exclusive (MvPolynomial X ℕ) := by
+private theorem How.not_exclusive [Inhabited X] : ¬ exclusive (MvPolynomial X ℕ) := by
   intro h
   have hsub : (1 : MvPolynomial X ℕ) - MvPolynomial.X (default : X) = 1 := by
     apply MvPolynomial.ext
@@ -264,7 +266,7 @@ omit [DecidableEq X] in
 /-- There is no semiring homomorphism from `BoolFunc Y` to `ℕ[X]` sending the
 variables to arbitrary values: `ℕ[X]` is not absorptive, which contradicts
 `var i + 1 = 1` in `BoolFunc Y`. -/
-theorem How.no_hom_from_BoolFunc {Y : Type} [Inhabited Y] :
+private theorem How.no_hom_from_BoolFunc {Y : Type} [Inhabited Y] :
     ∃ ν : Y → MvPolynomial X ℕ,
       ¬ ∃ φ : BoolFunc Y →+* MvPolynomial X ℕ,
         ∀ i : Y, φ (BoolFunc.var i) = ν i :=
@@ -274,7 +276,7 @@ theorem How.no_hom_from_BoolFunc {Y : Type} [Inhabited Y] :
 coefficient of `𝟙` truncated by `p`'s, so it is `𝟙` where `p`'s constant
 coefficient vanishes and `𝟘` elsewhere, and a sum's constant coefficient
 vanishes exactly when both summands' do. -/
-theorem How.complemented : _root_.complemented (MvPolynomial X ℕ) := by
+private theorem How.complemented : _root_.complemented (MvPolynomial X ℕ) := by
   intro a b
   have hsub : ∀ p : MvPolynomial X ℕ, (1 : MvPolynomial X ℕ) - p
       = if p.coeff 0 = 0 then 1 else 0 := by

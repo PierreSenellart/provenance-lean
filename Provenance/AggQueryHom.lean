@@ -17,6 +17,23 @@ import Mathlib.Tactic.NormNum.Inv
 import Mathlib.Tactic.NormNum.Pow
 import Provenance.AggQueryBridges
 import Provenance.QueryRewriting
+import all Provenance.AggExpr
+import all Provenance.AggQuery
+import all Provenance.AggQueryAdequacy
+import all Provenance.AggQueryBridges
+import all Provenance.AggValue
+import all Provenance.AggValueCongr
+import all Provenance.Coherence
+import all Provenance.Database
+import all Provenance.Frame
+import all Provenance.HavingSemantics
+import all Provenance.JointHom
+import all Provenance.Nested
+import all Provenance.NestedPres
+import all Provenance.Occurrence
+import all Provenance.OrderSpec
+import all Provenance.QueryAnnotatedDatabaseHom
+import all Provenance.QueryRewriting
 
 /-!
 # Hom commutation, token and annotation layer
@@ -80,7 +97,7 @@ def GenAnn.mapHom (h : SemiringWithMonusHom K K') (a : GenAnn K) :
 omit [DecidableEq K] [DecidableEq K'] in
 /-- The characteristic value of a comparison commutes with any hom
 (`χ` is `{𝟘,𝟙}`-valued). -/
-theorem chi_hom (h : SemiringWithMonusHom K K') (op : CompOp)
+private theorem chi_hom (h : SemiringWithMonusHom K K') (op : CompOp)
     (a b : T) :
     h.toRingHom (Having.chi op a b : K) = (Having.chi op a b : K') := by
   unfold Having.chi
@@ -91,7 +108,7 @@ theorem chi_hom (h : SemiringWithMonusHom K K') (op : CompOp)
 omit [ValueType T] [DecidableEq K] [DecidableEq K'] in
 /-- The factored world annotation commutes with any hom: it is an
 `⊗`/`⊖`-polynomial in the occurrence annotations. -/
-theorem worldAnn_hom (h : SemiringWithMonusHom K K') {N : ℕ}
+private theorem worldAnn_hom (h : SemiringWithMonusHom K K') {N : ℕ}
     (α : Fin N → K) (W : Finset (Fin N)) :
     h.toRingHom (Having.worldAnn α W)
       = Having.worldAnn (fun i => h.toRingHom (α i)) W := by
@@ -122,14 +139,14 @@ namespace AggValue
 
 omit [ValueType T] [DecidableEq K] [DecidableEq K'] in
 /-- The occurrence payload keeps its length under the pushforward. -/
-theorem length_mapAnn_occs (h : SemiringWithMonusHom K K')
+private theorem length_mapAnn_occs (h : SemiringWithMonusHom K K')
     (a : AggValue T K) :
     a.occs.length = (a.mapAnn ⇑h.toRingHom).occs.length := by
   simp [AggValue.mapAnn]
 
 omit [ValueType T] [DecidableEq K] [DecidableEq K'] in
 /-- The pushed-forward annotations, along the reindexing. -/
-theorem anns_mapAnn (h : SemiringWithMonusHom K K')
+private theorem anns_mapAnn (h : SemiringWithMonusHom K K')
     (a : AggValue T K) (i : Fin a.occs.length) :
     (a.mapAnn ⇑h.toRingHom).anns (finCongr (length_mapAnn_occs h a) i)
       = h.toRingHom (a.anns i) := by
@@ -138,7 +155,7 @@ theorem anns_mapAnn (h : SemiringWithMonusHom K K')
 
 omit [ValueType T] [DecidableEq K] [DecidableEq K'] in
 /-- The per-world aggregate value is untouched by the pushforward. -/
-theorem valOn_mapAnn (h : SemiringWithMonusHom K K')
+private theorem valOn_mapAnn (h : SemiringWithMonusHom K K')
     (a : AggValue T K) (W : Finset (Fin a.occs.length)) :
     (a.mapAnn ⇑h.toRingHom).valOn
         (W.map (finCongr (length_mapAnn_occs h a)).toEmbedding)
@@ -180,7 +197,7 @@ theorem predProv_mapAnn (h : SemiringWithMonusHom K K')
 `predProv_mapAnn`, for the reading in which the empty world is a world: the
 sum ranges over every world instead of the non-empty ones, and the argument
 loses its case split. -/
-theorem predProvScalar_mapAnn (h : SemiringWithMonusHom K K')
+private theorem predProvScalar_mapAnn (h : SemiringWithMonusHom K K')
     (a : AggValue T K) (op : CompOp) (c : T) :
     (a.mapAnn ⇑h.toRingHom).predProvScalar op c
       = h.toRingHom (a.predProvScalar op c) := by
@@ -197,7 +214,7 @@ theorem predProvScalar_mapAnn (h : SemiringWithMonusHom K K')
       = fun i => h.toRingHom (a.anns i) from funext (anns_mapAnn h a)]
 
 omit [ValueType T] [DecidableEq K] [DecidableEq K'] in
-theorem chiOf_hom (h : SemiringWithMonusHom K K') (P : T → Kleene) (v : T) :
+private theorem chiOf_hom (h : SemiringWithMonusHom K K') (P : T → Kleene) (v : T) :
     h.toRingHom (Having.chiOf P v : K) = (Having.chiOf P v : K') := by
   unfold Having.chiOf
   split <;> simp
@@ -205,7 +222,7 @@ theorem chiOf_hom (h : SemiringWithMonusHom K K') (P : T → Kleene) (v : T) :
 /-- **Token-level hom commutation for a test.** As `predProv_mapAnn`,
 with an arbitrary three-valued test in place of the comparison: the test
 reads the aggregate values, which the pushforward leaves alone. -/
-theorem predProvWith_mapAnn (h : SemiringWithMonusHom K K')
+private theorem predProvWith_mapAnn (h : SemiringWithMonusHom K K')
     (a : AggValue T K) (P : T → Kleene) :
     (a.mapAnn ⇑h.toRingHom).predProvWith P
       = h.toRingHom (a.predProvWith P) := by
@@ -227,7 +244,7 @@ theorem predProvWith_mapAnn (h : SemiringWithMonusHom K K')
   · rw [ite_eq_right hne, ite_eq_right (by rwa [Finset.map_nonempty])]
 
 /-- The scalar-convention counterpart. -/
-theorem predProvScalarWith_mapAnn (h : SemiringWithMonusHom K K')
+private theorem predProvScalarWith_mapAnn (h : SemiringWithMonusHom K K')
     (a : AggValue T K) (P : T → Kleene) :
     (a.mapAnn ⇑h.toRingHom).predProvScalarWith P
       = h.toRingHom (a.predProvScalarWith P) := by
@@ -245,13 +262,13 @@ theorem predProvScalarWith_mapAnn (h : SemiringWithMonusHom K K')
 
 omit [ValueType T] [DecidableEq K] [DecidableEq K'] in
 /-- The pushforward keeps a token's convention. -/
-@[simp] theorem scalar_mapAnn (h : SemiringWithMonusHom K K') (a : AggValue T K) :
+@[simp] private theorem scalar_mapAnn (h : SemiringWithMonusHom K K') (a : AggValue T K) :
     (a.mapAnn ⇑h.toRingHom).scalar = a.scalar := rfl
 
 /-- **Token-level hom commutation, in the token's own convention.** Whichever
 reading the token carries, the predicate provenance of a comparison against
 it commutes with every `SemiringWithMonusHom`. -/
-theorem predProvOf_mapAnn (h : SemiringWithMonusHom K K')
+private theorem predProvOf_mapAnn (h : SemiringWithMonusHom K K')
     (a : AggValue T K) (op : CompOp) (c : T) :
     (a.mapAnn ⇑h.toRingHom).predProvOf op c
       = h.toRingHom (a.predProvOf op c) := by
@@ -262,7 +279,7 @@ theorem predProvOf_mapAnn (h : SemiringWithMonusHom K K')
   · simpa using predProvScalar_mapAnn h a op c
 
 /-- Whichever convention the token carries. -/
-theorem predProvOfWith_mapAnn (h : SemiringWithMonusHom K K')
+private theorem predProvOfWith_mapAnn (h : SemiringWithMonusHom K K')
     (a : AggValue T K) (P : T → Kleene) :
     (a.mapAnn ⇑h.toRingHom).predProvOfWith P
       = h.toRingHom (a.predProvOfWith P) := by
@@ -286,7 +303,7 @@ is `wcorr_of_rel`'s, from how the two values were built. -/
 namespace NestedValue
 
 omit [DecidableEq K] [DecidableEq K'] in
-theorem predProvWith_of_wcorr [DecidableEq K] [DecidableEq K'] (h : SemiringWithMonusHom K K')
+private theorem predProvWith_of_wcorr [DecidableEq K] [DecidableEq K'] (h : SemiringWithMonusHom K K')
     {b' : NestedValue T K'} {b : NestedValue T K} (hagg : b'.agg = b.agg)
     (hsc : b'.scalar = b.scalar) (hw : WCorr h.toRingHom b' b) (P : T → Kleene) :
     b'.predProvWith P = h.toRingHom (b.predProvWith P) := by
@@ -305,7 +322,7 @@ theorem predProvWith_of_wcorr [DecidableEq K] [DecidableEq K'] (h : SemiringWith
     valOn, valOn, hk, hagg, AggValue.chiOf_hom h P _]
 
 omit [DecidableEq K] [DecidableEq K'] in
-theorem vals_of_wcorr [DecidableEq K] [DecidableEq K'] {f : K →+* K'} {b' : NestedValue T K'}
+private theorem vals_of_wcorr [DecidableEq K] [DecidableEq K'] {f : K →+* K'} {b' : NestedValue T K'}
     {b : NestedValue T K} (hagg : b'.agg = b.agg) (hsc : b'.scalar = b.scalar)
     (hw : WCorr f b' b) : b'.vals = b.vals := by
   obtain ⟨ι, I, φ, φ', h1, h2, hi⟩ := hw
@@ -329,7 +346,7 @@ and on an expression through `AggExpr.predProvWith_mapAnn`. A nested
 value's worlds are keyed by its families, which a pushforward identifying
 two annotations may merge; a nested column is read through its world
 correspondence instead (`NestedValue.predProvWith_of_wcorr`). -/
-theorem predProvOfWith_mapAnn (h : SemiringWithMonusHom K K')
+private theorem predProvOfWith_mapAnn (h : SemiringWithMonusHom K K')
     (x : AggTok T K) (hx : x.isNested = false) (P : T → Kleene) :
     (x.mapAnn ⇑h.toRingHom).predProvOfWith P
       = h.toRingHom (x.predProvOfWith P) := by
@@ -346,7 +363,7 @@ theorem predProvOf_mapAnn (h : SemiringWithMonusHom K K')
   predProvOfWith_mapAnn h x hx _
 
 /-- So is the alternative test. -/
-theorem altProv_mapAnn (h : SemiringWithMonusHom K K')
+private theorem altProv_mapAnn (h : SemiringWithMonusHom K K')
     (x : AggTok T K) (hx : x.isNested = false) (v : T) :
     (x.mapAnn ⇑h.toRingHom).altProv v = h.toRingHom (x.altProv v) :=
   predProvOfWith_mapAnn h x hx _
@@ -358,7 +375,7 @@ end AggTok
 omit [DecidableEq K] [DecidableEq K'] in
 /-- Terms over regular columns are untouched by the pushforward (their
 token reads collapse, and `collapse` is annotation-independent). -/
-theorem TermGIn.eval_mapAnnSum {c n : ℕ} {κ : Fin n → ColKind}
+private theorem TermGIn.eval_mapAnnSum {c n : ℕ} {κ : Fin n → ColKind}
     (h : SemiringWithMonusHom K K') (t : TermGIn T c κ) {γ : Fin c → T}
     (u : Tuple (GenValue T K) n) :
     t.eval (fun k => AggValue.mapAnnSum ⇑h.toRingHom (u k)) γ = t.eval u γ := by
@@ -499,7 +516,7 @@ forward and reading it in the clause's order gives a tie-block
 permutation of reading the pushed-forward group, because the clause reads
 the rows, which the pushforward keeps, and both readings are sorted by
 it. -/
-theorem havingGroupOrd_tiePerm (h : SemiringWithMonusHom K K')
+private theorem havingGroupOrd_tiePerm (h : SemiringWithMonusHom K K')
     (is : Tuple (Fin m) n₁) (ord : GroupOrder T m)
     (r : AnnotatedRelation T K m) (g : Tuple T n₁) :
     TiePerm (fun p q : AnnotatedTuple T K' m => p.fst = q.fst)
@@ -536,7 +553,7 @@ omit [DecidableEq K] in
 /-- The occurrence payloads of the two group tokens – base-side pushed
 forward, and hom-side – differ by a tie-block permutation on equal values:
 occurrences with equal tuple parts have equal aggregated-term values. -/
-theorem ofGroup_mapAnn_tiePerm (h : SemiringWithMonusHom K K')
+private theorem ofGroup_mapAnn_tiePerm (h : SemiringWithMonusHom K K')
     (f : SeqAggFunc T) {c : ℕ} (t : TermIn T c m) {γ : Fin c → T}
     (is : Tuple (Fin m) n₁)
     (r : AnnotatedRelation T K m) (g : Tuple T n₁) :
@@ -562,7 +579,7 @@ theorem ofGroup_mapAnn_tiePerm (h : SemiringWithMonusHom K K')
 
 omit [DecidableEq K] in
 /-- The same, for an aggregation reading its group in a clause's order. -/
-theorem ofGroupOrd_mapAnn_tiePerm (h : SemiringWithMonusHom K K')
+private theorem ofGroupOrd_mapAnn_tiePerm (h : SemiringWithMonusHom K K')
     (f : SeqAggFunc T) {c : ℕ} (t : TermIn T c m) {γ : Fin c → T}
     (is : Tuple (Fin m) n₁) (ord : GroupOrder T m)
     (r : AnnotatedRelation T K m) (g : Tuple T n₁) :
@@ -633,7 +650,7 @@ omit [DecidableEq K] in
 /-- **The group's existence factor does not read the aggregation's
 order**: it is the sum of the occurrences' annotations, and the ordered
 reading is a listing of the same occurrences. -/
-theorem havingGroupOrd_annSum_hom (h : SemiringWithMonusHom K K')
+private theorem havingGroupOrd_annSum_hom (h : SemiringWithMonusHom K K')
     (is : Tuple (Fin m) n₁) (ord : GroupOrder T m)
     (r : AnnotatedRelation T K m) (g : Tuple T n₁) :
     ((Having.havingGroupOrd is ord
@@ -683,7 +700,7 @@ permutation**: the frame is the same rows – `ValueFrame.frameOf_map` – and
 each side sorts them by its own clause, so only the order inside a block
 of equal tuples can differ. This is the step every reading of a window's
 column rests on, whether the column is a token or an expression. -/
-theorem frameListOf_mapAnn_tiePerm (h : SemiringWithMonusHom K K')
+private theorem frameListOf_mapAnn_tiePerm (h : SemiringWithMonusHom K K')
     {n' m' p' : ℕ} (P : Tuple (Fin n') m') (O : Tuple (Fin n') p')
     (o : OrderSpec p') (w : ValueFrame T p')
     (X : Multiset (AnnotatedTuple T K n')) {x : AnnotatedTuple T K n'}
@@ -834,19 +851,19 @@ def GenValue.Equiv : GenValue T K → GenValue T K → Prop
 
 /-- **The equivalence does not read the family** a value is stamped
 with. -/
-theorem GenValue.Equiv.setFam {x' x : AggTok T K}
+private theorem GenValue.Equiv.setFam {x' x : AggTok T K}
     (h : GenValue.Equiv (Sum.inr x') (Sum.inr x)) (φ' φ : FamId T)
     {ids' ids : Option (List (OccId T))} :
     GenValue.Equiv (Sum.inr (x'.setFam φ' ids')) (Sum.inr (x.setFam φ ids)) := by
   cases x' <;> cases x <;> exact h
 
 /-- A regular value is equivalent to no token. -/
-theorem GenValue.Equiv.not_inl_inr {w : T} {x : AggTok T K} :
+private theorem GenValue.Equiv.not_inl_inr {w : T} {x : AggTok T K} :
     ¬ GenValue.Equiv (Sum.inl w) (Sum.inr x) := by
   cases x <;> exact not_false
 
 /-- And a token to no regular value. -/
-theorem GenValue.Equiv.not_inr_inl {w : T} {x : AggTok T K} :
+private theorem GenValue.Equiv.not_inr_inl {w : T} {x : AggTok T K} :
     ¬ GenValue.Equiv (Sum.inr x) (Sum.inl w) := by
   cases x <;> exact not_false
 
@@ -857,7 +874,7 @@ column through its collapse, its convention, its values and its
 predicate provenance, and each of those is equal on the two sides. -/
 
 /-- **Equivalent columns hold the same kind of token.** -/
-theorem GenValue.Equiv.isNested_eq {x' x : AggTok T K}
+private theorem GenValue.Equiv.isNested_eq {x' x : AggTok T K}
     (h : GenValue.Equiv (Sum.inr x') (Sum.inr x)) :
     x'.isNested = x.isNested := by
   cases x' with
@@ -875,7 +892,7 @@ theorem GenValue.Equiv.isNested_eq {x' x : AggTok T K}
     | nest b => exact absurd h not_false
 
 /-- Equivalent columns are read in the same convention. -/
-theorem GenValue.Equiv.scalar_eq {x' x : AggTok T K}
+private theorem GenValue.Equiv.scalar_eq {x' x : AggTok T K}
     (h : GenValue.Equiv (Sum.inr x') (Sum.inr x)) : x'.scalar = x.scalar := by
   cases x' with
   | nest b' =>
@@ -895,7 +912,7 @@ theorem GenValue.Equiv.scalar_eq {x' x : AggTok T K}
     | nest a => exact absurd h not_false
 
 /-- They collapse to the same regular value. -/
-theorem GenValue.Equiv.collapse_eq {x' x : AggTok T K}
+private theorem GenValue.Equiv.collapse_eq {x' x : AggTok T K}
     (h : GenValue.Equiv (Sum.inr x') (Sum.inr x)) :
     x'.collapse = x.collapse := by
   cases x' with
@@ -918,7 +935,7 @@ theorem GenValue.Equiv.collapse_eq {x' x : AggTok T K}
 /-- They take the same values over their worlds, so they read as the same
 key – where they are not nested: a nested column's values are read through
 its world correspondence (`NestedValue.vals_of_wcorr`). -/
-theorem GenValue.Equiv.vals_eq {x' x : AggTok T K}
+private theorem GenValue.Equiv.vals_eq {x' x : AggTok T K}
     (h : GenValue.Equiv (Sum.inr x') (Sum.inr x)) (hx : x.isNested = false) :
     x'.vals = x.vals := by
   cases x' with
@@ -943,7 +960,7 @@ the congruence layer on an ordinary token, the expression's own
 conjunct on an expression. This is what carries the simulation through
 `GenPredIn.predsem`; a nested column is read through its world
 correspondence (`NestedValue.predProvWith_of_wcorr`). -/
-theorem GenValue.Equiv.predProvOfWith_eq {x' x : AggTok T K}
+private theorem GenValue.Equiv.predProvOfWith_eq {x' x : AggTok T K}
     (h : GenValue.Equiv (Sum.inr x') (Sum.inr x)) (hx : x.isNested = false) (P : T → Kleene) :
     x'.predProvOfWith P = x.predProvOfWith P := by
   cases x' with
@@ -964,13 +981,13 @@ theorem GenValue.Equiv.predProvOfWith_eq {x' x : AggTok T K}
     | nest a => exact absurd h not_false
 
 /-- A comparison is one such test. -/
-theorem GenValue.Equiv.predProvOf_eq {x' x : AggTok T K}
+private theorem GenValue.Equiv.predProvOf_eq {x' x : AggTok T K}
     (h : GenValue.Equiv (Sum.inr x') (Sum.inr x)) (hx : x.isNested = false) (op : CompOp)
     (c : T) : x'.predProvOf op c = x.predProvOf op c :=
   h.predProvOfWith_eq hx _
 
 /-- So is the alternative test `[a ≐ v]`. -/
-theorem GenValue.Equiv.altProv_eq {x' x : AggTok T K}
+private theorem GenValue.Equiv.altProv_eq {x' x : AggTok T K}
     (h : GenValue.Equiv (Sum.inr x') (Sum.inr x)) (hx : x.isNested = false) (v : T) :
     x'.altProv v = x.altProv v :=
   h.predProvOfWith_eq hx _
@@ -978,7 +995,7 @@ theorem GenValue.Equiv.altProv_eq {x' x : AggTok T K}
 /-- **Two expression columns over tie-permuted families are
 equivalent**: the four readings `GenValue.Equiv` asks of them are
 exactly `AggExpr.readings_congr`'s bundle. -/
-theorem GenValue.Equiv.of_expr_tiePerm {q : ℕ} {φ₁ φ₂ : FamId T} {os₁ os₂ : List (OccId T)}
+private theorem GenValue.Equiv.of_expr_tiePerm {q : ℕ} {φ₁ φ₂ : FamId T} {os₁ os₂ : List (OccId T)}
     {occs₁ occs₂ : List ((Fin q → T) × K × (Fin q → Bool) × (Fin q → Bool))}
     (aggs : Fin q → SeqAggFunc T) {sc₁ sc₂ : Fin q → Bool} (hsc : sc₁ = sc₂)
     (g : (Fin q → T) → T)
@@ -994,7 +1011,7 @@ theorem GenValue.Equiv.of_expr_tiePerm {q : ℕ} {φ₁ φ₂ : FamId T} {os₁ 
 /-- **Reading an aggregate column through a function preserves the
 equivalence**: a term over one aggregate column moves `g` and leaves
 the family, the convention and the worlds alone. -/
-theorem GenValue.Equiv.postcomp {x' x : AggTok T K} (gf : T → T)
+private theorem GenValue.Equiv.postcomp {x' x : AggTok T K} (gf : T → T)
     (h : GenValue.Equiv (Sum.inr x') (Sum.inr x)) :
     GenValue.Equiv (Sum.inr (x'.postcomp gf) : GenValue T K)
       (Sum.inr (x.postcomp gf)) := by
@@ -1024,7 +1041,7 @@ theorem GenValue.Equiv.postcomp {x' x : AggTok T K} (gf : T → T)
     | nest a => exact absurd h not_false
 
 /-- Equivalent lifted values collapse to the same regular value. -/
-theorem GenValue.Equiv.collapseSum_eq {v' v : GenValue T K}
+private theorem GenValue.Equiv.collapseSum_eq {v' v : GenValue T K}
     (h : GenValue.Equiv v' v) :
     AggValue.collapseSum v' = AggValue.collapseSum v := by
   cases v' with
@@ -1038,7 +1055,7 @@ theorem GenValue.Equiv.collapseSum_eq {v' v : GenValue T K}
     | inr x => exact h.collapse_eq
 
 /-- Terms evaluate equally on pointwise-equivalent tuples. -/
-theorem TermGIn.eval_equiv {c n : ℕ} {κ : Fin n → ColKind} (t : TermGIn T c κ) {γ : Fin c → T}
+private theorem TermGIn.eval_equiv {c n : ℕ} {κ : Fin n → ColKind} (t : TermGIn T c κ) {γ : Fin c → T}
     {u' u : Tuple (GenValue T K) n}
     (hu : ∀ k, GenValue.Equiv (u' k) (u k)) :
     t.eval u' γ = t.eval u γ := by
@@ -1058,7 +1075,7 @@ theorem TermGIn.eval_equiv {c n : ℕ} {κ : Fin n → ColKind} (t : TermGIn T c
 
 /-- The three-valued reading of a predicate is invariant on
 pointwise-equivalent tuples. -/
-theorem GenPredIn.eval3_equiv {c n : ℕ} {κ : Fin n → ColKind}
+private theorem GenPredIn.eval3_equiv {c n : ℕ} {κ : Fin n → ColKind}
     (φ : GenPredIn T c κ) {γ : Fin c → T} {u' u : Tuple (GenValue T K) n}
     (hu : ∀ k, GenValue.Equiv (u' k) (u k)) :
     φ.eval3 u' γ = φ.eval3 u γ := by
@@ -1078,7 +1095,7 @@ theorem GenPredIn.eval3_equiv {c n : ℕ} {κ : Fin n → ColKind}
   | not φ ih => simp only [GenPredIn.eval3, ih]
 
 /-- Truth of a predicate is invariant on pointwise-equivalent tuples. -/
-theorem GenPredIn.holds_equiv {c n : ℕ} {κ : Fin n → ColKind}
+private theorem GenPredIn.holds_equiv {c n : ℕ} {κ : Fin n → ColKind}
     (φ : GenPredIn T c κ) {γ : Fin c → T} {u' u : Tuple (GenValue T K) n}
     (hu : ∀ k, GenValue.Equiv (u' k) (u k)) :
     φ.holds u' γ ↔ φ.holds u γ := by
@@ -1088,7 +1105,7 @@ theorem GenPredIn.holds_equiv {c n : ℕ} {κ : Fin n → ColKind}
 /-- The predicate provenance is invariant on pointwise-equivalent tuples:
 tokens are read only through their predicate provenance
 (`AggValue.predProv_congr`) and their collapse. -/
-theorem GenPredIn.predsem_equiv {c n : ℕ} {κ : Fin n → ColKind}
+private theorem GenPredIn.predsem_equiv {c n : ℕ} {κ : Fin n → ColKind}
     (φ : GenPredIn T c κ) {γ : Fin c → T} (neg : Bool) {u' u : Tuple (GenValue T K) n}
     (hu : ∀ k, GenValue.Equiv (u' k) (u k))
     (hnn : ∀ k x, u k = Sum.inr x → x.isNested = false) :
@@ -1148,7 +1165,7 @@ on a row whose compared families are presented on both sides
 (`FamPres`): the joint worlds correspond (`jointWorlds_of_famPres`), the
 annotations pushed forward, and the predicate reads the same values
 there, the terms reading the regular columns the simulation keeps. -/
-theorem GenPredIn.predsemJ_hom_famPres (h : SemiringWithMonusHom K K') {c n : ℕ}
+private theorem GenPredIn.predsemJ_hom_famPres (h : SemiringWithMonusHom K K') {c n : ℕ}
     {κ : Fin n → ColKind} (φ : GenPredIn T c κ) (neg : Bool) {γ : Fin c → T}
     {u' : Tuple (GenValue T K') n} {u : Tuple (GenValue T K) n}
     (hu : ∀ k, GenValue.Equiv (u' k) (AggValue.mapAnnSum ⇑h.toRingHom (u k)))
@@ -1205,7 +1222,7 @@ omit [DecidableEq K] in
 regular columns, which the simulation keeps, and nothing of the aggregate
 ones – so the relation a window reads of one side is the pushed-forward
 relation it reads of the other. -/
-theorem GenRow.Sim.readAnnotated_eq (h : SemiringWithMonusHom K K') {n : ℕ}
+private theorem GenRow.Sim.readAnnotated_eq (h : SemiringWithMonusHom K K') {n : ℕ}
     (κ : Fin n → ColKind) {r' : GenRow T K' n} {r : GenRow T K n}
     (hs : GenRow.Sim h r' r) :
     GenRow.readAnnotated κ r'
@@ -1244,7 +1261,7 @@ theorem GenAnn.finalize_cash (b : K) (P kept : Multiset (List K))
 omit [DecidableEq K] in
 /-- The product annotation finalizes to the product of the finalized
 annotations. -/
-theorem GenAnn.finalize_prod (b₁ b₂ : K) (P₁ P₂ : Multiset (List K)) :
+private theorem GenAnn.finalize_prod (b₁ b₂ : K) (P₁ P₂ : Multiset (List K)) :
     GenAnn.finalize ⟨b₁ * b₂, P₁ + P₂⟩
       = GenAnn.finalize ⟨b₁, P₁⟩ * GenAnn.finalize ⟨b₂, P₂⟩ := by
   show b₁ * b₂ * _ = b₁ * _ * (b₂ * _)
@@ -1261,7 +1278,7 @@ variable {α β γ δ' : Type}
 
 /-- Mapping a multiset with two functions related pointwise yields related
 multisets. -/
-theorem rel_map_of_forall {R : γ → δ' → Prop} {s : Multiset α}
+private theorem rel_map_of_forall {R : γ → δ' → Prop} {s : Multiset α}
     {f : α → γ} {g : α → δ'} (hfg : ∀ x ∈ s, R (f x) (g x)) :
     Multiset.Rel R (s.map f) (s.map g) :=
   Multiset.rel_map.mpr (Multiset.rel_refl_of_refl_on hfg)
@@ -1270,7 +1287,7 @@ theorem rel_map_of_forall {R : γ → δ' → Prop} {s : Multiset α}
 bijection of indices are related occurrence by occurrence.** This is how
 an operator indexed by its occurrence family is compared across a change
 of annotation semiring, which re-sorts the indexing. -/
-theorem rel_occFam_of_equiv {R : α → β → Prop} {N N' : ℕ}
+private theorem rel_occFam_of_equiv {R : α → β → Prop} {N N' : ℕ}
     (f' : Fin N' → α) (f : Fin N → β) (e : Fin N ≃ Fin N')
     (hR : ∀ i, R (f' (e i)) (f i)) :
     Multiset.Rel R (OccFam.mk N' f').toMultiset (OccFam.mk N f).toMultiset := by
@@ -1279,7 +1296,7 @@ theorem rel_occFam_of_equiv {R : α → β → Prop} {N N' : ℕ}
   exact rel_map_of_forall (fun i _ => hR i)
 
 /-- Push a relation through maps of related multisets. -/
-theorem rel_map_of_rel {R : α → β → Prop} {S : γ → δ' → Prop}
+private theorem rel_map_of_rel {R : α → β → Prop} {S : γ → δ' → Prop}
     {s : Multiset α} {t : Multiset β} {f : α → γ} {g : β → δ'}
     (hst : Multiset.Rel R s t) (hfg : ∀ x y, R x y → S (f x) (g y)) :
     Multiset.Rel S (s.map f) (t.map g) :=
@@ -1287,7 +1304,7 @@ theorem rel_map_of_rel {R : α → β → Prop} {S : γ → δ' → Prop}
 
 /-- Binding related multisets by pointwise-related functions preserves
 the relation. -/
-theorem rel_bind_of_rel {R : α → β → Prop} {S : γ → δ' → Prop}
+private theorem rel_bind_of_rel {R : α → β → Prop} {S : γ → δ' → Prop}
     {s : Multiset α} {t : Multiset β}
     {f : α → Multiset γ} {g : β → Multiset δ'}
     (hst : Multiset.Rel R s t)
@@ -1301,7 +1318,7 @@ theorem rel_bind_of_rel {R : α → β → Prop} {S : γ → δ' → Prop}
 
 /-- Related multisets mapped by pointwise-equal-on-related-pairs functions
 are equal. -/
-theorem map_eq_of_rel {R : α → β → Prop} {s : Multiset α} {t : Multiset β}
+private theorem map_eq_of_rel {R : α → β → Prop} {s : Multiset α} {t : Multiset β}
     {f : α → γ} {g : β → γ} (hst : Multiset.Rel R s t)
     (hfg : ∀ x y, R x y → f x = g y) :
     s.map f = t.map g :=
@@ -1309,7 +1326,7 @@ theorem map_eq_of_rel {R : α → β → Prop} {s : Multiset α} {t : Multiset �
 
 /-- Filtering related multisets by predicates that agree on related pairs
 preserves the relation. -/
-theorem rel_filter_of_iff {R : α → β → Prop} {s : Multiset α}
+private theorem rel_filter_of_iff {R : α → β → Prop} {s : Multiset α}
     {t : Multiset β} {p : α → Prop} {q : β → Prop} [DecidablePred p]
     [DecidablePred q] (hst : Multiset.Rel R s t)
     (hpq : ∀ x y, R x y → (p x ↔ q y)) :
@@ -1328,7 +1345,7 @@ theorem rel_filter_of_iff {R : α → β → Prop} {s : Multiset α}
       exact ih
 
 /-- Products of related multisets are related pairwise. -/
-theorem rel_bind {R : α → β → Prop} {S : γ → δ' → Prop}
+private theorem rel_bind {R : α → β → Prop} {S : γ → δ' → Prop}
     {s : Multiset α} {t : Multiset β} {F : α → Multiset γ}
     {G : β → Multiset δ'} (hst : Multiset.Rel R s t)
     (hFG : ∀ a b, R a b → Multiset.Rel S (F a) (G b)) :
@@ -1341,7 +1358,7 @@ theorem rel_bind {R : α → β → Prop} {S : γ → δ' → Prop}
     rw [Multiset.cons_bind, Multiset.cons_bind]
     exact Multiset.Rel.add (hFG a b hab) ih
 
-theorem rel_product {R : α → β → Prop} {S : γ → δ'  → Prop}
+private theorem rel_product {R : α → β → Prop} {S : γ → δ'  → Prop}
     {s : Multiset α} {t : Multiset β} {s' : Multiset γ} {t' : Multiset δ'}
     (hst : Multiset.Rel R s t) (hst' : Multiset.Rel S s' t') :
     Multiset.Rel (fun (x : α × γ) (y : β × δ') => R x.1 y.1 ∧ S x.2 y.2)
@@ -1376,7 +1393,7 @@ omit [DecidableEq K] in
 /-- **A token read over the frame's distinct values is carried by the
 pushforward too**: the merge commutes with it, and is blind to the
 tie-block permutation the two unmerged tokens differ by. -/
-theorem tokenOfDist_mapAnn_equiv (h : SemiringWithMonusHom K K')
+private theorem tokenOfDist_mapAnn_equiv (h : SemiringWithMonusHom K K')
     {n' m' p' : ℕ} (P : Tuple (Fin n') m') (O : Tuple (Fin n') p')
     (o : OrderSpec p') (w : ValueFrame T p') {c : ℕ} (t : TermIn T c n')
     (γ : Fin c → T) (f : SeqAggFunc T) (dist : Bool)
@@ -1419,7 +1436,7 @@ omit [DecidableEq K] [DecidableEq K'] [HasAltLinearOrder K]
   [HasAltLinearOrder K'] in
 /-- The three-valued reading is invariant under the pushforward of the
 tuple. -/
-theorem GenPredIn.eval3_mapAnnSum {c n : ℕ} {κ : Fin n → ColKind}
+private theorem GenPredIn.eval3_mapAnnSum {c n : ℕ} {κ : Fin n → ColKind}
     (h : SemiringWithMonusHom K K') (φ : GenPredIn T c κ) {γ : Fin c → T}
     (u : Tuple (GenValue T K) n) :
     φ.eval3 (fun k => AggValue.mapAnnSum ⇑h.toRingHom (u k)) γ = φ.eval3 u γ := by
@@ -1441,7 +1458,7 @@ theorem GenPredIn.eval3_mapAnnSum {c n : ℕ} {κ : Fin n → ColKind}
 omit [DecidableEq K] [DecidableEq K'] [HasAltLinearOrder K]
   [HasAltLinearOrder K'] in
 /-- Truth is invariant under the pushforward of the tuple. -/
-theorem GenPredIn.holds_mapAnnSum {c n : ℕ} {κ : Fin n → ColKind}
+private theorem GenPredIn.holds_mapAnnSum {c n : ℕ} {κ : Fin n → ColKind}
     (h : SemiringWithMonusHom K K') (φ : GenPredIn T c κ) {γ : Fin c → T}
     (u : Tuple (GenValue T K) n) :
     φ.holds (fun k => AggValue.mapAnnSum ⇑h.toRingHom (u k)) γ
@@ -1452,7 +1469,7 @@ theorem GenPredIn.holds_mapAnnSum {c n : ℕ} {κ : Fin n → ColKind}
 omit [DecidableEq K] [HasAltLinearOrder K] [HasAltLinearOrder K'] in
 /-- Embedded pushed-forward annotated tuples simulate the embedded
 base-side tuples. -/
-theorem GenRow.sim_ofAnnotated (h : SemiringWithMonusHom K K') {n : ℕ}
+private theorem GenRow.sim_ofAnnotated (h : SemiringWithMonusHom K K') {n : ℕ}
     (p : AnnotatedTuple T K n) :
     GenRow.Sim h
       (GenRow.ofAnnotated (SemiringWithMonusHom.mapAnnotatedTuple h p))
@@ -1466,7 +1483,7 @@ theorem GenRow.sim_ofAnnotated (h : SemiringWithMonusHom K K') {n : ℕ}
 omit [DecidableEq K] [HasAltLinearOrder K] [HasAltLinearOrder K'] in
 /-- Embedding a pushed-forward annotated relation yields rows simulating
 the embedded base-side rows. -/
-theorem rel_ofAnnotated_map (h : SemiringWithMonusHom K K') {n : ℕ}
+private theorem rel_ofAnnotated_map (h : SemiringWithMonusHom K K') {n : ℕ}
     (X : AnnotatedRelation T K n) :
     Multiset.Rel (GenRow.Sim h)
       ((SemiringWithMonusHom.mapAnnotatedRelation h X).map GenRow.ofAnnotated)
@@ -1478,7 +1495,7 @@ theorem rel_ofAnnotated_map (h : SemiringWithMonusHom K K') {n : ℕ}
 omit [HasAltLinearOrder K] [HasAltLinearOrder K'] in
 /-- `groupByKey` commutes with the annotation pushforward: keys are
 data-only and group values are annotation sums. -/
-theorem groupByKey_mapAnnotatedRelation (h : SemiringWithMonusHom K K')
+private theorem groupByKey_mapAnnotatedRelation (h : SemiringWithMonusHom K K')
     {n : ℕ} (X : AnnotatedRelation T K n) :
     (Multiset.ofList
         (groupByKey (SemiringWithMonusHom.mapAnnotatedRelation h X)).val
@@ -1496,7 +1513,7 @@ theorem groupByKey_mapAnnotatedRelation (h : SemiringWithMonusHom K K')
 omit [ValueType T] [DecidableEq K] [DecidableEq K']
   [HasAltLinearOrder K] [HasAltLinearOrder K'] in
 /-- The annotation pushforward is additive on relations. -/
-theorem mapAnnotatedRelation_add (h : SemiringWithMonusHom K K') {n : ℕ}
+private theorem mapAnnotatedRelation_add (h : SemiringWithMonusHom K K') {n : ℕ}
     (x y : AnnotatedRelation T K n) :
     SemiringWithMonusHom.mapAnnotatedRelation h (x + y)
       = SemiringWithMonusHom.mapAnnotatedRelation h x
@@ -1506,7 +1523,7 @@ theorem mapAnnotatedRelation_add (h : SemiringWithMonusHom K K') {n : ℕ}
 omit [HasAltLinearOrder K] [HasAltLinearOrder K'] in
 /-- The annotation pushforward commutes with duplicate elimination – the
 rounds of `MuSet` read through it. -/
-theorem dedupAnn_mapAnnotatedRelation (h : SemiringWithMonusHom K K') {n : ℕ}
+private theorem dedupAnn_mapAnnotatedRelation (h : SemiringWithMonusHom K K') {n : ℕ}
     (X : AnnotatedRelation T K n) :
     SemiringWithMonusHom.mapAnnotatedRelation h (AnnotatedRelation.dedupAnn X)
       = AnnotatedRelation.dedupAnn
@@ -1586,7 +1603,7 @@ equal rows. Under `ContainsSelf` a leaf's flag is its frame's test on
 the tuple and not a test on the index (`ValueFrame.occs_exprOf`), so the
 two families differ by a tie-block permutation and every reading of the
 column survives it. -/
-theorem exprOf_mapAnn_equiv (h : SemiringWithMonusHom K K')
+private theorem exprOf_mapAnn_equiv (h : SemiringWithMonusHom K K')
     {n' m' p' qq : ℕ} (P : Tuple (Fin n') m') (O : Tuple (Fin n') p')
     (o : OrderSpec p') {ws : Fin qq → ValueFrame T p'}
     (hcs : ∀ l, (ws l).ContainsSelf) {c : ℕ} (ts : Fin qq → TermIn T c n')
@@ -1681,7 +1698,7 @@ equal rows. Under `ContainsSelf` a leaf's flag is its frame's test on
 the tuple and not a test on the index (`ValueFrame.occs_exprOf`), so the
 two families differ by a tie-block permutation and every reading of the
 column survives it. -/
-theorem exprOfWhen_mapAnn_equiv (h : SemiringWithMonusHom K K')
+private theorem exprOfWhen_mapAnn_equiv (h : SemiringWithMonusHom K K')
     {n' m' p' qq : ℕ} (P : Tuple (Fin n') m') (O : Tuple (Fin n') p')
     (o : OrderSpec p') {ws : Fin qq → ValueFrame T p'}
     (hcs : ∀ l, (ws l).ContainsSelf) {c : ℕ} (ts : Fin qq → TermIn T c n')
@@ -1782,7 +1799,7 @@ living in the occurrence's own flags, so the tie-block permutation of
 the groups carries straight over – and the two columns are equivalent,
 since the clause and the value both read the tuple part a tie-block
 permutation does not move. -/
-theorem exprGroupWhen_mapAnn_equiv (h : SemiringWithMonusHom K K')
+private theorem exprGroupWhen_mapAnn_equiv (h : SemiringWithMonusHom K K')
     (f : SeqAggFunc T) {c : ℕ} (t : TermIn T c m) {γ : Fin c → T}
     (keep : Tuple T m → Bool) (is : Tuple (Fin m) n₁)
     (r : AnnotatedRelation T K m) (g : Tuple T n₁) :
@@ -1827,7 +1844,7 @@ omit [DecidableEq K] in
 /-- The same for an aggregation that reads its group in a clause's
 order: the two readings are tie-permuted (`havingGroupOrd_tiePerm`), and
 an expression's readings are blind to that. -/
-theorem exprGroupWhenOrd_mapAnn_equiv (h : SemiringWithMonusHom K K')
+private theorem exprGroupWhenOrd_mapAnn_equiv (h : SemiringWithMonusHom K K')
     (f : SeqAggFunc T) {c : ℕ} (t : TermIn T c m) {γ : Fin c → T}
     (keep : Tuple T m → Bool) (is : Tuple (Fin m) n₁)
     (ord : GroupOrder T m) (r : AnnotatedRelation T K m) (g : Tuple T n₁) :
@@ -1875,7 +1892,7 @@ pushforward.** The frame is the same rows up to a tie-block permutation
 values, and the family is built from the rows – so the two columns differ
 by a tie-block permutation of their families, which every reading of an
 expression is blind to. -/
-theorem exprWhenOf_mapAnn_equiv (h : SemiringWithMonusHom K K')
+private theorem exprWhenOf_mapAnn_equiv (h : SemiringWithMonusHom K K')
     {n' m' p' : ℕ} (P : Tuple (Fin n') m') (O : Tuple (Fin n') p')
     (o : OrderSpec p') (w : ValueFrame T p') {c : ℕ} (t : TermIn T c n')
     (γ : Fin c → T) (f : SeqAggFunc T) (dist : Bool)
@@ -1912,7 +1929,7 @@ omit [DecidableEq K] [HasAltLinearOrder K] [HasAltLinearOrder K'] in
 regular values the simulation keeps, a token column is carried as it is,
 and a term over an aggregate column moves the function and leaves the
 family (`GenValue.Equiv.postcomp`). -/
-theorem ProjColIn.equiv_eval_of_sim (h : SemiringWithMonusHom K K')
+private theorem ProjColIn.equiv_eval_of_sim (h : SemiringWithMonusHom K K')
     {cI mI : ℕ} {κ : Fin mI → ColKind} (pc : ProjColIn T cI κ)
     {γ : Fin cI → T} {r' : GenRow T K' mI} {r : GenRow T K mI}
     (hcol : ∀ k, GenValue.Equiv (r'.fst k)
@@ -2006,7 +2023,7 @@ def rowPairs {n : ℕ} (u' : Tuple (GenValue T K') n) (u : Tuple (GenValue T K) 
 omit [CommSemiringWithMonus K] [DecidableEq K] [CommSemiringWithMonus K'] [DecidableEq K']
   [HasAltLinearOrder K] [HasAltLinearOrder K'] in
 omit [ValueType T] in
-theorem rowPairs_append {n₁ n₂ : ℕ} (x' : Tuple (GenValue T K') n₁) (y' : Tuple (GenValue T K') n₂)
+private theorem rowPairs_append {n₁ n₂ : ℕ} (x' : Tuple (GenValue T K') n₁) (y' : Tuple (GenValue T K') n₂)
     (x : Tuple (GenValue T K) n₁) (y : Tuple (GenValue T K) n₂) (p : AggTok T K' × AggTok T K) :
     rowPairs (Fin.append x' y') (Fin.append x y) p ↔ rowPairs x' x p ∨ rowPairs y' y p := by
   constructor
@@ -2030,7 +2047,7 @@ def EvalEnv.HomSim (h : SemiringWithMonusHom K K') (E' : EvalEnv T K') (E : Eval
 
 omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] [HasAltLinearOrder K'] in
 /-- Equivalent values have the same kind. -/
-theorem GenValue.Equiv.kindOf_eq {h : K → K'} {x' : GenValue T K'} {x : GenValue T K}
+private theorem GenValue.Equiv.kindOf_eq {h : K → K'} {x' : GenValue T K'} {x : GenValue T K}
     (hx : GenValue.Equiv x' (AggValue.mapAnnSum h x)) :
     GenValue.kindOf x' = GenValue.kindOf x := by
   cases x' with
@@ -2042,14 +2059,14 @@ theorem GenValue.Equiv.kindOf_eq {h : K → K'} {x' : GenValue T K'} {x : GenVal
     | inr a => rfl
 
 omit [DecidableEq K] [HasAltLinearOrder K] [HasAltLinearOrder K'] in
-theorem EvalEnv.homSim_empty (h : SemiringWithMonusHom K K') {c : ℕ} (γ : Fin c → T) :
+private theorem EvalEnv.homSim_empty (h : SemiringWithMonusHom K K') {c : ℕ} (γ : Fin c → T) :
     ({} : EvalEnv T K').HomSim h ({} : EvalEnv T K) γ := by
   refine ⟨fun k => ?_, fun _ _ => Multiset.Rel.zero⟩
   rw [EvalEnv.empty_ctxAt, EvalEnv.empty_ctxAt]
   exact (rfl : γ k = γ k)
 
 omit [DecidableEq K] [HasAltLinearOrder K] [HasAltLinearOrder K'] in
-theorem EvalEnv.HomSim.assignHole {h : SemiringWithMonusHom K K'} {E' : EvalEnv T K'}
+private theorem EvalEnv.HomSim.assignHole {h : SemiringWithMonusHom K K'} {E' : EvalEnv T K'}
     {E : EvalEnv T K} {c : ℕ} {γ : Fin c → T} (hE : E'.HomSim h E γ) (s : String) {n : ℕ}
     {X' : Multiset (GenRow T K' n)} {X : Multiset (GenRow T K n)}
     (hX : Multiset.Rel (GenRow.Sim h) X' X) :
@@ -2066,7 +2083,7 @@ theorem EvalEnv.HomSim.assignHole {h : SemiringWithMonusHom K K'} {E' : EvalEnv 
 omit [DecidableEq K] [HasAltLinearOrder K] [HasAltLinearOrder K'] in
 /-- **Entering an apply's right side** at two simulating rows keeps the
 environments related. -/
-theorem EvalEnv.HomSim.enter {h : SemiringWithMonusHom K K'} {E' : EvalEnv T K'}
+private theorem EvalEnv.HomSim.enter {h : SemiringWithMonusHom K K'} {E' : EvalEnv T K'}
     {E : EvalEnv T K} {c : ℕ} {γ : Fin c → T} (hE : E'.HomSim h E γ) {n₁ : ℕ}
     {x' : Tuple (GenValue T K') n₁} {x : Tuple (GenValue T K) n₁}
     (hx : ∀ k, GenValue.Equiv (x' k) (AggValue.mapAnnSum ⇑h.toRingHom (x k)))
@@ -2081,7 +2098,7 @@ theorem EvalEnv.HomSim.enter {h : SemiringWithMonusHom K K'} {E' : EvalEnv T K'}
 
 omit [DecidableEq K] [HasAltLinearOrder K] [HasAltLinearOrder K'] in
 /-- The parameter leaf reads simulating rows off related environments. -/
-theorem EvalEnv.HomSim.paramRows {h : SemiringWithMonusHom K K'} {E' : EvalEnv T K'}
+private theorem EvalEnv.HomSim.paramRows {h : SemiringWithMonusHom K K'} {E' : EvalEnv T K'}
     {E : EvalEnv T K} {c : ℕ} {γ : Fin c → T} (hE : E'.HomSim h E γ) {m : ℕ}
     (pv : Fin m → T ⊕ Fin c) (ρ : Fin m → ColKind) :
     Multiset.Rel (GenRow.Sim h) (E'.paramRows γ pv ρ) (E.paramRows γ pv ρ) := by
@@ -2109,7 +2126,7 @@ omit [CommSemiringWithMonus K] [DecidableEq K] [CommSemiringWithMonus K'] [Decid
   [HasAltLinearOrder K] [HasAltLinearOrder K'] in
 omit [ValueType T] in
 /-- An annotated tuple read back holds no aggregate value. -/
-theorem rowPairs_ofAnnotated {n : ℕ} (p' : AnnotatedTuple T K' n) (p : AnnotatedTuple T K n)
+private theorem rowPairs_ofAnnotated {n : ℕ} (p' : AnnotatedTuple T K' n) (p : AnnotatedTuple T K n)
     (q : AggTok T K' × AggTok T K) :
     ¬ rowPairs (GenRow.ofAnnotated p').fst (GenRow.ofAnnotated p).fst q := by
   rintro ⟨k, h1, -⟩
@@ -2118,7 +2135,7 @@ theorem rowPairs_ofAnnotated {n : ℕ} (p' : AnnotatedTuple T K' n) (p : Annotat
 omit [DecidableEq K] [HasAltLinearOrder K] [HasAltLinearOrder K'] in
 /-- An alternative of a row holds an aggregate value only where the row
 does. -/
-theorem GenRow.inr_of_mem_alternativesAt {K₀ : Type} [CommSemiringWithMonus K₀] [DecidableEq K₀]
+private theorem GenRow.inr_of_mem_alternativesAt {K₀ : Type} [CommSemiringWithMonus K₀] [DecidableEq K₀]
     {n : ℕ}
     {r a : GenRow T K₀ n} {k : Fin n} (ha : a ∈ r.alternativesAt k) {j : Fin n} {x : AggTok T K₀}
     (hj : a.fst j = Sum.inr x) : r.fst j = Sum.inr x := by
@@ -2152,7 +2169,7 @@ def groupSpec {c m : ℕ} (f : SeqAggFunc T) (t : TermIn T c m) (γ : Fin c → 
     fun _ => f, fun _ => sc, fun v => v 0⟩
 
 omit [DecidableEq K] [HasAltLinearOrder K] [HasAltLinearOrder K'] in
-theorem flatExpr_groupTok {K₀ : Type} {c m : ℕ} (f : SeqAggFunc T) (t : TermIn T c m)
+private theorem flatExpr_groupTok {K₀ : Type} {c m : ℕ} (f : SeqAggFunc T) (t : TermIn T c m)
     (kp : Option (Selection T m)) (sc : Bool) (U₀ : List (AnnotatedTuple T K₀ m))
     (γ : Fin c → T) (ψ : FamId T) {ids : Option (List (OccId T))} :
     ((groupTok f t kp sc U₀ γ).setFam ψ ids).flatExpr
@@ -2162,7 +2179,7 @@ theorem flatExpr_groupTok {K₀ : Type} {c m : ℕ} (f : SeqAggFunc T) (t : Term
       AggValue.ofGroup, LeafSpec.build, AggExpr.ofSeqWhen, List.map_map]
 
 omit [DecidableEq K] [HasAltLinearOrder K] [HasAltLinearOrder K'] in
-theorem classKey_groupTok {K₀ : Type} [CommSemiringWithMonus K₀] {c m : ℕ} (f : SeqAggFunc T)
+private theorem classKey_groupTok {K₀ : Type} [CommSemiringWithMonus K₀] {c m : ℕ} (f : SeqAggFunc T)
     (t : TermIn T c m) (kp : Option (Selection T m)) (sc : Bool)
     (U₀ : List (AnnotatedTuple T K₀ m)) (γ : Fin c → T) (ψ : FamId T)
     {ids : Option (List (OccId T))} :
@@ -2174,7 +2191,7 @@ theorem classKey_groupTok {K₀ : Type} [CommSemiringWithMonus K₀] {c m : ℕ}
 omit [DecidableEq K] [HasAltLinearOrder K] [HasAltLinearOrder K'] in
 /-- **A token presented by its own occurrences**, from the equivalence
 of the two sides' tokens. -/
-theorem ListingRel.exists_of_tokEquiv (h : SemiringWithMonusHom K K') {a' : AggValue T K'}
+private theorem ListingRel.exists_of_tokEquiv (h : SemiringWithMonusHom K K') {a' : AggValue T K'}
     {a : AggValue T K}
     (he : GenValue.Equiv (Sum.inr (AggTok.tok a') : GenValue T K')
       (Sum.inr (AggTok.tok (a.mapAnn ⇑h.toRingHom))))
@@ -2207,7 +2224,7 @@ theorem ListingRel.exists_of_tokEquiv (h : SemiringWithMonusHom K K') {a' : AggV
 omit [DecidableEq K] [HasAltLinearOrder K] [HasAltLinearOrder K'] [ValueType T] [DecidableEq K'] in
 /-- **An expression presented by its own occurrences**, from a tie-block
 permutation of its family. -/
-theorem ListingRel.exists_of_exprTie (h : SemiringWithMonusHom K K') (e : AggExpr T K)
+private theorem ListingRel.exists_of_exprTie (h : SemiringWithMonusHom K K') (e : AggExpr T K)
     {occs' : List ((Fin e.arity → T) × K' × (Fin e.arity → Bool) × (Fin e.arity → Bool))}
     (htie : TiePerm (fun z z' => z.1 = z'.1 ∧ z.2.2 = z'.2.2) occs'
       (e.occs.map (fun z => (z.1, h.toRingHom z.2.1, z.2.2))))
@@ -2223,7 +2240,7 @@ omit [DecidableEq K] in
 occurrences**: the two sides' families differ by a tie-block permutation
 (`frameListOf_mapAnn_tiePerm`), the clause and the classes reading the
 values. -/
-theorem ListingRel.exists_exprWhenOf (h : SemiringWithMonusHom K K')
+private theorem ListingRel.exists_exprWhenOf (h : SemiringWithMonusHom K K')
     {n' m' p' : ℕ} (P : Tuple (Fin n') m') (O : Tuple (Fin n') p')
     (o : OrderSpec p') (w : ValueFrame T p') {c : ℕ} (t : TermIn T c n')
     (γ : Fin c → T) (f : SeqAggFunc T) (dist : Bool)
@@ -2274,7 +2291,7 @@ theorem ListingRel.exists_exprWhenOf (h : SemiringWithMonusHom K K')
     exact ht
 
 omit [DecidableEq K] in
-theorem ListingRel.exists_exprOfWhen (h : SemiringWithMonusHom K K')
+private theorem ListingRel.exists_exprOfWhen (h : SemiringWithMonusHom K K')
     {n' m' p' qq : ℕ} (P : Tuple (Fin n') m') (O : Tuple (Fin n') p')
     (o : OrderSpec p') {ws : Fin qq → ValueFrame T p'}
     (hcs : ∀ l, (ws l).ContainsSelf) {c : ℕ} (ts : Fin qq → TermIn T c n')
@@ -2472,7 +2489,7 @@ structure HomUniv (𝒰₀ : AggTok T K → Prop) (𝒰₀' : AggTok T K' → Pr
   col : ∀ x, 𝒰₀ x → ∀ w, (x.lab, w) ∈ W → x.fam.col < w
 
 omit [ValueType T] in
-theorem AggTok.classKey_of_flat {K₀ : Type} [CommSemiringWithMonus K₀] (y : AggTok T K₀)
+private theorem AggTok.classKey_of_flat {K₀ : Type} [CommSemiringWithMonus K₀] (y : AggTok T K₀)
     (hy : y.isNested = false) : y.classKey = (y.fam.family, y.annList, none) := by
   cases y with
   | tok a => rfl
@@ -2483,7 +2500,7 @@ omit [DecidableEq K] [HasAltLinearOrder K] [HasAltLinearOrder K'] [DecidableEq K
 /-- The key of an expression read by a nested value of the universes:
 its family's, which the universe determines from the family and the
 number of occurrences. -/
-theorem LGU.key_eq {𝒰₀ : AggTok T K → Prop} {𝒰₀' : AggTok T K' → Prop} {W : List (ℕ × ℕ)}
+private theorem LGU.key_eq {𝒰₀ : AggTok T K → Prop} {𝒰₀' : AggTok T K' → Prop} {W : List (ℕ × ℕ)}
     (hU : HomUniv 𝒰₀ 𝒰₀' W) {e'₁ e'₂ : AggExpr T K'} {e₁ e₂ : AggExpr T K}
     (h₁ : LGU 𝒰₀ 𝒰₀' e'₁ e₁) (h₂ : LGU 𝒰₀ 𝒰₀' e'₂ e₂)
     (hf : (leafKey e₁).1 = (leafKey e₂).1) (hl : (leafKey e₁).2.length = (leafKey e₂).2.length) :
@@ -2567,7 +2584,7 @@ theorem keysFaithful_of_homUniv {h : SemiringWithMonusHom K K'} {𝒰₀ : AggTo
 omit [HasAltLinearOrder K] [HasAltLinearOrder K'] in
 /-- **A nested pair of the universes whose class is presented has
 corresponding worlds.** -/
-theorem wcorr_of_classPres {h : SemiringWithMonusHom K K'} {𝒰₀ : AggTok T K → Prop}
+private theorem wcorr_of_classPres {h : SemiringWithMonusHom K K'} {𝒰₀ : AggTok T K → Prop}
     {𝒰₀' : AggTok T K' → Prop} {W : List (ℕ × ℕ)} (hU : HomUniv 𝒰₀ 𝒰₀' W)
     {b : NestedValue T K} {b' : NestedValue T K'} (hg : GPair 𝒰₀ 𝒰₀' (.nest b', .nest b))
     (hc : ClassPres h 𝒰₀ 𝒰₀' (.nest b)) : NestedValue.WCorr h.toRingHom b' b := by
@@ -2607,7 +2624,7 @@ theorem famPres_of_good {h : SemiringWithMonusHom K K'} {𝒰₀ : AggTok T K �
       exact ⟨_, _, hc, hc', hagg, hsc⟩
 
 omit [DecidableEq K] [HasAltLinearOrder K] [HasAltLinearOrder K'] [DecidableEq K'] in
-theorem ListingRel.Member.postcompTerms {f : K →+* K'} {D : ListingRel f T}
+private theorem ListingRel.Member.postcompTerms {f : K →+* K'} {D : ListingRel f T}
     {y' : AggTok T K'} {y : AggTok T K} (hm : D.Member y' y) :
     ∀ ts, D.Member (y'.postcompTerms ts) (y.postcompTerms ts)
   | [] => hm
@@ -2621,7 +2638,7 @@ theorem ListingRel.Member.postcompTerms {f : K →+* K'} {D : ListingRel f T}
 omit [DecidableEq K] [HasAltLinearOrder K] [HasAltLinearOrder K'] [DecidableEq K'] in
 /-- **A term over two related nested values keeps them related**: it
 moves the outer aggregate and the recorded terms, not the occurrences. -/
-theorem NestRelU.postcompTerm {h : SemiringWithMonusHom K K'} {𝒰₀ : AggTok T K → Prop}
+private theorem NestRelU.postcompTerm {h : SemiringWithMonusHom K K'} {𝒰₀ : AggTok T K → Prop}
     {𝒰₀' : AggTok T K' → Prop} {b' : NestedValue T K'} {b : NestedValue T K}
     (hr : NestRelU h 𝒰₀ 𝒰₀' b' b) (t : TermIn T 1 0)
     (hg : GPair 𝒰₀ 𝒰₀' ((AggTok.nest b').postcompTerm t, (AggTok.nest b).postcompTerm t)) :
@@ -2638,7 +2655,7 @@ theorem NestRelU.postcompTerm {h : SemiringWithMonusHom K K'} {𝒰₀ : AggTok 
     rw [FamId.family_addTerm, FamId.family_addTerm, hfam]
 
 omit [DecidableEq K] [HasAltLinearOrder K] [HasAltLinearOrder K'] [DecidableEq K'] in
-theorem NestRelU.postcompTerms {h : SemiringWithMonusHom K K'} {𝒰₀ : AggTok T K → Prop}
+private theorem NestRelU.postcompTerms {h : SemiringWithMonusHom K K'} {𝒰₀ : AggTok T K → Prop}
     {𝒰₀' : AggTok T K' → Prop} :
     ∀ (ts : List (TermIn T 1 0)) {b' : NestedValue T K'} {b : NestedValue T K},
       NestRelU h 𝒰₀ 𝒰₀' b' b → GPair 𝒰₀ 𝒰₀' (.nest b', .nest b) →
@@ -2660,7 +2677,7 @@ theorem NestRelU.postcompTerms {h : SemiringWithMonusHom K K'} {𝒰₀ : AggTok
     exact NestRelU.postcompTerms ts hr' hg'
 
 omit [ValueType T] in
-theorem FamId.eq_mk_of {φ : FamId T} {l : ℕ} {k : List T} {p : List (T ⊕ FamId T)} {c : ℕ}
+private theorem FamId.eq_mk_of {φ : FamId T} {l : ℕ} {k : List T} {p : List (T ⊕ FamId T)} {c : ℕ}
     {ts : List (TermIn T 1 0)} (hf : φ.family = (l, k, p)) (hc : φ.col = c)
     (ht : φ.terms' = ts) : φ = .mk l k p c ts := by
   cases φ with
@@ -2678,7 +2695,7 @@ recording column `j` – whose pairs one listing presents. Every pair of
 the universes in that class is a term over one of its columns: one
 identifier, one value (`HomUniv.fn`), and the columns its operator builds
 are the row's (`HomUniv.col`). -/
-theorem classPres_row {h : SemiringWithMonusHom K K'} {𝒰₀ : AggTok T K → Prop}
+private theorem classPres_row {h : SemiringWithMonusHom K K'} {𝒰₀ : AggTok T K → Prop}
     {𝒰₀' : AggTok T K' → Prop} {W : List (ℕ × ℕ)} (hU : HomUniv 𝒰₀ 𝒰₀' W)
     {n w : ℕ} (r' : GenRow T K' n) (r : GenRow T K n) (col : Fin w → Fin n) (lab : ℕ)
     (key : List T) (ps : List (T ⊕ FamId T)) (hW : w ≠ 0 → (lab, w) ∈ W)
@@ -2739,7 +2756,7 @@ theorem classPres_row {h : SemiringWithMonusHom K K'} {𝒰₀ : AggTok T K → 
 
 omit [DecidableEq K] [DecidableEq K'] [HasAltLinearOrder K] [HasAltLinearOrder K'] in
 /-- **A presented flat class presents every member of it.** -/
-theorem ClassPres.member {h : SemiringWithMonusHom K K'} {𝒰₀ : AggTok T K → Prop}
+private theorem ClassPres.member {h : SemiringWithMonusHom K K'} {𝒰₀ : AggTok T K → Prop}
     {𝒰₀' : AggTok T K' → Prop} {y : AggTok T K} (hy : y.isNested = false)
     (hc : ClassPres h 𝒰₀ 𝒰₀' y) :
     ∃ D : ListingRel h.toRingHom T, ∀ q, GPair 𝒰₀ 𝒰₀' q → q.2.classKey = y.classKey →
@@ -2760,7 +2777,7 @@ theorem ClassPres.member {h : SemiringWithMonusHom K K'} {𝒰₀ : AggTok T K �
 omit [ValueType T] [DecidableEq K] [DecidableEq K'] [HasAltLinearOrder K] [HasAltLinearOrder K'] in
 /-- Two flat tokens presented by a listing pair carry families of one
 length. -/
-theorem ListingRel.Member.length_annList {f : K →+* K'} {D : ListingRel f T}
+private theorem ListingRel.Member.length_annList {f : K →+* K'} {D : ListingRel f T}
     {y' : AggTok T K'} {y : AggTok T K} (hm : D.Member y' y) :
     y'.annList.length = y.annList.length := by
   obtain ⟨hn, hn', ok, val, hP, hP'⟩ := hm
@@ -2785,7 +2802,7 @@ structure EnvG (h : SemiringWithMonusHom K K') (𝒰₀ : AggTok T K → Prop)
   toks' : ∀ x, E'.Toks γ l x → TermCl 𝒰₀' x
 
 omit [HasAltLinearOrder K] [HasAltLinearOrder K'] [DecidableEq K] in
-theorem EnvG.sub {h : SemiringWithMonusHom K K'} {𝒰₀ : AggTok T K → Prop}
+private theorem EnvG.sub {h : SemiringWithMonusHom K K'} {𝒰₀ : AggTok T K → Prop}
     {𝒰₀' : AggTok T K' → Prop} {c : ℕ} {γ : Fin c → T} {E' : EvalEnv T K'} {E : EvalEnv T K}
     {l l' : List (String × ℕ)} (hJ : EnvG h 𝒰₀ 𝒰₀' γ E' E l) (hl : l' ⊆ l) :
     EnvG h 𝒰₀ 𝒰₀' γ E' E l' :=
@@ -2794,7 +2811,7 @@ theorem EnvG.sub {h : SemiringWithMonusHom K K'} {𝒰₀ : AggTok T K → Prop}
 
 omit [DecidableEq K] [HasAltLinearOrder K] [HasAltLinearOrder K'] in
 /-- **The two sides stamp the same parameters.** -/
-theorem EvalEnv.paramKey_eq_of_envG {h : SemiringWithMonusHom K K'}
+private theorem EvalEnv.paramKey_eq_of_envG {h : SemiringWithMonusHom K K'}
     {𝒰₀ : AggTok T K → Prop} {𝒰₀' : AggTok T K' → Prop} {c : ℕ} {γ : Fin c → T}
     {E' : EvalEnv T K'} {E : EvalEnv T K} {l : List (String × ℕ)} (hE : E'.HomSim h E γ)
     (hJ : EnvG h 𝒰₀ 𝒰₀' γ E' E l) (rd : Fin c → Bool) :
@@ -2819,7 +2836,7 @@ theorem EvalEnv.paramKey_eq_of_envG {h : SemiringWithMonusHom K K'}
 
 /-- **The values of the rows of an evaluation are in the universe**: built
 by the query or provided by the environment, up to terms. -/
-theorem AggQueryIn.rowToks_in {K₀ : Type} [CommSemiringWithMonus K₀] [DecidableEq K₀]
+private theorem AggQueryIn.rowToks_in {K₀ : Type} [CommSemiringWithMonus K₀] [DecidableEq K₀]
     [HasAltLinearOrder K₀] {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)}
     (q : AggQueryIn T c n κ l) (hsc : q.sourceCols) (d : AnnotatedDatabase T K₀)
     (γ : Fin c → T) (E : EvalEnv T K₀) (𝒰₀ : AggTok T K₀ → Prop)
@@ -2830,13 +2847,13 @@ theorem AggQueryIn.rowToks_in {K₀ : Type} [CommSemiringWithMonus K₀] [Decida
 
 omit [DecidableEq K] [HasAltLinearOrder K] [HasAltLinearOrder K'] [DecidableEq K'] in
 /-- A row holding no aggregate value carries nothing. -/
-theorem RowG.of_noPairs {h : SemiringWithMonusHom K K'} {𝒰₀ : AggTok T K → Prop}
+private theorem RowG.of_noPairs {h : SemiringWithMonusHom K K'} {𝒰₀ : AggTok T K → Prop}
     {𝒰₀' : AggTok T K' → Prop} {n : ℕ} {r' : GenRow T K' n} {r : GenRow T K n}
     (hr : ∀ p, ¬ rowPairs r'.fst r.fst p) : RowG h 𝒰₀ 𝒰₀' r' r :=
   fun p hp => absurd hp (hr p)
 
 omit [DecidableEq K] [HasAltLinearOrder K] [HasAltLinearOrder K'] [DecidableEq K'] in
-theorem ClassPres.congr {h : SemiringWithMonusHom K K'} {𝒰₀ : AggTok T K → Prop}
+private theorem ClassPres.congr {h : SemiringWithMonusHom K K'} {𝒰₀ : AggTok T K → Prop}
     {𝒰₀' : AggTok T K' → Prop} {x y : AggTok T K} (hk : x.classKey = y.classKey)
     (hx : ClassPres h 𝒰₀ 𝒰₀' x) : ClassPres h 𝒰₀ 𝒰₀' y := by
   unfold ClassPres at hx ⊢
@@ -2845,7 +2862,7 @@ theorem ClassPres.congr {h : SemiringWithMonusHom K K'} {𝒰₀ : AggTok T K �
 
 omit [DecidableEq K] [HasAltLinearOrder K] [HasAltLinearOrder K'] [DecidableEq K'] in
 /-- **What a row carries survives a term over a value.** -/
-theorem pairG_postcompTerm {h : SemiringWithMonusHom K K'} {𝒰₀ : AggTok T K → Prop}
+private theorem pairG_postcompTerm {h : SemiringWithMonusHom K K'} {𝒰₀ : AggTok T K → Prop}
     {𝒰₀' : AggTok T K' → Prop} {x' : AggTok T K'} {x : AggTok T K} (t : TermIn T 1 0)
     (hp : x'.fam = x.fam ∧ ClassPres h 𝒰₀ 𝒰₀' x) :
     (x'.postcompTerm t).fam = (x.postcompTerm t).fam
@@ -2857,7 +2874,7 @@ omit [DecidableEq K] [DecidableEq K'] [HasAltLinearOrder K] [HasAltLinearOrder K
   [CommSemiringWithMonus K] [CommSemiringWithMonus K'] in
 /-- **A projection column of the source language holds one of its row's
 values, or a term over one**, on both sides alike. -/
-theorem ProjColIn.pair_eval {cI mI : ℕ} {κ : Fin mI → ColKind} (pc : ProjColIn T cI κ)
+private theorem ProjColIn.pair_eval {cI mI : ℕ} {κ : Fin mI → ColKind} (pc : ProjColIn T cI κ)
     (hpc : pc.sourceCol = true) (P : AggTok T K' × AggTok T K → Prop)
     (hP : ∀ x' x t, P (x', x) → P (x'.postcompTerm t, x.postcompTerm t))
     {γ : Fin cI → T} {u' : Tuple (GenValue T K') mI} {u : Tuple (GenValue T K) mI}
@@ -2879,7 +2896,7 @@ theorem ProjColIn.pair_eval {cI mI : ℕ} {κ : Fin mI → ColKind} (pc : ProjCo
 
 omit [DecidableEq K] [HasAltLinearOrder K] [HasAltLinearOrder K'] in
 /-- Annotated tuples read back carry nothing. -/
-theorem rel_ofAnnotated_mapG (h : SemiringWithMonusHom K K') (𝒰₀ : AggTok T K → Prop)
+private theorem rel_ofAnnotated_mapG (h : SemiringWithMonusHom K K') (𝒰₀ : AggTok T K → Prop)
     (𝒰₀' : AggTok T K' → Prop) {n : ℕ} (X : AnnotatedRelation T K n) :
     Multiset.Rel (fun r' r => GenRow.Sim h r' r ∧ RowG h 𝒰₀ 𝒰₀' r' r)
       ((SemiringWithMonusHom.mapAnnotatedRelation h X).map GenRow.ofAnnotated)
@@ -2891,7 +2908,7 @@ theorem rel_ofAnnotated_mapG (h : SemiringWithMonusHom K K') (𝒰₀ : AggTok T
   exact rowPairs_ofAnnotated p' p q hq
 
 omit [DecidableEq K] [HasAltLinearOrder K] [HasAltLinearOrder K'] [DecidableEq K'] in
-theorem RowG.append {h : SemiringWithMonusHom K K'} {𝒰₀ : AggTok T K → Prop}
+private theorem RowG.append {h : SemiringWithMonusHom K K'} {𝒰₀ : AggTok T K → Prop}
     {𝒰₀' : AggTok T K' → Prop} {n₁ n₂ : ℕ} {x' : GenRow T K' n₁} {x : GenRow T K n₁}
     {y' : GenRow T K' n₂} {y : GenRow T K n₂} (hx : RowG h 𝒰₀ 𝒰₀' x' x)
     (hy : RowG h 𝒰₀ 𝒰₀' y' y) (b' : GenAnn K') (b : GenAnn K) :
@@ -2902,7 +2919,7 @@ theorem RowG.append {h : SemiringWithMonusHom K K'} {𝒰₀ : AggTok T K → Pr
 omit [DecidableEq K] [HasAltLinearOrder K] [HasAltLinearOrder K'] [DecidableEq K']
   [CommSemiringWithMonus K] [CommSemiringWithMonus K'] [ValueType T] in
 /-- `muSumFix_rel`, with the step asked only at the rounds themselves. -/
-theorem muSumFix_rel_it {α β : Type} {R : β → α → Prop} {step : Multiset α → Multiset α}
+private theorem muSumFix_rel_it {α β : Type} {R : β → α → Prop} {step : Multiset α → Multiset α}
     {step' : Multiset β → Multiset β} {M : Multiset α} {M' : Multiset β}
     (hM : Multiset.Rel R M' M)
     (hstep : ∀ k : ℕ, Multiset.Rel R (step'^[k] M') (step^[k] M) →
@@ -2950,7 +2967,7 @@ def ColPair (h : SemiringWithMonusHom K K') (𝒰₀ : AggTok T K → Prop) (�
 
 omit [DecidableEq K] [HasAltLinearOrder K] [HasAltLinearOrder K'] [DecidableEq K'] in
 /-- The universes present an empty family by empty listings. -/
-theorem lpU_nil (h : SemiringWithMonusHom K K') (𝒰₀ : AggTok T K → Prop)
+private theorem lpU_nil (h : SemiringWithMonusHom K K') (𝒰₀ : AggTok T K → Prop)
     (𝒰₀' : AggTok T K' → Prop) (φ : ℕ × List T × List (T ⊕ FamId T)) :
     (lpU h 𝒰₀ 𝒰₀' (φ, [])).L = [] ∧ (lpU h 𝒰₀ 𝒰₀' (φ, [])).L' = [] := by
   have hL : (lpU h 𝒰₀ 𝒰₀' (φ, [])).L = [] := by
@@ -2968,7 +2985,7 @@ theorem lpU_nil (h : SemiringWithMonusHom K K') (𝒰₀ : AggTok T K → Prop)
 
 omit [DecidableEq K] [HasAltLinearOrder K] [HasAltLinearOrder K'] [DecidableEq K'] in
 /-- **The universes' listing of a flat class presents its members.** -/
-theorem lpU_member {h : SemiringWithMonusHom K K'} {𝒰₀ : AggTok T K → Prop}
+private theorem lpU_member {h : SemiringWithMonusHom K K'} {𝒰₀ : AggTok T K → Prop}
     {𝒰₀' : AggTok T K' → Prop} {y' : AggTok T K'} {y : AggTok T K} (hy : y.isNested = false)
     (hc : ClassPres h 𝒰₀ 𝒰₀' y) (hg : GPair 𝒰₀ 𝒰₀' (y', y)) :
     (lpU h 𝒰₀ 𝒰₀' (leafKey y.flatExpr)).Member y' y := by
@@ -2998,7 +3015,7 @@ theorem lpU_member {h : SemiringWithMonusHom K K'} {𝒰₀ : AggTok T K → Pro
 omit [DecidableEq K] [HasAltLinearOrder K] [HasAltLinearOrder K'] [DecidableEq K'] in
 /-- **What a non-nested column reads at every storey**, related: the
 expression it is, lifted. -/
-theorem rel_innerAt_flat {h : SemiringWithMonusHom K K'} {𝒰₀ : AggTok T K → Prop}
+private theorem rel_innerAt_flat {h : SemiringWithMonusHom K K'} {𝒰₀ : AggTok T K → Prop}
     {𝒰₀' : AggTok T K' → Prop} {v' : GenValue T K'} {v : GenValue T K}
     (hv : ∀ y, v = Sum.inr y → y.isNested = false)
     (hv' : ∀ y, v' = Sum.inr y → y.isNested = false)
@@ -3023,7 +3040,7 @@ theorem rel_innerAt_flat {h : SemiringWithMonusHom K K'} {𝒰₀ : AggTok T K �
 omit [DecidableEq K] [HasAltLinearOrder K] [HasAltLinearOrder K'] [DecidableEq K'] in
 /-- **What a nested column reads at every storey above its own**,
 related: its node, placed at its storey and lifted. -/
-theorem rel_innerAt_nest {h : SemiringWithMonusHom K K'} {𝒰₀ : AggTok T K → Prop}
+private theorem rel_innerAt_nest {h : SemiringWithMonusHom K K'} {𝒰₀ : AggTok T K → Prop}
     {𝒰₀' : AggTok T K' → Prop} {j : ℕ} {N' : NestNode T K' (NestInner T K' j)}
     {N : NestNode T K (NestInner T K j)}
     (hr : NestInner.Rel h.toRingHom (lpU h 𝒰₀ 𝒰₀') (LGU 𝒰₀ 𝒰₀') (NGU 𝒰₀ 𝒰₀') (j + 1)
@@ -3043,7 +3060,7 @@ theorem rel_innerAt_nest {h : SemiringWithMonusHom K K'} {𝒰₀ : AggTok T K �
 omit [ValueType T] in
 /-- **A regular value read as an expression is presented by an empty
 listing**: it reads nothing, and its one world is the empty one. -/
-theorem presBy_constInner {K₀ ρ β : Type} (w : T) {L : List β} (hL : L = []) (ann : β → K₀)
+private theorem presBy_constInner {K₀ ρ β : Type} (w : T) {L : List β} (hL : L = []) (ann : β → K₀)
     (str : β → ρ) :
     (NestedValue.constInner w : AggExpr T K₀).PresBy L ann str (fun _ => True) (fun _ => w) := by
   subst hL
@@ -3061,7 +3078,7 @@ theorem presBy_constInner {K₀ ρ β : Type} (w : T) {L : List β} (hL : L = []
 omit [DecidableEq K] [HasAltLinearOrder K] [HasAltLinearOrder K'] in
 /-- **Two column values a second-level aggregation reads, at every storey
 with room for them**: related as towers, at the same storey. -/
-theorem ColPair.innerAt {h : SemiringWithMonusHom K K'} {𝒰₀ : AggTok T K → Prop}
+private theorem ColPair.innerAt {h : SemiringWithMonusHom K K'} {𝒰₀ : AggTok T K → Prop}
     {𝒰₀' : AggTok T K' → Prop} {v' : GenValue T K'} {v : GenValue T K}
     (hc : ColPair h 𝒰₀ 𝒰₀' v' v) :
     v'.innerLev = v.innerLev ∧ ∀ D, v.innerLev ≤ D →
@@ -3129,7 +3146,7 @@ omit [DecidableEq K] [HasAltLinearOrder K] [HasAltLinearOrder K'] in
 /-- **Two nested values built over related bags of column values are
 related as towers**, at the storey the bags need – which is one, the
 related values sitting at the same storeys. -/
-theorem nestRelU_nestOfVals {h : SemiringWithMonusHom K K'} {𝒰₀ : AggTok T K → Prop}
+private theorem nestRelU_nestOfVals {h : SemiringWithMonusHom K K'} {𝒰₀ : AggTok T K → Prop}
     {𝒰₀' : AggTok T K' → Prop} (f : Multiset T → T) {φ' φ : FamId T}
     {V' : Multiset (GenValue T K' × K')} {V : Multiset (GenValue T K × K)}
     (hV : Multiset.Rel (fun v' v => ColPair h 𝒰₀ 𝒰₀' v'.1 v.1 ∧ v'.2 = h.toRingHom v.2) V' V)
@@ -3172,7 +3189,7 @@ theorem nestRelU_nestOfVals {h : SemiringWithMonusHom K K'} {𝒰₀ : AggTok T 
 
 omit [DecidableEq K] [HasAltLinearOrder K] [HasAltLinearOrder K'] [DecidableEq K'] in
 /-- **The fresh columns of an operator row carry what a row carries.** -/
-theorem freshG {h : SemiringWithMonusHom K K'} {𝒰₀ : AggTok T K → Prop}
+private theorem freshG {h : SemiringWithMonusHom K K'} {𝒰₀ : AggTok T K → Prop}
     {𝒰₀' : AggTok T K' → Prop} {W : List (ℕ × ℕ)} (hU : HomUniv 𝒰₀ 𝒰₀' W)
     {n w : ℕ} (r' : GenRow T K' n) (r : GenRow T K n) (col : Fin w → Fin n) (lab : ℕ)
     (hW : w ≠ 0 → (lab, w) ∈ W) (key : List T) (ps : List (T ⊕ FamId T))
@@ -3198,7 +3215,7 @@ theorem freshG {h : SemiringWithMonusHom K K'} {𝒰₀ : AggTok T K → Prop}
 omit [DecidableEq K] [HasAltLinearOrder K] [HasAltLinearOrder K'] [DecidableEq K'] in
 /-- **The columns of one group of a grouping are presented by one
 listing.** -/
-theorem ListingRel.group_D (h : SemiringWithMonusHom K K') {c m n₂ : ℕ}
+private theorem ListingRel.group_D (h : SemiringWithMonusHom K K') {c m n₂ : ℕ}
     (fs : Fin n₂ → SeqAggFunc T) (ts : Fin n₂ → TermIn T c m)
     (keep : Fin n₂ → Option (Selection T m)) (sc : Bool) (γ : Fin c → T)
     (U₀ : List (AnnotatedTuple T K m)) (U₀' : List (AnnotatedTuple T K' m))
@@ -3215,7 +3232,7 @@ theorem ListingRel.group_D (h : SemiringWithMonusHom K K') {c m n₂ : ℕ}
 
 omit [DecidableEq K'] [HasAltLinearOrder K'] [CommSemiringWithMonus K'] [DecidableEq K] in
 /-- The column a window adds holds the value it builds. -/
-theorem ValueFrame.windowGenRow_last {c n m p : ℕ} (lab : ℕ) (ck : List (T ⊕ FamId T))
+private theorem ValueFrame.windowGenRow_last {c n m p : ℕ} (lab : ℕ) (ck : List (T ⊕ FamId T))
     (κ : Fin n → ColKind) (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
     (w : ValueFrame T p) (t : TermIn T c n) (f : SeqAggFunc T) (keep : Option (Selection T n))
     (X : AnnotatedRelation T K n) (x : GenRow T K n) (γ : Fin c → T) (dist : Bool) :
@@ -4299,14 +4316,14 @@ theorem AggQueryIn.evaluate_hom_univ (h : SemiringWithMonusHom K K') {𝒰₀ : 
     exact absurd h2 (by simp)
 
 omit [ValueType T] in
-theorem List.snd_eq_of_mem_of_nodup_map {α β : Type} {L : List (α × β)}
+private theorem List.snd_eq_of_mem_of_nodup_map {α β : Type} {L : List (α × β)}
     (hL : (L.map Prod.fst).Nodup) {a : α} {b c : β} (hb : (a, b) ∈ L) (hc : (a, c) ∈ L) :
     b = c := by
   have := List.inj_on_of_nodup_map hL hb hc rfl
   exact (Prod.mk.inj this).2
 
 /-- **The universes of a query evaluated from scratch.** -/
-theorem AggQueryIn.homUniv_of (h : SemiringWithMonusHom K K') {c n : ℕ} {κ : Fin n → ColKind}
+private theorem AggQueryIn.homUniv_of (h : SemiringWithMonusHom K K') {c n : ℕ} {κ : Fin n → ColKind}
     (q : AggQueryIn T c n κ) (hld : q.labelsDistinct) (hrr : q.readsRecorded)
     (hsc : q.sourceCols) (hfc : q.allFramesContainSelf) (d : AnnotatedDatabase T K)
     (γ : Fin c → T) :

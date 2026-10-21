@@ -90,11 +90,11 @@ noncomputable instance instSemiringWithMonus : SemiringWithMonus (Language α) w
   delta_absorb := delta_absorb_indicator deltaInd_isIndicator
 
 /-- `⊕` is idempotent: it is a union. -/
-theorem idempotent_add : idempotent (Language α) := add_self
+private theorem idempotent_add : idempotent (Language α) := add_self
 
 /-- **Concatenation does not commute**: two distinct letters in either
 order are two distinct words. -/
-theorem not_commutative {a b : α} (hab : a ≠ b) :
+private theorem not_commutative {a b : α} (hab : a ≠ b) :
     ({[a]} : Language α) * {[b]} ≠ ({[b]} : Language α) * {[a]} := by
   intro h
   have hmem : [a, b] ∈ ({[a]} : Language α) * {[b]} :=
@@ -107,7 +107,7 @@ theorem not_commutative {a b : α} (hab : a ≠ b) :
 
 /-- **Not absorptive**: `𝟙 ⊕ a ≠ 𝟙` as soon as `a` holds a non-empty
 word – a longer derivation is not dropped next to a shorter one. -/
-theorem not_absorptive {a : α} : (1 : Language α) + {[a]} ≠ 1 := by
+private theorem not_absorptive {a : α} : (1 : Language α) + {[a]} ≠ 1 := by
   intro h
   have hmem : [a] ∈ (1 : Language α) + {[a]} := (mem_add _ _ _).mpr (Or.inr rfl)
   rw [h, mem_one] at hmem
@@ -116,7 +116,7 @@ theorem not_absorptive {a : α} : (1 : Language α) + {[a]} ≠ 1 := by
 /-- **Not exclusive**: `𝟙 ⊖ a` is `{ε}` whenever `a` has no empty word,
 and then `a ⊗ (𝟙 ⊖ a) = a ≠ 𝟘`. (`sr_regex` claims no exclusivity; the
 fact is recorded because the catalog counts its exclusive entries.) -/
-theorem not_exclusive {a : α} :
+private theorem not_exclusive {a : α} :
     ({[a]} : Language α) * (1 - {[a]}) ≠ 0 := by
   intro h
   have hmem : [a] ∈ ({[a]} : Language α) * (1 - {[a]}) := by
@@ -129,7 +129,7 @@ theorem not_exclusive {a : α} :
 
 /-- **Complemented**: `𝟙 ⊖ (a ⊕ b) = (𝟙 ⊖ a) ⊗ (𝟙 ⊖ b)`, both sides being
 `{ε}` exactly when neither language has the empty word. -/
-theorem complemented_of : complemented (Language α) := by
+private theorem complemented_of : complemented (Language α) := by
   intro a b
   ext x
   constructor
@@ -157,7 +157,7 @@ theorem complemented_of : complemented (Language α) := by
 /-! ## The star identities ProvSQL's simplifier applies -/
 
 /-- `∅∗ = ε`. -/
-theorem kstar_zero : KStar.kstar (0 : Language α) = 1 := by
+private theorem kstar_zero : KStar.kstar (0 : Language α) = 1 := by
   ext x
   rw [mem_kstar, mem_one]
   constructor
@@ -169,7 +169,7 @@ theorem kstar_zero : KStar.kstar (0 : Language α) = 1 := by
     exact ⟨[], rfl, fun y hy => (List.not_mem_nil hy).elim⟩
 
 /-- `ε∗ = ε`. -/
-theorem kstar_one : KStar.kstar (1 : Language α) = 1 := by
+private theorem kstar_one : KStar.kstar (1 : Language α) = 1 := by
   ext x
   rw [mem_kstar, mem_one]
   constructor
@@ -179,7 +179,7 @@ theorem kstar_one : KStar.kstar (1 : Language α) = 1 := by
     exact ⟨[], rfl, fun y hy => (List.not_mem_nil hy).elim⟩
 
 /-- `(ε ∪ a)∗ = a∗`: the empty word is in every star already. -/
-theorem kstar_one_add (a : Language α) : KStar.kstar (1 + a) = KStar.kstar a := by
+private theorem kstar_one_add (a : Language α) : KStar.kstar (1 + a) = KStar.kstar a := by
   ext x
   rw [mem_kstar, mem_kstar]
   constructor
@@ -194,7 +194,7 @@ theorem kstar_one_add (a : Language α) : KStar.kstar (1 + a) = KStar.kstar a :=
     exact ⟨L, rfl, fun y hy => (mem_add _ _ _).mpr (Or.inr (hL y hy))⟩
 
 /-- `KStar.kstar (KStar.kstar a) = KStar.kstar a`. -/
-theorem kstar_kstar (a : Language α) : KStar.kstar (KStar.kstar a) = KStar.kstar a := by
+private theorem kstar_kstar (a : Language α) : KStar.kstar (KStar.kstar a) = KStar.kstar a := by
   ext x
   constructor
   · intro hx

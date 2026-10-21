@@ -8,6 +8,7 @@ public import Provenance.QueryAdequacy
 public import Provenance.Semirings.Nat
 public import Provenance.AggQuery
 import Mathlib.Tactic.Bound.Init
+import all Provenance.AggQuery
 
 /-!
 # Second-level aggregation, both ways
@@ -106,7 +107,7 @@ abbrev outer : AggQuery ℕ 1 (fun _ => ColKind.agg) :=
 
 **The inner grouping, plainly**: one row per group with its count, `(1,2)`
 and `(2,1)`. -/
-theorem inner_plain :
+private theorem inner_plain :
     (inner.evaluatePlain D).map (fun u => (u 0, u 1))
       = (([(1, 2), (2, 1)] : List (ℕ × ℕ)) : Multiset _) := by
   decide
@@ -114,7 +115,7 @@ theorem inner_plain :
 /-! **The outer aggregation, plainly**: `2 + 1 = 3`, which is SQL's
 `sum(count(*))`. Over a plain relation an aggregate value is a value and
 `Explode` is the identity, so the alternatives cost nothing here. -/
-theorem outer_plain :
+private theorem outer_plain :
     (outer.evaluatePlain D).map (fun u => u 0)
       = (([3] : List ℕ) : Multiset ℕ) := by
   simp only [AggQueryIn.evaluatePlain, AggQueryIn.evaluatePlain_castKind]
@@ -124,7 +125,7 @@ theorem outer_plain :
 count can take, each carrying the group's annotation times `[c ≐ v]`. With
 every input row annotated `1` over `ℕ`, the group of `1`'s has a count of
 `2` and the group of `2` a count of `1`. -/
-theorem explode_annotated :
+private theorem explode_annotated :
     ((AggQueryIn.Explode 1 inner_kind inner).evaluateAnnotated dN).map
         (fun p => ((p.fst 0, p.fst 1), p.snd))
       = ((([((1, 1), 0), ((1, 2), 1), ((2, 1), 1)] : List ((ℕ × ℕ) × ℕ)))
@@ -145,7 +146,7 @@ world's. That is why equality up to `𝟘` removes the occurrences annotated
 column read as a key gives one row per value the column takes in *some*
 world, so the data part of the annotated evaluation is not the data part
 of any one world. -/
-theorem outer_token_occs :
+private theorem outer_token_occs :
     (outer.evaluate dN).map (fun r =>
         match r.fst 0 with
         | Sum.inr (AggTok.tok a) => a.occs
@@ -172,7 +173,7 @@ abbrev outerNest : AggQuery ℕ (0 + 1)
 
 /-! **Plainly it is SQL's answer**: `2 + 1 = 3`, the same as through the
 alternatives, an aggregate value being a value over a plain relation. -/
-theorem outerNest_plain :
+private theorem outerNest_plain :
     (outerNest.evaluatePlain D).map (fun u => u 0)
       = (([3] : List ℕ) : Multiset ℕ) := by
   decide
@@ -180,7 +181,7 @@ theorem outerNest_plain :
 /-! **The occurrences of its token, annotated**: the inner grouping's two
 rows, each as `(the collapse of the inner value, the row's
 annotation)` – the counts `2` and `1`, each annotated `1`. -/
-theorem outerNest_occs :
+private theorem outerNest_occs :
     (outerNest.evaluate dN).map (fun r =>
         match r.fst 0 with
         | Sum.inr (AggTok.nest a) =>
@@ -194,7 +195,7 @@ theorem outerNest_occs :
 alternatives' token collapses to. Nothing is read twice here: the nested
 token keeps one row and reads it world by world, where `Explode` explodes the
 row into one per value its column takes. -/
-theorem outerNest_collapse :
+private theorem outerNest_collapse :
     (outerNest.evaluate dN).map (fun r =>
         match r.fst 0 with
         | Sum.inr x => x.collapse
@@ -209,7 +210,7 @@ grouped – and, of each it keeps, some of that group's rows, at least one
 row of it), `2` (both groups with one row each, or the first group's two
 rows) and `3` (everything). `0` is not among them: that would be the
 empty world, which a grouped reading does not have. -/
-theorem outerNest_vals :
+private theorem outerNest_vals :
     (outerNest.evaluate dN).map (fun r =>
         match r.fst 0 with
         | Sum.inr (AggTok.nest a) => a.vals

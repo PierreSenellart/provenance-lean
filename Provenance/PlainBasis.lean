@@ -12,6 +12,16 @@ import Mathlib.Algebra.Group.Action.Defs
 import Mathlib.Algebra.Order.BigOperators.Group.Multiset
 import Mathlib.Data.Fintype.BigOperators
 import Mathlib.Tactic.Ring.RingNF
+import all Provenance.AggQuery
+import all Provenance.AggQuerySubst
+import all Provenance.Database
+import all Provenance.Derived
+import all Provenance.Frame
+import all Provenance.Occurrence
+import all Provenance.OrderSpec
+import all Provenance.Util.Kleene
+import all Provenance.Util.ValueType
+import all Provenance.Util.ValueTypeNull
 
 /-!
 # The plain basis: which operators a query cannot do without
@@ -120,7 +130,7 @@ def AggQueryIn.usesOnly (S : Set OpKind) : {c n : ℕ} → {κ : Fin n → ColKi
 omit [ValueType T] in
 /-- Transporting a query along an equality of kind vectors changes no
 operator, so it changes nothing `usesOnly` sees. -/
-@[simp] theorem AggQueryIn.usesOnly_castKind {c n : ℕ}
+@[simp] private theorem AggQueryIn.usesOnly_castKind {c n : ℕ}
     {κ κ' : Fin n → ColKind} {l : List (String × ℕ)} (h : κ = κ') (q : AggQueryIn T c n κ l)
     (S : Set OpKind) : (q.castKind h).usesOnly S ↔ q.usesOnly S := by
   cases h
@@ -130,7 +140,7 @@ omit [ValueType T] in
 /-- **Substituting the outer columns changes no operator**, so it changes
 nothing `usesOnly` sees. This is what carries the classification through
 the apply, whose right side is read under a substitution. -/
-theorem AggQueryIn.usesOnly_substMap {S : Set OpKind} :
+private theorem AggQueryIn.usesOnly_substMap {S : Set OpKind} :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l) {d : ℕ}
       (θ : Fin c → T ⊕ Fin d), (q.substMap θ).usesOnly S ↔ q.usesOnly S := by
   intro c n κ l q
@@ -179,7 +189,7 @@ theorem AggQueryIn.usesOnly_substMap {S : Set OpKind} :
 omit [ValueType T] in
 /-- Carrying an input column through is a column the source language
 writes. -/
-@[simp] theorem AggQueryIn.sourceCol_carryCol {n : ℕ} (κ : Fin n → ColKind)
+@[simp] private theorem AggQueryIn.sourceCol_carryCol {n : ℕ} (κ : Fin n → ColKind)
     (k : Fin n) : (AggQueryIn.carryCol (T := T) κ k).sourceCol = true := by
   unfold AggQueryIn.carryCol
   split <;> rfl
@@ -189,7 +199,7 @@ writes. -/
 omit [ValueType T] in
 /-- **The classification is monotone in the class set**: a query using
 only the classes of `S` uses only those of any larger set. -/
-theorem AggQueryIn.usesOnly_mono {S S' : Set OpKind} (hSS : S ⊆ S') :
+private theorem AggQueryIn.usesOnly_mono {S S' : Set OpKind} (hSS : S ⊆ S') :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l),
       q.usesOnly S → q.usesOnly S' := by
   intro c n κ l q
@@ -233,7 +243,7 @@ def Database.allEmpty (D : Database T) : Prop :=
 
 omit [ValueType T] in
 /-- The empty list of relations is such an instance. -/
-theorem Database.allEmpty_nil : Database.allEmpty ([] : Database T) := by
+private theorem Database.allEmpty_nil : Database.allEmpty ([] : Database T) := by
   intro k s r h
   have hnone : (none : Option (Relation T k)) = some r := h
   exact (Option.some_ne_none r hnone.symm).elim
@@ -266,10 +276,10 @@ instance : CoeFun Schema (fun _ => String → Option ℕ) := ⟨Schema.decl⟩
 /-- The schema declaring nothing. -/
 def Schema.empty : Schema := ⟨fun _ => none, by simp⟩
 
-@[simp] theorem Schema.empty_apply (s : String) : Schema.empty s = none := rfl
+@[simp] private theorem Schema.empty_apply (s : String) : Schema.empty s = none := rfl
 
 /-- Two schemas declaring the same arities are equal. -/
-@[ext] theorem Schema.ext {sch₁ sch₂ : Schema} (h : ∀ s, sch₁ s = sch₂ s) : sch₁ = sch₂ := by
+@[ext] private theorem Schema.ext {sch₁ sch₂ : Schema} (h : ∀ s, sch₁ s = sch₂ s) : sch₁ = sch₂ := by
   obtain ⟨d₁, f₁⟩ := sch₁
   obtain ⟨d₂, f₂⟩ := sch₂
   have hd : d₁ = d₂ := funext h
@@ -290,7 +300,7 @@ theorem Schema.update_finite (sch : Schema) (s : String) (k : ℕ) :
 def Schema.update (sch : Schema) (s : String) (k : ℕ) : Schema :=
   ⟨fun s' => if s' = s then some k else sch s', Schema.update_finite sch s k⟩
 
-@[simp] theorem Schema.update_apply (sch : Schema) (s : String) (k : ℕ) (s' : String) :
+@[simp] private theorem Schema.update_apply (sch : Schema) (s : String) (k : ℕ) (s' : String) :
     sch.update s k s' = if s' = s then some k else sch s' := rfl
 
 /-- A schema declaring the names of a list, each with an arity. -/
@@ -298,7 +308,7 @@ def Schema.ofFn (f : String → Option ℕ) (N : Finset String) (h : ∀ s, f s 
     Schema :=
   ⟨f, N.finite_toSet.subset (fun s hs => h s hs)⟩
 
-@[simp] theorem Schema.ofFn_apply (f : String → Option ℕ) (N : Finset String)
+@[simp] private theorem Schema.ofFn_apply (f : String → Option ℕ) (N : Finset String)
     (h : ∀ s, f s ≠ none → s ∈ N) (s : String) : Schema.ofFn f N h s = f s := rfl
 
 /-- **The name `s` does not occur in the query.** -/
@@ -329,14 +339,14 @@ def AggQueryIn.noMention (s : String) : {c n : ℕ} → {κ : Fin n → ColKind}
   | _, _, _, _, .WinExpr _ _ _ _ _ _ _ q _ => q.noMention s
 
 omit [ValueType T] in
-@[simp] theorem AggQueryIn.noMention_castKind {s : String} {c n : ℕ} {κ κ' : Fin n → ColKind}
+@[simp] private theorem AggQueryIn.noMention_castKind {s : String} {c n : ℕ} {κ κ' : Fin n → ColKind}
     {l : List (String × ℕ)} (h : κ = κ') (q : AggQueryIn T c n κ l) :
     (q.castKind h).noMention s ↔ q.noMention s := by
   cases h; exact Iff.rfl
 
 omit [ValueType T] in
 /-- Substituting the context does not change what is mentioned. -/
-theorem AggQueryIn.noMention_substMap {s : String} :
+private theorem AggQueryIn.noMention_substMap {s : String} :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l) {d : ℕ}
       (θ : Fin c → T ⊕ Fin d), (q.substMap θ).noMention s ↔ q.noMention s := by
   intro c n κ l q
@@ -411,7 +421,7 @@ def Database.Conforms (sch : Schema) (D : Database T) : Prop :=
 omit [ValueType T] in
 /-- Transporting along an equality of kind vectors names the same
 relations. -/
-@[simp] theorem AggQueryIn.overSchema_castKind {sch : Schema} {c n : ℕ}
+@[simp] private theorem AggQueryIn.overSchema_castKind {sch : Schema} {c n : ℕ}
     {κ κ' : Fin n → ColKind} {l : List (String × ℕ)} (h : κ = κ') (q : AggQueryIn T c n κ l) :
     (q.castKind h).overSchema sch ↔ q.overSchema sch := by
   cases h
@@ -427,7 +437,7 @@ def AggQueryIn.PlainEquivOn (sch : Schema) {c n : ℕ}
   ∀ D : Database T, Database.Conforms sch D → ∀ γ : Fin c → T,
     q.evaluatePlain D γ = q'.evaluatePlain D γ
 
-theorem AggQueryIn.PlainEquivOn_of_PlainEquiv {sch : Schema} {c n : ℕ}
+private theorem AggQueryIn.PlainEquivOn_of_PlainEquiv {sch : Schema} {c n : ℕ}
     {κ κ' : Fin n → ColKind} {q : AggQueryIn T c n κ}
     {q' : AggQueryIn T c n κ'} (h : q.PlainEquiv q') :
     q.PlainEquivOn sch q' := fun D _ γ => h D γ
@@ -437,7 +447,7 @@ omit [ValueType T] in
 the `Rel` clause is unreachable for a well-formed query on a conforming
 instance, and nothing in a statement about them reads an absent name as
 empty. -/
-theorem AggQueryIn.exists_find_of_overSchema {sch : Schema} {D : Database T}
+private theorem AggQueryIn.exists_find_of_overSchema {sch : Schema} {D : Database T}
     (hD : Database.Conforms sch D) {c n : ℕ} {s : String}
     (h : (AggQueryIn.Rel (T := T) (c := c) n s).overSchema sch) :
     ∃ r : Relation T n, D.find n s = some r :=
@@ -450,7 +460,7 @@ round, and `Database.assign` is a cons – so the name is found at the
 front. Under well-formedness the bound name is fresh, which is what makes
 that shadowing invisible: the schema declares it only in the extended
 schema the body is read in. -/
-theorem Database.Conforms.assign {sch : Schema} {D : Database T}
+private theorem Database.Conforms.assign {sch : Schema} {D : Database T}
     (hD : Database.Conforms sch D) (s : String) {k : ℕ}
     (X : Relation T k) :
     Database.Conforms (sch.update s k) (D.assign s X) := by
@@ -469,7 +479,7 @@ omit [ValueType T] in
 omit [ValueType T] in
 /-- **Substituting the outer columns names the same relations**: it
 changes no leaf. -/
-theorem AggQueryIn.overSchema_substMap :
+private theorem AggQueryIn.overSchema_substMap :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l) {d : ℕ}
       (θ : Fin c → T ⊕ Fin d) (sch : Schema),
       (q.substMap θ).overSchema sch ↔ q.overSchema sch := by
@@ -703,7 +713,7 @@ def AggQueryIn.inMinimalSig {c n : ℕ} {κ : Fin n → ColKind} {l : List (Stri
     (cnt : SeqAggFunc T) (q : AggQueryIn T c n κ l) : Prop :=
   q.inSig {cnt}
 
-@[simp] theorem AggQueryIn.inSig_castKind {c n : ℕ}
+@[simp] private theorem AggQueryIn.inSig_castKind {c n : ℕ}
     {κ κ' : Fin n → ColKind} {l : List (String × ℕ)} (h : κ = κ') (q : AggQueryIn T c n κ l)
     (Θ : Set (SeqAggFunc T)) : (q.castKind h).inSig Θ ↔ q.inSig Θ := by
   cases h
@@ -712,13 +722,13 @@ def AggQueryIn.inMinimalSig {c n : ℕ} {κ : Fin n → ColKind} {l : List (Stri
 /-! ## Counting rows: two facts the invariants run on -/
 
 /-- The length of a family's canonical indexing is the relation's size. -/
-theorem OccFam.size_ofSorted {α : Type} [LinearOrder α] (s : Multiset α) :
+private theorem OccFam.size_ofSorted {α : Type} [LinearOrder α] (s : Multiset α) :
     (OccFam.ofSorted s).size = Multiset.card s := by
   rw [← OccFam.card_toMultiset, OccFam.toMultiset_ofSorted]
 
 omit [ValueType T] in
 /-- **The size of a join**: the product of the two sizes. -/
-theorem Relation.card_hMul {n m : ℕ} (r₁ : Relation T n) (r₂ : Relation T m) :
+private theorem Relation.card_hMul {n m : ℕ} (r₁ : Relation T n) (r₂ : Relation T m) :
     Multiset.card (r₁ * r₂) = Multiset.card r₁ * Multiset.card r₂ := by
   show Multiset.card (Multiset.map
     (fun p : Tuple T n × Tuple T m => Fin.append p.1 p.2)
@@ -728,13 +738,13 @@ theorem Relation.card_hMul {n m : ℕ} (r₁ : Relation T n) (r₂ : Relation T 
 
 omit [ValueType T] in
 /-- **The size of a union**: the sum of the two sizes. -/
-theorem Relation.card_add {n : ℕ} (r₁ r₂ : Relation T n) :
+private theorem Relation.card_add {n : ℕ} (r₁ r₂ : Relation T n) :
     Multiset.card (r₁ + r₂) = Multiset.card r₁ + Multiset.card r₂ :=
   Multiset.card_add r₁ r₂
 
 omit [ValueType T] in
 /-- Filtering and deduplicating only remove rows. -/
-theorem Multiset.card_dedup_le {α : Type} [DecidableEq α] (s : Multiset α) :
+private theorem Multiset.card_dedup_le {α : Type} [DecidableEq α] (s : Multiset α) :
     Multiset.card s.dedup ≤ Multiset.card s :=
   Multiset.card_le_card (Multiset.dedup_le s)
 
@@ -846,7 +856,7 @@ theorem AggQueryIn.card_le_one_of_thin {S : Set OpKind}
 /-- **And a union of two constant rows breaks it**: `{u} ⊎ {u}` holds two
 rows on every instance, thin ones included. So no generating set omits
 `⊎`. -/
-theorem AggQueryIn.card_values_two {k : ℕ} (u : Tuple T k) (D : Database T)
+private theorem AggQueryIn.card_values_two {k : ℕ} (u : Tuple T k) (D : Database T)
     (γ : Fin 0 → T) :
     Multiset.card ((AggQueryIn.values [u, u] (by simp)).evaluatePlain D γ)
       = 2 := by
@@ -899,7 +909,7 @@ def AggQueryIn.leaves : {c n : ℕ} → {κ : Fin n → ColKind} → {l : List
 omit [ValueType T] in
 /-- A leaf of a query carrying a name the query does not mention is one of
 its holes. -/
-theorem AggQueryIn.mem_index_of_mem_leaves {t : String} :
+private theorem AggQueryIn.mem_index_of_mem_leaves {t : String} :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l),
       q.noMention t → ∀ p ∈ q.leaves, p.2 = t → (p.2, p.1) ∈ l := by
   intro c n κ l q
@@ -958,12 +968,12 @@ theorem AggQueryIn.mem_index_of_mem_leaves {t : String} :
 
 omit [ValueType T] in
 /-- A leaf of a closed query not mentioning a name does not carry it. -/
-theorem AggQueryIn.ne_of_noMention_of_mem_leaves {t : String} {c n : ℕ} {κ : Fin n → ColKind}
+private theorem AggQueryIn.ne_of_noMention_of_mem_leaves {t : String} {c n : ℕ} {κ : Fin n → ColKind}
     (q : AggQueryIn T c n κ) (h : q.noMention t) : ∀ p ∈ q.leaves, p.2 ≠ t :=
   fun p hp hpt => absurd (AggQueryIn.mem_index_of_mem_leaves q h p hp hpt) List.not_mem_nil
 
 /-- **A query reads an instance only through `Database.find`.** -/
-theorem AggQueryIn.evaluatePlain_congr_find :
+private theorem AggQueryIn.evaluatePlain_congr_find :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l)
       {D D' : Database T},
       (∀ (k : ℕ) (s : String), D.find k s = D'.find k s) → ∀ γ : Fin c → T,
@@ -1050,7 +1060,7 @@ abbrev Database.AgreeOff (s : String) (l : List (String × ℕ)) (D D' : Databas
   ∀ (k : ℕ) (t : String), t ≠ s ∨ (t, k) ∈ l → D.find k t = D'.find k t
 
 omit [ValueType T] in
-theorem Database.AgreeOff.mono {s : String} {l l' : List (String × ℕ)} {D D' : Database T}
+private theorem Database.AgreeOff.mono {s : String} {l l' : List (String × ℕ)} {D D' : Database T}
     (hl : ∀ p ∈ l', p ∈ l) (h : Database.AgreeOff s l D D') : Database.AgreeOff s l' D D' :=
   fun k t ht => h k t (ht.imp_right (hl _))
 
@@ -1058,7 +1068,7 @@ omit [ValueType T] in
 /-- Binding a round for the name a term's hole carries keeps two
 instances agreeing: away from `s`, and at the hole, which both read as
 the round. -/
-theorem Database.AgreeOff.assign {s : String} {D D' : Database T} (s' : String) {m : ℕ}
+private theorem Database.AgreeOff.assign {s : String} {D D' : Database T} (s' : String) {m : ℕ}
     (Y : Relation T m) (h : Database.AgreeOff s [] D D') :
     Database.AgreeOff s [(s', m)] (D.assign s' Y) (D'.assign s' Y) := by
   intro k t ht
@@ -1078,7 +1088,7 @@ instances agreeing away from `s` give it the same answer. With
 needs – a count inside the body of a recursion that does not read the
 recursive relation is a count over the instance the recursion started
 from. -/
-theorem AggQueryIn.evaluatePlain_congr_of_noMention {s : String} :
+private theorem AggQueryIn.evaluatePlain_congr_of_noMention {s : String} :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l),
       q.noMention s → ∀ {D D' : Database T}, Database.AgreeOff s l D D' →
       ∀ γ : Fin c → T, q.evaluatePlain D γ = q.evaluatePlain D' γ := by
@@ -1227,7 +1237,7 @@ def AggQueryIn.recGuarded (s : String) : {c n : ℕ} →
 omit [ValueType T] in
 /-- A query that never names the recursive relation satisfies the
 restriction. -/
-theorem AggQueryIn.recGuarded_of_noMention {s : String} :
+private theorem AggQueryIn.recGuarded_of_noMention {s : String} :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l),
       q.noMention s → q.recGuarded s := by
   intro c n κ l q
@@ -1317,7 +1327,7 @@ def AggQueryIn.hygienic : {c n : ℕ} → {κ : Fin n → ColKind} → {l : List
 
 omit [ValueType T] in
 /-- A recursion-free query is hygienic, there being nothing to bind. -/
-theorem AggQueryIn.hygienic_of_usesOnly {S : Set OpKind}
+private theorem AggQueryIn.hygienic_of_usesOnly {S : Set OpKind}
     (hmb : OpKind.muBag ∉ S) (hms : OpKind.muSet ∉ S) :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l),
       q.usesOnly S → q.hygienic := by
@@ -1349,7 +1359,7 @@ theorem AggQueryIn.hygienic_of_usesOnly {S : Set OpKind}
 omit [ValueType T] in
 /-- A query over a schema not declaring `s` does not name `s`: the one
 place a bound name is read is the hole, which is no mention. -/
-theorem AggQueryIn.noMention_of_overSchema_none {s : String} :
+private theorem AggQueryIn.noMention_of_overSchema_none {s : String} :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l)
       (sch : Schema), sch s = none → q.overSchema sch → q.noMention s := by
   intro c n κ l q
@@ -1398,7 +1408,7 @@ theorem AggQueryIn.noMention_of_overSchema_none {s : String} :
 omit [ValueType T] in
 /-- **A query over a schema is hygienic**: a recursion binds a name the
 schema does not declare, so neither its base nor its term names it. -/
-theorem AggQueryIn.hygienic_of_overSchema :
+private theorem AggQueryIn.hygienic_of_overSchema :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l)
       (sch : Schema), q.overSchema sch → q.hygienic := by
   intro c n κ l q
@@ -1470,7 +1480,7 @@ def ProjColIn.constsIn {c k : ℕ} {κ : Fin k → ColKind} (V : Finset T) :
   | .provTerm t => t.constsIn V
 
 /-- **A term of the minimal signature reads a value it was given.** -/
-theorem TermIn.eval_mem_of_noFun {c k : ℕ} {V : Finset T} (t : TermIn T c k)
+private theorem TermIn.eval_mem_of_noFun {c k : ℕ} {V : Finset T} (t : TermIn T c k)
     (h : t.noFun = true) (hc : t.constsIn V) (u : Tuple T k)
     (hu : ∀ j, u j ∈ V) (γ : Fin c → T) (hγ : ∀ j, γ j ∈ V) :
     t.eval u γ ∈ V := by
@@ -1485,7 +1495,7 @@ theorem TermIn.eval_mem_of_noFun {c k : ℕ} {V : Finset T} (t : TermIn T c k)
   | coalesce _ _ => exact absurd h (by simp [TermIn.noFun])
 
 /-- The same for a kind-indexed term. -/
-theorem TermGIn.evalPlain_mem_of_noFun {c k : ℕ} {κ : Fin k → ColKind}
+private theorem TermGIn.evalPlain_mem_of_noFun {c k : ℕ} {κ : Fin k → ColKind}
     {V : Finset T} (t : TermGIn T c κ) (h : t.noFun = true)
     (hc : t.constsIn V) (u : Tuple T k) (hu : ∀ j, u j ∈ V) (γ : Fin c → T)
     (hγ : ∀ j, γ j ∈ V) : t.evalPlain u γ ∈ V := by
@@ -1505,7 +1515,7 @@ theorem TermGIn.evalPlain_mem_of_noFun {c k : ℕ} {κ : Fin k → ColKind}
 /-- **And an output column of the minimal signature.** A column read over
 an aggregate column is a term of one variable there, so it is that
 column or a constant. -/
-theorem ProjColIn.evalPlain_mem_of_noFun {c k : ℕ} {κ : Fin k → ColKind}
+private theorem ProjColIn.evalPlain_mem_of_noFun {c k : ℕ} {κ : Fin k → ColKind}
     {V : Finset T} (p : ProjColIn T c κ) (h : p.noFun = true)
     (hc : p.constsIn V) (u : Tuple T k) (hu : ∀ j, u j ∈ V) (γ : Fin c → T)
     (hγ : ∀ j, γ j ∈ V) : p.evalPlain u γ ∈ V := by
@@ -1589,7 +1599,7 @@ def ProjColIn.consts {c k : ℕ} {κ : Fin k → ColKind} :
   | .provTerm t => t.consts
 
 /-- A term's constants lie in any set holding `consts`. -/
-theorem TermIn.constsIn_of_subset {c k : ℕ} {V : Finset T} :
+private theorem TermIn.constsIn_of_subset {c k : ℕ} {V : Finset T} :
     ∀ (t : TermIn T c k), t.consts ⊆ V → t.constsIn V
   | .const a, h => h (Finset.mem_singleton_self a)
   | .outer _, _ => trivial
@@ -1615,7 +1625,7 @@ theorem TermIn.constsIn_of_subset {c k : ℕ} {V : Finset T} :
       ⟨t₁.constsIn_of_subset (Finset.union_subset_left h),
         t₂.constsIn_of_subset (Finset.union_subset_right h)⟩
 
-theorem TermGIn.constsIn_of_subset {c k : ℕ} {κ : Fin k → ColKind}
+private theorem TermGIn.constsIn_of_subset {c k : ℕ} {κ : Fin k → ColKind}
     {V : Finset T} :
     ∀ (t : TermGIn T c κ), t.consts ⊆ V → t.constsIn V
   | .const a, h => h (Finset.mem_singleton_self a)
@@ -1647,7 +1657,7 @@ theorem TermGIn.constsIn_of_subset {c k : ℕ} {κ : Fin k → ColKind}
       ⟨t₁.constsIn_of_subset (Finset.union_subset_left h),
         t₂.constsIn_of_subset (Finset.union_subset_right h)⟩
 
-theorem ProjColIn.constsIn_of_subset {c k : ℕ} {κ : Fin k → ColKind}
+private theorem ProjColIn.constsIn_of_subset {c k : ℕ} {κ : Fin k → ColKind}
     {V : Finset T} :
     ∀ (p : ProjColIn T c κ), p.consts ⊆ V → p.constsIn V
   | .term t, h => t.constsIn_of_subset h
@@ -1753,7 +1763,7 @@ noncomputable def AggQueryIn.evaluatePlain? {c n : ℕ} {κ : Fin n → ColKind}
     Option (Relation T n) :=
   open Classical in if q.SettlesAt D γ then some (q.evaluatePlain D γ) else none
 
-theorem AggQueryIn.evaluatePlain?_eq_some_iff {c n : ℕ} {κ : Fin n → ColKind}
+private theorem AggQueryIn.evaluatePlain?_eq_some_iff {c n : ℕ} {κ : Fin n → ColKind}
     {l : List (String × ℕ)} (q : AggQueryIn T c n κ l) (D : Database T) (γ : Fin c → T)
     (r : Relation T n) :
     q.evaluatePlain? D γ = some r ↔ q.SettlesAt D γ ∧ q.evaluatePlain D γ = r := by
@@ -1762,7 +1772,7 @@ theorem AggQueryIn.evaluatePlain?_eq_some_iff {c n : ℕ} {κ : Fin n → ColKin
   · next h => exact ⟨fun he => ⟨h, Option.some.inj he⟩, fun he => congrArg some he.2⟩
   · next h => exact ⟨fun he => absurd he (by simp), fun he => absurd he.1 h⟩
 
-theorem AggQueryIn.evaluatePlain?_eq_none_iff {c n : ℕ} {κ : Fin n → ColKind}
+private theorem AggQueryIn.evaluatePlain?_eq_none_iff {c n : ℕ} {κ : Fin n → ColKind}
     {l : List (String × ℕ)} (q : AggQueryIn T c n κ l) (D : Database T) (γ : Fin c → T) :
     q.evaluatePlain? D γ = none ↔ ¬ q.SettlesAt D γ := by
   unfold AggQueryIn.evaluatePlain?
@@ -1779,7 +1789,7 @@ def AggQueryIn.Extends {c n : ℕ} {κ κ' : Fin n → ColKind} {l l' : List (St
   ∀ (D : Database T) (γ : Fin c → T) (r : Relation T n),
     q.evaluatePlain? D γ = some r → q'.evaluatePlain? D γ = some r
 
-theorem AggQueryIn.extends_iff_settles {c n : ℕ} {κ κ' : Fin n → ColKind}
+private theorem AggQueryIn.extends_iff_settles {c n : ℕ} {κ κ' : Fin n → ColKind}
     {l l' : List (String × ℕ)} (q' : AggQueryIn T c n κ' l') (q : AggQueryIn T c n κ l) :
     q'.Extends q ↔ ∀ (D : Database T) (γ : Fin c → T), q.SettlesAt D γ →
       q'.SettlesAt D γ ∧ q.evaluatePlain D γ = q'.evaluatePlain D γ := by
@@ -1792,20 +1802,20 @@ theorem AggQueryIn.extends_iff_settles {c n : ℕ} {κ κ' : Fin n → ColKind}
     obtain ⟨hs, he⟩ := (AggQueryIn.evaluatePlain?_eq_some_iff q D γ r).mp hr
     exact (AggQueryIn.evaluatePlain?_eq_some_iff q' D γ r).mpr ⟨(h D γ hs).1, (h D γ hs).2 ▸ he⟩
 
-theorem AggQueryIn.Extends.settles {c n : ℕ} {κ κ' : Fin n → ColKind}
+private theorem AggQueryIn.Extends.settles {c n : ℕ} {κ κ' : Fin n → ColKind}
     {l l' : List (String × ℕ)} {q' : AggQueryIn T c n κ' l'} {q : AggQueryIn T c n κ l}
     (h : q'.Extends q) : ∀ (D : Database T) (γ : Fin c → T), q.SettlesAt D γ →
       q'.SettlesAt D γ ∧ q.evaluatePlain D γ = q'.evaluatePlain D γ :=
   (AggQueryIn.extends_iff_settles q' q).mp h
 
-theorem AggQueryIn.Extends.of_settles {c n : ℕ} {κ κ' : Fin n → ColKind}
+private theorem AggQueryIn.Extends.of_settles {c n : ℕ} {κ κ' : Fin n → ColKind}
     {l l' : List (String × ℕ)} {q' : AggQueryIn T c n κ' l'} {q : AggQueryIn T c n κ l}
     (h : ∀ (D : Database T) (γ : Fin c → T), q.SettlesAt D γ →
       q'.SettlesAt D γ ∧ q.evaluatePlain D γ = q'.evaluatePlain D γ) : q'.Extends q :=
   (AggQueryIn.extends_iff_settles q' q).mpr h
 
 /-- **A query with no recursion settles everywhere.** -/
-theorem AggQueryIn.settlesAt_of_usesOnly {S : Set OpKind}
+private theorem AggQueryIn.settlesAt_of_usesOnly {S : Set OpKind}
     (hmb : OpKind.muBag ∉ S) (hms : OpKind.muSet ∉ S) :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l),
       q.usesOnly S → ∀ (D : Database T) (γ : Fin c → T), q.SettlesAt D γ := by
@@ -1838,7 +1848,7 @@ theorem AggQueryIn.settlesAt_of_usesOnly {S : Set OpKind}
 /-- **A query naming nothing of a recursion settles alike on two instances
 agreeing away from its name**: the rounds it evaluates are the same, by
 `evaluatePlain_congr_of_noMention`. -/
-theorem AggQueryIn.settlesAt_of_noMention {s : String} :
+private theorem AggQueryIn.settlesAt_of_noMention {s : String} :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l),
       q.noMention s → ∀ {D D' : Database T}, Database.AgreeOff s l D D' →
       ∀ γ : Fin c → T, q.SettlesAt D γ → q.SettlesAt D' γ := by
@@ -1926,7 +1936,7 @@ theorem AggQueryIn.settlesAt_of_noMention {s : String} :
 
 /-- **And so it settles at an instance exactly when it settles at that
 instance with the recursion's relation bound.** -/
-theorem AggQueryIn.settlesAt_assign_of_noMention {s : String} {m : ℕ}
+private theorem AggQueryIn.settlesAt_assign_of_noMention {s : String} {m : ℕ}
     (X : Relation T m) {c n : ℕ} {κ : Fin n → ColKind}
     (q : AggQueryIn T c n κ) (hq : q.noMention s) (D : Database T)
     (γ : Fin c → T) (h : q.SettlesAt (D.assign s X) γ) : q.SettlesAt D γ :=
@@ -1939,7 +1949,7 @@ theorem AggQueryIn.settlesAt_assign_of_noMention {s : String} {m : ℕ}
 
 /-- The sum of the rounds from the empty relation is empty when a round
 from it is. -/
-theorem muSum_zero_of_step_zero {α : Type}
+private theorem muSum_zero_of_step_zero {α : Type}
     {step : Multiset α → Multiset α} (h0 : step 0 = 0) :
     ∀ b : ℕ, muSum step b 0 = 0 := by
   intro b
@@ -1950,13 +1960,13 @@ theorem muSum_zero_of_step_zero {α : Type}
     rw [h0, ih, add_zero]
 
 /-- So is the value the duplicate-preserving recursion settles at. -/
-theorem muSumFix_zero_of_step_zero {α : Type}
+private theorem muSumFix_zero_of_step_zero {α : Type}
     {step : Multiset α → Multiset α} (h0 : step 0 = 0) :
     muSumFix step 0 = 0 :=
   muSum_zero_of_step_zero h0 _
 
 /-- A set recursion whose first round is empty settles there. -/
-theorem muFix_zero_of_step_zero {α : Type}
+private theorem muFix_zero_of_step_zero {α : Type}
     {step : Multiset α → Multiset α} (h0 : step 0 = 0) : muFix step = 0 := by
   have hmem : (0 : ℕ) ∈ {j | step^[j + 1] 0 = step^[j] 0} := by
     show step^[1] 0 = step^[0] 0
@@ -1965,7 +1975,7 @@ theorem muFix_zero_of_step_zero {α : Type}
   rfl
 
 /-- The sum of the rounds holds the base. -/
-theorem card_le_card_muSum {α : Type} (step : Multiset α → Multiset α)
+private theorem card_le_card_muSum {α : Type} (step : Multiset α → Multiset α)
     (b : ℕ) (M : Multiset α) :
     Multiset.card M ≤ Multiset.card (muSum step b M) := by
   cases b with
@@ -1977,7 +1987,7 @@ theorem card_le_card_muSum {α : Type} (step : Multiset α → Multiset α)
 
 /-- **A duplicate-preserving recursion from a non-empty base is
 non-empty**, settling or not: the base is one of the summands. -/
-theorem muSumFix_ne_zero {α : Type} (step : Multiset α → Multiset α)
+private theorem muSumFix_ne_zero {α : Type} (step : Multiset α → Multiset α)
     {M : Multiset α} (hM : M ≠ 0) : muSumFix step M ≠ 0 := by
   intro h
   have hc := card_le_card_muSum step (muRounds step M) M
@@ -1988,7 +1998,7 @@ theorem muSumFix_ne_zero {α : Type} (step : Multiset α → Multiset α)
 /-- **A set recursion that settles, whose first round is non-empty and
 whose rounds keep a non-empty round non-empty, settles at a non-empty
 value.** -/
-theorem muFix_ne_zero_of_settles {α : Type} {step : Multiset α → Multiset α}
+private theorem muFix_ne_zero_of_settles {α : Type} {step : Multiset α → Multiset α}
     (hs : MuSetSettles step) (h0 : step 0 ≠ 0)
     (hstep : ∀ k, muIter step k ≠ 0 → step (muIter step k) ≠ 0) :
     muFix step ≠ 0 := by
@@ -2040,7 +2050,7 @@ def Database.Full (sch : Schema) (D : Database T) : Prop :=
 
 omit [ValueType T] in
 /-- A full instance conforms. -/
-theorem Database.Full.conforms {sch : Schema} {D : Database T}
+private theorem Database.Full.conforms {sch : Schema} {D : Database T}
     (h : Database.Full sch D) : Database.Conforms sch D :=
   fun s k hk => let ⟨r, hr, _⟩ := h s k hk; ⟨r, hr⟩
 
@@ -2061,19 +2071,19 @@ def Database.EmptyOn (sch : Schema) (E : Set String) (D : Database T) :
     D.find k s = some r → r = 0
 
 omit [ValueType T] in
-theorem Database.Full.fullOff {sch : Schema} {D : Database T}
+private theorem Database.Full.fullOff {sch : Schema} {D : Database T}
     (h : Database.Full sch D) (E : Set String) : Database.FullOff sch E D :=
   fun s k hk _ => h s k hk
 
 omit [ValueType T] in
-theorem Database.emptyOn_empty (sch : Schema) (D : Database T) :
+private theorem Database.emptyOn_empty (sch : Schema) (D : Database T) :
     Database.EmptyOn sch (∅ : Set String) D :=
   fun _ _ _ _ h _ => h.elim
 
 omit [ValueType T] in
 /-- Binding a name the schema does not declare keeps an instance full off
 `E`. -/
-theorem Database.FullOff.assign_of_none {sch : Schema} {E : Set String}
+private theorem Database.FullOff.assign_of_none {sch : Schema} {E : Set String}
     {D : Database T} (h : Database.FullOff sch E D) {s : String}
     (hs : sch s = none) {m : ℕ} (X : Relation T m) :
     Database.FullOff sch E (D.assign s X) := by
@@ -2085,7 +2095,7 @@ theorem Database.FullOff.assign_of_none {sch : Schema} {E : Set String}
 omit [ValueType T] in
 /-- Binding a name the schema does not declare to a non-empty relation
 gives an instance of the extended schema, full off `E` less that name. -/
-theorem Database.FullOff.assign_update {sch : Schema} {E : Set String}
+private theorem Database.FullOff.assign_update {sch : Schema} {E : Set String}
     {D : Database T} (h : Database.FullOff sch E D) {s : String}
     (hs : sch s = none) {m : ℕ} {X : Relation T m} (hX : X ≠ 0) :
     Database.FullOff (sch.update s m) (E \ {s}) (D.assign s X) := by
@@ -2104,7 +2114,7 @@ theorem Database.FullOff.assign_update {sch : Schema} {E : Set String}
 omit [ValueType T] in
 /-- Binding a name to the empty relation gives an instance of the
 extended schema, full off `E` with that name. -/
-theorem Database.FullOff.assign_update_zero {sch : Schema} {E : Set String}
+private theorem Database.FullOff.assign_update_zero {sch : Schema} {E : Set String}
     {D : Database T} (h : Database.FullOff sch E D) {s : String} (m : ℕ) :
     Database.FullOff (sch.update s m) (insert s E)
       (D.assign s (0 : Relation T m)) := by
@@ -2117,7 +2127,7 @@ theorem Database.FullOff.assign_update_zero {sch : Schema} {E : Set String}
 omit [ValueType T] in
 /-- Binding a name the schema does not declare keeps an instance empty on
 `E`. -/
-theorem Database.EmptyOn.assign_of_none {sch : Schema} {E : Set String}
+private theorem Database.EmptyOn.assign_of_none {sch : Schema} {E : Set String}
     {D : Database T} (h : Database.EmptyOn sch E D) {s : String}
     (hs : sch s = none) {m : ℕ} (X : Relation T m) :
     Database.EmptyOn sch E (D.assign s X) := by
@@ -2129,7 +2139,7 @@ theorem Database.EmptyOn.assign_of_none {sch : Schema} {E : Set String}
 omit [ValueType T] in
 /-- Binding a name to the empty relation gives an instance of the
 extended schema, empty on `E` with that name. -/
-theorem Database.EmptyOn.assign_update_zero {sch : Schema} {E : Set String}
+private theorem Database.EmptyOn.assign_update_zero {sch : Schema} {E : Set String}
     {D : Database T} (h : Database.EmptyOn sch E D) {s : String}
     (hs : sch s = none) (m : ℕ) :
     Database.EmptyOn (sch.update s m) (insert s E)
@@ -2186,7 +2196,7 @@ def AggQueryIn.NonzeroOn (E : Set String) : {c n : ℕ} → {κ : Fin n → ColK
 
 omit [ValueType T] in
 /-- **The condition is antitone in the names forced empty.** -/
-theorem AggQueryIn.NonzeroOn.mono :
+private theorem AggQueryIn.NonzeroOn.mono :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l)
       {E E' : Set String}, E ⊆ E' → q.NonzeroOn E' → q.NonzeroOn E := by
   intro c n κ l q
@@ -2219,20 +2229,20 @@ theorem AggQueryIn.NonzeroOn.mono :
   | WinExpr P O o ws ts fs g q keeps ih => exact fun hE h => ih hE h
 
 /-- A family stands for no row exactly when it indexes none. -/
-theorem OccFam.toMultiset_eq_zero_iff {α : Type} (r : OccFam α) :
+private theorem OccFam.toMultiset_eq_zero_iff {α : Type} (r : OccFam α) :
     r.toMultiset = 0 ↔ r.size = 0 := by
   rw [← Multiset.card_eq_zero, OccFam.card_toMultiset]
 
 /-- A family built on another's indices stands for no row only if that
 one indexes none – the shape a window's answer has. -/
-theorem OccFam.size_eq_zero_of_mk_toMultiset {α β : Type} (r : OccFam α)
+private theorem OccFam.size_eq_zero_of_mk_toMultiset {α β : Type} (r : OccFam α)
     (f : Fin r.size → β) (h : (OccFam.mk r.size f).toMultiset = 0) :
     r.size = 0 :=
   (OccFam.toMultiset_eq_zero_iff (OccFam.mk r.size f)).mp h
 
 omit [ValueType T] in
 /-- Mapping keeps a relation empty, and keeps it non-empty. -/
-theorem Multiset.map_eq_zero_iff {α β : Type} (f : α → β) (s : Multiset α) :
+private theorem Multiset.map_eq_zero_iff {α β : Type} (f : α → β) (s : Multiset α) :
     Multiset.map f s = 0 ↔ s = 0 := by
   constructor
   · intro h
@@ -2242,7 +2252,7 @@ theorem Multiset.map_eq_zero_iff {α β : Type} (f : α → β) (s : Multiset α
 
 omit [ValueType T] in
 /-- So does deduplicating. -/
-theorem Multiset.dedup_eq_zero_iff {α : Type} [DecidableEq α]
+private theorem Multiset.dedup_eq_zero_iff {α : Type} [DecidableEq α]
     (s : Multiset α) : s.dedup = 0 ↔ s = 0 := by
   constructor
   · intro h
@@ -2253,14 +2263,14 @@ theorem Multiset.dedup_eq_zero_iff {α : Type} [DecidableEq α]
 
 omit [ValueType T] in
 /-- A sum is empty only if both summands are. -/
-theorem Multiset.left_eq_zero_of_add_eq_zero {α : Type} {s t : Multiset α}
+private theorem Multiset.left_eq_zero_of_add_eq_zero {α : Type} {s t : Multiset α}
     (h : s + t = 0) : s = 0 := by
   have hc := Multiset.card_add s t
   rw [h, Multiset.card_zero] at hc
   exact Multiset.card_eq_zero.mp (by omega)
 
 omit [ValueType T] in
-theorem Multiset.right_eq_zero_of_add_eq_zero {α : Type} {s t : Multiset α}
+private theorem Multiset.right_eq_zero_of_add_eq_zero {α : Type} {s t : Multiset α}
     (h : s + t = 0) : t = 0 := by
   have hc := Multiset.card_add s t
   rw [h, Multiset.card_zero] at hc
@@ -2268,7 +2278,7 @@ theorem Multiset.right_eq_zero_of_add_eq_zero {α : Type} {s t : Multiset α}
 
 /-- **Without `σ` and `−`, a query that is not `NonzeroOn E` is empty on
 every instance empty on `E`** where it is defined. -/
-theorem AggQueryIn.evaluatePlain_eq_zero_of_not_nonzeroOn {S : Set OpKind}
+private theorem AggQueryIn.evaluatePlain_eq_zero_of_not_nonzeroOn {S : Set OpKind}
     (hsel : OpKind.sel ∉ S) (hdiff : OpKind.diff ∉ S) :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l),
       q.usesOnly S → ∀ (sch : Schema) (E : Set String), q.overSchema sch →
@@ -2429,7 +2439,7 @@ private theorem AggQueryIn.evaluatePlain_ne_zero_muSet {c n : ℕ} (s : String)
 
 /-- **Without `σ` and `−`, a query that is `NonzeroOn E` is non-empty on
 every instance full off `E`** where it is defined. -/
-theorem AggQueryIn.evaluatePlain_ne_zero_of_nonzeroOn {S : Set OpKind}
+private theorem AggQueryIn.evaluatePlain_ne_zero_of_nonzeroOn {S : Set OpKind}
     (hsel : OpKind.sel ∉ S) (hdiff : OpKind.diff ∉ S) :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l),
       q.usesOnly S → ∀ (sch : Schema) (E : Set String), q.overSchema sch →
@@ -2560,7 +2570,7 @@ theorem AggQueryIn.zero_or_ne_zero_of_noSelDiff {S : Set OpKind}
 def schemaR : Schema := Schema.ofFn (fun s => if s = "R" then some 1 else none) {"R"}
   (fun s hs => Finset.mem_singleton.mpr (by by_contra hne; exact hs (ite_eq_right hne)))
 
-theorem schemaR_apply (s : String) : schemaR s = if s = "R" then some 1 else none := rfl
+private theorem schemaR_apply (s : String) : schemaR s = if s = "R" then some 1 else none := rfl
 
 /-- An instance of it holding the row `(1)`. -/
 def dOne : Database ℕ := [("R", ⟨1, ({![1]} : Multiset (Tuple ℕ 1))⟩)]
@@ -2573,7 +2583,7 @@ def selWitness : AggQuery ℕ 1 (ColKind.allReg 1) :=
   AggQueryIn.Sel (GenPredIn.cmp CompOp.eq (TermGIn.index 0 rfl)
     (TermGIn.const 1)) (AggQueryIn.Rel 1 "R")
 
-theorem full_dOne : Database.Full schemaR dOne := by
+private theorem full_dOne : Database.Full schemaR dOne := by
   intro s k h
   by_cases hs : s = "R"
   · subst hs
@@ -2584,7 +2594,7 @@ theorem full_dOne : Database.Full schemaR dOne := by
   · rw [schemaR_apply, ite_eq_right hs] at h
     exact absurd h (fun hc => Option.some_ne_none k hc.symm)
 
-theorem full_dZero : Database.Full schemaR dZero := by
+private theorem full_dZero : Database.Full schemaR dZero := by
   intro s k h
   by_cases hs : s = "R"
   · subst hs
@@ -2599,7 +2609,7 @@ theorem full_dZero : Database.Full schemaR dZero := by
 and none of the other's, so it is neither empty everywhere nor non-empty
 on every full instance. So no generating set omits `σ` – nor `−`, by the
 same witness read through the swap. -/
-theorem selWitness_breaks :
+private theorem selWitness_breaks :
     ¬ ((∀ (D : Database ℕ) (γ : Fin 0 → ℕ),
           selWitness.evaluatePlain D γ = 0)
       ∨ (∀ (D : Database ℕ) (γ : Fin 0 → ℕ), Database.Full schemaR D →
@@ -2624,7 +2634,7 @@ def Database.size (D : Database T) : ℕ :=
 
 omit [ValueType T] in
 /-- A relation of the instance is no larger than the instance. -/
-theorem Database.card_le_size : ∀ (D : Database T) {k : ℕ} {s : String}
+private theorem Database.card_le_size : ∀ (D : Database T) {k : ℕ} {s : String}
     {r : Relation T k}, D.find k s = some r → Multiset.card r ≤ D.size
   | [], k, s, r, h => absurd h (fun hc =>
       Option.some_ne_none r ((show (none : Option (Relation T k)) = some r
@@ -2708,7 +2718,7 @@ def optIter {α : Type} (f : α → Option α) : ℕ → α → Option α
   | j + 1 => fun a => (optIter f j a).bind f
 
 omit [ValueType T] in
-theorem optIter_add {α : Type} (f : α → Option α) (i : ℕ) :
+private theorem optIter_add {α : Type} (f : α → Option α) (i : ℕ) :
     ∀ (t : ℕ) (a : α), optIter f (i + t) a = (optIter f i a).bind (optIter f t) := by
   intro t
   induction t with
@@ -2720,7 +2730,7 @@ theorem optIter_add {α : Type} (f : α → Option α) (i : ℕ) :
 
 omit [ValueType T] in
 /-- A failed orbit stays failed. -/
-theorem optIter_none_of_le {α : Type} {f : α → Option α} {i j : ℕ} {a : α}
+private theorem optIter_none_of_le {α : Type} {f : α → Option α} {i j : ℕ} {a : α}
     (h : optIter f i a = none) (hij : i ≤ j) : optIter f j a = none := by
   obtain ⟨t, rfl⟩ := Nat.exists_eq_add_of_le hij
   rw [optIter_add, h]
@@ -2728,14 +2738,14 @@ theorem optIter_none_of_le {α : Type} {f : α → Option α} {i j : ℕ} {a : �
 
 omit [ValueType T] in
 /-- Two equal points of an orbit are followed by equal points. -/
-theorem optIter_periodic {α : Type} {f : α → Option α} {i i' : ℕ} {a : α}
+private theorem optIter_periodic {α : Type} {f : α → Option α} {i i' : ℕ} {a : α}
     (h : optIter f i a = optIter f i' a) (t : ℕ) :
     optIter f (i + t) a = optIter f (i' + t) a := by
   rw [optIter_add, optIter_add, h]
 
 omit [ValueType T] in
 /-- An orbit from a set closed under `f` stays in it. -/
-theorem optIter_mem {α : Type} [DecidableEq α] {f : α → Option α}
+private theorem optIter_mem {α : Type} [DecidableEq α] {f : α → Option α}
     (S : Finset α) (hS : ∀ b ∈ S, ∀ c, f b = some c → c ∈ S) {a : α}
     (ha : a ∈ S) : ∀ j, optIter f j a ∈ insert none (S.image some) := by
   intro j
@@ -2761,7 +2771,7 @@ theorem optIter_mem {α : Type} [DecidableEq α] {f : α → Option α}
 omit [ValueType T] in
 /-- **An orbit in a set of `k` points repeats within its first `k + 2`
 points.** -/
-theorem optIter_exists_repeat {α : Type} [DecidableEq α] {f : α → Option α}
+private theorem optIter_exists_repeat {α : Type} [DecidableEq α] {f : α → Option α}
     (S : Finset α) (hS : ∀ b ∈ S, ∀ c, f b = some c → c ∈ S) {a : α}
     (ha : a ∈ S) :
     ∃ (i i' : ℕ), (i < i') ∧ (i' < S.card + 2) ∧ optIter f i a = optIter f i' a := by
@@ -2806,7 +2816,7 @@ theorem optIter_ne_none {α : Type} [DecidableEq α] {f : α → Option α}
 
 omit [ValueType T] in
 /-- The rounds of a set recursion are duplicate-free. -/
-theorem nodup_iterate_dedup {α : Type} [DecidableEq α]
+private theorem nodup_iterate_dedup {α : Type} [DecidableEq α]
     (f : Multiset α → Multiset α) :
     ∀ j : ℕ, ((fun X => (f X).dedup)^[j] 0).Nodup := by
   intro j
@@ -2818,13 +2828,13 @@ theorem nodup_iterate_dedup {α : Type} [DecidableEq α]
 
 omit [ValueType T] in
 /-- Keeping at most one row per row keeps at most as many rows. -/
-theorem Multiset.card_filterMap_le {α β : Type} (f : α → Option β)
+private theorem Multiset.card_filterMap_le {α β : Type} (f : α → Option β)
     (s : Multiset α) : Multiset.card (Multiset.filterMap f s) ≤ Multiset.card s :=
   Quot.inductionOn s fun l => List.length_filterMap_le f l
 
 omit [ValueType T] in
 /-- The sum of `b + 1` rounds, each no larger than the base. -/
-theorem card_muSum_le {α : Type} {step : Multiset α → Multiset α}
+private theorem card_muSum_le {α : Type} {step : Multiset α → Multiset α}
     (hstep : ∀ X, Multiset.card (step X) ≤ Multiset.card X) (M : Multiset α) :
     ∀ b : ℕ, Multiset.card (muSum step b M) ≤ (b + 1) * Multiset.card M := by
   have hiter : ∀ j, Multiset.card (step^[j] M) ≤ Multiset.card M := by
@@ -2904,7 +2914,7 @@ def AggQueryIn.recNoFun : {c n : ℕ} → {κ : Fin n → ColKind} → {l : List
   | _, _, _, _, .Win _ _ _ _ _ _ q _ _ _ => q.recNoFun
   | _, _, _, _, .WinExpr _ _ _ _ _ _ _ q _ => q.recNoFun
 
-theorem AggQueryIn.noFunCols_of_inSig {Θ : Set (SeqAggFunc T)} :
+private theorem AggQueryIn.noFunCols_of_inSig {Θ : Set (SeqAggFunc T)} :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l),
       q.inSig Θ → q.noFunCols := by
   intro c n κ l q
@@ -2933,7 +2943,7 @@ theorem AggQueryIn.noFunCols_of_inSig {Θ : Set (SeqAggFunc T)} :
   | WinExpr P O o ws ts fs g q keeps ih => exact fun h => h.elim
 
 omit [ValueType T] in
-theorem AggQueryIn.recNoFun_of_noFunCols :
+private theorem AggQueryIn.recNoFun_of_noFunCols :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l),
       q.noFunCols → q.recNoFun := by
   intro c n κ l q
@@ -2962,14 +2972,14 @@ theorem AggQueryIn.recNoFun_of_noFunCols :
   | WinExpr P O o ws ts fs g q keeps ih => exact fun h => ih h
 
 /-- A query of a signature has function-free recursive terms. -/
-theorem AggQueryIn.recNoFun_of_inSig {Θ : Set (SeqAggFunc T)}
+private theorem AggQueryIn.recNoFun_of_inSig {Θ : Set (SeqAggFunc T)}
     {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l)
     (h : q.inSig Θ) : q.recNoFun :=
   AggQueryIn.recNoFun_of_noFunCols q (AggQueryIn.noFunCols_of_inSig q h)
 
 omit [ValueType T] in
 /-- So does a recursion-free query, having no recursive term. -/
-theorem AggQueryIn.recNoFun_of_usesOnly {S : Set OpKind}
+private theorem AggQueryIn.recNoFun_of_usesOnly {S : Set OpKind}
     (hmb : OpKind.muBag ∉ S) (hms : OpKind.muSet ∉ S) :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l),
       q.usesOnly S → q.recNoFun := by
@@ -3005,7 +3015,7 @@ def rowVals {c n : ℕ} (u : Tuple T n) (γ : Fin c → T) (K : Finset T) : Fins
 
 omit [ValueType T] in
 /-- A list splitting into a singleton: one half is it, the other empty. -/
-theorem List.append_eq_singleton' {α : Type} {l₁ l₂ : List α} {a : α} (h : l₁ ++ l₂ = [a]) :
+private theorem List.append_eq_singleton' {α : Type} {l₁ l₂ : List α} {a : α} (h : l₁ ++ l₂ = [a]) :
     (l₁ = [a] ∧ l₂ = []) ∨ (l₁ = [] ∧ l₂ = [a]) := by
   cases l₁ with
   | nil => exact Or.inr ⟨rfl, h⟩
@@ -3121,7 +3131,7 @@ def rowBox {c n : ℕ} (u : Tuple T n) (γ : Fin c → T) (K : Finset T) :
     Finset (Tuple T n) :=
   Fintype.piFinset (fun _ : Fin n => rowVals u γ K)
 
-theorem card_rowBox_le {c n : ℕ} (u : Tuple T n) (γ : Fin c → T)
+private theorem card_rowBox_le {c n : ℕ} (u : Tuple T n) (γ : Fin c → T)
     (K : Finset T) : (rowBox u γ K).card + 2 ≤ recBound c n K.card := by
   rw [rowBox, Fintype.card_piFinset, Finset.prod_const, Finset.card_univ,
     Fintype.card_fin, recBound]
@@ -3133,7 +3143,7 @@ theorem card_rowBox_le {c n : ℕ} (u : Tuple T n) (γ : Fin c → T)
   · exact le_trans Finset.card_image_le (le_of_eq (by simp))
 
 /-- A row box is closed under a row-by-row term's function. -/
-theorem rowBox_closed {c n : ℕ} {u : Tuple T n} {γ : Fin c → T} {K : Finset T}
+private theorem rowBox_closed {c n : ℕ} {u : Tuple T n} {γ : Fin c → T} {K : Finset T}
     {f : Tuple T n → Option (Tuple T n)}
     (hv : ∀ v w, f v = some w → ∀ i, w i ∈ rowVals v γ K) :
     ∀ v ∈ rowBox u γ K, ∀ w, f v = some w → w ∈ rowBox u γ K := by
@@ -3147,7 +3157,7 @@ theorem rowBox_closed {c n : ℕ} {u : Tuple T n} {γ : Fin c → T} {K : Finset
     · exact Finset.mem_union_left _ (Finset.mem_union_right _ h)
   · exact Finset.mem_union_right _ h
 
-theorem self_mem_rowBox {c n : ℕ} (u : Tuple T n) (γ : Fin c → T)
+private theorem self_mem_rowBox {c n : ℕ} (u : Tuple T n) (γ : Fin c → T)
     (K : Finset T) : u ∈ rowBox u γ K := by
   rw [rowBox, Fintype.mem_piFinset]
   intro i
@@ -3157,7 +3167,7 @@ theorem self_mem_rowBox {c n : ℕ} (u : Tuple T n) (γ : Fin c → T)
 omit [ValueType T] in
 /-- Binding a name to the empty relation does not change an instance's
 size. -/
-theorem Database.size_assign_zero (D : Database T) (s : String) (m : ℕ) :
+private theorem Database.size_assign_zero (D : Database T) (s : String) (m : ℕ) :
     (D.assign s (0 : Relation T m)).size = D.size := by
   show (Multiset.card (0 : Multiset (Tuple T m)) + _) = _
   rw [Multiset.card_zero, Nat.zero_add]
@@ -3404,11 +3414,11 @@ theorem AggQueryIn.card_le_sizeBound {S : Set OpKind}
 def dRep (m : ℕ) : Database ℕ :=
   [("R", ⟨1, (Multiset.replicate m ![0] : Multiset (Tuple ℕ 1))⟩)]
 
-theorem size_dRep (m : ℕ) : (dRep m).size = m := by
+private theorem size_dRep (m : ℕ) : (dRep m).size = m := by
   rw [Database.size, dRep]
   simp
 
-theorem find_dRep (m : ℕ) :
+private theorem find_dRep (m : ℕ) :
     (dRep m).find 1 "R" = some (Multiset.replicate m ![0]) := by
   show Database.find.f 1 "R"
     [("R", ⟨1, (Multiset.replicate m ![0] : Multiset (Tuple ℕ 1))⟩)] = _
@@ -3420,7 +3430,7 @@ def prodWitness : AggQuery ℕ (1 + 1)
     (Fin.append (ColKind.allReg 1) (ColKind.allReg 1)) :=
   AggQueryIn.Prod (AggQueryIn.Rel 1 "R") (AggQueryIn.Rel 1 "R")
 
-theorem card_prodWitness (m : ℕ) :
+private theorem card_prodWitness (m : ℕ) :
     Multiset.card (prodWitness.evaluatePlain (dRep m) (fun j => j.elim0))
       = m * m := by
   show Multiset.card ((AggQueryIn.Rel (T := ℕ) (c := 0) 1 "R").evaluatePlain
@@ -3439,7 +3449,7 @@ theorem card_prodWitness (m : ℕ) :
 /-- **And a join of a relation with itself breaks it**: on an instance of
 `m` rows it has `m²`, which no multiple of `m + 1` bounds. So no
 generating set omits both `×` and the apply. -/
-theorem prodWitness_no_linear_bound :
+private theorem prodWitness_no_linear_bound :
     ¬ ∃ c : ℕ, ∀ D : Database ℕ,
       Multiset.card (prodWitness.evaluatePlain D (fun j => j.elim0))
         ≤ c * (D.size + 1) := by
@@ -3467,7 +3477,7 @@ def Database.Nodup (D : Database T) : Prop :=
 
 omit [ValueType T] in
 /-- Summing a function supported at one point over a multiset. -/
-theorem Multiset.sum_map_ite_eq {α : Type} [DecidableEq α] (s : Multiset α)
+private theorem Multiset.sum_map_ite_eq {α : Type} [DecidableEq α] (s : Multiset α)
     (a : α) (b : ℕ) :
     (s.map (fun x => if x = a then b else 0)).sum = Multiset.count a s * b := by
   induction s using Multiset.induction_on with
@@ -3482,7 +3492,7 @@ theorem Multiset.sum_map_ite_eq {α : Type} [DecidableEq α] (s : Multiset α)
 
 omit [ValueType T] in
 /-- A pointwise bound carries to the sums. -/
-theorem Multiset.sum_map_le {α : Type} (s : Multiset α) (f g : α → ℕ)
+private theorem Multiset.sum_map_le {α : Type} (s : Multiset α) (f g : α → ℕ)
     (h : ∀ x, x ∈ s → f x ≤ g x) : (s.map f).sum ≤ (s.map g).sum := by
   induction s using Multiset.induction_on with
   | empty => exact le_refl 0
@@ -3495,7 +3505,7 @@ theorem Multiset.sum_map_le {α : Type} (s : Multiset α) (f g : α → ℕ)
 omit [ValueType T] in
 /-- **A join read as an apply**: pairing each row of the left with the
 rows of the right. -/
-theorem Relation.hMul_eq_bind {n m : ℕ} (r₁ : Relation T n)
+private theorem Relation.hMul_eq_bind {n m : ℕ} (r₁ : Relation T n)
     (r₂ : Relation T m) :
     r₁ * r₂ = Multiset.bind r₁ (fun a =>
       Multiset.map (fun v => (Fin.append a v : Tuple T (n + m))) r₂) := by
@@ -3507,7 +3517,7 @@ theorem Relation.hMul_eq_bind {n m : ℕ} (r₁ : Relation T n)
 /-- **The multiplicity of a row an apply produces**: its left half names
 the outer row it came from, so only that row's copies contribute, each at
 most the inner bound. -/
-theorem Multiset.count_bind_append_le {n m : ℕ} (r : Multiset (Tuple T n))
+private theorem Multiset.count_bind_append_le {n m : ℕ} (r : Multiset (Tuple T n))
     (g : Tuple T n → Relation T m) {b₁ b₂ : ℕ}
     (h₁ : ∀ x, Multiset.count x r ≤ b₁)
     (h₂ : ∀ a, a ∈ r → ∀ y, Multiset.count y (g a) ≤ b₂)
@@ -3540,7 +3550,7 @@ theorem Multiset.count_bind_append_le {n m : ℕ} (r : Multiset (Tuple T n))
 
 /-- **A row of a grouping is one row**: the key can be read back off it,
 and the keys are distinct. -/
-theorem Multiset.count_map_dedup_le {n₁ nr : ℕ}
+private theorem Multiset.count_map_dedup_le {n₁ nr : ℕ}
     (keys : Multiset (Tuple T n₁)) (f : Tuple T n₁ → Tuple T nr)
     (key : Tuple T nr → Tuple T n₁) (h : ∀ g, key (f g) = g)
     (u : Tuple T nr) : Multiset.count u (keys.dedup.map f) ≤ 1 := by
@@ -3556,7 +3566,7 @@ theorem Multiset.count_map_dedup_le {n₁ nr : ℕ}
 /-- **A row a window produces is as many as the row it extends**: the
 window keeps the row it is computed for, and that row can be read back
 off the one it produces. -/
-theorem Multiset.count_map_snoc_le {n : ℕ} (rows : Multiset (Tuple T n))
+private theorem Multiset.count_map_snoc_le {n : ℕ} (rows : Multiset (Tuple T n))
     (g : Tuple T n → T) {b : ℕ}
     (hb : ∀ x, Multiset.count x rows ≤ b) (u : Tuple T (n + 1)) :
     Multiset.count u
@@ -3571,7 +3581,7 @@ theorem Multiset.count_map_snoc_le {n : ℕ} (rows : Multiset (Tuple T n))
 
 /-- The same read off a family, which is the form a multi-frame window's
 answer has. -/
-theorem OccFam.count_mk_toMultiset_le {n nr : ℕ} (r : OccFam (Tuple T n))
+private theorem OccFam.count_mk_toMultiset_le {n nr : ℕ} (r : OccFam (Tuple T n))
     (f : Fin r.size → Tuple T nr) (key : Tuple T nr → Tuple T n)
     (h : ∀ i, key (f i) = r.row i) {b : ℕ}
     (hb : ∀ x, Multiset.count x r.toMultiset ≤ b) (u : Tuple T nr) :
@@ -3632,23 +3642,23 @@ round. The block is tracked by its offset, which is what shows it to be
 the whole row where the arities agree. -/
 
 omit [ValueType T] in
-theorem Multiset.Mem_iff {α : Type} (s : Multiset α) (a : α) :
+private theorem Multiset.Mem_iff {α : Type} (s : Multiset α) (a : α) :
     a ∈ s ↔ Multiset.Mem s a := Iff.rfl
 
 omit [ValueType T] in
-theorem Multiset.Mem_add {α : Type} (s t : Multiset α) (a : α) :
+private theorem Multiset.Mem_add {α : Type} (s t : Multiset α) (a : α) :
     Multiset.Mem (s + t) a ↔ Multiset.Mem s a ∨ Multiset.Mem t a :=
   Multiset.mem_add
 
 omit [ValueType T] in
-theorem Multiset.Mem_filter {α : Type} (p : α → Prop) [DecidablePred p]
+private theorem Multiset.Mem_filter {α : Type} (p : α → Prop) [DecidablePred p]
     (s : Multiset α) (a : α) :
     Multiset.Mem (Multiset.filter p s) a ↔ Multiset.Mem s a ∧ p a :=
   Multiset.mem_filter
 
 omit [ValueType T] in
 /-- A row of a product is a row of each factor. -/
-theorem Relation.Mem_hMul {n m : ℕ} (r₁ : Relation T n) (r₂ : Relation T m)
+private theorem Relation.Mem_hMul {n m : ℕ} (r₁ : Relation T n) (r₂ : Relation T m)
     (u : Tuple T (n + m)) :
     Multiset.Mem (r₁ * r₂) u
       ↔ Multiset.Mem r₁ (fun i => u (Fin.castAdd m i))
@@ -3669,7 +3679,7 @@ theorem Relation.Mem_hMul {n m : ℕ} (r₁ : Relation T n) (r₂ : Relation T m
 omit [ValueType T] in
 /-- A row of an apply is a row of the left side and a row of the right
 side read at it. -/
-theorem Relation.Mem_applyBind {n m : ℕ} (r₁ : Relation T n)
+private theorem Relation.Mem_applyBind {n m : ℕ} (r₁ : Relation T n)
     (f : Tuple T n → Relation T m) (u : Tuple T (n + m)) :
     Multiset.Mem (Multiset.bind r₁ (fun x =>
         Multiset.map (fun v => (Fin.append x v : Tuple T (n + m))) (f x))) u
@@ -3839,7 +3849,7 @@ omit [ValueType T] in
 /-- **A round function reading the previous round tuple by tuple keeps a
 non-empty round non-empty**: a row of one round is, by the block being
 the whole row, a row of the next. -/
-theorem step_ne_zero_of_affine {m : ℕ}
+private theorem step_ne_zero_of_affine {m : ℕ}
     {step : Multiset (Tuple T m) → Multiset (Tuple T m)}
     (β : Tuple T m → Tuple T m) (a k : Tuple T m → Prop) (off : ℕ)
     (hβ : ∀ u, a u → ∀ i : Fin m,
@@ -3870,7 +3880,7 @@ theorem step_ne_zero_of_affine {m : ℕ}
 /-- **So a bag recursion with such a round function settles only at its
 base**: a non-empty first round would be followed by non-empty rounds
 forever. -/
-theorem step_eq_zero_of_muSettles_affine {m : ℕ}
+private theorem step_eq_zero_of_muSettles_affine {m : ℕ}
     {step : Multiset (Tuple T m) → Multiset (Tuple T m)}
     (β : Tuple T m → Tuple T m) (a k : Tuple T m → Prop) (off : ℕ)
     (hβ : ∀ u, a u → ∀ i : Fin m,
@@ -4009,7 +4019,7 @@ def dShared (m : ℕ) : Database ℕ :=
   [("S", ⟨2, (Multiset.map (fun i => ![0, i]) (Multiset.range m)
     : Multiset (Tuple ℕ 2))⟩)]
 
-theorem find_dShared (m : ℕ) : (dShared m).find 2 "S"
+private theorem find_dShared (m : ℕ) : (dShared m).find 2 "S"
     = some (Multiset.map (fun i => ![0, i]) (Multiset.range m)) := by
   show Database.find.f 2 "S"
     [("S", ⟨2, (Multiset.map (fun i => ![0, i]) (Multiset.range m)
@@ -4017,7 +4027,7 @@ theorem find_dShared (m : ℕ) : (dShared m).find 2 "S"
   rw [Database.find.f, dite_eq_left ⟨rfl, rfl⟩]
   rfl
 
-theorem nodup_dShared (m : ℕ) : Database.Nodup (dShared m) := by
+private theorem nodup_dShared (m : ℕ) : Database.Nodup (dShared m) := by
   intro k s r h
   by_cases hc : k = 2 ∧ s = "S"
   · obtain ⟨rfl, rfl⟩ := hc
@@ -4042,7 +4052,7 @@ def projWitness :=
       : Tuple (ProjColIn ℕ 0 (ColKind.allReg 2)) 1)
     (AggQueryIn.Rel 2 "S")
 
-theorem count_projWitness (m : ℕ) :
+private theorem count_projWitness (m : ℕ) :
     Multiset.count (fun _ => 0 : Tuple ℕ 1)
       (projWitness.evaluatePlain (dShared m) (fun j => j.elim0)) = m := by
   show Multiset.count (fun _ => 0 : Tuple ℕ 1)
@@ -4064,7 +4074,7 @@ theorem count_projWitness (m : ℕ) :
 /-- **And a projection breaks it**: over an instance of `m` distinct rows
 sharing a column, projecting onto that column gives one row `m` times.
 So no generating set omits `Π`. -/
-theorem projWitness_unbounded_multiplicity :
+private theorem projWitness_unbounded_multiplicity :
     ¬ ∃ b : ℕ, ∀ D : Database ℕ, Database.Nodup D → ∀ u : Tuple ℕ 1,
       Multiset.count u (projWitness.evaluatePlain D (fun j => j.elim0))
         ≤ b := by
@@ -4230,7 +4240,7 @@ def AggQueryIn.notInDiff (cnt : SeqAggFunc T)
 /-- **What the `NOT IN` form uses**: a projection, a selection, a
 product, an aggregation and a union – the basis classes, which is the
 point of the identity. -/
-theorem AggQueryIn.usesOnly_notInDiff {S : Set OpKind}
+private theorem AggQueryIn.usesOnly_notInDiff {S : Set OpKind}
     (cnt : SeqAggFunc T) {q₁ q₂ : AggQueryIn T c k (ColKind.allReg k)}
     (hp : OpKind.proj ∈ S) (hs : OpKind.sel ∈ S) (hx : OpKind.prod ∈ S)
     (hu : OpKind.union ∈ S) (hg : OpKind.gamma ∈ S) (h₁ : q₁.usesOnly S)
@@ -4239,7 +4249,7 @@ theorem AggQueryIn.usesOnly_notInDiff {S : Set OpKind}
     ⟨⟨hp, fun _ => rfl⟩, h₂⟩⟩
 
 /-- **The `NOT IN` form names the relations its two sides name.** -/
-theorem AggQueryIn.overSchema_notInDiff {sch : Schema}
+private theorem AggQueryIn.overSchema_notInDiff {sch : Schema}
     (cnt : SeqAggFunc T) {q₁ q₂ : AggQueryIn T c k (ColKind.allReg k)}
     (h₁ : q₁.overSchema sch) (h₂ : q₂.overSchema sch) :
     (AggQueryIn.notInDiff cnt q₁ q₂).overSchema sch :=
@@ -4264,7 +4274,7 @@ private theorem tagCols_eval {γ : Fin c → T} (a : T) (u : Tuple T k) (j : Fin
 
 /-- **The tagged union, row by row**: the rows of `q₁` with `0` appended
 and those of `q₂` with `a`. -/
-theorem AggQueryIn.evaluatePlain_tagUnion
+private theorem AggQueryIn.evaluatePlain_tagUnion
     (q₁ q₂ : AggQueryIn T c k (ColKind.allReg k)) (D : Database T) (γ : Fin c → T) :
     (AggQueryIn.tagUnion q₁ q₂).evaluatePlain D γ
       = (q₁.evaluatePlain D γ).map (fun u => (Fin.snoc u 0 : Tuple T (k + 1)))
@@ -4280,7 +4290,7 @@ theorem AggQueryIn.evaluatePlain_tagUnion
 
 /-- **The keys the grouping emits**: the distinct tuples of the two sides
 together, the tag column being dropped by the key projection. -/
-theorem AggQueryIn.tagAgg_keys (r₁ r₂ : Multiset (Tuple T k)) :
+private theorem AggQueryIn.tagAgg_keys (r₁ r₂ : Multiset (Tuple T k)) :
     ((r₁.map (fun u => (Fin.snoc u 0 : Tuple T (k + 1)))
         + r₂.map (fun u => (Fin.snoc u ValueType.nonzero
             : Tuple T (k + 1)))).map
@@ -4299,7 +4309,7 @@ theorem AggQueryIn.tagAgg_keys (r₁ r₂ : Multiset (Tuple T k)) :
 
 /-- **The rows the clause keeps**: those whose tag column holds the
 non-zero value. -/
-theorem AggQueryIn.rightTag_keeps (v : Tuple T (k + 1)) :
+private theorem AggQueryIn.rightTag_keeps (v : Tuple T (k + 1)) :
     (AggQueryIn.rightTag (T := T) (k := k)).keeps v = true
       ↔ v (Fin.last k) = ValueType.nonzero := by
   rw [Selection.keeps, decide_eq_true_eq]
@@ -4313,7 +4323,7 @@ theorem AggQueryIn.rightTag_keeps (v : Tuple T (k + 1)) :
 side holds no copy of it. The clause keeps the copies carrying the right
 side's tag, and the term it counts is that tag, which is a value and not
 a null – so the count is `0` exactly when the clause keeps nothing. -/
-theorem AggQueryIn.tagAgg_zero_iff (cnt : SeqAggFunc T)
+private theorem AggQueryIn.tagAgg_zero_iff (cnt : SeqAggFunc T)
     (hc : SeqAggFunc.Counts cnt) (r₁ r₂ : Multiset (Tuple T k))
     (g : Tuple T k) :
     cnt (((Relation.groupSeq (fun i : Fin k => i.castSucc)
@@ -4634,7 +4644,7 @@ private theorem syneq_guard {yes : T} (hyes : yes ≠ 0) {P : Prop}
 predicate takes the truth value the polarity asks for, and `0` on the
 others. An aggregate atom is excluded – its value is a provenance and not
 a truth value, which is what `hasAggAtom` fences off. -/
-theorem GenPredIn.evalPlain_polTerm {c n : ℕ} {κ : Fin n → ColKind}
+private theorem GenPredIn.evalPlain_polTerm {c n : ℕ} {κ : Fin n → ColKind}
     {yes : T} (hyes : yes ≠ 0) :
     ∀ (φ : GenPredIn T c κ), φ.hasAggAtom = false → ∀ (pol : Bool)
       (u : Tuple T n) (γ : Fin c → T),
@@ -4700,7 +4710,7 @@ theorem GenPredIn.evalPlain_polTerm {c n : ℕ} {κ : Fin n → ColKind}
 omit [ValueType T] in
 /-- **What the difference form uses**: a projection and the difference,
 which is the point of the swap. -/
-theorem AggQueryIn.usesOnly_selByDiff {S : Set OpKind} (yes : T)
+private theorem AggQueryIn.usesOnly_selByDiff {S : Set OpKind} (yes : T)
     (t : TermGIn T 0 (ColKind.allReg k)) {q : AggQuery T k (ColKind.allReg k)}
     (hp : OpKind.proj ∈ S) (hd : OpKind.diff ∈ S) (hq : q.usesOnly S) :
     (AggQueryIn.selByDiff yes t q).usesOnly S :=
@@ -4709,7 +4719,7 @@ theorem AggQueryIn.usesOnly_selByDiff {S : Set OpKind} (yes : T)
 
 omit [ValueType T] in
 /-- And it names the relations the query names. -/
-theorem AggQueryIn.overSchema_selByDiff {sch : Schema} (yes : T)
+private theorem AggQueryIn.overSchema_selByDiff {sch : Schema} (yes : T)
     (t : TermGIn T 0 (ColKind.allReg k)) {q : AggQuery T k (ColKind.allReg k)}
     (hq : q.overSchema sch) :
     (AggQueryIn.selByDiff yes t q).overSchema sch := ⟨hq, hq, hq⟩
@@ -4717,7 +4727,7 @@ theorem AggQueryIn.overSchema_selByDiff {sch : Schema} (yes : T)
 /-- **`σ` from `−`** (the other direction of the swap): a selection whose
 predicate is read by a term is the difference of the tagged rows with
 what the constant tagging leaves out. -/
-theorem AggQueryIn.sel_plainEquiv_selByDiff (yes : T)
+private theorem AggQueryIn.sel_plainEquiv_selByDiff (yes : T)
     (t : TermGIn T 0 (ColKind.allReg k)) (φ : GenPred T (ColKind.allReg k))
     (hterm : ∀ u : Tuple T k,
       t.evalPlain u (fun _ => 0) = yes ↔ φ.holdsPlain u)
@@ -4840,7 +4850,7 @@ def weakenOuter (T : Type) (d : ℕ) : Fin 0 → T ⊕ Fin d := fun k => k.elim0
 
 /-- A closed reading is the reading under any valuation, there being no
 outer column to read. -/
-@[simp] theorem substVal_weakenOuter (d : ℕ) (γ : Fin d → T) :
+@[simp] private theorem substVal_weakenOuter (d : ℕ) (γ : Fin d → T) :
     substVal (weakenOuter T d) γ = (fun _ : Fin 0 => (0 : T)) :=
   funext (fun k => k.elim0)
 
@@ -4894,7 +4904,7 @@ def outerKeyCond {c n' m' : ℕ} {κ : Fin n' → ColKind}
     (GenPredIn.cmp CompOp.syneq (TermGIn.const 0) (TermGIn.const 0))
 
 /-- It holds exactly where the two keys agree. -/
-theorem outerKeyCond_holdsPlain {c n' m' : ℕ} {κ : Fin n' → ColKind}
+private theorem outerKeyCond_holdsPlain {c n' m' : ℕ} {κ : Fin n' → ColKind}
     (cols : Tuple (Fin n') m') (h : ∀ k, κ (cols k) = ColKind.reg)
     (outs : Tuple (Fin c) m') (u : Tuple T n') (γ : Fin c → T) :
     (outerKeyCond cols h outs).holdsPlain u γ
@@ -4916,7 +4926,7 @@ theorem outerKeyCond_holdsPlain {c n' m' : ℕ} {κ : Fin n' → ColKind}
     rw [CompOp.syneq_eval3_eq_true_iff]
 
 /-- A group with no key columns is the whole relation, sorted. -/
-@[simp] theorem Relation.groupSeq_emptyKey {m : ℕ}
+@[simp] private theorem Relation.groupSeq_emptyKey {m : ℕ}
     (r : Multiset (Tuple T m)) :
     Relation.groupSeq (fun k : Fin 0 => k.elim0) r
         (fun k : Fin 0 => k.elim0) = sortList r := by
@@ -4963,7 +4973,7 @@ def applyOuter (T : Type) (c n : ℕ) : Fin c → T ⊕ Fin (n + c) :=
 
 omit [ValueType T] in
 /-- And what it reads there is the ambient valuation. -/
-@[simp] theorem substVal_applyOuter (c n' : ℕ) (u : Tuple T n')
+@[simp] private theorem substVal_applyOuter (c n' : ℕ) (u : Tuple T n')
     (γ : Fin c → T) :
     substVal (applyOuter T c n') (Fin.append u γ) = γ :=
   funext (fun j => by
@@ -5010,7 +5020,7 @@ def nullCols {c k : ℕ} (κ : Fin k → ColKind) :
   fun j => if (κ j).base = ColKind.agg then .term (.const 0)
     else .term (.index j rfl)
 
-theorem evalPlain_nullCols {c k : ℕ} (κ : Fin k → ColKind) (u : Tuple T k)
+private theorem evalPlain_nullCols {c k : ℕ} (κ : Fin k → ColKind) (u : Tuple T k)
     (γ : Fin c → T) :
     (fun j => (nullCols (T := T) (c := c) κ j).evalPlain u γ)
       = ColKind.readTuple κ u := by
@@ -5024,7 +5034,7 @@ theorem evalPlain_nullCols {c k : ℕ} (κ : Fin k → ColKind) (u : Tuple T k)
   cases h : (κ j).base <;> rfl
 
 /-- **And the rows of the nulled projection are the nulled rows.** -/
-theorem evaluatePlain_proj_nullCols {c k : ℕ} (κ : Fin k → ColKind)
+private theorem evaluatePlain_proj_nullCols {c k : ℕ} (κ : Fin k → ColKind)
     (q : AggQueryIn T c k (ColKind.allReg k)) (D : Database T)
     (γ : Fin c → T) :
     (AggQueryIn.Proj (nullCols κ) q).evaluatePlain D γ
@@ -5037,10 +5047,10 @@ def Selection.keepsOpt {k : ℕ} : Option (Selection T k) → Tuple T k → Bool
   | none => fun _ => true
   | some φ => φ.keeps
 
-@[simp] theorem Selection.keepsOpt_none {k : ℕ} :
+@[simp] private theorem Selection.keepsOpt_none {k : ℕ} :
     Selection.keepsOpt (T := T) (k := k) none = fun _ => true := rfl
 
-@[simp] theorem Selection.keepsOpt_some {k : ℕ} (φ : Selection T k) :
+@[simp] private theorem Selection.keepsOpt_some {k : ℕ} (φ : Selection T k) :
     Selection.keepsOpt (some φ) = φ.keeps := rfl
 
 /-! ## A classical selection as a predicate over a context -/
@@ -5057,7 +5067,7 @@ def TermIn.toRegIn {c k : ℕ} : Term T k → TermGIn T c (ColKind.allReg k)
     .caseWhen op t₁.toRegIn t₂.toRegIn t₃.toRegIn t₄.toRegIn
   | .coalesce t₁ t₂ => .coalesce t₁.toRegIn t₂.toRegIn
 
-theorem TermIn.evalPlain_toRegIn {c k : ℕ} (t : Term T k) (y : Tuple T k)
+private theorem TermIn.evalPlain_toRegIn {c k : ℕ} (t : Term T k) (y : Tuple T k)
     (γ : Fin c → T) : (t.toRegIn (c := c)).evalPlain y γ = t.eval y := by
   induction t with
   | const a => rfl
@@ -5096,7 +5106,7 @@ def Selection.toPredIn {c k : ℕ} : Selection T k →
   | .Or φ₁ φ₂ => .or φ₁.toPredIn φ₂.toPredIn
   | .True => .cmp .eq (.const 0) (.const 0)
 
-theorem Selection.evalPlain3_toPredIn {c k : ℕ} :
+private theorem Selection.evalPlain3_toPredIn {c k : ℕ} :
     ∀ (φ : Selection T k) (y : Tuple T k) (γ : Fin c → T),
       (φ.toPredIn (c := c)).evalPlain3 y γ = φ.eval3 y
   | .BT b, y, γ => by
@@ -5124,7 +5134,7 @@ theorem Selection.evalPlain3_toPredIn {c k : ℕ} :
       ValueType.isNull_zero]
     rfl
 
-theorem Selection.holdsPlain_toPredIn {c k : ℕ} (φ : Selection T k)
+private theorem Selection.holdsPlain_toPredIn {c k : ℕ} (φ : Selection T k)
     (y : Tuple T k) (γ : Fin c → T) :
     (φ.toPredIn (c := c)).holdsPlain y γ ↔ φ.keeps y = true := by
   rw [GenPredIn.holdsPlain, Selection.evalPlain3_toPredIn φ y γ,
@@ -5148,14 +5158,14 @@ def OrderCol.ltPred {c m : ℕ} (cl : OrderCol)
 
 /-- Where nothing is null the clause's comparison is the domain's, read
 in the column's direction. -/
-theorem OrderCol.le_eq_noNulls [NoNulls T] (cl : OrderCol) (a b : T) :
+private theorem OrderCol.le_eq_noNulls [NoNulls T] (cl : OrderCol) (a b : T) :
     cl.le a b = if cl.desc then decide (b ≤ a) else decide (a ≤ b) := by
   unfold OrderCol.le
   rw [isNull_eq_false a, isNull_eq_false b]
   rfl
 
 /-- Every value is at or before itself, null or not. -/
-theorem OrderCol.le_self (cl : OrderCol) (a : T) : cl.le a a = true := by
+private theorem OrderCol.le_self (cl : OrderCol) (a : T) : cl.le a a = true := by
   unfold OrderCol.le
   by_cases ha : ValueType.isNull a = true
   · rw [ha]
@@ -5167,7 +5177,7 @@ theorem OrderCol.le_self (cl : OrderCol) (a : T) : cl.le a a = true := by
 /-- **Two values are peers exactly when they are the same value**, where
 the domain names its null: the clause separates a null from anything
 else, whichever way its placement falls. -/
-theorem OrderCol.peer_eq_true_iff_of_null (cl : OrderCol) {ν : T}
+private theorem OrderCol.peer_eq_true_iff_of_null (cl : OrderCol) {ν : T}
     (hνu : ∀ a : T, ValueType.isNull a = true → a = ν) (a b : T) :
     cl.peer a b = true ↔ a = b := by
   refine ⟨fun h => ?_, fun h => by rw [h, OrderCol.peer, OrderCol.le_self]; rfl⟩
@@ -5197,7 +5207,7 @@ theorem OrderCol.peer_eq_true_iff_of_null (cl : OrderCol) {ν : T}
       · rw [hd] at h
         exact le_antisymm (of_decide_eq_true h.2) (of_decide_eq_true h.1)
 
-theorem OrderCol.peer_eq_true_iff [NoNulls T] (cl : OrderCol) (a b : T) :
+private theorem OrderCol.peer_eq_true_iff [NoNulls T] (cl : OrderCol) (a b : T) :
     cl.peer a b = true ↔ a = b := by
   rw [OrderCol.peer, Bool.and_eq_true, OrderCol.le_eq_noNulls,
     OrderCol.le_eq_noNulls]
@@ -5207,7 +5217,7 @@ theorem OrderCol.peer_eq_true_iff [NoNulls T] (cl : OrderCol) (a b : T) :
   · simp only [ite_true, decide_eq_true_eq]
     exact ⟨fun h => le_antisymm h.2 h.1, fun h => ⟨le_of_eq h.symm, le_of_eq h⟩⟩
 
-theorem OrderCol.holdsPlain_lePred_of {c m : ℕ} (cl : OrderCol)
+private theorem OrderCol.holdsPlain_lePred_of {c m : ℕ} (cl : OrderCol)
     (x y : TermGIn T c (ColKind.allReg m)) (u : Tuple T m) (γ : Fin c → T)
     (hx : ValueType.isNull (x.evalPlain u γ) = false)
     (hy : ValueType.isNull (y.evalPlain u γ) = false) :
@@ -5218,7 +5228,7 @@ theorem OrderCol.holdsPlain_lePred_of {c m : ℕ} (cl : OrderCol)
       GenPredIn.evalPlain3, CompOp.eval3_eq_true_iff _ hx hy,
       CompOp.eval3_eq_true_iff _ hy hx, CompOp.eval, hx, hy]
 
-theorem OrderCol.holdsPlain_ltPred_of {c m : ℕ} (cl : OrderCol)
+private theorem OrderCol.holdsPlain_ltPred_of {c m : ℕ} (cl : OrderCol)
     (x y : TermGIn T c (ColKind.allReg m)) (u : Tuple T m) (γ : Fin c → T)
     (hx : ValueType.isNull (x.evalPlain u γ) = false)
     (hy : ValueType.isNull (y.evalPlain u γ) = false) :
@@ -5229,14 +5239,14 @@ theorem OrderCol.holdsPlain_ltPred_of {c m : ℕ} (cl : OrderCol)
       GenPredIn.evalPlain3, CompOp.eval3_eq_true_iff _ hx hy,
       CompOp.eval3_eq_true_iff _ hy hx, CompOp.eval, hx, hy, not_le]
 
-theorem OrderCol.holdsPlain_lePred [NoNulls T] {c m : ℕ} (cl : OrderCol)
+private theorem OrderCol.holdsPlain_lePred [NoNulls T] {c m : ℕ} (cl : OrderCol)
     (x y : TermGIn T c (ColKind.allReg m)) (u : Tuple T m) (γ : Fin c → T) :
     (cl.lePred x y).holdsPlain u γ
       ↔ cl.le (x.evalPlain u γ) (y.evalPlain u γ) = true :=
   OrderCol.holdsPlain_lePred_of cl x y u γ (isNull_eq_false _)
     (isNull_eq_false _)
 
-theorem OrderCol.holdsPlain_ltPred [NoNulls T] {c m : ℕ} (cl : OrderCol)
+private theorem OrderCol.holdsPlain_ltPred [NoNulls T] {c m : ℕ} (cl : OrderCol)
     (x y : TermGIn T c (ColKind.allReg m)) (u : Tuple T m) (γ : Fin c → T) :
     (cl.ltPred x y).holdsPlain u γ
       ↔ cl.le (y.evalPlain u γ) (x.evalPlain u γ) = false :=
@@ -5291,7 +5301,7 @@ def OrderCol.ltPredN {c m : ℕ} (cl : OrderCol) (ν : T)
     .and (.cmp CompOp.synne x (.const ν))
       (.or (.cmp CompOp.syneq y (.const ν)) (cl.ltPred x y))
 
-theorem OrderCol.holdsPlain_lePredN {c m : ℕ} (cl : OrderCol) {ν : T}
+private theorem OrderCol.holdsPlain_lePredN {c m : ℕ} (cl : OrderCol) {ν : T}
     (hν : ValueType.isNull ν = true)
     (hνu : ∀ a : T, ValueType.isNull a = true → a = ν)
     (x y : TermGIn T c (ColKind.allReg m)) (u : Tuple T m) (γ : Fin c → T) :
@@ -5337,7 +5347,7 @@ theorem OrderCol.holdsPlain_lePredN {c m : ℕ} (cl : OrderCol) {ν : T}
           holdsPlain_syneq, holdsPlain_synne, hxν', hyν,
           OrderCol.holdsPlain_lePred_of cl x y u γ hxn hyn]
 
-theorem OrderCol.holdsPlain_ltPredN {c m : ℕ} (cl : OrderCol) {ν : T}
+private theorem OrderCol.holdsPlain_ltPredN {c m : ℕ} (cl : OrderCol) {ν : T}
     (hν : ValueType.isNull ν = true)
     (hνu : ∀ a : T, ValueType.isNull a = true → a = ν)
     (x y : TermGIn T c (ColKind.allReg m)) (u : Tuple T m) (γ : Fin c → T) :
@@ -5420,7 +5430,7 @@ def OrderSpec.ltPredOn {c m : ℕ} (o : OrderSpec p)
     (ks : List (Fin p)) : GenPredIn T c (ColKind.allReg m) :=
   OrderSpec.ltPredOnOf (fun k => (o k).ltPred (x k) (y k)) x y ks
 
-theorem OrderSpec.holdsPlain_lePredOnOf {c m : ℕ} (o : OrderSpec p)
+private theorem OrderSpec.holdsPlain_lePredOnOf {c m : ℕ} (o : OrderSpec p)
     (base : Fin p → GenPredIn T c (ColKind.allReg m))
     (x y : Fin p → TermGIn T c (ColKind.allReg m)) (u : Tuple T m)
     (γ : Fin c → T)
@@ -5458,7 +5468,7 @@ theorem OrderSpec.holdsPlain_lePredOnOf {c m : ℕ} (o : OrderSpec p)
       exact ⟨fun h => h.elim (fun hl => absurd hl.1 hxy) (fun hr => hr.2),
         fun h => Or.inr ⟨hxy, h⟩⟩
 
-theorem OrderSpec.holdsPlain_ltPredOnOf {c m : ℕ} (o : OrderSpec p)
+private theorem OrderSpec.holdsPlain_ltPredOnOf {c m : ℕ} (o : OrderSpec p)
     (base : Fin p → GenPredIn T c (ColKind.allReg m))
     (x y : Fin p → TermGIn T c (ColKind.allReg m)) (u : Tuple T m)
     (γ : Fin c → T)
@@ -5496,7 +5506,7 @@ theorem OrderSpec.holdsPlain_ltPredOnOf {c m : ℕ} (o : OrderSpec p)
       exact ⟨fun h => h.elim (fun hl => absurd hl.1 hxy) (fun hr => hr.2),
         fun h => Or.inr ⟨hxy, h⟩⟩
 
-theorem OrderSpec.holdsPlain_lePredOn [NoNulls T] {c m : ℕ} (o : OrderSpec p)
+private theorem OrderSpec.holdsPlain_lePredOn [NoNulls T] {c m : ℕ} (o : OrderSpec p)
     (x y : Fin p → TermGIn T c (ColKind.allReg m)) (u : Tuple T m)
     (γ : Fin c → T) (ks : List (Fin p)) :
     (o.lePredOn x y ks).holdsPlain u γ
@@ -5506,7 +5516,7 @@ theorem OrderSpec.holdsPlain_lePredOn [NoNulls T] {c m : ℕ} (o : OrderSpec p)
     (fun k => OrderCol.holdsPlain_lePred (o k) (x k) (y k) u γ)
     (fun k a b => OrderCol.peer_eq_true_iff (o k) a b) ks
 
-theorem OrderSpec.holdsPlain_ltPredOn [NoNulls T] {c m : ℕ} (o : OrderSpec p)
+private theorem OrderSpec.holdsPlain_ltPredOn [NoNulls T] {c m : ℕ} (o : OrderSpec p)
     (x y : Fin p → TermGIn T c (ColKind.allReg m)) (u : Tuple T m)
     (γ : Fin c → T) (ks : List (Fin p)) :
     (o.ltPredOn x y ks).holdsPlain u γ
@@ -5536,7 +5546,7 @@ def clausePredOpt {c k : ℕ} : Option (Selection T k) →
   | none => .cmp CompOp.syneq (.const 0) (.const 0)
   | some φ => φ.toPredIn
 
-theorem holdsPlain_clausePredOpt {c k : ℕ} (keep : Option (Selection T k))
+private theorem holdsPlain_clausePredOpt {c k : ℕ} (keep : Option (Selection T k))
     (y : Tuple T k) (γ : Fin c → T) :
     (clausePredOpt keep).holdsPlain y γ
       ↔ Selection.keepsOpt keep y = true := by
@@ -5550,11 +5560,11 @@ theorem holdsPlain_clausePredOpt {c k : ℕ} (keep : Option (Selection T k))
 /-! #### The predicates built here apply no function to values -/
 
 omit [ValueType T] in
-theorem TermIn.noFun_toRegIn {c k : ℕ} (t : Term T k) :
+private theorem TermIn.noFun_toRegIn {c k : ℕ} (t : Term T k) :
     (t.toRegIn (c := c)).noFun = t.noFun := by
   cases t <;> first | rfl | (rename_i j; exact j.elim0)
 
-theorem Selection.noFun_toPredIn {c k : ℕ} :
+private theorem Selection.noFun_toPredIn {c k : ℕ} :
     ∀ φ : Selection T k, (φ.toPredIn (c := c)).noFun = φ.noFun
   | .BT b => by
     cases b <;> (show (_ && _) = (_ && _); rw [TermIn.noFun_toRegIn, TermIn.noFun_toRegIn]; try rfl)
@@ -5568,29 +5578,29 @@ theorem Selection.noFun_toPredIn {c k : ℕ} :
   | .True => rfl
 
 omit [ValueType T] in
-@[simp] theorem TermGIn.noFun_const {c n : ℕ} {κ : Fin n → ColKind} (a : T) :
+@[simp] private theorem TermGIn.noFun_const {c n : ℕ} {κ : Fin n → ColKind} (a : T) :
     (TermGIn.const (c := c) (κ := κ) a).noFun = true := rfl
 
-theorem noFun_clausePredOpt {c k : ℕ} (keep : Option (Selection T k)) :
+private theorem noFun_clausePredOpt {c k : ℕ} (keep : Option (Selection T k)) :
     (clausePredOpt (c := c) keep).noFun = Selection.noFunOpt keep := by
   cases keep with
   | none => rfl
   | some φ => exact Selection.noFun_toPredIn φ
 
 omit [ValueType T] in
-theorem OrderCol.noFun_lePred {c m : ℕ} (cl : OrderCol) {x y : TermGIn T c (ColKind.allReg m)}
+private theorem OrderCol.noFun_lePred {c m : ℕ} (cl : OrderCol) {x y : TermGIn T c (ColKind.allReg m)}
     (hx : x.noFun = true) (hy : y.noFun = true) : (cl.lePred x y).noFun = true := by
   unfold OrderCol.lePred
   split <;> (show (_ && _) = true; rw [hx, hy]; rfl)
 
 omit [ValueType T] in
-theorem OrderCol.noFun_ltPred {c m : ℕ} (cl : OrderCol) {x y : TermGIn T c (ColKind.allReg m)}
+private theorem OrderCol.noFun_ltPred {c m : ℕ} (cl : OrderCol) {x y : TermGIn T c (ColKind.allReg m)}
     (hx : x.noFun = true) (hy : y.noFun = true) : (cl.ltPred x y).noFun = true := by
   unfold OrderCol.ltPred
   split <;> (show (_ && _) = true; rw [hx, hy]; rfl)
 
 omit [ValueType T] in
-theorem OrderCol.noFun_lePredN {c m : ℕ} (cl : OrderCol) (ν : T)
+private theorem OrderCol.noFun_lePredN {c m : ℕ} (cl : OrderCol) (ν : T)
     {x y : TermGIn T c (ColKind.allReg m)} (hx : x.noFun = true) (hy : y.noFun = true) :
     (cl.lePredN ν x y).noFun = true := by
   unfold OrderCol.lePredN
@@ -5598,14 +5608,14 @@ theorem OrderCol.noFun_lePredN {c m : ℕ} (cl : OrderCol) (ν : T)
     OrderCol.noFun_lePred cl hx hy, Bool.and_self]
 
 omit [ValueType T] in
-theorem OrderCol.noFun_ltPredN {c m : ℕ} (cl : OrderCol) (ν : T)
+private theorem OrderCol.noFun_ltPredN {c m : ℕ} (cl : OrderCol) (ν : T)
     {x y : TermGIn T c (ColKind.allReg m)} (hx : x.noFun = true) (hy : y.noFun = true) :
     (cl.ltPredN ν x y).noFun = true := by
   unfold OrderCol.ltPredN
   split <;> simp only [GenPredIn.noFun, hx, hy, TermGIn.noFun_const,
     OrderCol.noFun_ltPred cl hx hy, Bool.and_self]
 
-theorem OrderSpec.noFun_lePredOnOf {c m : ℕ}
+private theorem OrderSpec.noFun_lePredOnOf {c m : ℕ}
     {base : Fin p → GenPredIn T c (ColKind.allReg m)}
     {x y : Fin p → TermGIn T c (ColKind.allReg m)} (hb : ∀ k, (base k).noFun = true)
     (hx : ∀ k, (x k).noFun = true) (hy : ∀ k, (y k).noFun = true) :
@@ -5615,7 +5625,7 @@ theorem OrderSpec.noFun_lePredOnOf {c m : ℕ}
     simp only [OrderSpec.lePredOnOf, GenPredIn.noFun, hb, hx, hy,
       OrderSpec.noFun_lePredOnOf hb hx hy ks, Bool.and_self]
 
-theorem OrderSpec.noFun_ltPredOnOf {c m : ℕ}
+private theorem OrderSpec.noFun_ltPredOnOf {c m : ℕ}
     {base : Fin p → GenPredIn T c (ColKind.allReg m)}
     {x y : Fin p → TermGIn T c (ColKind.allReg m)} (hb : ∀ k, (base k).noFun = true)
     (hx : ∀ k, (x k).noFun = true) (hy : ∀ k, (y k).noFun = true) :
@@ -5626,14 +5636,14 @@ theorem OrderSpec.noFun_ltPredOnOf {c m : ℕ}
       OrderSpec.noFun_ltPredOnOf hb hx hy ks, Bool.and_self]
 
 omit [ValueType T] in
-theorem noFun_frameSelfTerms {c k q : ℕ} (O : Tuple (Fin k) q) (j : Fin q) :
+private theorem noFun_frameSelfTerms {c k q : ℕ} (O : Tuple (Fin k) q) (j : Fin q) :
     (frameSelfTerms (T := T) (c := c) O j).noFun = true := rfl
 
 omit [ValueType T] in
-theorem noFun_frameOuterTerms {c k q : ℕ} (O : Tuple (Fin k) q) (j : Fin q) :
+private theorem noFun_frameOuterTerms {c k q : ℕ} (O : Tuple (Fin k) q) (j : Fin q) :
     (frameOuterTerms (T := T) (c := c) O j).noFun = true := rfl
 
-theorem exists_framePred_whole {c : ℕ} (O : Tuple (Fin n) p)
+private theorem exists_framePred_whole {c : ℕ} (O : Tuple (Fin n) p)
     (keep : Option (Selection T n)) :
     ∃ ψ : GenPredIn T (n + c) (ColKind.allReg n),
       (Selection.noFunOpt keep = true → ψ.noFun = true) ∧
@@ -5789,7 +5799,7 @@ FROM` between two equal constants. -/
 def truePred {c k : ℕ} : GenPredIn T c (ColKind.allReg k) :=
   .cmp CompOp.syneq (.const 0) (.const 0)
 
-theorem holdsPlain_truePred {c k : ℕ} (y : Tuple T k) (γ : Fin c → T) :
+private theorem holdsPlain_truePred {c k : ℕ} (y : Tuple T k) (γ : Fin c → T) :
     (truePred : GenPredIn T c (ColKind.allReg k)).holdsPlain y γ := by
   show CompOp.syneq.eval3 (0 : T) 0 = Kleene.true
   rw [CompOp.syneq_eval3_eq_true_iff]
@@ -5799,7 +5809,7 @@ makes available: the base case of a disjunction over no condition. -/
 def falsePred {c k : ℕ} : GenPredIn T c (ColKind.allReg k) :=
   .cmp CompOp.syneq (.const 0) (.const ValueType.nonzero)
 
-theorem holdsPlain_falsePred {c k : ℕ} (y : Tuple T k) (γ : Fin c → T) :
+private theorem holdsPlain_falsePred {c k : ℕ} (y : Tuple T k) (γ : Fin c → T) :
     ¬ (falsePred : GenPredIn T c (ColKind.allReg k)).holdsPlain y γ := by
   show ¬ (CompOp.syneq.eval3 (0 : T) ValueType.nonzero = Kleene.true)
   rw [CompOp.syneq_eval3_eq_true_iff]
@@ -5815,7 +5825,7 @@ supply. -/
 
 /-- **`RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW` is a
 predicate.** -/
-theorem exists_framePred_rangeUpTo {c : ℕ} (O : Tuple (Fin n) p)
+private theorem exists_framePred_rangeUpTo {c : ℕ} (O : Tuple (Fin n) p)
     (o : OrderSpec p) (keep : Option (Selection T n)) :
     ∃ ψ : GenPredIn T (n + c) (ColKind.allReg n),
       (Selection.noFunOpt keep = true → ψ.noFun = true) ∧
@@ -5833,7 +5843,7 @@ theorem exists_framePred_rangeUpTo {c : ℕ} (O : Tuple (Fin n) p)
       (fun a ha => ValueType.eq_nullVal_of_isNull h ha)
 
 /-- **And the same frame excluding the current row's peers.** -/
-theorem exists_framePred_rangeBefore {c : ℕ} (O : Tuple (Fin n) p)
+private theorem exists_framePred_rangeBefore {c : ℕ} (O : Tuple (Fin n) p)
     (o : OrderSpec p) (keep : Option (Selection T n)) :
     ∃ ψ : GenPredIn T (n + c) (ColKind.allReg n),
       (Selection.noFunOpt keep = true → ψ.noFun = true) ∧
@@ -5900,7 +5910,7 @@ def OrderCol.shiftTerm {c m : ℕ} (cl : OrderCol) (pre : Bool) (a : T)
     (x : TermGIn T c (ColKind.allReg m)) : TermGIn T c (ColKind.allReg m) :=
   if pre != cl.desc then .sub x (.const a) else .add x (.const a)
 
-theorem OrderCol.evalPlain_shiftTerm {c m : ℕ} (cl : OrderCol) (pre : Bool) (a : T)
+private theorem OrderCol.evalPlain_shiftTerm {c m : ℕ} (cl : OrderCol) (pre : Bool) (a : T)
     (x : TermGIn T c (ColKind.allReg m)) (u : Tuple T m) (γ : Fin c → T) :
     (cl.shiftTerm pre a x).evalPlain u γ = FrameCond.shift cl pre a (x.evalPlain u γ) := by
   unfold OrderCol.shiftTerm FrameCond.shift
@@ -5911,7 +5921,7 @@ or, where the current row's value is null, with the value itself. Where the
 domain names its null the two cases are told apart by `IS NOT DISTINCT FROM`
 it; where it names none there is only the first. `lower` chooses the start
 (`x` moved at or before `y`) or the end (`y` at or before `x` moved). -/
-theorem OrderCol.exists_offPred {c m : ℕ} (cl : OrderCol) (pre : Bool) (a : T)
+private theorem OrderCol.exists_offPred {c m : ℕ} (cl : OrderCol) (pre : Bool) (a : T)
     (lower : Bool) (x y : TermGIn T c (ColKind.allReg m)) :
     ∃ ψ : GenPredIn T c (ColKind.allReg m), ∀ (u : Tuple T m) (γ : Fin c → T),
       ψ.holdsPlain u γ ↔
@@ -6061,7 +6071,7 @@ reading down to what a `FILTER` keeps is the same, on the values read, as
 sorting the cut (`OrderSpec.filter_sortSeq_map_eq`); what is left is two
 listings of one multiset, which sort alike on those values
 (`OrderSpec.sortSeq_map_eq`). -/
-theorem ValueFrame.groupSeqOrd_filter_map_eq {c : ℕ} (O : Tuple (Fin n) p)
+private theorem ValueFrame.groupSeqOrd_filter_map_eq {c : ℕ} (O : Tuple (Fin n) p)
     (o : OrderSpec p) (t : TermIn T c n) (keep : Tuple T n → Bool)
     (X : Multiset (Tuple T n)) (γ : Fin c → T) :
     (Relation.groupSeqOrd (fun k : Fin 0 => k.elim0) (GroupOrder.byCols O o)
@@ -6101,7 +6111,7 @@ reads them, and a `DISTINCT` window is the same with `f^distinct` as the
 aggregate. The selection's predicate therefore has to hold exactly where
 the frame condition holds *and* the clause keeps the row, which is a
 conjunction of two predicates of the language. -/
-theorem evaluatePlain_winByApplyOn {lab : ℕ} {c : ℕ} {rd : Fin c → Bool} {κ' : Fin n → ColKind}
+private theorem evaluatePlain_winByApplyOn {lab : ℕ} {c : ℕ} {rd : Fin c → Bool} {κ' : Fin n → ColKind}
     (P : Tuple (Fin n) m)
     (O : Tuple (Fin n) p) (o : OrderSpec p) {w : ValueFrame T p} {hsql : w.IsSQL o}
     (hc : w.ContainsSelf) (ψ : GenPredIn T (n + c) (ColKind.allReg n))
@@ -6281,7 +6291,7 @@ theorem evaluatePlain_winByApply {lab : ℕ} {c : ℕ} {rd : Fin c → Bool} (P 
 and a selection, which is what eliminating windows from a query
 (`AggQueryIn.exists_winFree`) asks of it. The apply then goes by the
 decorrelation (`AggQueryIn.exists_applyFree_plainEquiv`). -/
-theorem usesOnly_winByApplyOn {c : ℕ} {S : Set OpKind} (P : Tuple (Fin n) m)
+private theorem usesOnly_winByApplyOn {c : ℕ} {S : Set OpKind} (P : Tuple (Fin n) m)
     (O : Tuple (Fin n) p) (o : OrderSpec p)
     (ψ : GenPredIn T (n + c) (ColKind.allReg n)) (t : TermIn T c n)
     (f : SeqAggFunc T) {q qf : AggQueryIn T c n (ColKind.allReg n)}
@@ -6292,7 +6302,7 @@ theorem usesOnly_winByApplyOn {c : ℕ} {S : Set OpKind} (P : Tuple (Fin n) m)
   exact ⟨ha, hq, hg, hs, (AggQueryIn.usesOnly_substMap qf _).mpr hqf⟩
 
 /-- The same where the frame reads the input itself. -/
-theorem usesOnly_winByApply {c : ℕ} {S : Set OpKind} (P : Tuple (Fin n) m)
+private theorem usesOnly_winByApply {c : ℕ} {S : Set OpKind} (P : Tuple (Fin n) m)
     (O : Tuple (Fin n) p) (o : OrderSpec p)
     (ψ : GenPredIn T (n + c) (ColKind.allReg n)) (t : TermIn T c n)
     (f : SeqAggFunc T) {q : AggQueryIn T c n (ColKind.allReg n)}
@@ -6301,7 +6311,7 @@ theorem usesOnly_winByApply {c : ℕ} {S : Set OpKind} (P : Tuple (Fin n) m)
   usesOnly_winByApplyOn P O o ψ t f ha hg hs hq hq
 
 /-- **The derived form names the relations the window names.** -/
-theorem overSchema_winByApplyOn {c : ℕ} {sch : Schema} (P : Tuple (Fin n) m)
+private theorem overSchema_winByApplyOn {c : ℕ} {sch : Schema} (P : Tuple (Fin n) m)
     (O : Tuple (Fin n) p) (o : OrderSpec p)
     (ψ : GenPredIn T (n + c) (ColKind.allReg n)) (t : TermIn T c n)
     (f : SeqAggFunc T) {q qf : AggQueryIn T c n (ColKind.allReg n)}
@@ -6311,7 +6321,7 @@ theorem overSchema_winByApplyOn {c : ℕ} {sch : Schema} (P : Tuple (Fin n) m)
   exact ⟨hq, (AggQueryIn.overSchema_substMap qf _ sch).mpr hqf⟩
 
 /-- The same where the frame reads the input itself. -/
-theorem overSchema_winByApply {c : ℕ} {sch : Schema} (P : Tuple (Fin n) m)
+private theorem overSchema_winByApply {c : ℕ} {sch : Schema} (P : Tuple (Fin n) m)
     (O : Tuple (Fin n) p) (o : OrderSpec p)
     (ψ : GenPredIn T (n + c) (ColKind.allReg n)) (t : TermIn T c n)
     (f : SeqAggFunc T) {q : AggQueryIn T c n (ColKind.allReg n)}
@@ -6445,7 +6455,7 @@ theorem AggQueryIn.evaluatePlain_eq_zero_of_allEmpty {S : Set OpKind}
 
 /-- **And the unit relation breaks it**: one row on every instance, the
 empty one included. So no generating set omits `γ`. -/
-theorem AggQueryIn.evaluatePlain_unit_ne_zero (D : Database T)
+private theorem AggQueryIn.evaluatePlain_unit_ne_zero (D : Database T)
     (γ : Fin 0 → T) : (AggQueryIn.unit : AggQuery T 0 _).evaluatePlain D γ ≠ 0 := by
   rw [AggQueryIn.evaluatePlain_unit D γ (fun j => j.elim0)]
   exact fun h => absurd (congrArg Multiset.card h) (by simp)

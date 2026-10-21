@@ -5,6 +5,8 @@ public import Provenance.Semirings.BoolFunc
 public import Mathlib.Data.Finset.Lattice.Basic
 public import Mathlib.Data.Finset.SDiff
 import Mathlib.Tactic.Bound.Init
+import all Provenance.SemiringWithMonus
+import all Provenance.Semirings.BoolFunc
 
 /-!
 # Which-provenance m-semiring (lineage)
@@ -296,12 +298,12 @@ theorem Which.not_absorptive (h: ∃ (_: α), ⊤) : ¬(absorptive (Which α)) :
 `δ`: `delta_absorb` at `a = 𝟙` is absorptivity, which Lin[X] lacks (`⊗` and
 `⊕` both being union). This is why the instance takes the support indicator
 rather than ProvSQL's historical `Which::delta`. -/
-theorem Which.not_isDelta_id (h : ∃ (_ : α), ⊤) :
+private theorem Which.not_isDelta_id (h : ∃ (_ : α), ⊤) :
     ¬ IsDelta (id : Which α → Which α) :=
   not_isDelta_id_of_not_absorptive (Which.not_absorptive h)
 
 /-- Which[∅] is absorptive -/
-theorem Which.absorptive (h: IsEmpty α): absorptive (Which α) := by
+private theorem Which.absorptive (h: IsEmpty α): absorptive (Which α) := by
   intro x
   simp[(· + ·), Add.add]
   cases hx: x
@@ -341,7 +343,7 @@ collapsing route to exclusivity rather than the complementing one – and
 unlike `ℕ`, Lin[X] is not distributive
 (`Which.not_mul_sub_left_distributive`), so exclusivity and distributivity
 are independent. -/
-theorem Which.exclusive : exclusive (Which α) := by
+private theorem Which.exclusive : exclusive (Which α) := by
   intro a
   cases a <;> simp[(· * ·),Mul.mul,(· - ·),Sub.sub] <;> rfl
 
@@ -349,7 +351,7 @@ theorem Which.exclusive : exclusive (Which α) := by
 inhabited) sending the variables to arbitrary values: `Which α` is not
 absorptive (`Which.not_absorptive`), which contradicts `var i + 1 = 1` in
 `BoolFunc Y`. -/
-theorem Which.no_hom_from_BoolFunc {Y : Type} [Inhabited Y] [Inhabited α] :
+private theorem Which.no_hom_from_BoolFunc {Y : Type} [Inhabited Y] [Inhabited α] :
     ∃ ν : Y → Which α,
       ¬ ∃ φ : BoolFunc Y →+* Which α, ∀ i : Y, φ (BoolFunc.var i) = ν i :=
   BoolFunc.no_hom_of_not_absorptive (Which.not_absorptive ⟨default, trivial⟩)
@@ -366,7 +368,7 @@ theorem Which.mulIdempotent : _root_.mulIdempotent (Which α) := by
 `𝟘` elsewhere – subtracting any set from `∅` leaves nothing – and `⊗` is
 `𝟘`-absorbing with `𝟙 ⊗ 𝟙 = 𝟙`, so both sides are `𝟙` exactly when both
 summands are `𝟘`. -/
-theorem Which.complemented : _root_.complemented (Which α) := by
+private theorem Which.complemented : _root_.complemented (Which α) := by
   intro a b
   cases a with
   | wbot => cases b with

@@ -10,6 +10,12 @@ import Mathlib.Algebra.Order.BigOperators.Group.Multiset
 import Mathlib.Algebra.Order.Ring.Nat
 import Mathlib.Data.Fintype.BigOperators
 import Mathlib.Tactic.Ring.RingNF
+import all Provenance.AggQuery
+import all Provenance.Database
+import all Provenance.Decorrelate
+import all Provenance.Occurrence
+import all Provenance.OrderSpec
+import all Provenance.PlainBasis
 
 /-!
 # The recursions in the classification
@@ -70,7 +76,7 @@ def diamondEdges : ℕ → Multiset (Tuple ℕ 2)
             ![3 * n + 2, 3 * n + 3]} : Multiset (Tuple ℕ 2))
 
 /-- The chain has `4n` edges. -/
-theorem card_diamondEdges (n : ℕ) :
+private theorem card_diamondEdges (n : ℕ) :
     Multiset.card (diamondEdges n) = 4 * n := by
   induction n with
   | zero => rfl
@@ -89,13 +95,13 @@ theorem card_diamondEdges (n : ℕ) :
 def dChain (n : ℕ) : Database ℕ :=
   [("S", ⟨1, ({node 0} : Multiset (Tuple ℕ 1))⟩), ("E", ⟨2, diamondEdges n⟩)]
 
-theorem find_dChain_S (n : ℕ) :
+private theorem find_dChain_S (n : ℕ) :
     (dChain n).find 1 "S" = some ({node 0} : Multiset (Tuple ℕ 1)) := by
   show Database.find.f 1 "S" (dChain n) = _
   rw [dChain, Database.find.f, dite_eq_left ⟨rfl, rfl⟩]
   rfl
 
-theorem find_dChain_E (n : ℕ) :
+private theorem find_dChain_E (n : ℕ) :
     (dChain n).find 2 "E" = some (diamondEdges n) := by
   show Database.find.f 2 "E" (dChain n) = _
   rw [dChain, Database.find.f, dite_eq_right (by simp)]
@@ -104,7 +110,7 @@ theorem find_dChain_E (n : ℕ) :
   rfl
 
 /-- The instance has `4n + 1` rows. -/
-theorem size_dChain (n : ℕ) : (dChain n).size = 4 * n + 1 := by
+private theorem size_dChain (n : ℕ) : (dChain n).size = 4 * n + 1 := by
   rw [Database.size, dChain]
   show (1 : ℕ) + (Multiset.card (diamondEdges n) + 0) = _
   rw [card_diamondEdges]
@@ -172,10 +178,10 @@ def diamond (i : ℕ) : Multiset (Tuple ℕ 2) :=
   {![3 * i, 3 * i + 1], ![3 * i, 3 * i + 2],
     ![3 * i + 1, 3 * i + 3], ![3 * i + 2, 3 * i + 3]}
 
-theorem diamondEdges_succ (n : ℕ) :
+private theorem diamondEdges_succ (n : ℕ) :
     diamondEdges (n + 1) = diamondEdges n + diamond n := rfl
 
-theorem succs_add (E F : Multiset (Tuple ℕ 2)) (a : ℕ) :
+private theorem succs_add (E F : Multiset (Tuple ℕ 2)) (a : ℕ) :
     succs (E + F) a = succs E a + succs F a := by
   rw [succs, succs, succs, Multiset.filter_add, Multiset.map_add]
 
@@ -227,7 +233,7 @@ private theorem succs_diamond_b (i : ℕ) :
 
 /-- **Past the chain there is nothing**: the nodes of the first `m`
 diamonds are below `3m`, so no edge leaves a node from there on. -/
-theorem succs_chain_eq_zero_of_ge {m a : ℕ} (h : 3 * m ≤ a) :
+private theorem succs_chain_eq_zero_of_ge {m a : ℕ} (h : 3 * m ≤ a) :
     succs (diamondEdges m) a = 0 := by
   induction m with
   | zero => rfl
@@ -237,7 +243,7 @@ theorem succs_chain_eq_zero_of_ge {m a : ℕ} (h : 3 * m ≤ a) :
     rfl
 
 /-- **The entry node of diamond `i` branches**, in the chain of `n`. -/
-theorem succs_chain_v {i n : ℕ} (h : i < n) :
+private theorem succs_chain_v {i n : ℕ} (h : i < n) :
     succs (diamondEdges n) (3 * i)
       = ({node (3 * i + 1), node (3 * i + 2)} : Multiset (Tuple ℕ 1)) := by
   induction n with
@@ -251,7 +257,7 @@ theorem succs_chain_v {i n : ℕ} (h : i < n) :
         zero_add]
 
 /-- **And each side of it leads to the exit node.** -/
-theorem succs_chain_a {i n : ℕ} (h : i < n) :
+private theorem succs_chain_a {i n : ℕ} (h : i < n) :
     succs (diamondEdges n) (3 * i + 1)
       = ({node (3 * i + 3)} : Multiset (Tuple ℕ 1)) := by
   induction n with
@@ -263,7 +269,7 @@ theorem succs_chain_a {i n : ℕ} (h : i < n) :
         add_zero]
     · rw [succs_chain_eq_zero_of_ge (by omega), succs_diamond_a, zero_add]
 
-theorem succs_chain_b {i n : ℕ} (h : i < n) :
+private theorem succs_chain_b {i n : ℕ} (h : i < n) :
     succs (diamondEdges n) (3 * i + 2)
       = ({node (3 * i + 3)} : Multiset (Tuple ℕ 1)) := by
   induction n with
@@ -278,7 +284,7 @@ theorem succs_chain_b {i n : ℕ} (h : i < n) :
 /-! ## The rounds are the layers of the chain -/
 
 /-- Binding a bag of copies of one row. -/
-theorem bind_replicate {α β : Type} (k : ℕ) (x : α) (f : α → Multiset β) :
+private theorem bind_replicate {α β : Type} (k : ℕ) (x : α) (f : α → Multiset β) :
     (Multiset.replicate k x).bind f = k • f x := by
   induction k with
   | zero => rfl
@@ -290,22 +296,22 @@ noncomputable def chainStep (n : ℕ) :
     Multiset (Tuple ℕ 1) → Multiset (Tuple ℕ 1) :=
   fun X => reachStep.evaluatePlain ((dChain n).assign "R" X) (fun j => j.elim0)
 
-theorem chainStep_eq (n : ℕ) (X : Multiset (Tuple ℕ 1)) :
+private theorem chainStep_eq (n : ℕ) (X : Multiset (Tuple ℕ 1)) :
     chainStep n X = X.bind (fun u => succs (diamondEdges n) (u 0)) :=
   evaluatePlain_reachStep n X
 
-theorem chainStep_zero (n : ℕ) : chainStep n 0 = 0 := by
+private theorem chainStep_zero (n : ℕ) : chainStep n 0 = 0 := by
   rw [chainStep_eq]
   rfl
 
 /-- One round over a bag of copies of one node. -/
-theorem chainStep_replicate (n k a : ℕ) :
+private theorem chainStep_replicate (n k a : ℕ) :
     chainStep n (Multiset.replicate k (node a))
       = k • succs (diamondEdges n) a := by
   rw [chainStep_eq, bind_replicate]
   rfl
 
-theorem chainStep_add (n : ℕ) (X Y : Multiset (Tuple ℕ 1)) :
+private theorem chainStep_add (n : ℕ) (X Y : Multiset (Tuple ℕ 1)) :
     chainStep n (X + Y) = chainStep n X + chainStep n Y := by
   rw [chainStep_eq, chainStep_eq, chainStep_eq, Multiset.add_bind]
 
@@ -346,7 +352,7 @@ theorem chainStep_iterate_odd {n : ℕ} (i : ℕ) (h : i < n) :
 
 /-- **And the round past the sink is empty**, which is where SQL's
 iteration stops. -/
-theorem chainStep_iterate_eq_zero {n j : ℕ} (h : 2 * n + 1 ≤ j) :
+private theorem chainStep_iterate_eq_zero {n j : ℕ} (h : 2 * n + 1 ≤ j) :
     (chainStep n)^[j] ({node 0} : Multiset (Tuple ℕ 1)) = 0 := by
   refine iterate_eq_zero_of_le (chainStep_zero n) ?_ h
   rw [Function.iterate_succ_apply', chainStep_iterate_even n (le_refl n),
@@ -360,13 +366,13 @@ theorem muSettles_chain (n : ℕ) :
 
 /-! ## The sink's multiplicity -/
 
-theorem node_inj {a b : ℕ} (h : node a = node b) : a = b := congrFun h 0
+private theorem node_inj {a b : ℕ} (h : node a = node b) : a = b := congrFun h 0
 
-@[simp] theorem node_eq_iff {a b : ℕ} : node a = node b ↔ a = b :=
+@[simp] private theorem node_eq_iff {a b : ℕ} : node a = node b ↔ a = b :=
   ⟨node_inj, fun h => by rw [h]⟩
 
 /-- **The sink is reached in the last round only**, by `2ⁿ` paths. -/
-theorem count_chainStep_iterate (n j : ℕ) :
+private theorem count_chainStep_iterate (n j : ℕ) :
     Multiset.count (node (3 * n))
         ((chainStep n)^[j] ({node 0} : Multiset (Tuple ℕ 1)))
       = if j = 2 * n then 2 ^ n else 0 := by
@@ -388,7 +394,7 @@ theorem count_chainStep_iterate (n j : ℕ) :
     rfl
 
 /-- Every round up to the sink's is non-empty. -/
-theorem chainStep_iterate_ne_zero {n j : ℕ} (h : j ≤ 2 * n) :
+private theorem chainStep_iterate_ne_zero {n j : ℕ} (h : j ≤ 2 * n) :
     (chainStep n)^[j] ({node 0} : Multiset (Tuple ℕ 1)) ≠ 0 := by
   rcases Nat.even_or_odd j with ⟨i, hi⟩ | ⟨i, hi⟩
   · have hj : j = 2 * i := by omega
@@ -404,7 +410,7 @@ theorem chainStep_iterate_ne_zero {n j : ℕ} (h : j ≤ 2 * n) :
     simp
 
 /-- So the recursion runs at least to it. -/
-theorem le_muRounds_chain (n : ℕ) :
+private theorem le_muRounds_chain (n : ℕ) :
     2 * n ≤ muRounds (chainStep n) ({node 0} : Multiset (Tuple ℕ 1)) := by
   have hne : {k | (chainStep n)^[k + 1] ({node 0} : Multiset (Tuple ℕ 1)) = 0}.Nonempty :=
     ⟨2 * n, chainStep_iterate_eq_zero (by omega)⟩
@@ -415,7 +421,7 @@ theorem le_muRounds_chain (n : ℕ) :
 
 /-! ## The row: no polynomial bounds a bag recursion -/
 
-theorem count_muSum (n b : ℕ) :
+private theorem count_muSum (n b : ℕ) :
     Multiset.count (node (3 * n))
         (muSum (chainStep n) b ({node 0} : Multiset (Tuple ℕ 1)))
       = if 2 * n ≤ b then 2 ^ n else 0 := by
@@ -450,7 +456,7 @@ theorem count_chainWitness (n : ℕ) :
   rw [hS, muSumFix, count_muSum, ite_eq_left (le_muRounds_chain n)]
 
 /-- Hence the result has at least `2ⁿ` rows. -/
-theorem le_card_chainWitness (n : ℕ) :
+private theorem le_card_chainWitness (n : ℕ) :
     2 ^ n ≤ Multiset.card
       (chainWitness.evaluatePlain (dChain n) (fun j => j.elim0)) := by
   rw [← count_chainWitness n]
@@ -724,7 +730,7 @@ def Relation.valsIn {n : ℕ} (r : Multiset (Tuple T n)) (V : Finset T) :
     Prop :=
   ∀ u ∈ r, ∀ j, u j ∈ V
 
-theorem AggQueryIn.constsIn_param_of_consts {c m : ℕ} (pv : Fin m → T ⊕ Fin c)
+private theorem AggQueryIn.constsIn_param_of_consts {c m : ℕ} (pv : Fin m → T ⊕ Fin c)
     (ρ : Fin m → ColKind) {V : Finset T}
     (h : (AggQueryIn.Param pv ρ : AggQueryIn T c m ρ).consts ⊆ V) :
     (AggQueryIn.Param pv ρ : AggQueryIn T c m ρ).constsIn V := fun k a hk =>
@@ -732,7 +738,7 @@ theorem AggQueryIn.constsIn_param_of_consts {c m : ℕ} (pv : Fin m → T ⊕ Fi
 
 /-- **A row of parameters holds the context's values and the leaf's
 constants.** -/
-theorem AggQueryIn.valsIn_param {c m : ℕ} (pv : Fin m → T ⊕ Fin c) (ρ : Fin m → ColKind)
+private theorem AggQueryIn.valsIn_param {c m : ℕ} (pv : Fin m → T ⊕ Fin c) (ρ : Fin m → ColKind)
     (D : Database T) (γ : Fin c → T) (V : Finset T) (hγ : ∀ j, γ j ∈ V)
     (hc : (AggQueryIn.Param pv ρ : AggQueryIn T c m ρ).constsIn V) :
     Relation.valsIn ((AggQueryIn.Param pv ρ : AggQueryIn T c m ρ).evaluatePlain D γ) V := by
@@ -745,7 +751,7 @@ theorem AggQueryIn.valsIn_param {c m : ℕ} (pv : Fin m → T ⊕ Fin c) (ρ : F
   | inr j => exact hγ j
 
 omit [ValueType T] in
-theorem Relation.valsIn_of_le {n : ℕ} {r r' : Multiset (Tuple T n)}
+private theorem Relation.valsIn_of_le {n : ℕ} {r r' : Multiset (Tuple T n)}
     {V : Finset T} (h : r ≤ r') (hr' : Relation.valsIn r' V) :
     Relation.valsIn r V :=
   fun u hu j => hr' u (Multiset.mem_of_le h hu) j
@@ -766,12 +772,12 @@ def SeqAggFunc.IsCount (cnt : SeqAggFunc T) : Prop :=
     (∀ L : List T, cnt L = g (L.countP (fun x => !ValueType.isNull x)))
       ∧ (∀ m, ValueType.isNull (g m) = false) ∧ ∀ m, g m = 0 ↔ m = 0
 
-theorem SeqAggFunc.IsCount.readsCount {cnt : SeqAggFunc T} (h : cnt.IsCount) :
+private theorem SeqAggFunc.IsCount.readsCount {cnt : SeqAggFunc T} (h : cnt.IsCount) :
     cnt.ReadsCount := by
   obtain ⟨g, hg, -, -⟩ := h
   exact ⟨g, hg⟩
 
-theorem SeqAggFunc.IsCount.counts {cnt : SeqAggFunc T} (h : cnt.IsCount) :
+private theorem SeqAggFunc.IsCount.counts {cnt : SeqAggFunc T} (h : cnt.IsCount) :
     SeqAggFunc.Counts cnt := by
   obtain ⟨g, hg, hnn, hz⟩ := h
   refine ⟨fun L => by rw [hg]; exact hnn _, fun L => ?_⟩
@@ -779,7 +785,7 @@ theorem SeqAggFunc.IsCount.counts {cnt : SeqAggFunc T} (h : cnt.IsCount) :
   simp
 
 /-- **`COUNT(*)` over `ℕ` is a count.** -/
-theorem SeqAggFunc.isCount_count_nat : SeqAggFunc.count.IsCount :=
+private theorem SeqAggFunc.isCount_count_nat : SeqAggFunc.count.IsCount :=
   ⟨id, fun L => by
     show L.length = L.countP (fun x => !ValueType.isNull x)
     exact (List.countP_eq_length.mpr (fun _ _ => rfl)).symm, fun _ => rfl, fun _ => Iff.rfl⟩
@@ -787,18 +793,18 @@ theorem SeqAggFunc.isCount_count_nat : SeqAggFunc.count.IsCount :=
 /-- The values a count can take over a sequence of at most `m` values. -/
 def countVals (g : ℕ → T) (m : ℕ) : Finset T := (Finset.range (m + 1)).image g
 
-theorem mem_countVals {g : ℕ → T} {m : ℕ} {i : ℕ} (h : i ≤ m) :
+private theorem mem_countVals {g : ℕ → T} {m : ℕ} {i : ℕ} (h : i ≤ m) :
     g i ∈ countVals g m :=
   Finset.mem_image.mpr ⟨i, Finset.mem_range.mpr (by omega), rfl⟩
 
-theorem countVals_subset {g : ℕ → T} {m m' : ℕ} (h : m ≤ m') :
+private theorem countVals_subset {g : ℕ → T} {m m' : ℕ} (h : m ≤ m') :
     countVals g m ⊆ countVals g m' :=
   Finset.image_subset_image (fun i hi => Finset.mem_range.mpr
     (by have := Finset.mem_range.mp hi; omega))
 
 /-- **A group is no larger than its relation**, clause and `ORDER BY`
 included: both read a listing of a part of it. -/
-theorem length_groupSeqOptOrd_le {m n₁ : ℕ} (is : Tuple (Fin m) n₁)
+private theorem length_groupSeqOptOrd_le {m n₁ : ℕ} (is : Tuple (Fin m) n₁)
     (ord : GroupOrder T m) (r : Multiset (Tuple T m)) (g : Tuple T n₁)
     (keep : Option (Selection T m)) :
     (Relation.groupSeqOptOrd is ord r g keep).length ≤ Multiset.card r := by
@@ -828,7 +834,7 @@ private theorem card_cons_erase_le {α : Type} (i : DecidableEq α)
 
 /-- **And a frame is no larger than its relation and the current row.**
 The row itself is in its frame or not, which is the `+ 1`. -/
-theorem length_frameListOf_le {n m p : ℕ} (P : Tuple (Fin n) m)
+private theorem length_frameListOf_le {n m p : ℕ} (P : Tuple (Fin n) m)
     (O : Tuple (Fin n) p) (o : OrderSpec p) (w : ValueFrame T p)
     (X : Multiset (Tuple T n)) (x : Tuple T n) :
     (ValueFrame.frameListOf (α := Tuple T n) id P O o w X x).length
@@ -922,12 +928,12 @@ keeps the construction from circling.
 def Tuple.valsL {k : ℕ} (u : Tuple T k) : List T := (List.finRange k).map u
 
 omit [ValueType T] in
-theorem Tuple.mem_valsL {k : ℕ} (u : Tuple T k) (j : Fin k) :
+private theorem Tuple.mem_valsL {k : ℕ} (u : Tuple T k) (j : Fin k) :
     u j ∈ u.valsL :=
   List.mem_map.mpr ⟨j, List.mem_finRange j, rfl⟩
 
 omit [ValueType T] in
-theorem Tuple.length_valsL {k : ℕ} (u : Tuple T k) : u.valsL.length = k := by
+private theorem Tuple.length_valsL {k : ℕ} (u : Tuple T k) : u.valsL.length = k := by
   rw [Tuple.valsL, List.length_map, List.length_finRange]
 
 /-- The values of a relation, as a bag. -/
@@ -935,7 +941,7 @@ def Relation.valsM {k : ℕ} (r : Multiset (Tuple T k)) : Multiset T :=
   r.bind (fun u => (u.valsL : Multiset T))
 
 omit [ValueType T] in
-theorem Relation.card_valsM {k : ℕ} (r : Multiset (Tuple T k)) :
+private theorem Relation.card_valsM {k : ℕ} (r : Multiset (Tuple T k)) :
     Multiset.card (Relation.valsM r) = Multiset.card r * k := by
   rw [Relation.valsM, Multiset.card_bind]
   have hmap : (Multiset.map
@@ -947,7 +953,7 @@ theorem Relation.card_valsM {k : ℕ} (r : Multiset (Tuple T k)) :
   rw [hmap, Multiset.map_const', Multiset.sum_replicate, smul_eq_mul]
 
 omit [ValueType T] in
-theorem Relation.mem_valsM {k : ℕ} {r : Multiset (Tuple T k)} {u : Tuple T k}
+private theorem Relation.mem_valsM {k : ℕ} {r : Multiset (Tuple T k)} {u : Tuple T k}
     (hu : u ∈ r) (j : Fin k) : u j ∈ Relation.valsM r :=
   Multiset.mem_bind.mpr ⟨u, hu, Multiset.mem_coe.mpr (Tuple.mem_valsL u j)⟩
 
@@ -964,7 +970,7 @@ def Database.instVals (A : ℕ) (D : Database T) : Finset T :=
 /-- **It has at most `A · n` values** over an instance of `n` rows: the
 relations' sizes add up to `n`, and each row holds at most `A` of
 them. -/
-theorem Database.card_instVals_le (A : ℕ) (D : Database T) :
+private theorem Database.card_instVals_le (A : ℕ) (D : Database T) :
     (Database.instVals A D).card ≤ A * D.size := by
   refine le_trans (Multiset.toFinset_card_le _) ?_
   induction D with
@@ -981,7 +987,7 @@ theorem Database.card_instVals_le (A : ℕ) (D : Database T) :
       exact Nat.zero_le _
 
 /-- **And it holds the values of every relation the query may read.** -/
-theorem Database.valsIn_instVals (A : ℕ) :
+private theorem Database.valsIn_instVals (A : ℕ) :
     ∀ (D : Database T) {k : ℕ} {s : String} {r : Relation T k}, k ≤ A →
       D.find k s = some r → Relation.valsIn r (Database.instVals A D)
   | [], k, s, r, _, h => absurd h (fun hc =>
@@ -1067,12 +1073,12 @@ instance the recursion started from (`settlesAt_assign_of_noMention`,
 `evaluatePlain_assign_of_noMention`). -/
 
 omit [ValueType T] in
-theorem Relation.valsIn_mono {n : ℕ} {r : Multiset (Tuple T n)}
+private theorem Relation.valsIn_mono {n : ℕ} {r : Multiset (Tuple T n)}
     {V V' : Finset T} (h : V ⊆ V') (hr : Relation.valsIn r V) :
     Relation.valsIn r V' :=
   fun u hu j => h (hr u hu j)
 
-theorem card_countVals_le (g : ℕ → T) (m : ℕ) : (countVals g m).card ≤ m + 1 :=
+private theorem card_countVals_le (g : ℕ → T) (m : ℕ) : (countVals g m).card ≤ m + 1 :=
   le_trans Finset.card_image_le (le_of_eq (Finset.card_range _))
 
 /-- The largest arity a query reads. -/
@@ -1102,7 +1108,7 @@ def AggQueryIn.maxArity : {c n : ℕ} → {κ : Fin n → ColKind} → {l : List
   | _, _, _, _, .WinExpr _ _ _ _ _ _ _ q _ => q.maxArity
 
 omit [ValueType T] in
-theorem AggQueryIn.aritiesLe_mono {A A' : ℕ} (h : A ≤ A') :
+private theorem AggQueryIn.aritiesLe_mono {A A' : ℕ} (h : A ≤ A') :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l),
       q.aritiesLe A → q.aritiesLe A' := by
   intro c n κ l q
@@ -1131,7 +1137,7 @@ theorem AggQueryIn.aritiesLe_mono {A A' : ℕ} (h : A ≤ A') :
   | WinExpr P O o ws ts fs g q keeps ih => exact ih
 
 omit [ValueType T] in
-theorem AggQueryIn.aritiesLe_maxArity :
+private theorem AggQueryIn.aritiesLe_maxArity :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l),
       q.aritiesLe q.maxArity := by
   intro c n κ l q
@@ -1181,7 +1187,7 @@ private theorem projCol_consts_subset {c n m : ℕ} {κ : Fin n → ColKind} {l 
 without `μ^⊎`**, in the two forms the induction carries (see the section
 heading): for a query, and for a recursive term read in the instance
 extended by a round. -/
-theorem AggQueryIn.exists_polyBound_rec_aux {S : Set OpKind}
+private theorem AggQueryIn.exists_polyBound_rec_aux {S : Set OpKind}
     (hmb : OpKind.muBag ∉ S) {cnt : SeqAggFunc T} {g : ℕ → T}
     (hg : ∀ L : List T, cnt L = g (L.countP (fun x => !ValueType.isNull x)))
     (A : ℕ) :
@@ -1714,7 +1720,7 @@ recursion included.
 omit [ValueType T] in
 /-- **A query over classes holding neither recursion is
 recursion-free.** -/
-theorem AggQueryIn.noRec_of_usesOnly {S : Set OpKind}
+private theorem AggQueryIn.noRec_of_usesOnly {S : Set OpKind}
     (hmb : OpKind.muBag ∉ S) (hms : OpKind.muSet ∉ S) :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l),
       q.usesOnly S → q.noRec := by
@@ -1819,7 +1825,7 @@ private theorem inSig_unit {Θ : Set (SeqAggFunc T)} :
 a query can name no relation, and a recursion's base is a query of the
 ambient schema, so the base of every recursion there has `∅` for its
 only leaf. -/
-theorem empty_mem_of_generatesAt {cnt : SeqAggFunc T} {S : Set OpKind}
+private theorem empty_mem_of_generatesAt {cnt : SeqAggFunc T} {S : Set OpKind}
     (hS : GeneratesAt T Schema.empty cnt S (AggQueryIn.unit : AggQuery T 0 _)) :
     OpKind.empty ∈ S := by
   obtain ⟨κ', q', hsch, hu', -, -⟩ := hS
@@ -1831,7 +1837,7 @@ theorem empty_mem_of_generatesAt {cnt : SeqAggFunc T} {S : Set OpKind}
 /-- **`γ` is in every basis of the whole algebra**: without it the
 all-empty instance has an empty answer, every round of a recursion
 included, and the unit has a row there. -/
-theorem gamma_mem_of_generatesAt {cnt : SeqAggFunc T} {sch : Schema}
+private theorem gamma_mem_of_generatesAt {cnt : SeqAggFunc T} {sch : Schema}
     {S : Set OpKind} (hS : GeneratesAt T sch cnt S (AggQueryIn.unit : AggQuery T 0 _)) :
     OpKind.gamma ∈ S := by
   by_contra hg
@@ -1849,7 +1855,7 @@ theorem gamma_mem_of_generatesAt {cnt : SeqAggFunc T} {sch : Schema}
 without both, a query over the schema is empty on every instance or
 non-empty on every full one wherever it is defined, and a selection on
 a value is neither. -/
-theorem sel_or_diff_mem_of_generatesAt {cnt : SeqAggFunc ℕ} {S : Set OpKind}
+private theorem sel_or_diff_mem_of_generatesAt {cnt : SeqAggFunc ℕ} {S : Set OpKind}
     (hS : GeneratesAt ℕ schemaR cnt S selWitness) :
     OpKind.sel ∈ S ∨ OpKind.diff ∈ S := by
   by_contra h
@@ -1874,7 +1880,7 @@ multiplicities are bounded by the query wherever it is defined – a
 recursive term then reads the previous round tuple by tuple, so a bag
 recursion that settles is its base – and a projection of a relation
 with a repeated column has unbounded ones. -/
-theorem proj_mem_of_generatesAt {cnt : SeqAggFunc ℕ} {S : Set OpKind}
+private theorem proj_mem_of_generatesAt {cnt : SeqAggFunc ℕ} {S : Set OpKind}
     (hS : GeneratesAt ℕ schemaS cnt S projWitness) : OpKind.proj ∈ S := by
   by_contra hp
   have hplain : projWitness.usesOnly plainOps :=
@@ -1899,7 +1905,7 @@ in the minimal universe a recursive term reads the previous round row by
 row and its orbits repeat within a bound the query fixes, so an answer
 stays linear in the instance, and a relation joined with itself is
 quadratic. -/
-theorem prod_or_apply_mem_of_generatesAt {cnt : SeqAggFunc ℕ}
+private theorem prod_or_apply_mem_of_generatesAt {cnt : SeqAggFunc ℕ}
     {S : Set OpKind} (hS : GeneratesAt ℕ schemaR cnt S prodWitness) :
     OpKind.prod ∈ S ∨ OpKind.apply ∈ S := by
   by_contra h
@@ -1915,21 +1921,21 @@ theorem prod_or_apply_mem_of_generatesAt {cnt : SeqAggFunc ℕ}
     (AggQueryIn.recNoFun_of_inSig q' hsig') D (fun j => j.elim0)
     (he.settles D (fun j => j.elim0) (settlesAt_of_plain _ hplain D _)).1
 
-theorem overSchema_chainWitness : chainWitness.overSchema schemaSE := by
+private theorem overSchema_chainWitness : chainWitness.overSchema schemaSE := by
   refine ⟨rfl, rfl, ⟨trivial, show "E" ≠ "R" by decide⟩, ?_⟩
   exact ⟨rfl, rfl⟩
 
-theorem usesOnly_chainWitness : chainWitness.usesOnly plainRecOps := by
+private theorem usesOnly_chainWitness : chainWitness.usesOnly plainRecOps := by
   refine ⟨by simp [plainRecOps, plainOps, basisDD, basisOps], trivial, ?_⟩
   exact ⟨⟨by simp [plainRecOps, plainOps, basisDD, basisOps], fun _ => rfl⟩,
     by simp [plainRecOps, plainOps, basisDD, basisOps],
     by simp [plainRecOps, plainOps, basisDD, basisOps], trivial, trivial⟩
 
-theorem winsDerivable_chainWitness : chainWitness.WinsDerivable :=
+private theorem winsDerivable_chainWitness : chainWitness.WinsDerivable :=
   ⟨trivial, trivial, trivial⟩
 
 /-- The base of the witness is the source. -/
-theorem evaluatePlain_chainBase (n : ℕ) :
+private theorem evaluatePlain_chainBase (n : ℕ) :
     (AggQueryIn.Rel (T := ℕ) (c := 0) 1 "S").evaluatePlain (dChain n)
       (fun j => j.elim0) = ({node 0} : Multiset (Tuple ℕ 1)) := by
   show (match (dChain n).find 1 "S" with
@@ -1937,7 +1943,7 @@ theorem evaluatePlain_chainBase (n : ℕ) :
   rw [find_dChain_S]
 
 /-- **The witness is defined on every chain**: its rounds end. -/
-theorem settlesAt_chainWitness (n : ℕ) :
+private theorem settlesAt_chainWitness (n : ℕ) :
     chainWitness.SettlesAt (dChain n) (fun j => j.elim0) := by
   refine ⟨trivial, chainStep_zero n, ?_, fun _ => ?_⟩
   · show MuSettles (chainStep n) ((AggQueryIn.Rel (T := ℕ) (c := 0) 1
@@ -1953,7 +1959,7 @@ theorem settlesAt_chainWitness (n : ℕ) :
 
 /-- The witness is in every signature: no function on values, no
 aggregate. -/
-theorem inSig_chainWitness {Θ : Set (SeqAggFunc ℕ)} : chainWitness.inSig Θ :=
+private theorem inSig_chainWitness {Θ : Set (SeqAggFunc ℕ)} : chainWitness.inSig Θ :=
   ⟨trivial, fun _ => rfl, rfl, trivial, trivial⟩
 
 /-- **`μ^⊎` is in every basis of the whole algebra**: without it, a
@@ -1962,7 +1968,7 @@ defined – set recursions included, their rows being the duplicate-free
 tuples over a value set of polynomial size – and the sink of a chain of
 `n` diamonds has `2ⁿ`. Of the necessity results, this is the one that
 reads what `cnt` is: a count. -/
-theorem muBag_mem_of_generatesAt {cnt : SeqAggFunc ℕ}
+private theorem muBag_mem_of_generatesAt {cnt : SeqAggFunc ℕ}
     (hcnt : cnt.ReadsCount) {S : Set OpKind}
     (hS : GeneratesAt ℕ schemaSE cnt S chainWitness) : OpKind.muBag ∈ S := by
   by_contra hmb
@@ -1978,27 +1984,27 @@ theorem muBag_mem_of_generatesAt {cnt : SeqAggFunc ℕ}
 /-! ## The rows against the generation of every query -/
 
 /-- `∅` is in every basis of the whole algebra. -/
-theorem empty_mem_of_generatesOnRec {cnt : SeqAggFunc T} {S : Set OpKind}
+private theorem empty_mem_of_generatesOnRec {cnt : SeqAggFunc T} {S : Set OpKind}
     (hS : GeneratesOnRec T Schema.empty cnt S) : OpKind.empty ∈ S :=
   empty_mem_of_generatesAt (hS _)
 
 /-- `γ` is in every basis of the whole algebra. -/
-theorem gamma_mem_of_generatesOnRec {cnt : SeqAggFunc T} {sch : Schema}
+private theorem gamma_mem_of_generatesOnRec {cnt : SeqAggFunc T} {sch : Schema}
     {S : Set OpKind} (hS : GeneratesOnRec T sch cnt S) : OpKind.gamma ∈ S :=
   gamma_mem_of_generatesAt (hS _)
 
 /-- `σ` or `−` is in every basis of the whole algebra. -/
-theorem sel_or_diff_mem_of_generatesOnRec {cnt : SeqAggFunc ℕ} {S : Set OpKind}
+private theorem sel_or_diff_mem_of_generatesOnRec {cnt : SeqAggFunc ℕ} {S : Set OpKind}
     (hS : GeneratesOnRec ℕ schemaR cnt S) : OpKind.sel ∈ S ∨ OpKind.diff ∈ S :=
   sel_or_diff_mem_of_generatesAt (hS _)
 
 /-- `Π` is in every basis of the whole algebra. -/
-theorem proj_mem_of_generatesOnRec {cnt : SeqAggFunc ℕ} {S : Set OpKind}
+private theorem proj_mem_of_generatesOnRec {cnt : SeqAggFunc ℕ} {S : Set OpKind}
     (hS : GeneratesOnRec ℕ schemaS cnt S) : OpKind.proj ∈ S :=
   proj_mem_of_generatesAt (hS _)
 
 /-- `×` or the apply is in every basis of the whole algebra. -/
-theorem prod_or_apply_mem_of_generatesOnRec {cnt : SeqAggFunc ℕ}
+private theorem prod_or_apply_mem_of_generatesOnRec {cnt : SeqAggFunc ℕ}
     {S : Set OpKind} (hS : GeneratesOnRec ℕ schemaR cnt S) :
     OpKind.prod ∈ S ∨ OpKind.apply ∈ S :=
   prod_or_apply_mem_of_generatesAt (hS _)

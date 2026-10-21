@@ -6,6 +6,8 @@ public import Mathlib.Data.Rat.Init
 public import Mathlib.Algebra.Order.Ring.Unbundled.Rat
 import Mathlib.Algebra.Order.Ring.Rat
 import Mathlib.Tactic.Ring.RingNF
+import all Provenance.SemiringWithMonus
+import all Provenance.Semirings.BoolFunc
 
 /-!
 # Łukasiewicz m-semiring
@@ -60,7 +62,7 @@ instance : Mul Lukasiewicz where
 instance : Sub Lukasiewicz where
   sub a b := if a≤b then ⟨0, by simp⟩ else a
 
-theorem Lukasiewicz.sub_def (a b: Lukasiewicz) :
+private theorem Lukasiewicz.sub_def (a b: Lukasiewicz) :
   a - b = if a≤b then ⟨0, by simp⟩ else a := by rfl
 
 instance : CommMagma Lukasiewicz where
@@ -341,7 +343,7 @@ instance : CommSemiringWithMonus Lukasiewicz where
   mul_comm := mul_comm
 
 /-- Łukasiewicz multiplication is not idempotent: `(1/2) * (1/2) = max(0, 0) = 0 ≠ 1/2`. -/
-theorem Lukasiewicz.not_mul_idempotent : ¬ ∀ a : Lukasiewicz, a * a = a := by
+private theorem Lukasiewicz.not_mul_idempotent : ¬ ∀ a : Lukasiewicz, a * a = a := by
   push Not
   have h0 : (0 : ℚ) ≤ (1 : ℚ) / 2 := by
     rw [le_div_iff₀ (by norm_num : (0 : ℚ) < 2)]; norm_num
@@ -363,7 +365,7 @@ the semiring is absorptive (`Lukasiewicz.absorptive`): what `delta_absorb` asks 
 `δ := id` is the lattice law `a ⊗ (a ⊕ b) = a`, which at `a = b = 1/2` reads
 `1/2 ⊗ 1/2 = max(0, 0) = 0 ≠ 1/2`. This is why the instance takes the support
 indicator (ProvSQL's `Lukasiewicz::delta`). -/
-theorem Lukasiewicz.not_isDelta_id : ¬ IsDelta (id : Lukasiewicz → Lukasiewicz) :=
+private theorem Lukasiewicz.not_isDelta_id : ¬ IsDelta (id : Lukasiewicz → Lukasiewicz) :=
   not_isDelta_id_of_not_mul_idempotent Lukasiewicz.idempotent
     Lukasiewicz.not_mul_idempotent
 
@@ -378,7 +380,7 @@ theorem Lukasiewicz.no_hom_from_BoolFunc {Y : Type} [Inhabited Y] :
 
 /-- The Łukasiewicz semiring is not exclusive: absorptive and totally
 ordered, with `½` neither `𝟘` nor `𝟙`, so `𝟙 ⊖ ½ = 𝟙` and `½ ⊗ 𝟙 = ½`. -/
-theorem Lukasiewicz.not_exclusive : ¬ exclusive Lukasiewicz := by
+private theorem Lukasiewicz.not_exclusive : ¬ exclusive Lukasiewicz := by
   have h0 : (0 : ℚ) ≤ (1 : ℚ) / 2 := by
     rw [le_div_iff₀ (by norm_num : (0 : ℚ) < 2)]; norm_num
   have h1 : (1 : ℚ) / 2 ≤ 1 := by
@@ -426,7 +428,7 @@ theorem Lukasiewicz.mul_sub_left_distributive :
 top of `[0,1]` – and `𝟙` elsewhere, and the t-norm of two such values is
 `𝟘` exactly when one of them is. Since `⊕` is `max`, both sides are `𝟘`
 exactly when one of the two summands is `𝟙`. -/
-theorem Lukasiewicz.complemented : _root_.complemented Lukasiewicz := by
+private theorem Lukasiewicz.complemented : _root_.complemented Lukasiewicz := by
   intro a b
   have hone : ((1 : Lukasiewicz) : ℚ) = 1 := rfl
   have hsub : ∀ x : Lukasiewicz, (1 : Lukasiewicz) - x

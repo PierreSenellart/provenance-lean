@@ -48,13 +48,13 @@ def strToNat? (s : String) : Option ℕ :=
 
 @[simp] theorem strToNat?_empty : strToNat? "" = none := rfl
 
-theorem allDigits_append (l₁ l₂ : List Char) :
+private theorem allDigits_append (l₁ l₂ : List Char) :
     allDigits (l₁ ++ l₂) = (allDigits l₁ && allDigits l₂) := by
   induction l₁ with
   | nil => rfl
   | cons c t ih => rw [List.cons_append, allDigits, allDigits, ih, Bool.and_assoc]
 
-theorem digitsVal_append (l₁ l₂ : List Char) (acc : ℕ) :
+private theorem digitsVal_append (l₁ l₂ : List Char) (acc : ℕ) :
     digitsVal (l₁ ++ l₂) acc = digitsVal l₂ (digitsVal l₁ acc) := by
   induction l₁ generalizing acc with
   | nil => rfl
@@ -81,12 +81,12 @@ def toDigitsCore : ℕ → ℕ → List Char → List Char
 /-- The decimal numeral of `n`, as `Nat.repr` prints it. -/
 def numeral (n : ℕ) : String := String.ofList (toDigitsCore (n + 1) n [])
 
-theorem isDigit_digitChar {d : ℕ} (h : d < 10) :
+private theorem isDigit_digitChar {d : ℕ} (h : d < 10) :
     (digitChar d).isDigit = true :=
   have hall : ∀ e : Fin 10, (digitChar e.val).isDigit = true := by decide
   hall ⟨d, h⟩
 
-theorem toNat_digitChar {d : ℕ} (h : d < 10) :
+private theorem toNat_digitChar {d : ℕ} (h : d < 10) :
     (digitChar d).toNat - 48 = d :=
   have hall : ∀ e : Fin 10, (digitChar e.val).toNat - 48 = e.val := by decide
   hall ⟨d, h⟩
@@ -95,7 +95,7 @@ theorem toNat_digitChar {d : ℕ} (h : d < 10) :
 `toDigitsCore` prepends are digits, and reading them most significant
 first multiplies the accumulator by a power of ten and adds the number
 back. -/
-theorem toDigitsCore_spec : ∀ (fuel : ℕ), 0 < fuel → ∀ n : ℕ, n < 10 ^ fuel →
+private theorem toDigitsCore_spec : ∀ (fuel : ℕ), 0 < fuel → ∀ n : ℕ, n < 10 ^ fuel →
     ∃ k, 0 < k ∧ ∀ ds : List Char,
       allDigits (toDigitsCore fuel n ds) = allDigits ds
         ∧ (∀ acc, digitsVal (toDigitsCore fuel n ds) acc
@@ -149,7 +149,7 @@ theorem toDigitsCore_spec : ∀ (fuel : ℕ), 0 < fuel → ∀ n : ℕ, n < 10 ^
           ← Nat.add_assoc]
 
 /-- **The reading of a string that is a non-empty run of digits.** -/
-theorem strToNat?_of_digits {s : String} {c : Char} {t : List Char}
+private theorem strToNat?_of_digits {s : String} {c : Char} {t : List Char}
     (hs : s.toList = c :: t) (hall : allDigits (c :: t) = true) :
     strToNat? s = some (digitsVal (c :: t) 0) := by
   unfold strToNat?
@@ -195,7 +195,7 @@ instance : Add String where
                 | none => ""
                 | some m => numeral (n + m)
 
-theorem add_def (s t : String) :
+private theorem add_def (s t : String) :
     s + t = (match strToNat? s with
       | none => ""
       | some n => match strToNat? t with

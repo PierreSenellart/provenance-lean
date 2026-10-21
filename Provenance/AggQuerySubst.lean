@@ -6,6 +6,8 @@ module
 
 public import Provenance.AggQuery
 import Mathlib.Tactic.Bound.Init
+import all Provenance.AggQuery
+import all Provenance.Frame
 
 /-!
 # Substituting the outer columns
@@ -45,7 +47,7 @@ def substVal {c d : ℕ} (θ : Fin c → T ⊕ Fin d) (γ : Fin d → T) : Fin c
 
 omit [ValueType T] in
 /-- Closing a context reads the values it is closed with. -/
-@[simp] theorem substVal_inl {c : ℕ} (u : Fin c → T) (γ : Fin 0 → T) :
+@[simp] private theorem substVal_inl {c : ℕ} (u : Fin c → T) (γ : Fin 0 → T) :
     substVal (fun k => Sum.inl (u k)) γ = u := rfl
 
 /-! ## Substitution on terms, predicates and projection columns -/
@@ -86,7 +88,7 @@ term reads of them is unchanged – which is what a window's
     rw [TermIn.substMap, TermIn.regOnly, ih₁, ih₂, ih₃, ih₄]; rfl
   | coalesce t₁ t₂ ih₁ ih₂ => rw [TermIn.substMap, TermIn.regOnly, ih₁, ih₂]; rfl
 
-theorem TermIn.eval_substMap {c d n : ℕ} (θ : Fin c → T ⊕ Fin d)
+private theorem TermIn.eval_substMap {c d n : ℕ} (θ : Fin c → T ⊕ Fin d)
     (t : TermIn T c n) (u : Tuple T n) (γ : Fin d → T) :
     (t.substMap θ).eval u γ = t.eval u (substVal θ γ) := by
   induction t with
@@ -126,7 +128,7 @@ def TermGIn.substMap {c d n : ℕ} {κ : Fin n → ColKind}
   | .coalesce t₁ t₂ => .coalesce (t₁.substMap θ) (t₂.substMap θ)
 
 omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
-theorem TermGIn.eval_substMap {c d n : ℕ} {κ : Fin n → ColKind}
+private theorem TermGIn.eval_substMap {c d n : ℕ} {κ : Fin n → ColKind}
     (θ : Fin c → T ⊕ Fin d) (t : TermGIn T c κ)
     (u : Tuple (GenValue T K) n) (γ : Fin d → T) :
     (t.substMap θ).eval u γ = t.eval u (substVal θ γ) := by
@@ -152,7 +154,7 @@ theorem TermGIn.eval_substMap {c d n : ℕ} {κ : Fin n → ColKind}
     rw [ih₁, ih₂]
     rfl
 
-theorem TermGIn.evalPlain_substMap {c d n : ℕ} {κ : Fin n → ColKind}
+private theorem TermGIn.evalPlain_substMap {c d n : ℕ} {κ : Fin n → ColKind}
     (θ : Fin c → T ⊕ Fin d) (t : TermGIn T c κ) (u : Tuple T n)
     (γ : Fin d → T) :
     (t.substMap θ).evalPlain u γ = t.evalPlain u (substVal θ γ) := by
@@ -203,7 +205,7 @@ omit [ValueType T] in
   | not φ ih => exact ih
 
 omit [ValueType T] in
-@[simp] theorem GenPredIn.comparedCols_substMap {c d n : ℕ}
+@[simp] private theorem GenPredIn.comparedCols_substMap {c d n : ℕ}
     {κ : Fin n → ColKind} (θ : Fin c → T ⊕ Fin d) (φ : GenPredIn T c κ) :
     (φ.substMap θ).comparedCols = φ.comparedCols := by
   induction φ with
@@ -215,7 +217,7 @@ omit [ValueType T] in
   | not φ ih => exact ih
 
 omit [ValueType T] in
-@[simp] theorem GenPredIn.entailsExistence_substMap {c d n : ℕ}
+@[simp] private theorem GenPredIn.entailsExistence_substMap {c d n : ℕ}
     {κ : Fin n → ColKind} (θ : Fin c → T ⊕ Fin d) (φ : GenPredIn T c κ)
     (neg : Bool) :
     (φ.substMap θ).entailsExistence neg = φ.entailsExistence neg := by
@@ -228,7 +230,7 @@ omit [ValueType T] in
   | not φ ih => exact ih (!neg)
 
 omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
-theorem GenPredIn.eval3_substMap {c d n : ℕ} {κ : Fin n → ColKind}
+private theorem GenPredIn.eval3_substMap {c d n : ℕ} {κ : Fin n → ColKind}
     (θ : Fin c → T ⊕ Fin d) (φ : GenPredIn T c κ)
     (u : Tuple (GenValue T K) n) (γ : Fin d → T) :
     (φ.substMap θ).eval3 u γ = φ.eval3 u (substVal θ γ) := by
@@ -247,14 +249,14 @@ theorem GenPredIn.eval3_substMap {c d n : ℕ} {κ : Fin n → ColKind}
   | not φ ih => show Kleene.not _ = Kleene.not _; rw [ih]
 
 omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
-theorem GenPredIn.holds_substMap {c d n : ℕ} {κ : Fin n → ColKind}
+private theorem GenPredIn.holds_substMap {c d n : ℕ} {κ : Fin n → ColKind}
     (θ : Fin c → T ⊕ Fin d) (φ : GenPredIn T c κ)
     (u : Tuple (GenValue T K) n) (γ : Fin d → T) :
     (φ.substMap θ).holds u γ ↔ φ.holds u (substVal θ γ) := by
   unfold GenPredIn.holds
   rw [GenPredIn.eval3_substMap]
 
-theorem GenPredIn.evalPlain3_substMap {c d n : ℕ} {κ : Fin n → ColKind}
+private theorem GenPredIn.evalPlain3_substMap {c d n : ℕ} {κ : Fin n → ColKind}
     (θ : Fin c → T ⊕ Fin d) (φ : GenPredIn T c κ) (u : Tuple T n)
     (γ : Fin d → T) :
     (φ.substMap θ).evalPlain3 u γ = φ.evalPlain3 u (substVal θ γ) := by
@@ -272,7 +274,7 @@ theorem GenPredIn.evalPlain3_substMap {c d n : ℕ} {κ : Fin n → ColKind}
   | or φ ψ ihφ ihψ => show Kleene.or _ _ = Kleene.or _ _; rw [ihφ, ihψ]
   | not φ ih => show Kleene.not _ = Kleene.not _; rw [ih]
 
-theorem GenPredIn.holdsPlain_substMap {c d n : ℕ} {κ : Fin n → ColKind}
+private theorem GenPredIn.holdsPlain_substMap {c d n : ℕ} {κ : Fin n → ColKind}
     (θ : Fin c → T ⊕ Fin d) (φ : GenPredIn T c κ) (u : Tuple T n)
     (γ : Fin d → T) :
     (φ.substMap θ).holdsPlain u γ ↔ φ.holdsPlain u (substVal θ γ) := by
@@ -280,7 +282,7 @@ theorem GenPredIn.holdsPlain_substMap {c d n : ℕ} {κ : Fin n → ColKind}
   rw [GenPredIn.evalPlain3_substMap]
 
 omit [HasAltLinearOrder K] in
-theorem GenPredIn.predsem_substMap {c d n : ℕ} {κ : Fin n → ColKind}
+private theorem GenPredIn.predsem_substMap {c d n : ℕ} {κ : Fin n → ColKind}
     (θ : Fin c → T ⊕ Fin d) (φ : GenPredIn T c κ) (neg : Bool)
     (u : Tuple (GenValue T K) n) (γ : Fin d → T) :
     (φ.substMap θ).predsem neg u γ = φ.predsem neg u (substVal θ γ) := by
@@ -297,7 +299,7 @@ theorem GenPredIn.predsem_substMap {c d n : ℕ} {κ : Fin n → ColKind}
   | not φ ih => exact ih (!neg)
 
 omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
-theorem GenPredIn.eval3W_substMap {c d n : ℕ} {κ : Fin n → ColKind}
+private theorem GenPredIn.eval3W_substMap {c d n : ℕ} {κ : Fin n → ColKind}
     (θ : Fin c → T ⊕ Fin d) (φ : GenPredIn T c κ) (v : Fin n → Option T)
     (u : Tuple (GenValue T K) n) (γ : Fin d → T) :
     (φ.substMap θ).eval3W v u γ = φ.eval3W v u (substVal θ γ) := by
@@ -312,7 +314,7 @@ omit [HasAltLinearOrder K] in
 /-- **The joint reading under a substitution**: the worlds are the row's,
 which the substitution does not touch, and the predicate is read under
 the substituted valuation. -/
-theorem GenPredIn.predsemJ_substMap {c d n : ℕ} {κ : Fin n → ColKind}
+private theorem GenPredIn.predsemJ_substMap {c d n : ℕ} {κ : Fin n → ColKind}
     (θ : Fin c → T ⊕ Fin d) (φ : GenPredIn T c κ) (neg : Bool)
     (u : Tuple (GenValue T K) n) (γ : Fin d → T) :
     (φ.substMap θ).predsemJ neg u γ = φ.predsemJ neg u (substVal θ γ) := by
@@ -339,13 +341,13 @@ omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K]
   [HasAltLinearOrder K] in
 /-- The substitution does not turn a source column into the rewritten
 world's. -/
-@[simp] theorem ProjColIn.sourceCol_substMap {c d n : ℕ}
+@[simp] private theorem ProjColIn.sourceCol_substMap {c d n : ℕ}
     {κ : Fin n → ColKind} (θ : Fin c → T ⊕ Fin d) (p : ProjColIn T c κ) :
     (p.substMap θ).sourceCol = p.sourceCol := by
   cases p <;> rfl
 
 omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
-theorem ProjColIn.eval_substMap {c d n : ℕ} {κ : Fin n → ColKind}
+private theorem ProjColIn.eval_substMap {c d n : ℕ} {κ : Fin n → ColKind}
     (θ : Fin c → T ⊕ Fin d) (p : ProjColIn T c κ)
     (u : Tuple (GenValue T K) n) (γ : Fin d → T) :
     (p.substMap θ).eval u γ = p.eval u (substVal θ γ) := by
@@ -356,7 +358,7 @@ theorem ProjColIn.eval_substMap {c d n : ℕ} {κ : Fin n → ColKind}
   | aggTermOf k h gf => rfl
   | provTerm t => exact congrArg Sum.inl (TermGIn.eval_substMap θ t u γ)
 
-theorem ProjColIn.evalPlain_substMap {c d n : ℕ} {κ : Fin n → ColKind}
+private theorem ProjColIn.evalPlain_substMap {c d n : ℕ} {κ : Fin n → ColKind}
     (θ : Fin c → T ⊕ Fin d) (p : ProjColIn T c κ) (u : Tuple T n)
     (γ : Fin d → T) :
     (p.substMap θ).evalPlain u γ = p.evalPlain u (substVal θ γ) := by
@@ -439,7 +441,7 @@ omit [ValueType T] in
 /-- Passing a substitution under an apply: the valuation the shifted
 substitution induces on the right side is the left row followed by the
 substituted ambient valuation. -/
-theorem substVal_append {c d n₁ : ℕ} (θ : Fin c → T ⊕ Fin d)
+private theorem substVal_append {c d n₁ : ℕ} (θ : Fin c → T ⊕ Fin d)
     (v : Fin n₁ → T) (γ : Fin d → T) :
     substVal (Fin.append (fun k => Sum.inr (Fin.castAdd d k))
         (fun j => Sum.map id (Fin.natAdd n₁) (θ j))) (Fin.append v γ)
@@ -474,13 +476,13 @@ def EvalEnv.substEnv {c d : ℕ} (E : EvalEnv T K) (θ : Fin c → T ⊕ Fin d) 
   E.withCtx (substCtx θ (E.ctxAt d γ))
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
-@[simp] theorem EvalEnv.substEnv_assignHole {c d : ℕ} (E : EvalEnv T K) (θ : Fin c → T ⊕ Fin d)
+@[simp] private theorem EvalEnv.substEnv_assignHole {c d : ℕ} (E : EvalEnv T K) (θ : Fin c → T ⊕ Fin d)
     (γ : Fin d → T) (s : String) {n : ℕ} (X : Multiset (GenRow T K n)) :
     (E.assignHole s X).substEnv θ γ = (E.substEnv θ γ).assignHole s X := rfl
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 /-- Passing a substitution under an apply, on a context of general values. -/
-theorem substCtx_append {c d n₁ : ℕ} (θ : Fin c → T ⊕ Fin d)
+private theorem substCtx_append {c d n₁ : ℕ} (θ : Fin c → T ⊕ Fin d)
     (x : Tuple (GenValue T K) n₁) (u : Tuple (GenValue T K) d) :
     substCtx (Fin.append (fun k => Sum.inr (Fin.castAdd d k))
         (fun j => Sum.map id (Fin.natAdd n₁) (θ j))) (Fin.append x u)
@@ -503,7 +505,7 @@ theorem substCtx_append {c d n₁ : ℕ} (θ : Fin c → T ⊕ Fin d)
 /-- **The evaluation reads the environment's context only at its own
 arity**: two environments binding the same rounds and giving the same
 context there evaluate alike. -/
-theorem AggQueryIn.evaluate_congr_env :
+private theorem AggQueryIn.evaluate_congr_env :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l)
       (dB : AnnotatedDatabase T K) (γ : Fin c → T) {E E' : EvalEnv T K},
       E.holes = E'.holes → E.ctxAt c γ = E'.ctxAt c γ →
@@ -566,7 +568,7 @@ theorem AggQueryIn.evaluate_congr_env :
 /-- **An apply whose left side has regular columns** reads its right side
 as a query with nothing bound, in the plain context of the left row: a
 context of regular values is what the environment-free reading gives. -/
-theorem AggQueryIn.evaluate_Apply_reg {n₁ n₂ : ℕ} {κ₂ : Fin n₂ → ColKind}
+private theorem AggQueryIn.evaluate_Apply_reg {n₁ n₂ : ℕ} {κ₂ : Fin n₂ → ColKind}
     (q₁ : AggQuery T n₁ (ColKind.allReg n₁)) (q₂ : AggQueryIn T n₁ n₂ κ₂)
     (d : AnnotatedDatabase T K) :
     (AggQueryIn.Apply q₁ q₂).evaluate d
@@ -738,7 +740,7 @@ theorem AggQueryIn.evaluatePlain_substMap :
 
 omit [DecidableEq K] in
 omit [CommSemiringWithMonus K] [HasAltLinearOrder K] in
-theorem AggValue.ofGroup_substMap {c d m : ℕ} (θ : Fin c → T ⊕ Fin d)
+private theorem AggValue.ofGroup_substMap {c d m : ℕ} (θ : Fin c → T ⊕ Fin d)
     (f : SeqAggFunc T) (t : TermIn T c m) (U : List (AnnotatedTuple T K m))
     (γ : Fin d → T) :
     AggValue.ofGroup f (t.substMap θ) U γ
@@ -748,7 +750,7 @@ theorem AggValue.ofGroup_substMap {c d m : ℕ} (θ : Fin c → T ⊕ Fin d)
 omit [DecidableEq K] in
 omit [CommSemiringWithMonus K] [HasAltLinearOrder K] in
 /-- The same for the expression a filtered aggregate builds. -/
-theorem AggExpr.ofGroupWhen_substMap {c d m : ℕ} (θ : Fin c → T ⊕ Fin d)
+private theorem AggExpr.ofGroupWhen_substMap {c d m : ℕ} (θ : Fin c → T ⊕ Fin d)
     (f : SeqAggFunc T) (t : TermIn T c m) (keep : Tuple T m → Bool)
     (U : List (AnnotatedTuple T K m)) (γ : Fin d → T) :
     AggExpr.ofGroupWhen f (t.substMap θ) keep U γ
@@ -758,7 +760,7 @@ theorem AggExpr.ofGroupWhen_substMap {c d m : ℕ} (θ : Fin c → T ⊕ Fin d)
 
 omit [DecidableEq K] in
 omit [CommSemiringWithMonus K] [HasAltLinearOrder K] in
-theorem AggValue.ofScalarGroup_substMap {c d m : ℕ} (θ : Fin c → T ⊕ Fin d)
+private theorem AggValue.ofScalarGroup_substMap {c d m : ℕ} (θ : Fin c → T ⊕ Fin d)
     (f : SeqAggFunc T) (t : TermIn T c m) (U : List (AnnotatedTuple T K m))
     (γ : Fin d → T) :
     AggValue.ofScalarGroup f (t.substMap θ) U γ
@@ -768,7 +770,7 @@ theorem AggValue.ofScalarGroup_substMap {c d m : ℕ} (θ : Fin c → T ⊕ Fin 
 omit [DecidableEq K] in
 /-- The same for the expression a filtered window builds, merged or
 not. -/
-theorem ValueFrame.exprWhen_substMap {c d n m p : ℕ} (θ : Fin c → T ⊕ Fin d)
+private theorem ValueFrame.exprWhen_substMap {c d n m p : ℕ} (θ : Fin c → T ⊕ Fin d)
     (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
     (w : ValueFrame T p) (t : TermIn T c n) (f : SeqAggFunc T) (dist : Bool)
     (keep : Tuple T n → Bool) (r : OccFam (AnnotatedTuple T K n))
@@ -786,7 +788,7 @@ theorem ValueFrame.exprWhen_substMap {c d n m p : ℕ} (θ : Fin c → T ⊕ Fin
 
 omit [DecidableEq K] in
 omit [CommSemiringWithMonus K] in
-theorem ValueFrame.token_substMap {c d n m p : ℕ} (θ : Fin c → T ⊕ Fin d)
+private theorem ValueFrame.token_substMap {c d n m p : ℕ} (θ : Fin c → T ⊕ Fin d)
     (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
     (w : ValueFrame T p) (t : TermIn T c n) (f : SeqAggFunc T)
     (r : OccFam (AnnotatedTuple T K n)) (i : Fin r.size) (γ : Fin d → T) :
@@ -801,7 +803,7 @@ omit [DecidableEq K] in
 omit [CommSemiringWithMonus K] in
 /-- The same read off the relation, which is the form the evaluator's
 `Win` clause uses. -/
-theorem ValueFrame.tokenOf_substMap {c d n m p : ℕ} (θ : Fin c → T ⊕ Fin d)
+private theorem ValueFrame.tokenOf_substMap {c d n m p : ℕ} (θ : Fin c → T ⊕ Fin d)
     (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
     (w : ValueFrame T p) (t : TermIn T c n) (f : SeqAggFunc T)
     (X : AnnotatedRelation T K n) (x : AnnotatedTuple T K n)
@@ -815,7 +817,7 @@ theorem ValueFrame.tokenOf_substMap {c d n m p : ℕ} (θ : Fin c → T ⊕ Fin 
 
 omit [DecidableEq K] in
 /-- And with `DISTINCT`, which only merges the classes afterwards. -/
-theorem ValueFrame.tokenOfDist_substMap {c d n m p : ℕ}
+private theorem ValueFrame.tokenOfDist_substMap {c d n m p : ℕ}
     (θ : Fin c → T ⊕ Fin d) (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
     (o : OrderSpec p) (w : ValueFrame T p) (t : TermIn T c n)
     (f : SeqAggFunc T) (dist : Bool) (X : AnnotatedRelation T K n)
@@ -827,7 +829,7 @@ theorem ValueFrame.tokenOfDist_substMap {c d n m p : ℕ}
 
 omit [DecidableEq K] in
 /-- And under a `FILTER` clause, whose column is an expression. -/
-theorem ValueFrame.exprWhenOf_substMap {c d n m p : ℕ}
+private theorem ValueFrame.exprWhenOf_substMap {c d n m p : ℕ}
     (θ : Fin c → T ⊕ Fin d) (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
     (o : OrderSpec p) (w : ValueFrame T p) (t : TermIn T c n)
     (f : SeqAggFunc T) (dist : Bool) (keep : Tuple T n → Bool)
@@ -848,7 +850,7 @@ omit [DecidableEq K] in
 /-- **The row a window adds, under a substitution**: the substitution
 reaches the aggregated term and nothing else, the row's own columns and
 its annotation going through untouched. -/
-theorem ValueFrame.windowGenRow_substMap {c d n m p : ℕ} (lab : ℕ) (ck : List (T ⊕ FamId T))
+private theorem ValueFrame.windowGenRow_substMap {c d n m p : ℕ} (lab : ℕ) (ck : List (T ⊕ FamId T))
     (θ : Fin c → T ⊕ Fin d) (κ : Fin n → ColKind) (P : Tuple (Fin n) m)
     (O : Tuple (Fin n) p)
     (o : OrderSpec p) (w : ValueFrame T p) (t : TermIn T c n)
@@ -868,7 +870,7 @@ omit [DecidableEq K] in
 omit [CommSemiringWithMonus K] in
 /-- The same for the expression a multi-frame window computes: the
 substitution reaches its leaves' terms and nothing else. -/
-theorem ValueFrame.exprOf_substMap {c d n m p na : ℕ} (θ : Fin c → T ⊕ Fin d)
+private theorem ValueFrame.exprOf_substMap {c d n m p na : ℕ} (θ : Fin c → T ⊕ Fin d)
     (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
     (ws : Fin na → ValueFrame T p) (ts : Fin na → TermIn T c n)
     (fs : Fin na → SeqAggFunc T) (g : (Fin na → T) → T)
@@ -884,7 +886,7 @@ omit [DecidableEq K] in
 omit [CommSemiringWithMonus K] in
 /-- The same under `FILTER` clauses: a clause reads the occurrence's own
 row, which the substitution does not touch. -/
-theorem ValueFrame.exprOfWhen_substMap {c d n m p na : ℕ}
+private theorem ValueFrame.exprOfWhen_substMap {c d n m p na : ℕ}
     (θ : Fin c → T ⊕ Fin d)
     (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
     (ws : Fin na → ValueFrame T p) (ts : Fin na → TermIn T c n)
@@ -915,7 +917,7 @@ def IsRenaming {c d : ℕ} (θ : Fin c → T ⊕ Fin d) : Prop :=
   ∃ e : Fin c → Fin d, StrictMono e ∧ ∀ k, θ k = Sum.inr (e k)
 
 omit [ValueType T] in
-theorem TermIn.readsOuter_substMap {c d n : ℕ} (θ : Fin c → T ⊕ Fin d) (j : Fin d) :
+private theorem TermIn.readsOuter_substMap {c d n : ℕ} (θ : Fin c → T ⊕ Fin d) (j : Fin d) :
     ∀ t : TermIn T c n,
       (t.substMap θ).readsOuter j = true ↔ ∃ k, θ k = Sum.inr j ∧ t.readsOuter k = true
   | .const _ => by simp [TermIn.substMap, TermIn.readsOuter]
@@ -951,7 +953,7 @@ theorem TermIn.readsOuter_substMap {c d n : ℕ} (θ : Fin c → T ⊕ Fin d) (j
         Or.inl (Or.inr ⟨k, h, h'⟩), Or.inr ⟨k, h, h'⟩]
 
 omit [ValueType T] in
-theorem TermGIn.readsOuter_substMap {c d n : ℕ} {κ : Fin n → ColKind}
+private theorem TermGIn.readsOuter_substMap {c d n : ℕ} {κ : Fin n → ColKind}
     (θ : Fin c → T ⊕ Fin d) (j : Fin d) :
     ∀ t : TermGIn T c κ,
       (t.substMap θ).readsOuter j = true ↔ ∃ k, θ k = Sum.inr j ∧ t.readsOuter k = true
@@ -1012,7 +1014,7 @@ private theorem reads_any {ι : Type} {m : ℕ} {P : ι → Prop} {a : Fin m →
   · rintro ⟨k, h, i, h'⟩; exact ⟨i, k, h, h'⟩
 
 omit [ValueType T] in
-theorem GenPredIn.readsOuter_substMap {c d n : ℕ} {κ : Fin n → ColKind}
+private theorem GenPredIn.readsOuter_substMap {c d n : ℕ} {κ : Fin n → ColKind}
     (θ : Fin c → T ⊕ Fin d) (j : Fin d) :
     ∀ φ : GenPredIn T c κ,
       (φ.substMap θ).readsOuter j = true ↔ ∃ k, θ k = Sum.inr j ∧ φ.readsOuter k = true
@@ -1033,7 +1035,7 @@ theorem GenPredIn.readsOuter_substMap {c d n : ℕ} {κ : Fin n → ColKind}
     exact GenPredIn.readsOuter_substMap θ j φ
 
 omit [ValueType T] in
-theorem ProjColIn.readsOuter_substMap {c d n : ℕ} {κ : Fin n → ColKind}
+private theorem ProjColIn.readsOuter_substMap {c d n : ℕ} {κ : Fin n → ColKind}
     (θ : Fin c → T ⊕ Fin d) (j : Fin d) :
     ∀ p : ProjColIn T c κ,
       (p.substMap θ).readsOuter j = true ↔ ∃ k, θ k = Sum.inr j ∧ p.readsOuter k = true
@@ -1044,7 +1046,7 @@ theorem ProjColIn.readsOuter_substMap {c d n : ℕ} {κ : Fin n → ColKind}
   | .aggTermOf _ _ _ => by simp [ProjColIn.substMap, ProjColIn.readsOuter]
 
 omit [ValueType T] in
-@[simp] theorem AggQueryIn.readsOuter_castKind {c n : ℕ} {κ κ' : Fin n → ColKind}
+@[simp] private theorem AggQueryIn.readsOuter_castKind {c n : ℕ} {κ κ' : Fin n → ColKind}
     {l : List (String × ℕ)} (h : κ = κ') (q : AggQueryIn T c n κ l) :
     (q.castKind h).readsOuter = q.readsOuter := by
   subst h; rfl
@@ -1052,7 +1054,7 @@ omit [ValueType T] in
 omit [ValueType T] in
 /-- The substitution an apply's right side is read through sends an
 ambient parameter `k` to `n₁ + k` exactly where the source sends `k` there. -/
-theorem lift_eq_inr_natAdd {c d n₁ : ℕ} (θ : Fin c → T ⊕ Fin d) (j : Fin d)
+private theorem lift_eq_inr_natAdd {c d n₁ : ℕ} (θ : Fin c → T ⊕ Fin d) (j : Fin d)
     (k' : Fin (n₁ + c)) :
     Fin.append (fun k => (Sum.inr (Fin.castAdd d k) : T ⊕ Fin (n₁ + d)))
         (fun i => Sum.map id (Fin.natAdd n₁) (θ i)) k' = Sum.inr (Fin.natAdd n₁ j)
@@ -1080,7 +1082,7 @@ theorem lift_eq_inr_natAdd {c d n₁ : ℕ} (θ : Fin c → T ⊕ Fin d) (j : Fi
       rw [hθ]; rfl
 
 omit [ValueType T] in
-theorem substRd_eq_true {c d : ℕ} (θ : Fin c → T ⊕ Fin d) (rd : Fin c → Bool) (j : Fin d) :
+private theorem substRd_eq_true {c d : ℕ} (θ : Fin c → T ⊕ Fin d) (rd : Fin c → Bool) (j : Fin d) :
     substRd θ rd j = true ↔ ∃ k, θ k = Sum.inr j ∧ rd k = true := by
   unfold substRd
   simp only [decide_eq_true_eq]
@@ -1090,7 +1092,7 @@ theorem substRd_eq_true {c d : ℕ} (θ : Fin c → T ⊕ Fin d) (rd : Fin c →
 omit [ValueType T] in
 /-- **The parameters a substituted query reads** are the images of those it
 read that the substitution sends to parameters. -/
-theorem AggQueryIn.readsOuter_substMap :
+private theorem AggQueryIn.readsOuter_substMap :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l)
       {d : ℕ} (θ : Fin c → T ⊕ Fin d) (j : Fin d),
       (q.substMap θ).readsOuter j = true ↔ ∃ k, θ k = Sum.inr j ∧ q.readsOuter k = true := by
@@ -1184,7 +1186,7 @@ theorem AggQueryIn.readsOuter_substMap :
       (TermGIn.readsOuter_substMap θ j a)) (ih θ j)) (substRd_eq_true θ _ j)
 
 omit [ValueType T] in
-theorem ctxKey_eq_map_filter {c : ℕ} {α : Type} (r : Fin c → Bool) (γ : Fin c → α) :
+private theorem ctxKey_eq_map_filter {c : ℕ} {α : Type} (r : Fin c → Bool) (γ : Fin c → α) :
     ctxKey r γ = ((List.finRange c).filter r).map γ := by
   unfold ctxKey
   induction List.finRange c with
@@ -1197,7 +1199,7 @@ theorem ctxKey_eq_map_filter {c : ℕ} {α : Type} (r : Fin c → Bool) (γ : Fi
 omit [ValueType T] in
 /-- **A renaming moves no value of a family**: the substituted operator
 reads, in order, the renamed parameters, which hold the same values. -/
-theorem ctxKey_of_renaming {c d : ℕ} {α : Type} {e : Fin c → Fin d} (he : StrictMono e)
+private theorem ctxKey_of_renaming {c d : ℕ} {α : Type} {e : Fin c → Fin d} (he : StrictMono e)
     (r : Fin c → Bool) (r' : Fin d → Bool) (hr : ∀ j, r' j = true ↔ ∃ k, e k = j ∧ r k = true)
     (γ : Fin d → α) : ctxKey r' γ = ctxKey r (γ ∘ e) := by
   rw [ctxKey_eq_map_filter, ctxKey_eq_map_filter, ← List.map_map]
@@ -1213,7 +1215,7 @@ theorem ctxKey_of_renaming {c d : ℕ} {α : Type} {e : Fin c → Fin d} (he : S
 omit [ValueType T] in
 /-- The substitution an apply's right side reads through is a renaming
 when the outer one is. -/
-theorem IsRenaming.lift {c d n₁ : ℕ} {θ : Fin c → T ⊕ Fin d} (hθ : IsRenaming θ) :
+private theorem IsRenaming.lift {c d n₁ : ℕ} {θ : Fin c → T ⊕ Fin d} (hθ : IsRenaming θ) :
     IsRenaming (Fin.append (fun k => (Sum.inr (Fin.castAdd d k) : T ⊕ Fin (n₁ + d)))
       (fun j => Sum.map id (Fin.natAdd n₁) (θ j))) := by
   obtain ⟨e, he, hθe⟩ := hθ
@@ -1234,7 +1236,7 @@ theorem IsRenaming.lift {c d n₁ : ℕ} {θ : Fin c → T ⊕ Fin d} (hθ : IsR
 
 omit [ValueType T] in
 /-- **A renamed operator records the values it recorded.** -/
-theorem ctxKey_substRd {c d : ℕ} {θ : Fin c → T ⊕ Fin d} (hθ : IsRenaming θ)
+private theorem ctxKey_substRd {c d : ℕ} {θ : Fin c → T ⊕ Fin d} (hθ : IsRenaming θ)
     (rd : Fin c → Bool) (γ : Fin d → T) :
     ctxKey (substRd θ rd) γ = ctxKey rd (substVal θ γ) := by
   obtain ⟨e, he, hθe⟩ := hθ
@@ -1246,7 +1248,7 @@ theorem ctxKey_substRd {c d : ℕ} {θ : Fin c → T ⊕ Fin d} (hθ : IsRenamin
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 /-- **A renamed operator records the parameters it recorded**, aggregate
 ones included. -/
-theorem EvalEnv.paramKey_substRd {c d : ℕ} {θ : Fin c → T ⊕ Fin d} (hθ : IsRenaming θ)
+private theorem EvalEnv.paramKey_substRd {c d : ℕ} {θ : Fin c → T ⊕ Fin d} (hθ : IsRenaming θ)
     (E : EvalEnv T K) (rd : Fin c → Bool) (γ : Fin d → T) :
     E.paramKey (substRd θ rd) γ = (E.substEnv θ γ).paramKey rd (substVal θ γ) := by
   obtain ⟨e, he, hθe⟩ := hθ
@@ -1408,13 +1410,13 @@ theorem AggQueryIn.evaluatePlain_Apply_subst {n₁ n₂ : ℕ}
 /-! ## Stripping commutes with substituting -/
 
 omit [ValueType T] in
-theorem AggQueryIn.stripAgg_castKind {c n : ℕ} {κ κ' : Fin n → ColKind}
+private theorem AggQueryIn.stripAgg_castKind {c n : ℕ} {κ κ' : Fin n → ColKind}
     {l : List (String × ℕ)} (h : κ = κ') (q : AggQueryIn T c n κ l) :
     (q.castKind h).stripAgg = q.stripAgg.castKind h := by
   subst h; rfl
 
 omit [ValueType T] in
-theorem AggQueryIn.stripAgg_substMap :
+private theorem AggQueryIn.stripAgg_substMap :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l)
       {d : ℕ} (θ : Fin c → T ⊕ Fin d),
       (q.substMap θ).stripAgg = q.stripAgg.substMap θ := by
@@ -1497,11 +1499,11 @@ def GenRow.fin {n : ℕ} (r : GenRow T K n) : Tuple (GenValue T K) n × K :=
   (r.fst, r.snd.finalize)
 
 omit [ValueType T] [DecidableEq K] [HasAltLinearOrder K] in
-theorem GenRow.fin_eq_iff {n : ℕ} {a b : GenRow T K n} :
+private theorem GenRow.fin_eq_iff {n : ℕ} {a b : GenRow T K n} :
     a.fin = b.fin ↔ a.fst = b.fst ∧ a.snd.finalize = b.snd.finalize := Prod.ext_iff
 
 /-- Two bags agreeing under `f` agree under any `g` that `f` determines. -/
-theorem Multiset.map_eq_of_factor {α β γ : Type*} {f : α → β} {g : α → γ}
+private theorem Multiset.map_eq_of_factor {α β γ : Type*} {f : α → β} {g : α → γ}
     (hfg : ∀ a b, f a = f b → g a = g b) {R R' : Multiset α} (h : R.map f = R'.map f) :
     R.map g = R'.map g := by
   classical
@@ -1522,14 +1524,14 @@ theorem Multiset.map_eq_of_factor {α β γ : Type*} {f : α → β} {g : α →
     rw [hS R, hS R', h]
 
 /-- The same for a bind. -/
-theorem Multiset.bind_eq_of_factor {α β γ : Type*} {f : α → β} {g : α → Multiset γ}
+private theorem Multiset.bind_eq_of_factor {α β γ : Type*} {f : α → β} {g : α → Multiset γ}
     (hfg : ∀ a b, f a = f b → g a = g b) {R R' : Multiset α} (h : R.map f = R'.map f) :
     R.bind g = R'.bind g := by
   unfold Multiset.bind
   rw [Multiset.map_eq_of_factor hfg h]
 
 /-- The same for a filter followed by a map. -/
-theorem Multiset.map_filter_eq_of_factor {α β γ : Type*} {f : α → β} {p : α → Prop}
+private theorem Multiset.map_filter_eq_of_factor {α β γ : Type*} {f : α → β} {p : α → Prop}
     [DecidablePred p] {g : α → γ} (hp : ∀ a b, f a = f b → (p a ↔ p b))
     (hg : ∀ a b, f a = f b → g a = g b) {R R' : Multiset α} (h : R.map f = R'.map f) :
     (R.filter p).map g = (R'.filter p).map g := by
@@ -1556,7 +1558,7 @@ new context; it keeps the query well-kinded when it sends each parameter
 to one of the same kind, a constant being regular. -/
 
 omit [ValueType T] in
-theorem TermIn.outerOk_substMap {c d n : ℕ} (θ : Fin c → T ⊕ Fin d) {okc : Fin c → Prop}
+private theorem TermIn.outerOk_substMap {c d n : ℕ} (θ : Fin c → T ⊕ Fin d) {okc : Fin c → Prop}
     {okd : Fin d → Prop} (hθ : ∀ k, okc k → ∀ j, θ k = Sum.inr j → okd j) :
     ∀ t : TermIn T c n, t.outerOk okc → (t.substMap θ).outerOk okd
   | .const _, _ => trivial
@@ -1575,7 +1577,7 @@ theorem TermIn.outerOk_substMap {c d n : ℕ} (θ : Fin c → T ⊕ Fin d) {okc 
   | .coalesce t₁ t₂, h => ⟨outerOk_substMap θ hθ t₁ h.1, outerOk_substMap θ hθ t₂ h.2⟩
 
 omit [ValueType T] in
-theorem TermGIn.outerOk_substMap {c d n : ℕ} {κ : Fin n → ColKind} (θ : Fin c → T ⊕ Fin d)
+private theorem TermGIn.outerOk_substMap {c d n : ℕ} {κ : Fin n → ColKind} (θ : Fin c → T ⊕ Fin d)
     {okc : Fin c → Prop} {okd : Fin d → Prop}
     (hθ : ∀ k, okc k → ∀ j, θ k = Sum.inr j → okd j) :
     ∀ t : TermGIn T c κ, t.outerOk okc → (t.substMap θ).outerOk okd
@@ -1598,7 +1600,7 @@ theorem TermGIn.outerOk_substMap {c d n : ℕ} {κ : Fin n → ColKind} (θ : Fi
   | .coalesce t₁ t₂, h => ⟨outerOk_substMap θ hθ t₁ h.1, outerOk_substMap θ hθ t₂ h.2⟩
 
 omit [ValueType T] in
-theorem GenPredIn.outerOk_substMap {c d n : ℕ} {κ : Fin n → ColKind} (θ : Fin c → T ⊕ Fin d)
+private theorem GenPredIn.outerOk_substMap {c d n : ℕ} {κ : Fin n → ColKind} (θ : Fin c → T ⊕ Fin d)
     {okc : Fin c → Prop} {okd : Fin d → Prop}
     (hθ : ∀ k, okc k → ∀ j, θ k = Sum.inr j → okd j) :
     ∀ φ : GenPredIn T c κ, φ.outerOk okc → (φ.substMap θ).outerOk okd
@@ -1612,7 +1614,7 @@ theorem GenPredIn.outerOk_substMap {c d n : ℕ} {κ : Fin n → ColKind} (θ : 
   | .not φ, h => outerOk_substMap θ hθ φ h
 
 omit [ValueType T] in
-theorem ProjColIn.outerOk_substMap {c d n : ℕ} {κ : Fin n → ColKind} (θ : Fin c → T ⊕ Fin d)
+private theorem ProjColIn.outerOk_substMap {c d n : ℕ} {κ : Fin n → ColKind} (θ : Fin c → T ⊕ Fin d)
     {okc : Fin c → Prop} {okd : Fin d → Prop}
     (hθ : ∀ k, okc k → ∀ j, θ k = Sum.inr j → okd j) :
     ∀ p : ProjColIn T c κ, p.outerOk okc → (p.substMap θ).outerOk okd
@@ -1623,7 +1625,7 @@ theorem ProjColIn.outerOk_substMap {c d n : ℕ} {κ : Fin n → ColKind} (θ : 
   | .provTerm t, h => TermGIn.outerOk_substMap θ hθ t h
 
 omit [ValueType T] in
-@[simp] theorem AggQueryIn.wellKinded_castKind {c n : ℕ} {κ κ' : Fin n → ColKind}
+@[simp] private theorem AggQueryIn.wellKinded_castKind {c n : ℕ} {κ κ' : Fin n → ColKind}
     {l : List (String × ℕ)} (h : κ = κ') (q : AggQueryIn T c n κ l) {ρc : Fin c → ColKind}
     {HK : HoleKinds} : (q.castKind h).wellKinded ρc HK ↔ q.wellKinded ρc HK := by
   subst h; exact Iff.rfl
@@ -1631,7 +1633,7 @@ omit [ValueType T] in
 omit [ValueType T] in
 /-- **Substitution keeps the query well-kinded**, sending each parameter to
 a constant (regular) or to a parameter of the same kind. -/
-theorem AggQueryIn.wellKinded_substMap :
+private theorem AggQueryIn.wellKinded_substMap :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l)
       {d : ℕ} (θ : Fin c → T ⊕ Fin d) {ρc : Fin c → ColKind} {ρd : Fin d → ColKind}
       {HK : HoleKinds},

@@ -9,6 +9,7 @@ public import Provenance.Having
 public import Mathlib.Data.Finset.Max
 import Mathlib.Algebra.BigOperators.Ring.Finset
 import Mathlib.Algebra.Order.BigOperators.Group.Finset
+import all Provenance.Having
 
 @[expose] public section
 
@@ -76,13 +77,13 @@ sum of annotations).
 
 /-- Comparisons are unchanged by the embedding of the value domain into
 `WithTop` (used to give the empty world an aggregate value). -/
-@[simp] theorem CompOp.eval_coe_withTop {V : Type} [LinearOrder V] (op : CompOp) (a b : V) :
+@[simp] private theorem CompOp.eval_coe_withTop {V : Type} [LinearOrder V] (op : CompOp) (a b : V) :
     op.eval (a : WithTop V) (b : WithTop V) ↔ op.eval a b := by
   cases op <;> simp [CompOp.eval]
 
 /-- Comparisons are unchanged by the embedding of the value domain into
 `WithBot`. -/
-@[simp] theorem CompOp.eval_coe_withBot {V : Type} [LinearOrder V] (op : CompOp) (a b : V) :
+@[simp] private theorem CompOp.eval_coe_withBot {V : Type} [LinearOrder V] (op : CompOp) (a b : V) :
     op.eval (a : WithBot V) (b : WithBot V) ↔ op.eval a b := by
   cases op <;> simp [CompOp.eval]
 
@@ -94,19 +95,19 @@ variable {ι : Type} [DecidableEq ι]
 variable {K : Type} [CommSemiringWithMonus K]
 
 /-- Monus is monotone in its first argument. -/
-theorem monus_mono_left {a a' c : K} (h : a ≤ a') : a - c ≤ a' - c := by
+private theorem monus_mono_left {a a' c : K} (h : a ≤ a') : a - c ≤ a' - c := by
   rw [SemiringWithMonus.monus_spec]
   exact h.trans (le_plus_monus a' c)
 
 /-- The annotation of a world meeting `H` is bounded by `⊕_{i ∈ H} α i`. -/
-theorem A_le_sum_of_meet (h_abs : absorptive K) (α : ι → K) {W H : Finset ι} {i : ι}
+private theorem A_le_sum_of_meet (h_abs : absorptive K) (α : ι → K) {W H : Finset ι} {i : ι}
     (hiW : i ∈ W) (hiH : i ∈ H) : A α W ≤ ∑ j ∈ H, α j := by
   calc A α W ≤ A α {i} := A_le_of_subset_absorptive h_abs α (by simpa using hiW)
     _ = α i := by simp [A]
     _ ≤ ∑ j ∈ H, α j := Finset.single_le_sum_of_canonicallyOrdered (f := α) hiH
 
 /-- Upper bound half of `meet_family_eq`. -/
-theorem meet_family_le (h_abs : absorptive K) (h_distrib : mul_sub_left_distributive K)
+private theorem meet_family_le (h_abs : absorptive K) (h_distrib : mul_sub_left_distributive K)
     (α : ι → K) {U G H : Finset ι} :
     ∑ W ∈ G.powerset.filter (fun W => (W ∩ H).Nonempty), T α U W
       ≤ (1 - ∑ x ∈ U \ G, α x) * ∑ i ∈ H, α i := by
@@ -126,7 +127,7 @@ theorem meet_family_le (h_abs : absorptive K) (h_distrib : mul_sub_left_distribu
 
 /-- Lower bound half in the special case `G = U`: every `α i`, `i ∈ H`, is
 already reached by the worlds containing `i`. -/
-theorem meet_family_self_ge (h_abs : absorptive K) (α : ι → K) {G H : Finset ι}
+private theorem meet_family_self_ge (h_abs : absorptive K) (α : ι → K) {G H : Finset ι}
     (hHG : H ⊆ G) :
     ∑ i ∈ H, α i ≤ ∑ W ∈ G.powerset.filter (fun W => (W ∩ H).Nonempty), T α G W := by
   have h_idem : idempotent K := idempotent_of_absorptive h_abs
@@ -146,7 +147,7 @@ theorem meet_family_self_ge (h_abs : absorptive K) (α : ι → K) {G H : Finset
 universe `U` subtracts the annotations of the occurrences of `U \ G`. Only
 `monus_add` and ordinary distributivity are used, not
 `mul_sub_left_distributive`. -/
-theorem T_eq_T_of_subset (α : ι → K)
+private theorem T_eq_T_of_subset (α : ι → K)
     {U G W : Finset ι} (hGU : G ⊆ U) (hWG : W ⊆ G) :
     T α U W = T α G W - A α W * ∑ x ∈ U \ G, α x := by
   have hsplit : U \ W = (G \ W) ∪ (U \ G) := by
@@ -181,7 +182,7 @@ theorem T_eq_T_of_subset (α : ι → K)
 provenance of the family of worlds that stay inside `G` and meet `H` is
 `(𝟙 ⊖ ⊕_{x ∈ U \ G} α x) ⊗ (⊕_{i ∈ H} α i)`: two running sums, hence a single
 scan over the occurrences of the group. -/
-theorem meet_family_eq (h_abs : absorptive K) (h_distrib : mul_sub_left_distributive K)
+private theorem meet_family_eq (h_abs : absorptive K) (h_distrib : mul_sub_left_distributive K)
     (α : ι → K) {U G H : Finset ι} (hGU : G ⊆ U) (hHG : H ⊆ G) :
     ∑ W ∈ G.powerset.filter (fun W => (W ∩ H).Nonempty), T α U W
       = (1 - ∑ x ∈ U \ G, α x) * ∑ i ∈ H, α i := by
@@ -219,7 +220,7 @@ def prov (α : ι → K) (U : Finset ι) (P : Finset ι → Prop) [DecidablePred
   ∑ W ∈ U.powerset.filter (fun W => W.Nonempty ∧ P W), T α U W
 
 /-- Two predicates that agree on the worlds of `U` have the same provenance. -/
-theorem prov_congr (α : ι → K) (U : Finset ι) {P Q : Finset ι → Prop}
+private theorem prov_congr (α : ι → K) (U : Finset ι) {P Q : Finset ι → Prop}
     [DecidablePred P] [DecidablePred Q] (h : ∀ W ⊆ U, (P W ↔ Q W)) :
     prov α U P = prov α U Q := by
   unfold prov
@@ -228,7 +229,7 @@ theorem prov_congr (α : ι → K) (U : Finset ι) {P Q : Finset ι → Prop}
 
 /-- The provenance of a disjunction of two mutually exclusive predicates is
 the `⊕`-sum of the two provenances. -/
-theorem prov_or (α : ι → K) (U : Finset ι) {P Q : Finset ι → Prop}
+private theorem prov_or (α : ι → K) (U : Finset ι) {P Q : Finset ι → Prop}
     [DecidablePred P] [DecidablePred Q] (hdisj : ∀ W, P W → Q W → False) :
     prov α U (fun W => P W ∨ Q W) = prov α U P + prov α U Q := by
   unfold prov
@@ -251,7 +252,7 @@ theorem prov_or (α : ι → K) (U : Finset ι) {P Q : Finset ι → Prop}
 /-- Provenance of a predicate that splits into fibers indexed by a finite set:
 if every non-empty world satisfying `R` satisfies `Q i` for exactly one `i ∈ P`,
 the provenance of `R` is the `⊕`-sum of the provenances of the `Q i`. -/
-theorem prov_fiber (α : ι → K) (U : Finset ι) (P : Finset ι) (Q : ι → Finset ι → Prop)
+private theorem prov_fiber (α : ι → K) (U : Finset ι) (P : Finset ι) (Q : ι → Finset ι → Prop)
     [∀ i, DecidablePred (Q i)] {R : Finset ι → Prop} [DecidablePred R]
     (hR : ∀ W ⊆ U, (W.Nonempty ∧ R W ↔ ∃ i ∈ P, W.Nonempty ∧ Q i W))
     (hdisj : ∀ W : Finset ι, ∀ i ∈ P, ∀ j ∈ P, Q i W → Q j W → i = j) :
@@ -280,7 +281,7 @@ theorem prov_fiber (α : ι → K) (U : Finset ι) (P : Finset ι) (Q : ι → F
 algebraic content of the range-check short-circuit of the enumeration
 algorithms: when no world can satisfy the predicate, the possible-world
 `⊕`-sum is empty. No hypothesis on the m-semiring is needed. -/
-theorem prov_of_forall_not (α : ι → K) (U : Finset ι)
+private theorem prov_of_forall_not (α : ι → K) (U : Finset ι)
     {P : Finset ι → Prop} [DecidablePred P]
     (hP : ∀ W ⊆ U, W.Nonempty → ¬ P W) :
     prov α U P = 0 := by
@@ -293,7 +294,7 @@ is the algebraic content of the complementary range-check short-circuit:
 when every non-empty world satisfies the predicate, the possible-world
 provenance is `F_1(U)`, which in an absorptive m-semiring collapses (by
 `F_eq_S` at `C = 1`) to the `⊕`-sum of the annotations of the group. -/
-theorem prov_of_forall (h_abs : absorptive K) (α : ι → K) (U : Finset ι)
+private theorem prov_of_forall (h_abs : absorptive K) (α : ι → K) (U : Finset ι)
     {P : Finset ι → Prop} [DecidablePred P]
     (hP : ∀ W ⊆ U, W.Nonempty → P W) :
     prov α U P = ∑ i ∈ U, α i := by
@@ -317,7 +318,7 @@ at least one of them satisfies `q`, then the provenance of `P` is
 This is the algebraic content of the tractability of the `MIN`, `MAX` and
 `PICKFIRST` comparisons: all of them have this shape, so their provenance is
 obtained from two running sums over the occurrences of the group. -/
-theorem prov_eq_of_pointwise (h_abs : absorptive K) (h_distrib : mul_sub_left_distributive K)
+private theorem prov_eq_of_pointwise (h_abs : absorptive K) (h_distrib : mul_sub_left_distributive K)
     (α : ι → K) (U : Finset ι) (p q r : ι → Prop)
     [DecidablePred p] [DecidablePred q] [DecidablePred r]
     (hqp : ∀ i ∈ U, q i → p i) (hr : ∀ i ∈ U, (r i ↔ ¬ p i))
@@ -353,7 +354,7 @@ theorem prov_eq_of_pointwise (h_abs : absorptive K) (h_distrib : mul_sub_left_di
 /-- Special case of `prov_eq_of_pointwise` with no constraint on the excluded
 occurrences: the provenance of “some occurrence of the world satisfies `q`” is
 `⊕_{q} α`. -/
-theorem prov_eq_of_exists (h_abs : absorptive K) (h_distrib : mul_sub_left_distributive K)
+private theorem prov_eq_of_exists (h_abs : absorptive K) (h_distrib : mul_sub_left_distributive K)
     (α : ι → K) (U : Finset ι) (q : ι → Prop) [DecidablePred q]
     {P : Finset ι → Prop} [DecidablePred P]
     (hP : ∀ W ⊆ U, (W.Nonempty ∧ P W ↔ ∃ i ∈ W, q i)) :
@@ -407,25 +408,25 @@ def maxScan (α : ι → K) (U : Finset ι) (t : ι → V) (op : CompOp) (c : V)
   | .ne | .synne => (∑ i ∈ U.filter (fun i => c < t i), α i)
       + (1 - ∑ x ∈ U.filter (fun i => c ≤ t i), α x) * ∑ i ∈ U.filter (fun i => t i < c), α i
 
-@[simp] theorem le_minAgg_iff (t : ι → V) (W : Finset ι) (c : V) :
+@[simp] private theorem le_minAgg_iff (t : ι → V) (W : Finset ι) (c : V) :
     (c : WithTop V) ≤ minAgg t W ↔ ∀ i ∈ W, c ≤ t i := by
   simp [minAgg, Finset.le_inf_iff]
 
-@[simp] theorem lt_minAgg_iff (t : ι → V) (W : Finset ι) (c : V) :
+@[simp] private theorem lt_minAgg_iff (t : ι → V) (W : Finset ι) (c : V) :
     (c : WithTop V) < minAgg t W ↔ ∀ i ∈ W, c < t i := by
   simp [minAgg, Finset.lt_inf_iff (WithTop.coe_lt_top c)]
 
-@[simp] theorem minAgg_lt_iff (t : ι → V) (W : Finset ι) (c : V) :
+@[simp] private theorem minAgg_lt_iff (t : ι → V) (W : Finset ι) (c : V) :
     minAgg t W < (c : WithTop V) ↔ ∃ i ∈ W, t i < c := by
   simp [minAgg, Finset.inf_lt_iff]
 
-@[simp] theorem minAgg_le_iff (t : ι → V) (W : Finset ι) (c : V) :
+@[simp] private theorem minAgg_le_iff (t : ι → V) (W : Finset ι) (c : V) :
     minAgg t W ≤ (c : WithTop V) ↔ ∃ i ∈ W, t i ≤ c := by
   rw [← not_lt, lt_minAgg_iff]
   push Not
   rfl
 
-theorem minAgg_eq_iff (t : ι → V) (W : Finset ι) (c : V) :
+private theorem minAgg_eq_iff (t : ι → V) (W : Finset ι) (c : V) :
     minAgg t W = (c : WithTop V) ↔ (∀ i ∈ W, c ≤ t i) ∧ ∃ i ∈ W, t i = c := by
   rw [le_antisymm_iff, minAgg_le_iff, le_minAgg_iff]
   constructor
@@ -434,25 +435,25 @@ theorem minAgg_eq_iff (t : ι → V) (W : Finset ι) (c : V) :
   · rintro ⟨hall, i, hiW, hic⟩
     exact ⟨⟨i, hiW, le_of_eq hic⟩, hall⟩
 
-@[simp] theorem maxAgg_le_iff (t : ι → V) (W : Finset ι) (c : V) :
+@[simp] private theorem maxAgg_le_iff (t : ι → V) (W : Finset ι) (c : V) :
     maxAgg t W ≤ (c : WithBot V) ↔ ∀ i ∈ W, t i ≤ c := by
   simp [maxAgg, Finset.sup_le_iff]
 
-@[simp] theorem maxAgg_lt_iff (t : ι → V) (W : Finset ι) (c : V) :
+@[simp] private theorem maxAgg_lt_iff (t : ι → V) (W : Finset ι) (c : V) :
     maxAgg t W < (c : WithBot V) ↔ ∀ i ∈ W, t i < c := by
   simp [maxAgg, Finset.sup_lt_iff (WithBot.bot_lt_coe c)]
 
-@[simp] theorem lt_maxAgg_iff (t : ι → V) (W : Finset ι) (c : V) :
+@[simp] private theorem lt_maxAgg_iff (t : ι → V) (W : Finset ι) (c : V) :
     (c : WithBot V) < maxAgg t W ↔ ∃ i ∈ W, c < t i := by
   simp [maxAgg, Finset.lt_sup_iff]
 
-@[simp] theorem le_maxAgg_iff (t : ι → V) (W : Finset ι) (c : V) :
+@[simp] private theorem le_maxAgg_iff (t : ι → V) (W : Finset ι) (c : V) :
     (c : WithBot V) ≤ maxAgg t W ↔ ∃ i ∈ W, c ≤ t i := by
   rw [← not_lt, maxAgg_lt_iff]
   push Not
   rfl
 
-theorem maxAgg_eq_iff (t : ι → V) (W : Finset ι) (c : V) :
+private theorem maxAgg_eq_iff (t : ι → V) (W : Finset ι) (c : V) :
     maxAgg t W = (c : WithBot V) ↔ (∀ i ∈ W, t i ≤ c) ∧ ∃ i ∈ W, t i = c := by
   rw [le_antisymm_iff, maxAgg_le_iff, le_maxAgg_iff]
   constructor
@@ -469,7 +470,7 @@ variable (α : ι → K) (U : Finset ι) (t : ι → V) (c : V)
 include h_abs h_distrib
 
 /-- `MIN(t) < c`: some occurrence of the world has value `< c`. -/
-theorem prov_min_lt :
+private theorem prov_min_lt :
     prov α U (fun W => minAgg t W < (c : WithTop V))
       = ∑ i ∈ U.filter (fun i => t i < c), α i := by
   refine prov_eq_of_exists h_abs h_distrib α U (fun i => t i < c) fun W _ => ?_
@@ -477,7 +478,7 @@ theorem prov_min_lt :
   exact ⟨fun h => h.2, fun ⟨i, hiW, hi⟩ => ⟨⟨i, hiW⟩, i, hiW, hi⟩⟩
 
 /-- `MIN(t) ≤ c`: some occurrence of the world has value `≤ c`. -/
-theorem prov_min_le :
+private theorem prov_min_le :
     prov α U (fun W => minAgg t W ≤ (c : WithTop V))
       = ∑ i ∈ U.filter (fun i => t i ≤ c), α i := by
   refine prov_eq_of_exists h_abs h_distrib α U (fun i => t i ≤ c) fun W _ => ?_
@@ -486,7 +487,7 @@ theorem prov_min_le :
 
 /-- `MIN(t) ≥ c`: the world avoids every occurrence of value `< c` and is
 non-empty. -/
-theorem prov_min_ge :
+private theorem prov_min_ge :
     prov α U (fun W => (c : WithTop V) ≤ minAgg t W)
       = (1 - ∑ x ∈ U.filter (fun i => t i < c), α x) * ∑ i ∈ U.filter (fun i => c ≤ t i), α i := by
   refine prov_eq_of_pointwise h_abs h_distrib α U (fun i => c ≤ t i) (fun i => c ≤ t i)
@@ -497,7 +498,7 @@ theorem prov_min_ge :
 
 /-- `MIN(t) > c`: the world avoids every occurrence of value `≤ c` and is
 non-empty. -/
-theorem prov_min_gt :
+private theorem prov_min_gt :
     prov α U (fun W => (c : WithTop V) < minAgg t W)
       = (1 - ∑ x ∈ U.filter (fun i => t i ≤ c), α x) * ∑ i ∈ U.filter (fun i => c < t i), α i := by
   refine prov_eq_of_pointwise h_abs h_distrib α U (fun i => c < t i) (fun i => c < t i)
@@ -508,7 +509,7 @@ theorem prov_min_gt :
 
 /-- `MIN(t) = c`: the world avoids every occurrence of value `< c` and
 contains one of value `c`. -/
-theorem prov_min_eq :
+private theorem prov_min_eq :
     prov α U (fun W => minAgg t W = (c : WithTop V))
       = (1 - ∑ x ∈ U.filter (fun i => t i < c), α x) * ∑ i ∈ U.filter (fun i => t i = c), α i := by
   refine prov_eq_of_pointwise h_abs h_distrib α U (fun i => c ≤ t i) (fun i => t i = c)
@@ -518,7 +519,7 @@ theorem prov_min_eq :
   exact ⟨fun h => h.2, fun ⟨hall, i, hiW, hi⟩ => ⟨⟨i, hiW⟩, hall, i, hiW, hi⟩⟩
 
 /-- `MIN(t) ≠ c`: the two disjoint cases `MIN(t) < c` and `MIN(t) > c`. -/
-theorem prov_min_ne :
+private theorem prov_min_ne :
     prov α U (fun W => minAgg t W ≠ (c : WithTop V))
       = (∑ i ∈ U.filter (fun i => t i < c), α i)
         + (1 - ∑ x ∈ U.filter (fun i => t i ≤ c), α x)
@@ -531,7 +532,7 @@ theorem prov_min_ne :
 /-! #### Provenance of the six `MAX(t) op c` predicates -/
 
 /-- `MAX(t) > c`: some occurrence of the world has value `> c`. -/
-theorem prov_max_gt :
+private theorem prov_max_gt :
     prov α U (fun W => (c : WithBot V) < maxAgg t W)
       = ∑ i ∈ U.filter (fun i => c < t i), α i := by
   refine prov_eq_of_exists h_abs h_distrib α U (fun i => c < t i) fun W _ => ?_
@@ -539,7 +540,7 @@ theorem prov_max_gt :
   exact ⟨fun h => h.2, fun ⟨i, hiW, hi⟩ => ⟨⟨i, hiW⟩, i, hiW, hi⟩⟩
 
 /-- `MAX(t) ≥ c`: some occurrence of the world has value `≥ c`. -/
-theorem prov_max_ge :
+private theorem prov_max_ge :
     prov α U (fun W => (c : WithBot V) ≤ maxAgg t W)
       = ∑ i ∈ U.filter (fun i => c ≤ t i), α i := by
   refine prov_eq_of_exists h_abs h_distrib α U (fun i => c ≤ t i) fun W _ => ?_
@@ -548,7 +549,7 @@ theorem prov_max_ge :
 
 /-- `MAX(t) ≤ c`: the world avoids every occurrence of value `> c` and is
 non-empty. -/
-theorem prov_max_le :
+private theorem prov_max_le :
     prov α U (fun W => maxAgg t W ≤ (c : WithBot V))
       = (1 - ∑ x ∈ U.filter (fun i => c < t i), α x) * ∑ i ∈ U.filter (fun i => t i ≤ c), α i := by
   refine prov_eq_of_pointwise h_abs h_distrib α U (fun i => t i ≤ c) (fun i => t i ≤ c)
@@ -559,7 +560,7 @@ theorem prov_max_le :
 
 /-- `MAX(t) < c`: the world avoids every occurrence of value `≥ c` and is
 non-empty. -/
-theorem prov_max_lt :
+private theorem prov_max_lt :
     prov α U (fun W => maxAgg t W < (c : WithBot V))
       = (1 - ∑ x ∈ U.filter (fun i => c ≤ t i), α x) * ∑ i ∈ U.filter (fun i => t i < c), α i := by
   refine prov_eq_of_pointwise h_abs h_distrib α U (fun i => t i < c) (fun i => t i < c)
@@ -570,7 +571,7 @@ theorem prov_max_lt :
 
 /-- `MAX(t) = c`: the world avoids every occurrence of value `> c` and
 contains one of value `c`. -/
-theorem prov_max_eq :
+private theorem prov_max_eq :
     prov α U (fun W => maxAgg t W = (c : WithBot V))
       = (1 - ∑ x ∈ U.filter (fun i => c < t i), α x) * ∑ i ∈ U.filter (fun i => t i = c), α i := by
   refine prov_eq_of_pointwise h_abs h_distrib α U (fun i => t i ≤ c) (fun i => t i = c)
@@ -579,7 +580,7 @@ theorem prov_max_eq :
   exact ⟨fun h => h.2, fun ⟨hall, i, hiW, hi⟩ => ⟨⟨i, hiW⟩, hall, i, hiW, hi⟩⟩
 
 /-- `MAX(t) ≠ c`: the two disjoint cases `MAX(t) > c` and `MAX(t) < c`. -/
-theorem prov_max_ne :
+private theorem prov_max_ne :
     prov α U (fun W => maxAgg t W ≠ (c : WithBot V))
       = (∑ i ∈ U.filter (fun i => c < t i), α i)
         + (1 - ∑ x ∈ U.filter (fun i => c ≤ t i), α x)
@@ -637,7 +638,7 @@ variable {V : Type} [LinearOrder V] [LinearOrder ι]
 def firstAgg (t : ι → V) (W : Finset ι) : WithTop V := WithTop.map t W.min
 
 /-- The value of `PICKFIRST` on a world whose `≼`-minimum is `i`. -/
-theorem firstAgg_eq (t : ι → V) {W : Finset ι} {i : ι} (hiW : i ∈ W)
+private theorem firstAgg_eq (t : ι → V) {W : Finset ι} {i : ι} (hiW : i ∈ W)
     (hmin : ∀ j ∈ W, i ≤ j) : firstAgg t W = (t i : WithTop V) := by
   have hne : W.Nonempty := ⟨i, hiW⟩
   have hmin' : W.min' hne = i :=
@@ -659,7 +660,7 @@ include h_abs h_distrib
 
 /-- Provenance of the worlds whose `≼`-first occurrence is a given `i`: the
 world contains `i` and none of the occurrences preceding `i`. -/
-theorem prov_first_fiber {i : ι} (hiU : i ∈ U) :
+private theorem prov_first_fiber {i : ι} (hiU : i ∈ U) :
     prov α U (fun W => i ∈ W ∧ ∀ j ∈ W, i ≤ j)
       = (1 - ∑ x ∈ U.filter (fun x => x < i), α x) * α i := by
   have h := prov_eq_of_pointwise h_abs h_distrib α U (fun j => i ≤ j) (fun j => j = i)

@@ -5,6 +5,20 @@ public import Provenance.SymCut
 import Mathlib.Tactic.NormNum.Inv
 import Mathlib.Tactic.NormNum.Pow
 import Provenance.SymSettle
+import all Provenance.MuUnion
+import all Provenance.SumByMu
+import all Provenance.SumByProd
+import all Provenance.SymCells
+import all Provenance.SymCode
+import all Provenance.SymCut
+import all Provenance.SymEnvBuild
+import all Provenance.SymGamma
+import all Provenance.SymMatch
+import all Provenance.SymMu
+import all Provenance.SymOrder
+import all Provenance.SymRel
+import all Provenance.SymSettle
+import all Provenance.Util.Kleene
 
 /-!
 # An apply written with products
@@ -90,27 +104,27 @@ abbrev prow : Tuple T (((k * (7 + k) + (k + n₂) * (7 + k)) + n₂) + k) :=
   Fin.append (Fin.append (Fin.append d t) w) u
 
 omit [ValueType T] in
-@[simp] theorem eval_uIdx (i : Fin k) :
+@[simp] private theorem eval_uIdx (i : Fin k) :
     (SA.col (c := c) (uIdx k n₂ i)).eval (prow d t w u) γ = u i := by
   simp [uIdx, SA.eval, prow]
 
 omit [ValueType T] in
-@[simp] theorem eval_dIdx (i : Fin k) (j : Fin (7 + k)) :
+@[simp] private theorem eval_dIdx (i : Fin k) (j : Fin (7 + k)) :
     (SA.col (c := c) (dIdx k n₂ i j)).eval (prow d t w u) γ = d (ci i j) := by
   simp [dIdx, SA.eval, prow]
 
 omit [ValueType T] in
-@[simp] theorem eval_tIdx (z : Fin ((k + n₂) * (7 + k))) :
+@[simp] private theorem eval_tIdx (z : Fin ((k + n₂) * (7 + k))) :
     (SA.col (c := c) (tIdx k n₂ z)).eval (prow d t w u) γ = t z := by
   simp [tIdx, SA.eval, prow]
 
 omit [ValueType T] in
-@[simp] theorem eval_wIdx (j : Fin n₂) :
+@[simp] private theorem eval_wIdx (j : Fin n₂) :
     (SA.col (c := c) (wIdx k n₂ j)).eval (prow d t w u) γ = w j := by
   simp [wIdx, SA.eval, prow]
 
 /-- **The predicate on a row of the product**: its three conjuncts. -/
-theorem eval3_applyPred_true :
+private theorem eval3_applyPred_true :
     (applyPred (c := c) k n₂).eval3 (prow d t w u) γ = Kleene.true ↔
       (matchSP (fun i => SA.col (c := c) (uIdx k n₂ i)) (fun i j => .col (dIdx k n₂ i j))).eval3
           (prow d t w u) γ = Kleene.true
@@ -155,7 +169,7 @@ end PredEval
 
 /-! ## Rearranging a product -/
 
-theorem map_filter_eq_bind' {α ρ : Type} (s : Multiset α) (p : α → Prop) [DecidablePred p]
+private theorem map_filter_eq_bind' {α ρ : Type} (s : Multiset α) (p : α → Prop) [DecidablePred p]
     (g : α → ρ) : (s.filter p).map g = s.bind (fun x => if p x then {g x} else 0) := by
   induction s using Multiset.induction_on with
   | empty => rfl
@@ -165,7 +179,7 @@ theorem map_filter_eq_bind' {α ρ : Type} (s : Multiset α) (p : α → Prop) [
 
 /-- **A selection over a product of four relations, projected**, read
 row of the last relation by row. -/
-theorem filter_prod4 {α β γ δ E Z H ρ : Type} (Dq : Multiset α) (Tq : Multiset β) (Wq : Multiset γ)
+private theorem filter_prod4 {α β γ δ E Z H ρ : Type} (Dq : Multiset α) (Tq : Multiset β) (Wq : Multiset γ)
     (Lv : Multiset δ) (f1 : α → β → E) (f2 : E → γ → Z) (f3 : Z → δ → H) (p : H → Prop)
     [DecidablePred p] (g : H → ρ) :
     ((((Dq.bind fun d => Tq.map (f1 d)).bind fun x => Wq.map (f2 x)).bind
@@ -189,7 +203,7 @@ theorem filter_prod4 {α β γ δ E Z H ρ : Type} (Dq : Multiset α) (Tq : Mult
     _ = _ := Multiset.bind_bind _ _
 
 /-- A cell the cut produces holds a code. -/
-theorem cellShape_code {C : Finset T} {k : ℕ} {x : Tuple T (7 + k)} (h : CellShape C k x) :
+private theorem cellShape_code {C : Finset T} {k : ℕ} {x : Tuple T (7 + k)} (h : CellShape C k x) :
     ∃ cd : Code T, ShapeOK C k cd ∧ x = enc C k cd := by
   rcases h with ⟨a, ha, rfl⟩ | ⟨l, r, hl, hr, rfl⟩
   · exact ⟨.conc a, ha, rfl⟩
@@ -197,7 +211,7 @@ theorem cellShape_code {C : Finset T} {k : ℕ} {x : Tuple T (7 + k)} (h : CellS
 
 /-- **Two codes of the shapes a cut produces have the same columns only if
 they are equal.** -/
-theorem enc_inj' {C : Finset T} {k : ℕ} {x y : Code T} (hx : ShapeOK C k x) (hy : ShapeOK C k y)
+private theorem enc_inj' {C : Finset T} {k : ℕ} {x y : Code T} (hx : ShapeOK C k x) (hy : ShapeOK C k y)
     (h : enc C k x = enc C k y) : x = y := by
   have hF := congrFun h (iF k)
   have hV := congrFun h (iV k)
@@ -220,7 +234,7 @@ theorem enc_inj' {C : Finset T} {k : ℕ} {x y : Code T} (hx : ShapeOK C k x) (h
       rw [hl, hr]
 
 /-- A row's own code holds a cut's shape, the null being in the cut. -/
-theorem shapeOK_code {C : Finset T} {k : ℕ} (hnull : ∀ a : T, ValueType.isNull a = true → a ∈ C)
+private theorem shapeOK_code {C : Finset T} {k : ℕ} (hnull : ∀ a : T, ValueType.isNull a = true → a ∈ C)
     (par : Fin k → T) (i : Fin k) : ShapeOK C k (code C par i) := by
   by_cases h : IsFresh C (par i)
   · rw [code_of_fresh h]
@@ -241,13 +255,13 @@ section Correct
 
 variable {c k n₂ : ℕ}
 
-theorem rowEnc_out (C : Finset T) (par : Fin k → T) (v : Tuple T n₂) (j : Fin n₂)
+private theorem rowEnc_out (C : Finset T) (par : Fin k → T) (v : Tuple T n₂) (j : Fin n₂)
     (z : Fin (7 + k)) : rowEnc C par v (ci (Fin.natAdd k j) z) = enc C k (vcode C par (v j)) z := by
   unfold rowEnc
   show ofCells _ (finProdFinEquiv (Fin.natAdd k j, z)) = _
   simp only [ofCells, Equiv.symm_apply_apply, Fin.append_right]
 
-theorem descEnc_cell (C : Finset T) (par : Fin k → T) (i : Fin k) (j : Fin (7 + k)) :
+private theorem descEnc_cell (C : Finset T) (par : Fin k → T) (i : Fin k) (j : Fin (7 + k)) :
     descEnc C par (ci i j) = enc C k (code C par i) j := by
   unfold descEnc
   show ofCells _ (finProdFinEquiv (i, j)) = _
@@ -422,7 +436,7 @@ end Correct
 
 /-- **The apply written with products settles where its left side and its
 pool do.** -/
-theorem settlesAt_applyX {c k n₂ : ℕ} {cnt : SeqAggFunc T} (hc : SeqAggFunc.Counts cnt)
+private theorem settlesAt_applyX {c k n₂ : ℕ} {cnt : SeqAggFunc T} (hc : SeqAggFunc.Counts cnt)
     (f : ℕ → String) {l : List (String × ℕ)} {κ₂ : Fin n₂ → ColKind}
     (L : AggQueryIn T c k (ColKind.allReg k) l) (R : AggQueryIn T (k + c) n₂ κ₂)
     (VQ : AggQueryIn T c 1 (ColKind.allReg 1)) (hR : ∀ i, R.noMention (f i))

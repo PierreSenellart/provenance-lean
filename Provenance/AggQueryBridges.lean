@@ -11,6 +11,13 @@ import Mathlib.Algebra.Order.Sub.Basic
 import Mathlib.Tactic.NormNum.Inv
 import Mathlib.Tactic.NormNum.Pow
 import Provenance.AggQueryAdequacy
+import all Provenance.AggExpr
+import all Provenance.AggQuery
+import all Provenance.AggQueryAdequacy
+import all Provenance.AggValue
+import all Provenance.AggValueCongr
+import all Provenance.Nested
+import all Provenance.Util.Kleene
 
 /-!
 # Regression bridges for the general evaluator
@@ -55,7 +62,7 @@ def TermIn.toGenKey {n₁ : ℕ} (n₂ : ℕ) :
 omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 /-- The embedded key term evaluates on a `Gamma` output row as the
 original term on the group key. -/
-theorem TermIn.toGenKey_eval {n₁ n₂ : ℕ} (s : Term T n₁) (g : Tuple T n₁)
+private theorem TermIn.toGenKey_eval {n₁ n₂ : ℕ} (s : Term T n₁) (g : Tuple T n₁)
     (h : Fin n₂ → AggTok T K) :
     (s.toGenKey n₂).eval
         (Fin.append (fun k => (Sum.inl (g k) : GenValue T K))
@@ -108,7 +115,7 @@ omit [HasAltLinearOrder K] in
 /-- **A regular test conjoined to a predicate** multiplies its joint
 reading by the test's characteristic value: the test reads no aggregate
 value, so it holds or fails in every world alike. -/
-theorem GenPredIn.predsemJ_and_cmp {c n : ℕ} {κ : Fin n → ColKind} (op : CompOp)
+private theorem GenPredIn.predsemJ_and_cmp {c n : ℕ} {κ : Fin n → ColKind} (op : CompOp)
     (t₁ t₂ : TermGIn T c κ) (ψ : GenPredIn T c κ) (u : Tuple (GenValue T K) n)
     (γ : Fin c → T) :
     (GenPredIn.and (GenPredIn.cmp op t₁ t₂) ψ).predsemJ false u γ
@@ -129,7 +136,7 @@ theorem GenPredIn.predsemJ_and_cmp {c n : ℕ} {κ : Fin n → ColKind} (op : Co
 omit [HasAltLinearOrder K] [CommSemiringWithMonus K] [DecidableEq K] in
 /-- The predicate at given values reads them only at its compared
 columns. -/
-theorem GenPredIn.eval3W_congr {c n : ℕ} {κ : Fin n → ColKind} (φ : GenPredIn T c κ)
+private theorem GenPredIn.eval3W_congr {c n : ℕ} {κ : Fin n → ColKind} (φ : GenPredIn T c κ)
     {v v' : Fin n → Option T} (u : Tuple (GenValue T K) n) (γ : Fin c → T)
     (h : ∀ k ∈ φ.comparedCols, v k = v' k) : φ.eval3W v u γ = φ.eval3W v' u γ := by
   induction φ with
@@ -147,7 +154,7 @@ theorem GenPredIn.eval3W_congr {c n : ℕ} {κ : Fin n → ColKind} (φ : GenPre
 
 omit [HasAltLinearOrder K] [CommSemiringWithMonus K] [DecidableEq K] in
 /-- The predicate at given values reads the row only through its terms. -/
-theorem GenPredIn.eval3W_congr_terms {K' : Type} [CommSemiringWithMonus K'] {c n : ℕ}
+private theorem GenPredIn.eval3W_congr_terms {K' : Type} [CommSemiringWithMonus K'] {c n : ℕ}
     {κ : Fin n → ColKind} (φ : GenPredIn T c κ) (v : Fin n → Option T)
     {u' : Tuple (GenValue T K') n} {u : Tuple (GenValue T K) n} {γ : Fin c → T}
     (h : ∀ t : TermGIn T c κ, t.eval u' γ = t.eval u γ) :
@@ -163,7 +170,7 @@ theorem GenPredIn.eval3W_congr_terms {K' : Type} [CommSemiringWithMonus K'] {c n
 omit [HasAltLinearOrder K] in
 /-- **A predicate comparing no aggregate column** is read in the one
 empty world: its joint reading is its truth there. -/
-theorem GenPredIn.predsemJ_of_no_token {c n : ℕ} {κ : Fin n → ColKind}
+private theorem GenPredIn.predsemJ_of_no_token {c n : ℕ} {κ : Fin n → ColKind}
     (φ : GenPredIn T c κ) (neg : Bool) (u : Tuple (GenValue T K) n) (γ : Fin c → T)
     (h : ∀ k ∈ φ.comparedCols, ∀ x, u k ≠ Sum.inr x) :
     φ.predsemJ neg u γ
@@ -184,7 +191,7 @@ omit [HasAltLinearOrder K] in
 open Classical in
 /-- **A predicate comparing one aggregate column** is that column's
 reading of the test the predicate makes of its value. -/
-theorem GenPredIn.predsemJ_of_single {c n : ℕ} {κ : Fin n → ColKind}
+private theorem GenPredIn.predsemJ_of_single {c n : ℕ} {κ : Fin n → ColKind}
     (φ : GenPredIn T c κ) (neg : Bool) (u : Tuple (GenValue T K) n) (γ : Fin c → T)
     (k : Fin n) (hk : φ.comparedCols = {k}) (x : AggTok T K) (hu : u k = Sum.inr x) :
     φ.predsemJ neg u γ
@@ -385,7 +392,7 @@ spellings hold only in that sense. -/
 
 omit [CommSemiringWithMonus K] [HasAltLinearOrder K] in
 /-- Filtering the image of a map is mapping the filtered source. -/
-theorem Multiset.filter_map_comm {α β : Type} (f : α → β) (p : β → Prop)
+private theorem Multiset.filter_map_comm {α β : Type} (f : α → β) (p : β → Prop)
     [DecidablePred p] (s : Multiset α) :
     (s.map f).filter p = (s.filter (fun a => p (f a))).map f := by
   induction s using Multiset.induction_on with
@@ -422,7 +429,7 @@ def AnnotatedRelation.ZEq {n : ℕ} (r s : AnnotatedRelation T K n) : Prop :=
 omit [ValueType T] [HasAltLinearOrder K] in
 /-- Two readings of a source agree up to impossible rows when they agree
 wherever a test holds and the second annotates `𝟘` wherever it fails. -/
-theorem dropZero_map_filter {α : Type} {n : ℕ} (s : Multiset α)
+private theorem dropZero_map_filter {α : Type} {n : ℕ} (s : Multiset α)
     (F G : α → AnnotatedTuple T K n) (P : α → Prop) [DecidablePred P]
     (hP : ∀ a ∈ s, ¬ P a → (G a).snd = 0)
     (hFG : ∀ a ∈ s, P a → F a = G a) :
@@ -525,7 +532,7 @@ sum. -/
 omit [HasAltLinearOrder K] in
 /-- A token's predicate provenance absorbs the `δ`-guard of its own
 group, for an arbitrary test on its value. -/
-theorem AggValue.predProvWith_delta_absorb (a : AggValue T K)
+private theorem AggValue.predProvWith_delta_absorb (a : AggValue T K)
     (P : T → Kleene) :
     a.predProvWith P
         * SemiringWithMonus.delta ((a.occs.map Prod.snd).sum)
@@ -745,13 +752,13 @@ theorem GenPredIn.predsem_absorb_prod (φ : GenPredIn T c κ) {γ : Fin c → T}
 
 omit [HasAltLinearOrder K] in
 /-- An annotation of a list absorbs `δ` of its sum. -/
-theorem delta_absorb_of_mem {l : List K} {a : K} (h : a ∈ l) :
+private theorem delta_absorb_of_mem {l : List K} {a : K} (h : a ∈ l) :
     a * SemiringWithMonus.delta l.sum = a := by
   rw [(List.perm_cons_erase h).sum_eq, List.sum_cons]
   exact SemiringWithMonus.delta_absorb _ _
 
 omit [HasAltLinearOrder K] [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] in
-theorem AggTok.flatExpr_isScalar_of_not_nest (x : AggTok T K) (hx : x.isNested = false) :
+private theorem AggTok.flatExpr_isScalar_of_not_nest (x : AggTok T K) (hx : x.isNested = false) :
     x.flatExpr.isScalar = x.scalar := by
   cases x with
   | tok a => exact AggExpr.isScalar_ofValue a
@@ -759,7 +766,7 @@ theorem AggTok.flatExpr_isScalar_of_not_nest (x : AggTok T K) (hx : x.isNested =
   | nest a => exact absurd hx (by simp [AggTok.isNested])
 
 omit [HasAltLinearOrder K] [ValueType T] [DecidableEq K] in
-theorem AggTok.flatExpr_annList_of_not_nest (x : AggTok T K) (hx : x.isNested = false) :
+private theorem AggTok.flatExpr_annList_of_not_nest (x : AggTok T K) (hx : x.isNested = false) :
     x.flatExpr.annList = x.annList := by
   cases x with
   | tok a => exact AggExpr.annList_ofValue a
@@ -769,7 +776,7 @@ theorem AggTok.flatExpr_annList_of_not_nest (x : AggTok T K) (hx : x.isNested = 
 omit [HasAltLinearOrder K] [ValueType T] in
 /-- A world of a grouped expression keeps one of its occurrences, whose
 annotation absorbs `δ` of the family's sum. -/
-theorem AggExpr.prod_world_absorb (e : AggExpr T K) (hsc : e.isScalar = false)
+private theorem AggExpr.prod_world_absorb (e : AggExpr T K) (hsc : e.isScalar = false)
     (W : Finset (Fin e.occs.length)) (hW : e.IsWorld W) :
     (∏ i ∈ W, e.anns i) * SemiringWithMonus.delta e.annList.sum = ∏ i ∈ W, e.anns i := by
   obtain ⟨l, hl⟩ := AggExpr.exists_grouped_of_not_isScalar hsc
@@ -781,7 +788,7 @@ theorem AggExpr.prod_world_absorb (e : AggExpr T K) (hsc : e.isScalar = false)
 omit [HasAltLinearOrder K] in
 open Classical in
 /-- The worlds of a family whose value is not nested, unfolded. -/
-theorem classWorlds_of_not_nest {n : ℕ} (u : Tuple (GenValue T K) n) (M : List (Fin n))
+private theorem classWorlds_of_not_nest {n : ℕ} (u : Tuple (GenValue T K) n) (M : List (Fin n))
     (x : AggTok T K) (hx : x.isNested = false) :
     classWorlds u M x
       = ((Finset.univ : Finset (Finset (Fin x.flatExpr.occs.length))).filter
@@ -800,7 +807,7 @@ omit [HasAltLinearOrder K] in
 open Classical in
 /-- **A world of a grouped family absorbs its guard**: its present
 product carries one of the family's annotations. -/
-theorem classWorlds_absorb {n : ℕ} (u : Tuple (GenValue T K) n) (M : List (Fin n))
+private theorem classWorlds_absorb {n : ℕ} (u : Tuple (GenValue T K) n) (M : List (Fin n))
     (x₀ : AggTok T K) {k₀ : Fin n} (hk₀ : k₀ ∈ M) (hu₀ : u k₀ = Sum.inr x₀)
     (hsc : x₀.scalar = false) :
     ∀ w ∈ classWorlds u M x₀, w.1 * SemiringWithMonus.delta x₀.annList.sum = w.1 := by
@@ -839,7 +846,7 @@ theorem classWorlds_absorb {n : ℕ} (u : Tuple (GenValue T K) n) (M : List (Fin
       ((AggTok.flatExpr_isScalar_of_not_nest _ rfl).trans hsc) W hWa
 
 omit [HasAltLinearOrder K] [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] in
-theorem mem_tokCols {n : ℕ} {u : Tuple (GenValue T K) n} {cols : List (Fin n)}
+private theorem mem_tokCols {n : ℕ} {u : Tuple (GenValue T K) n} {cols : List (Fin n)}
     {p : Fin n × AggTok T K} (h : p ∈ tokCols u cols) : p.1 ∈ cols ∧ u p.1 = Sum.inr p.2 := by
   unfold tokCols at h
   obtain ⟨k, hk, hp⟩ := List.mem_filterMap.mp h
@@ -854,7 +861,7 @@ omit [HasAltLinearOrder K] in
 open Classical in
 /-- **Every joint world absorbs a grouped guard** its compared values all
 carry. -/
-theorem jointWorlds_absorb {n : ℕ} (u : Tuple (GenValue T K) n) (cols : List (Fin n))
+private theorem jointWorlds_absorb {n : ℕ} (u : Tuple (GenValue T K) n) (cols : List (Fin n))
     (ℓ₀ : List K) (hex : ∃ k ∈ cols, ∃ x, u k = Sum.inr x)
     (huni : ∀ k ∈ cols, ∀ x, u k = Sum.inr x → x.scalar = false ∧ x.annList = ℓ₀) :
     ∀ w ∈ jointWorlds u cols, w.1 * SemiringWithMonus.delta ℓ₀.sum = w.1 := by
@@ -895,7 +902,7 @@ theorem jointWorlds_absorb {n : ℕ} (u : Tuple (GenValue T K) n) (cols : List (
 omit [HasAltLinearOrder K] in
 open Classical in
 /-- A world of one family assigns nothing to the columns outside it. -/
-theorem classWorlds_none {n : ℕ} (u : Tuple (GenValue T K) n) (M : List (Fin n))
+private theorem classWorlds_none {n : ℕ} (u : Tuple (GenValue T K) n) (M : List (Fin n))
     (x₀ : AggTok T K) :
     ∀ w ∈ classWorlds u M x₀, ∀ k ∉ M, w.2.2 k = none := by
   intro w hw k hk
@@ -909,7 +916,7 @@ of worlds that holds of the empty one and holds of two worlds read
 together exactly when it holds of each. If, in each family of the row,
 the worlds satisfying `G` give the family's columns the values `val`,
 and some world satisfies `G`, then so do the joint worlds. -/
-theorem jointWorlds_of_classes {n : ℕ} (u : Tuple (GenValue T K) n) (cols : List (Fin n))
+private theorem jointWorlds_of_classes {n : ℕ} (u : Tuple (GenValue T K) n) (cols : List (Fin n))
     (G : K × K × (Fin n → Option T) → Prop) (val : Fin n → T)
     (hinit : G (1, 0, fun _ => none))
     (hcomb : ∀ w₁ w₂, G (combineW w₁ w₂) ↔ G w₁ ∧ G w₂)
@@ -996,7 +1003,7 @@ omit [HasAltLinearOrder K] in
 /-- **The joint reading absorbs a grouped guard** its compared values all
 carry, as soon as one of its compared columns holds a value: every world
 it is read in meets that value's group. -/
-theorem GenPredIn.predsemJ_delta_absorb (φ : GenPredIn T c κ) (neg : Bool) {γ : Fin c → T}
+private theorem GenPredIn.predsemJ_delta_absorb (φ : GenPredIn T c κ) (neg : Bool) {γ : Fin c → T}
     (u : Tuple (GenValue T K) n) (ℓ₀ : List K)
     (hex : ∃ k ∈ φ.comparedCols, ∃ x, u k = Sum.inr x)
     (huni : ∀ k ∈ φ.comparedCols, ∀ x : AggTok T K,

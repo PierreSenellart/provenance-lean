@@ -7,6 +7,7 @@ module
 public import Provenance.SemiringWithMonus
 public import Mathlib.Order.BooleanAlgebra.Defs
 import Mathlib.Tactic.Bound.Init
+import all Provenance.SemiringWithMonus
 
 /-!
 # The security semiring, and every Boolean algebra as an m-semiring
@@ -111,27 +112,27 @@ attribute [local instance] BooleanAlgebra.toCommSemiring
 attribute [local instance] BooleanAlgebra.toSemiringWithMonus
 
 /-- `⊕` is idempotent: it is a join. -/
-theorem idempotent_add : idempotent α := fun _ => sup_idem _
+private theorem idempotent_add : idempotent α := fun _ => sup_idem _
 
 /-- `⊗` is idempotent too: it is a meet. -/
-theorem mul_idempotent : ∀ a : α, a * a = a := fun _ => inf_idem _
+private theorem mul_idempotent : ∀ a : α, a * a = a := fun _ => inf_idem _
 
 /-- **Absorptive**: `𝟙` is the top. -/
-theorem absorptive_of : absorptive α := fun _ => top_sup_eq _
+private theorem absorptive_of : absorptive α := fun _ => top_sup_eq _
 
 /-- **Exclusive**: `𝟙 ⊖ a` is the complement, which meets `a` at `𝟘`. -/
-theorem exclusive_of : exclusive α := fun a => by
+private theorem exclusive_of : exclusive α := fun a => by
   show a ⊓ (⊤ \ a) = ⊥
   simp
 
 /-- **Complemented**: De Morgan. -/
-theorem complemented_of : complemented α := fun a b => by
+private theorem complemented_of : complemented α := fun a b => by
   show ⊤ \ (a ⊔ b) = (⊤ \ a) ⊓ (⊤ \ b)
   simp
 
 /-- **`⊗` distributes over `⊖`**, which is `a ⊓ (b ⊓ cᶜ) = (a ⊓ b) ⊓ (a ⊓ c)ᶜ`
 read through the lattice. -/
-theorem mul_sub_left_distributive_of : mul_sub_left_distributive α := by
+private theorem mul_sub_left_distributive_of : mul_sub_left_distributive α := by
   intro a b c
   show a ⊓ (b \ c) = (a ⊓ b) \ (a ⊓ c)
   rw [sdiff_eq, sdiff_eq, compl_inf, inf_sup_left,
@@ -142,16 +143,16 @@ theorem mul_sub_left_distributive_of : mul_sub_left_distributive α := by
 
 /-- **`δ` is the identity**, and legally so: the lattice absorption law
 is what `IsLegalDelta` asks of it, and every positive cast is `𝟙`. -/
-theorem isLegalDelta_id_of : IsLegalDelta (id : α → α) :=
+private theorem isLegalDelta_id_of : IsLegalDelta (id : α → α) :=
   { zero := rfl
     natCast_pos := fun hn => BooleanAlgebra.natCast_pos hn
     absorb := fun _ _ => inf_sup_self }
 
-theorem isDelta_id_of : IsDelta (id : α → α) := isDelta_delta
+private theorem isDelta_id_of : IsDelta (id : α → α) := isDelta_delta
 
 /-- The nested-coherence condition: a value meets the complement of its
 own `δ` at `𝟘`, which for `δ = id` is exclusivity again. -/
-theorem nested_coherent_of (a : α) :
+private theorem nested_coherent_of (a : α) :
     a * (1 - SemiringWithMonus.delta a) = 0 := exclusive_of a
 
 end Properties
@@ -188,33 +189,33 @@ noncomputable instance {L : Type} : CommSemiringWithMonus (Security L) where
   mul_comm := inf_comm
 
 /-- The levels at which a tuple annotated `a` may be seen. -/
-theorem mem_add {L : Type} (a b : Security L) (x : L) :
+private theorem mem_add {L : Type} (a b : Security L) (x : L) :
     x ∈ (a + b : Security L) ↔ x ∈ a ∨ x ∈ b := Iff.rfl
 
 /-- A tuple of a join is visible at a level iff both its sides are. -/
-theorem mem_mul {L : Type} (a b : Security L) (x : L) :
+private theorem mem_mul {L : Type} (a b : Security L) (x : L) :
     x ∈ (a * b : Security L) ↔ x ∈ a ∧ x ∈ b := Iff.rfl
 
 /-- And a difference removes the levels of the subtrahend. -/
-theorem mem_sub {L : Type} (a b : Security L) (x : L) :
+private theorem mem_sub {L : Type} (a b : Security L) (x : L) :
     x ∈ (a - b : Security L) ↔ x ∈ a ∧ x ∉ b := Iff.rfl
 
-theorem absorptive {L : Type} : _root_.absorptive (Security L) :=
+private theorem absorptive {L : Type} : _root_.absorptive (Security L) :=
   BooleanAlgebra.absorptive_of
 
-theorem exclusive {L : Type} : _root_.exclusive (Security L) :=
+private theorem exclusive {L : Type} : _root_.exclusive (Security L) :=
   BooleanAlgebra.exclusive_of
 
-theorem complemented {L : Type} : _root_.complemented (Security L) :=
+private theorem complemented {L : Type} : _root_.complemented (Security L) :=
   BooleanAlgebra.complemented_of
 
-theorem idempotent {L : Type} : _root_.idempotent (Security L) :=
+private theorem idempotent {L : Type} : _root_.idempotent (Security L) :=
   BooleanAlgebra.idempotent_add
 
-theorem mul_idempotent {L : Type} : ∀ a : Security L, a * a = a :=
+private theorem mul_idempotent {L : Type} : ∀ a : Security L, a * a = a :=
   BooleanAlgebra.mul_idempotent
 
-theorem mul_sub_left_distributive {L : Type} :
+private theorem mul_sub_left_distributive {L : Type} :
     _root_.mul_sub_left_distributive (Security L) :=
   BooleanAlgebra.mul_sub_left_distributive_of
 

@@ -88,7 +88,7 @@ usable definition). -/
 
 /-- The random world of the constant embedding of a `𝔹`-annotated relation
 is its support, under any valuation. -/
-lemma randomWorld_constHom {X : Type} (v : X → Bool)
+private lemma randomWorld_constHom {X : Type} (v : X → Bool)
     (r : AnnotatedRelation T Bool n) :
     randomWorld v ((Bool.constHom X).mapAnnotatedRelation r) = r.support := by
   let r' : Multiset (Tuple T n × Bool) := r
@@ -114,7 +114,7 @@ lemma randomWorld_constHom {X : Type} (v : X → Bool)
             (p := fun p : Tuple T n × Bool => p.snd = true) _ hp, ih]
 
 /-- Database-level version of `randomWorld_constHom`. -/
-lemma AnnotatedDatabase.randomWorld_constHom {X : Type} (v : X → Bool)
+private lemma AnnotatedDatabase.randomWorld_constHom {X : Type} (v : X → Bool)
     (d : AnnotatedDatabase T Bool) :
     ((Bool.constHom X).mapAnnotatedDatabase d).randomWorld v = d.support := by
   induction d with

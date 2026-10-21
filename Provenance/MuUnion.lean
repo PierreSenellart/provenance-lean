@@ -6,6 +6,16 @@ import Mathlib.Data.Fintype.BigOperators
 import Mathlib.Tactic.NormNum.Inv
 import Mathlib.Tactic.NormNum.Pow
 import Provenance.Genericity
+import all Provenance.AggQuery
+import all Provenance.BasisAssembly
+import all Provenance.Database
+import all Provenance.OrderSpec
+import all Provenance.PlainBasis
+import all Provenance.RecursionBasis
+import all Provenance.RecursionBasisPass
+import all Provenance.SumByMu
+import all Provenance.Util.ValueType
+import all Provenance.Util.ValueTypeNull
 
 /-!
 # `μ^∪` from `μ^⊎`
@@ -81,7 +91,7 @@ def AggQueryIn.recLinear (s : String) (n : ℕ) : {c m : ℕ} → {κ : Fin m �
 
 omit [ValueType T] in
 /-- A linear term's one hole is the recursive relation, at its arity. -/
-theorem AggQueryIn.index_of_recLinear {s : String} {n : ℕ} :
+private theorem AggQueryIn.index_of_recLinear {s : String} {n : ℕ} :
     ∀ {c m : ℕ} {κ : Fin m → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c m κ l),
       q.recLinear s n → l = [(s, n)] := by
   intro c m κ l q
@@ -114,7 +124,7 @@ theorem AggQueryIn.index_of_recLinear {s : String} {n : ℕ} :
 
 /-- **A linear term reads the relation row by row**: its value at `X` is
 the sum, over the rows of `X`, of its values at each row alone. -/
-theorem AggQueryIn.evaluatePlain_assign_bind_of_recLinear {s : String} {n : ℕ} :
+private theorem AggQueryIn.evaluatePlain_assign_bind_of_recLinear {s : String} {n : ℕ} :
     ∀ {c m : ℕ} {κ : Fin m → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c m κ l),
         q.recLinear s n →
       ∀ (D : Database T) (γ : Fin c → T) (X : Relation T n),
@@ -175,7 +185,7 @@ theorem AggQueryIn.evaluatePlain_assign_bind_of_recLinear {s : String} {n : ℕ}
   | WinExpr P O o ws ts fs g q keeps ih => exact fun h => h.elim
 
 /-- Hence it grows with its argument, as a set. -/
-theorem AggQueryIn.mem_evaluatePlain_assign_of_subset {s : String} {n : ℕ} {c m : ℕ}
+private theorem AggQueryIn.mem_evaluatePlain_assign_of_subset {s : String} {n : ℕ} {c m : ℕ}
     {κ : Fin m → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c m κ l)
         (hq : q.recLinear s n) (D : Database T)
     (γ : Fin c → T) {X X' : Relation T n} (hXX : ∀ t, Multiset.Mem X t → Multiset.Mem X' t)
@@ -197,7 +207,7 @@ variable {α : Type} [DecidableEq α]
 omit [DecidableEq α] in
 /-- The rounds of a set recursion whose step grows with its argument are
 nested. -/
-theorem muIter_subset_succ_of_mono (step : Multiset α → Multiset α)
+private theorem muIter_subset_succ_of_mono (step : Multiset α → Multiset α)
     (hmono : ∀ X Y : Multiset α, X ⊆ Y → step X ⊆ step Y) :
     ∀ j, muIter step j ⊆ muIter step (j + 1)
   | 0 => fun x hx => absurd hx (Multiset.notMem_zero x)
@@ -206,7 +216,7 @@ theorem muIter_subset_succ_of_mono (step : Multiset α → Multiset α)
     exact hmono _ _ (muIter_subset_succ_of_mono step hmono j)
 
 omit [DecidableEq α] in
-theorem muIter_subset_of_le (step : Multiset α → Multiset α)
+private theorem muIter_subset_of_le (step : Multiset α → Multiset α)
     (hmono : ∀ X Y : Multiset α, X ⊆ Y → step X ⊆ step Y) {i j : ℕ} (h : i ≤ j) :
     muIter step i ⊆ muIter step j := by
   induction h with
@@ -215,7 +225,7 @@ theorem muIter_subset_of_le (step : Multiset α → Multiset α)
 
 /-- **The fixpoint is reached within its own size**: a round that is not
 yet the fixpoint adds a tuple. -/
-theorem muFixIdx_le_card_of_mono (f : Multiset α → Multiset α)
+private theorem muFixIdx_le_card_of_mono (f : Multiset α → Multiset α)
     (hmono : ∀ X Y : Multiset α, X ⊆ Y → f X ⊆ f Y) :
     muFixIdx (fun X => (f X).dedup) ≤ Multiset.card (muFix (fun X => (f X).dedup)) := by
   set step : Multiset α → Multiset α := fun X => (f X).dedup with hstep
@@ -247,7 +257,7 @@ theorem muFixIdx_le_card_of_mono (f : Multiset α → Multiset α)
 
 /-- **Every round past the size of the fixpoint is the fixpoint**, once
 the recursion settles. -/
-theorem muIter_eq_muFix_of_card_le (f : Multiset α → Multiset α)
+private theorem muIter_eq_muFix_of_card_le (f : Multiset α → Multiset α)
     (hmono : ∀ X Y : Multiset α, X ⊆ Y → f X ⊆ f Y)
     (hs : MuSetSettles (fun X => (f X).dedup)) {N : ℕ}
     (hN : Multiset.card (muFix (fun X => (f X).dedup)) ≤ N) :
@@ -276,7 +286,7 @@ def chainBag : ℕ → Multiset β
 omit [DecidableEq β] in
 /-- A counter of round `j` is the end of a strictly increasing chain of
 `j + 1` counters. -/
-theorem exists_chain_of_mem_chainBag (htrans : ∀ a b c, r a b → r b c → r a c) :
+private theorem exists_chain_of_mem_chainBag (htrans : ∀ a b c, r a b → r b c → r a c) :
     ∀ (j : ℕ) (c : β), c ∈ chainBag r Cb j →
       ∃ l : List β, (l ++ [c]).Pairwise r ∧ l.length = j ∧ ∀ x ∈ l ++ [c], x ∈ Cb
   | 0, c, hc => ⟨[], by simp, rfl, fun x hx => by
@@ -302,14 +312,14 @@ theorem exists_chain_of_mem_chainBag (htrans : ∀ a b c, r a b → r b c → r 
 
 omit [DecidableEq β] in
 /-- A counter of any round is a counter. -/
-theorem mem_of_mem_chainBag : ∀ (j : ℕ) (c : β), c ∈ chainBag r Cb j → c ∈ Cb
+private theorem mem_of_mem_chainBag : ∀ (j : ℕ) (c : β), c ∈ chainBag r Cb j → c ∈ Cb
   | 0, c, hc => hc
   | j + 1, c, hc => by
     obtain ⟨c', _, hcc⟩ := Multiset.mem_bind.mp hc
     exact (Multiset.mem_filter.mp hcc).1
 
 /-- So a round past the number of distinct counters holds none. -/
-theorem chainBag_eq_zero_of_card_le [Std.Irrefl r] (htrans : ∀ a b c, r a b → r b c → r a c)
+private theorem chainBag_eq_zero_of_card_le [Std.Irrefl r] (htrans : ∀ a b c, r a b → r b c → r a c)
     {j : ℕ} (hj : Cb.toFinset.card ≤ j) : chainBag r Cb j = 0 := by
   by_contra hne
   obtain ⟨c, hc⟩ := Multiset.exists_mem_of_ne_zero hne
@@ -326,7 +336,7 @@ omit [DecidableEq β] in
 /-- And a round before it holds the corresponding element of any chain
 listing the counters: the `j`-th element of a strictly increasing listing
 is a counter of round `j`. -/
-theorem getElem_mem_chainBag (l : List β) (hl : l.Pairwise r) (hmem : ∀ x ∈ l, x ∈ Cb) :
+private theorem getElem_mem_chainBag (l : List β) (hl : l.Pairwise r) (hmem : ∀ x ∈ l, x ∈ Cb) :
     ∀ (j : ℕ) (hj : j < l.length), l[j] ∈ chainBag r Cb j
   | 0, hj => hmem _ (List.getElem_mem hj)
   | j + 1, hj => by
@@ -363,56 +373,56 @@ def AggQueryIn.castIdx {c m : ℕ} {κ : Fin m → ColKind} {l l' : List (String
     (q : AggQueryIn T c m κ l) : AggQueryIn T c m κ l' := h ▸ q
 
 omit [ValueType T] in
-theorem AggQueryIn.castIdx_rfl {c m : ℕ} {κ : Fin m → ColKind} {l : List (String × ℕ)} (h : l = l)
+private theorem AggQueryIn.castIdx_rfl {c m : ℕ} {κ : Fin m → ColKind} {l : List (String × ℕ)} (h : l = l)
     (q : AggQueryIn T c m κ l) : q.castIdx h = q := rfl
 
-@[simp] theorem AggQueryIn.evaluatePlain_castIdx {c m : ℕ} {κ : Fin m → ColKind}
+@[simp] private theorem AggQueryIn.evaluatePlain_castIdx {c m : ℕ} {κ : Fin m → ColKind}
     {l l' : List (String × ℕ)} (h : l = l') (q : AggQueryIn T c m κ l) (D : Database T)
     (γ : Fin c → T) : (q.castIdx h).evaluatePlain D γ = q.evaluatePlain D γ := by
   cases h; rfl
 
-@[simp] theorem AggQueryIn.settlesAt_castIdx {c m : ℕ} {κ : Fin m → ColKind}
+@[simp] private theorem AggQueryIn.settlesAt_castIdx {c m : ℕ} {κ : Fin m → ColKind}
     {l l' : List (String × ℕ)} (h : l = l') (q : AggQueryIn T c m κ l) (D : Database T)
     (γ : Fin c → T) : (q.castIdx h).SettlesAt D γ ↔ q.SettlesAt D γ := by
   cases h; exact Iff.rfl
 
 omit [ValueType T] in
-@[simp] theorem AggQueryIn.usesOnly_castIdx {S : Set OpKind} {c m : ℕ} {κ : Fin m → ColKind}
+@[simp] private theorem AggQueryIn.usesOnly_castIdx {S : Set OpKind} {c m : ℕ} {κ : Fin m → ColKind}
     {l l' : List (String × ℕ)} (h : l = l') (q : AggQueryIn T c m κ l) :
     (q.castIdx h).usesOnly S ↔ q.usesOnly S := by
   cases h; exact Iff.rfl
 
 omit [ValueType T] in
-@[simp] theorem AggQueryIn.hygienic_castIdx {c m : ℕ} {κ : Fin m → ColKind}
+@[simp] private theorem AggQueryIn.hygienic_castIdx {c m : ℕ} {κ : Fin m → ColKind}
     {l l' : List (String × ℕ)} (h : l = l') (q : AggQueryIn T c m κ l) :
     (q.castIdx h).hygienic ↔ q.hygienic := by
   cases h; exact Iff.rfl
 
-@[simp] theorem AggQueryIn.inSig_castIdx {Θ : Set (SeqAggFunc T)} {c m : ℕ} {κ : Fin m → ColKind}
+@[simp] private theorem AggQueryIn.inSig_castIdx {Θ : Set (SeqAggFunc T)} {c m : ℕ} {κ : Fin m → ColKind}
     {l l' : List (String × ℕ)} (h : l = l') (q : AggQueryIn T c m κ l) :
     (q.castIdx h).inSig Θ ↔ q.inSig Θ := by
   cases h; exact Iff.rfl
 
 omit [ValueType T] in
-@[simp] theorem AggQueryIn.sumsAllReg_castIdx {c m : ℕ} {κ : Fin m → ColKind}
+@[simp] private theorem AggQueryIn.sumsAllReg_castIdx {c m : ℕ} {κ : Fin m → ColKind}
     {l l' : List (String × ℕ)} (h : l = l') (q : AggQueryIn T c m κ l) :
     (q.castIdx h).sumsAllReg ↔ q.sumsAllReg := by
   cases h; exact Iff.rfl
 
 omit [ValueType T] in
-@[simp] theorem AggQueryIn.overSchema_castIdx {sch : Schema} {c m : ℕ} {κ : Fin m → ColKind}
+@[simp] private theorem AggQueryIn.overSchema_castIdx {sch : Schema} {c m : ℕ} {κ : Fin m → ColKind}
     {l l' : List (String × ℕ)} (h : l = l') (q : AggQueryIn T c m κ l) :
     (q.castIdx h).overSchema sch ↔ q.overSchema sch := by
   cases h; exact Iff.rfl
 
 omit [ValueType T] in
-@[simp] theorem AggQueryIn.names_castIdx {c m : ℕ} {κ : Fin m → ColKind}
+@[simp] private theorem AggQueryIn.names_castIdx {c m : ℕ} {κ : Fin m → ColKind}
     {l l' : List (String × ℕ)} (h : l = l') (q : AggQueryIn T c m κ l) :
     (q.castIdx h).names = q.names := by
   cases h; rfl
 
 omit [ValueType T] in
-@[simp] theorem AggQueryIn.noMention_castIdx {s : String} {c m : ℕ} {κ : Fin m → ColKind}
+@[simp] private theorem AggQueryIn.noMention_castIdx {s : String} {c m : ℕ} {κ : Fin m → ColKind}
     {l l' : List (String × ℕ)} (h : l = l') (q : AggQueryIn T c m κ l) :
     (q.castIdx h).noMention s ↔ q.noMention s := by
   cases h; exact Iff.rfl
@@ -473,7 +483,7 @@ def AggQueryIn.substRel (s : String) {c n : ℕ} (pv : Fin n → T ⊕ Fin c) :
 
 omit [ValueType T] in
 /-- A closed query not mentioning the name is unchanged. -/
-theorem AggQueryIn.substRel_of_noMention {s : String} {c n : ℕ}
+private theorem AggQueryIn.substRel_of_noMention {s : String} {c n : ℕ}
     (pv : Fin n → T ⊕ Fin c) :
     ∀ {m : ℕ} {κ : Fin m → ColKind} (q : AggQueryIn T c m κ), q.noMention s →
       AggQueryIn.substRel s pv q = q := by
@@ -534,7 +544,7 @@ theorem AggQueryIn.substRel_of_noMention {s : String} {c n : ℕ}
 /-- **Substituting is assigning**: the term with the relation replaced by
 `ρ` reads as the term over the instance binding the name to `ρ`'s
 value. -/
-theorem AggQueryIn.evaluatePlain_substRel {s : String} {c n : ℕ}
+private theorem AggQueryIn.evaluatePlain_substRel {s : String} {c n : ℕ}
     (pv : Fin n → T ⊕ Fin c) :
     ∀ {m : ℕ} {κ : Fin m → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c m κ l),
         q.recLinear s n →
@@ -592,7 +602,7 @@ theorem AggQueryIn.evaluatePlain_substRel {s : String} {c n : ℕ}
 omit [ValueType T] in
 /-- The substituted term mentions nothing the term and `ρ` do not, and
 not the recursive name. -/
-theorem AggQueryIn.noMention_substRel {s s' : String} {c n : ℕ}
+private theorem AggQueryIn.noMention_substRel {s s' : String} {c n : ℕ}
     (pv : Fin n → T ⊕ Fin c) (hρ : (AggQueryIn.Param pv (ColKind.allReg n) : AggQueryIn T c n
         (ColKind.allReg n)).noMention s') :
     ∀ {m : ℕ} {κ : Fin m → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c m κ l),
@@ -660,7 +670,7 @@ def pow (EQ : AggQueryIn T c 1 (ColKind.allReg 1)) :
 def unaryVals (E : Multiset (Tuple T 1)) : Multiset T := E.map (fun y => y 0)
 
 /-- **A row of `E^K` is a tuple of values of `E`.** -/
-theorem mem_pow (EQ : AggQueryIn T c 1 (ColKind.allReg 1)) (D : Database T) (γ : Fin c → T) :
+private theorem mem_pow (EQ : AggQueryIn T c 1 (ColKind.allReg 1)) (D : Database T) (γ : Fin c → T) :
     ∀ (K : ℕ) (u : Tuple T K),
       Multiset.Mem ((pow EQ K).evaluatePlain D γ) u
         ↔ ∀ k, u k ∈ unaryVals (EQ.evaluatePlain D γ)
@@ -686,7 +696,7 @@ theorem mem_pow (EQ : AggQueryIn T c 1 (ColKind.allReg 1)) (D : Database T) (γ 
       exact hy
 
 /-- Its distinct rows number `|E|^K`. -/
-theorem card_toFinset_pow (EQ : AggQueryIn T c 1 (ColKind.allReg 1)) (D : Database T)
+private theorem card_toFinset_pow (EQ : AggQueryIn T c 1 (ColKind.allReg 1)) (D : Database T)
     (γ : Fin c → T) (K : ℕ) :
     ((pow EQ K).evaluatePlain D γ : Multiset (Tuple T K)).toFinset.card
       = (unaryVals (EQ.evaluatePlain D γ)).toFinset.card ^ K := by
@@ -710,7 +720,7 @@ namespace OrderSpec
 /-- Two values are peers in an `ASC` column exactly when they are equal:
 the null is unique, so two nulls are equal, and a null is no peer of a
 value. -/
-theorem OrderCol.peer_ASC_iff (a b : T) : OrderCol.ASC.peer a b = true ↔ a = b := by
+private theorem OrderCol.peer_ASC_iff (a b : T) : OrderCol.ASC.peer a b = true ↔ a = b := by
   constructor
   · intro h
     simp only [OrderCol.peer, Bool.and_eq_true] at h
@@ -726,7 +736,7 @@ theorem OrderCol.peer_ASC_iff (a b : T) : OrderCol.ASC.peer a b = true ↔ a = b
   · rintro rfl
     simp [OrderCol.peer]
 
-theorem leOn_peer_of_both (o : OrderSpec p) (x y : Tuple T p) :
+private theorem leOn_peer_of_both (o : OrderSpec p) (x y : Tuple T p) :
     ∀ l : List (Fin p), o.leOn l x y = true → o.leOn l y x = true →
       ∀ k ∈ l, (o k).peer (x k) (y k) = true
   | [], _, _, k, hk => absurd hk (List.not_mem_nil)
@@ -744,13 +754,13 @@ theorem leOn_peer_of_both (o : OrderSpec p) (x y : Tuple T p) :
 
 /-- **The ascending clause is antisymmetric**, hence a total order on the
 tuples. -/
-theorem le_antisymm_asc {p : ℕ} {x y : Tuple T p} (h₁ : (OrderSpec.asc p).le x y = true)
+private theorem le_antisymm_asc {p : ℕ} {x y : Tuple T p} (h₁ : (OrderSpec.asc p).le x y = true)
     (h₂ : (OrderSpec.asc p).le y x = true) : x = y := by
   funext k
   exact (OrderCol.peer_ASC_iff _ _).mp
     (leOn_peer_of_both (OrderSpec.asc p) x y (List.finRange p) h₁ h₂ k (List.mem_finRange k))
 
-theorem lt_trans' (o : OrderSpec p) {x y z : Tuple T p} (h₁ : o.lt x y = true)
+private theorem lt_trans' (o : OrderSpec p) {x y z : Tuple T p} (h₁ : o.lt x y = true)
     (h₂ : o.lt y z = true) : o.lt x z = true := by
   rw [lt_iff] at h₁ h₂ ⊢
   cases hzx : o.le z x
@@ -763,7 +773,7 @@ theorem lt_trans' (o : OrderSpec p) {x y z : Tuple T p} (h₁ : o.lt x y = true)
     · rw [hyx] at h₁
       exact absurd h₁ (by simp)
 
-theorem lt_of_le_of_ne_asc {p : ℕ} {x y : Tuple T p} (h : (OrderSpec.asc p).le x y = true)
+private theorem lt_of_le_of_ne_asc {p : ℕ} {x y : Tuple T p} (h : (OrderSpec.asc p).le x y = true)
     (hne : x ≠ y) : (OrderSpec.asc p).lt x y = true := by
   rw [lt_iff]
   cases hyx : (OrderSpec.asc p).le y x
@@ -792,7 +802,7 @@ instance (p : ℕ) : Std.Irrefl (ascLt (T := T) p) :=
   ⟨fun x h => by unfold ascLt at h; rw [OrderSpec.lt_irrefl] at h; exact absurd h (by simp)⟩
 
 /-- **A listing of a finite set of counters, strictly increasing.** -/
-theorem exists_sorted_counters (p : ℕ) (C : Finset (Tuple T p)) :
+private theorem exists_sorted_counters (p : ℕ) (C : Finset (Tuple T p)) :
     ∃ l : List (Tuple T p), l.Pairwise (ascLt p) ∧ l.length = C.card ∧ ∀ x ∈ l, x ∈ C := by
   refine ⟨C.sort (ascLe p), ?_, Finset.length_sort _, fun x hx => (Finset.mem_sort _).mp hx⟩
   have hp := Finset.pairwise_sort (s := C) (r := ascLe p)
@@ -809,7 +819,7 @@ namespace AggQueryIn
 variable {c : ℕ}
 
 omit [ValueType T] in
-@[simp] theorem recLinear_castKind {s : String} {n c m : ℕ} {κ κ' : Fin m → ColKind} {l : List
+@[simp] private theorem recLinear_castKind {s : String} {n c m : ℕ} {κ κ' : Fin m → ColKind} {l : List
     (String × ℕ)}
     (h : κ = κ') (q : AggQueryIn T c m κ l) :
     (q.castKind h).recLinear s n ↔ q.recLinear s n := by
@@ -817,7 +827,7 @@ omit [ValueType T] in
 
 omit [ValueType T] in
 /-- A substitution keeps a term linear. -/
-theorem recLinear_substMap {s : String} {n : ℕ} :
+private theorem recLinear_substMap {s : String} {n : ℕ} :
     ∀ {c m : ℕ} {κ : Fin m → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c m κ l) {d : ℕ}
       (θ : Fin c → T ⊕ Fin d), (q.substMap θ).recLinear s n ↔ q.recLinear s n := by
   intro c m κ l q
@@ -855,7 +865,7 @@ theorem recLinear_substMap {s : String} {n : ℕ} :
 
 /-- **The substituted term is defined where the term is at `ρ`'s
 value.** -/
-theorem settlesAt_substRel {s : String} {c n : ℕ} (pv : Fin n → T ⊕ Fin c) :
+private theorem settlesAt_substRel {s : String} {c n : ℕ} (pv : Fin n → T ⊕ Fin c) :
     ∀ {m : ℕ} {κ : Fin m → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c m κ l),
         q.recLinear s n →
       ∀ (D : Database T) (γ : Fin c → T), (AggQueryIn.Param pv
@@ -906,7 +916,7 @@ theorem settlesAt_substRel {s : String} {c n : ℕ} (pv : Fin n → T ⊕ Fin c)
   | WinExpr P O o ws ts fs g q keeps ih => exact fun h => h.elim
 
 /-- **A linear term defined at a relation is defined at a sub-relation.** -/
-theorem settlesAt_assign_of_subset {s : String} {n : ℕ} :
+private theorem settlesAt_assign_of_subset {s : String} {n : ℕ} :
     ∀ {c m : ℕ} {κ : Fin m → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c m κ l),
         q.recLinear s n →
       ∀ (D : Database T) (γ : Fin c → T) {X X' : Relation T n},
@@ -958,14 +968,14 @@ theorem settlesAt_assign_of_subset {s : String} {n : ℕ} :
   | WinExpr P O o ws ts fs g q keeps ih => exact fun h => h.elim
 
 omit [ValueType T] in
-theorem noMention_pow (EQ : AggQueryIn T c 1 (ColKind.allReg 1)) {s : String}
+private theorem noMention_pow (EQ : AggQueryIn T c 1 (ColKind.allReg 1)) {s : String}
     (h : EQ.noMention s) : ∀ K, (pow EQ K).noMention s
   | 0 => by rw [pow, unitC, AggQueryIn.noMention_castKind]; trivial
   | K + 1 => by
     rw [pow]
     exact AggQueryIn.noMention_prodA _ _ (noMention_pow EQ h K) h
 
-theorem settlesAt_pow (EQ : AggQueryIn T c 1 (ColKind.allReg 1)) (D : Database T) (γ : Fin c → T)
+private theorem settlesAt_pow (EQ : AggQueryIn T c 1 (ColKind.allReg 1)) (D : Database T) (γ : Fin c → T)
     (h : EQ.SettlesAt D γ) : ∀ K, (pow EQ K).SettlesAt D γ
   | 0 => by rw [pow, unitC, AggQueryIn.settlesAt_castKind]; trivial
   | K + 1 => by
@@ -983,12 +993,12 @@ def leftPart (n K : ℕ) (u : Tuple T (n + K)) : Tuple T n := fun i => u (Fin.ca
 def rightPart (n K : ℕ) (u : Tuple T (n + K)) : Tuple T K := fun k => u (Fin.natAdd n k)
 
 omit [ValueType T] in
-@[simp] theorem leftPart_append (n K : ℕ) (t : Tuple T n) (m : Tuple T K) :
+@[simp] private theorem leftPart_append (n K : ℕ) (t : Tuple T n) (m : Tuple T K) :
     leftPart n K (Fin.append t m) = t := by
   funext i; exact Fin.append_left t m i
 
 omit [ValueType T] in
-@[simp] theorem rightPart_append (n K : ℕ) (t : Tuple T n) (m : Tuple T K) :
+@[simp] private theorem rightPart_append (n K : ℕ) (t : Tuple T n) (m : Tuple T K) :
     rightPart n K (Fin.append t m) = m := by
   funext k; exact Fin.append_right t m k
 
@@ -998,7 +1008,7 @@ def rowPv (n K : ℕ) : Fin n → T ⊕ Fin ((n + K) + c) :=
   fun i => Sum.inr (Fin.castAdd c (Fin.castAdd K i))
 
 omit [ValueType T] in
-theorem rowPv_vals (n K : ℕ) (u : Tuple T (n + K)) (γ : Fin c → T) :
+private theorem rowPv_vals (n K : ℕ) (u : Tuple T (n + K)) (γ : Fin c → T) :
     (fun k => _root_.Sum.elim id (Fin.append u γ : Tuple T ((n + K) + c)) (rowPv (c := c) n K k))
       = leftPart n K u := by
   funext i
@@ -1013,7 +1023,7 @@ def ltSel (n K : ℕ) : GenPredIn T ((n + K) + c) (ColKind.allReg K) :=
     (fun k => TermGIn.outer (Fin.castAdd c (Fin.natAdd n k)))
     (fun k => TermGIn.index k rfl) (List.finRange K)
 
-theorem holdsPlain_ltSel (n K : ℕ) (u : Tuple T (n + K)) (γ : Fin c → T) (y : Tuple T K)
+private theorem holdsPlain_ltSel (n K : ℕ) (u : Tuple T (n + K)) (γ : Fin c → T) (y : Tuple T K)
     (hu : ∀ k, ValueType.isNull (rightPart n K u k) = false)
     (hy : ∀ k, ValueType.isNull (y k) = false) :
     (ltSel (c := c) n K).holdsPlain y (Fin.append u γ) ↔ ascLt K (rightPart n K u) y := by
@@ -1052,7 +1062,7 @@ def simBody (s s' : String) (n K : ℕ) (EQ : AggQueryIn T c 1 (ColKind.allReg 1
     (funext fun _ => rfl)
 
 /-- The counters of the simulation, and the values they are made of. -/
-theorem nonNull_pow (EQ : AggQueryIn T c 1 (ColKind.allReg 1)) (D : Database T) (γ : Fin c → T)
+private theorem nonNull_pow (EQ : AggQueryIn T c 1 (ColKind.allReg 1)) (D : Database T) (γ : Fin c → T)
     (hE : ∀ e ∈ unaryVals (EQ.evaluatePlain D γ), ValueType.isNull e = false) (K : ℕ)
     (y : Tuple T K) (hy : Multiset.Mem ((pow EQ K).evaluatePlain D γ) y) :
     ∀ k, ValueType.isNull (y k) = false :=
@@ -1061,7 +1071,7 @@ theorem nonNull_pow (EQ : AggQueryIn T c 1 (ColKind.allReg 1)) (D : Database T) 
 /-- **What a round computes**, on a relation whose counters are
 counters: for each row, the term at the row's tuple part, each of its
 rows paired with every counter above the row's. -/
-theorem evaluatePlain_simBody (s s' : String) (n K : ℕ) (EQ : AggQueryIn T c 1 (ColKind.allReg 1))
+private theorem evaluatePlain_simBody (s s' : String) (n K : ℕ) (EQ : AggQueryIn T c 1 (ColKind.allReg 1))
     (L : AggQueryIn T c n (ColKind.allReg n) [(s, n)]) (hL : L.recLinear s n) (hLs : L.noMention s')
     (hEs : EQ.noMention s') (D : Database T) (γ : Fin c → T)
     (hE : ∀ e ∈ unaryVals (EQ.evaluatePlain D γ), ValueType.isNull e = false)
@@ -1128,7 +1138,7 @@ def pairRel {n K : ℕ} (A : Multiset (Tuple T n)) (M : Multiset (Tuple T K)) :
   A.bind (fun a => M.map (fun m => (Fin.append a m : Tuple T (n + K))))
 
 omit [ValueType T] in
-theorem mem_pairRel {n K : ℕ} (A : Multiset (Tuple T n)) (M : Multiset (Tuple T K))
+private theorem mem_pairRel {n K : ℕ} (A : Multiset (Tuple T n)) (M : Multiset (Tuple T K))
     (y : Tuple T (n + K)) :
     y ∈ pairRel A M ↔ ∃ a ∈ A, ∃ m ∈ M, y = Fin.append a m := by
   unfold pairRel
@@ -1141,13 +1151,13 @@ theorem mem_pairRel {n K : ℕ} (A : Multiset (Tuple T n)) (M : Multiset (Tuple 
     exact ⟨a, ha, Multiset.mem_map.mpr ⟨m, hm, rfl⟩⟩
 
 omit [ValueType T] in
-theorem pairRel_zero {n K : ℕ} (A : Multiset (Tuple T n)) :
+private theorem pairRel_zero {n K : ℕ} (A : Multiset (Tuple T n)) :
     pairRel A (0 : Multiset (Tuple T K)) = 0 := by
   unfold pairRel
   simp only [Multiset.map_zero, Multiset.bind_zero]
 
 omit [ValueType T] in
-theorem mem_map_leftPart_pairRel {n K : ℕ} (A : Multiset (Tuple T n)) (M : Multiset (Tuple T K))
+private theorem mem_map_leftPart_pairRel {n K : ℕ} (A : Multiset (Tuple T n)) (M : Multiset (Tuple T K))
     (x : Tuple T n) : x ∈ (pairRel A M).map (leftPart n K) ↔ x ∈ A ∧ M ≠ 0 := by
   rw [Multiset.mem_map]
   constructor
@@ -1162,7 +1172,7 @@ theorem mem_map_leftPart_pairRel {n K : ℕ} (A : Multiset (Tuple T n)) (M : Mul
 omit [ValueType T] in
 /-- **Applying a term to the tuple part and a move to the counter part,
 row by row, is the product of the two.** -/
-theorem bind_pairRel {n K n' K' : ℕ} (A : Multiset (Tuple T n)) (M : Multiset (Tuple T K))
+private theorem bind_pairRel {n K n' K' : ℕ} (A : Multiset (Tuple T n)) (M : Multiset (Tuple T K))
     (f : Tuple T n → Multiset (Tuple T n')) (g : Tuple T K → Multiset (Tuple T K')) :
     (pairRel A M).bind (fun y => (f (leftPart n K y)).bind (fun a' =>
         (g (rightPart n K y)).map (fun m' => (Fin.append a' m' : Tuple T (n' + K')))))
@@ -1202,12 +1212,12 @@ def dedupG {n : ℕ} (q : AggQueryIn T c n (ColKind.allReg n)) :
       q).castKind
     (dedupG_kinds n)
 
-theorem evaluatePlain_dedupG {n : ℕ} (q : AggQueryIn T c n (ColKind.allReg n)) (D : Database T)
+private theorem evaluatePlain_dedupG {n : ℕ} (q : AggQueryIn T c n (ColKind.allReg n)) (D : Database T)
     (γ : Fin c → T) : (dedupG q).evaluatePlain D γ = (q.evaluatePlain D γ).dedup := by
   rw [dedupG, AggQueryIn.evaluatePlain_castKind]
   exact (AggQueryIn.dedup_plainEquiv_gamma q D γ).symm
 
-theorem settlesAt_dedupG {n : ℕ} (q : AggQueryIn T c n (ColKind.allReg n)) (D : Database T)
+private theorem settlesAt_dedupG {n : ℕ} (q : AggQueryIn T c n (ColKind.allReg n)) (D : Database T)
     (γ : Fin c → T) : (dedupG q).SettlesAt D γ ↔ q.SettlesAt D γ := by
   rw [dedupG, AggQueryIn.settlesAt_castKind]
   exact Iff.rfl
@@ -1247,7 +1257,7 @@ variable (s s' : String) (n K : ℕ) (EQ : AggQueryIn T c 1 (ColKind.allReg 1))
 include hL hLs hEs hE in
 /-- **The rounds of the simulation**: the term iterated on the base, as a
 bag, paired with the counters of the round. -/
-theorem simStep_iterate (B : Multiset (Tuple T n)) :
+private theorem simStep_iterate (B : Multiset (Tuple T n)) :
     ∀ j, (simStep s s' n K EQ L D γ)^[j] (pairRel B (counters EQ K D γ))
       = pairRel ((fun X : Multiset (Tuple T n) => X.bind (rowTerm s n L D γ))^[j] B)
           (chainBag (ascLt K) (counters EQ K D γ) j)
@@ -1265,7 +1275,7 @@ theorem simStep_iterate (B : Multiset (Tuple T n)) :
 
 include hL hLs hEs hE in
 /-- An empty round stays empty. -/
-theorem simStep_zero : simStep s s' n K EQ L D γ 0 = 0 := by
+private theorem simStep_zero : simStep s s' n K EQ L D γ 0 = 0 := by
   simp only [simStep]
   rw [evaluatePlain_simBody s s' n K EQ L hL hLs hEs D γ hE 0 (fun y hy => absurd hy
     (Multiset.notMem_zero y))]
@@ -1274,7 +1284,7 @@ theorem simStep_zero : simStep s s' n K EQ L D γ 0 = 0 := by
 include hL hLs hEs hE in
 /-- **The simulation always settles**: past the number of distinct
 counters no row has a counter left. -/
-theorem simStep_iterate_eq_zero (B : Multiset (Tuple T n)) :
+private theorem simStep_iterate_eq_zero (B : Multiset (Tuple T n)) :
     (simStep s s' n K EQ L D γ)^[(counters EQ K D γ).toFinset.card + 1]
       (pairRel B (counters EQ K D γ)) = 0 := by
   rw [Function.iterate_succ_apply', simStep_iterate s s' n K EQ L hL hLs hEs D γ hE B,
@@ -1284,7 +1294,7 @@ theorem simStep_iterate_eq_zero (B : Multiset (Tuple T n)) :
 
 omit [ValueType T] in
 /-- Membership in the sum of the rounds. -/
-theorem mem_muSum {α : Type} (step : Multiset α → Multiset α) (M : Multiset α) (x : α) :
+private theorem mem_muSum {α : Type} (step : Multiset α → Multiset α) (M : Multiset α) (x : α) :
     ∀ b, x ∈ muSum step b M ↔ ∃ j, j ≤ b ∧ x ∈ step^[j] M
   | 0 => by
     show x ∈ M ↔ _
@@ -1301,7 +1311,7 @@ theorem mem_muSum {α : Type} (step : Multiset α → Multiset α) (M : Multiset
       · exact Or.inr h
 
 /-- A counter chain of each length below the number of counters. -/
-theorem chainBag_ne_zero_of_lt {j : ℕ} (hj : LT.lt j (counters EQ K D γ).toFinset.card) :
+private theorem chainBag_ne_zero_of_lt {j : ℕ} (hj : LT.lt j (counters EQ K D γ).toFinset.card) :
     chainBag (ascLt K) (counters EQ K D γ) j ≠ 0 := by
   obtain ⟨l, hl, hlen, hmem⟩ := exists_sorted_counters K (counters EQ K D γ).toFinset
   have hj' : LT.lt j l.length := by rw [hlen]; exact hj
@@ -1314,7 +1324,7 @@ theorem chainBag_ne_zero_of_lt {j : ℕ} (hj : LT.lt j (counters EQ K D γ).toFi
 include hL hLs hEs hE in
 /-- **What the simulation's tuples are**: the rounds of the term on the
 base, up to the number of counters. -/
-theorem mem_simResult (B : Multiset (Tuple T n))
+private theorem mem_simResult (B : Multiset (Tuple T n))
     (hB : (BQ.evaluatePlain D γ : Multiset (Tuple T n)) = B) (x : Tuple T n) :
     Multiset.Mem ((simResult s s' n K EQ BQ L).evaluatePlain D γ) x
       ↔ ∃ j, LT.lt j (counters EQ K D γ).toFinset.card
@@ -1359,7 +1369,7 @@ theorem mem_simResult (B : Multiset (Tuple T n))
 include hL hLs hEs hE in
 /-- **The simulation is defined** wherever its base and its counters are,
 and the term is defined at every row the rounds reach. -/
-theorem settlesAt_simResult (hBQ : BQ.SettlesAt D γ) (hEQ : EQ.SettlesAt D γ)
+private theorem settlesAt_simResult (hBQ : BQ.SettlesAt D γ) (hEQ : EQ.SettlesAt D γ)
     (hLset : ∀ (j : ℕ) (t : Tuple T n), LT.lt j (counters EQ K D γ).toFinset.card →
       t ∈ (fun X : Multiset (Tuple T n) => X.bind (rowTerm s n L D γ))^[j]
         (BQ.evaluatePlain D γ : Multiset (Tuple T n)) →
@@ -1433,7 +1443,7 @@ def bagStep (B : Multiset α) (L₁ : α → Multiset α) (X : Multiset α) : Mu
   B + X.bind L₁
 
 omit [DecidableEq α] in
-theorem bagStep_mono (B : Multiset α) (L₁ : α → Multiset α) :
+private theorem bagStep_mono (B : Multiset α) (L₁ : α → Multiset α) :
     ∀ X Y : Multiset α, X ⊆ Y → bagStep B L₁ X ⊆ bagStep B L₁ Y := by
   intro X Y h x hx
   unfold bagStep at hx ⊢
@@ -1445,7 +1455,7 @@ theorem bagStep_mono (B : Multiset α) (L₁ : α → Multiset α) :
 
 /-- **Round `m` of the set recursion holds the first `m` iterates of the
 term on the base.** -/
-theorem mem_muIter_bagStep (B : Multiset α) (L₁ : α → Multiset α) :
+private theorem mem_muIter_bagStep (B : Multiset α) (L₁ : α → Multiset α) :
     ∀ (m : ℕ) (x : α), x ∈ muIter (fun X => (bagStep B L₁ X).dedup) m
       ↔ ∃ j, LT.lt j m ∧ x ∈ (fun X : Multiset α => X.bind L₁)^[j] B := by
   intro m
@@ -1563,7 +1573,7 @@ end AggQueryIn
 
 omit [ValueType T] in
 /-- A leaf's name is a name of the query. -/
-theorem AggQueryIn.snd_mem_names_of_mem_leaves :
+private theorem AggQueryIn.snd_mem_names_of_mem_leaves :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l)
         (p : ℕ × String),
       p ∈ q.leaves → p.2 ∈ q.names := by
@@ -1621,7 +1631,7 @@ theorem AggQueryIn.snd_mem_names_of_mem_leaves :
 omit [ValueType T] in
 /-- A query over a schema reads each leaf at the arity the schema
 declares; a body reads its recursive name at the recursion's arity. -/
-theorem AggQueryIn.find_of_mem_leaves_of_overSchema :
+private theorem AggQueryIn.find_of_mem_leaves_of_overSchema :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)}
         (q : AggQueryIn T c n κ l) {sch : Schema},
       q.overSchema sch → ∀ p ∈ q.leaves, sch p.2 = some p.1 := by
@@ -1700,7 +1710,7 @@ def listSum {n : ℕ} : List (AggQueryIn T c n (ColKind.allReg n)) →
   | [] => emptyRel n
   | q :: l => AggQueryIn.Sum q (listSum l)
 
-theorem mem_listSum {n : ℕ} :
+private theorem mem_listSum {n : ℕ} :
     ∀ (l : List (AggQueryIn T c n (ColKind.allReg n))) (D : Database T) (γ : Fin c → T)
       (x : Tuple T n), Multiset.Mem ((listSum l).evaluatePlain D γ) x
         ↔ ∃ q ∈ l, Multiset.Mem (q.evaluatePlain D γ) x
@@ -1716,14 +1726,14 @@ theorem mem_listSum {n : ℕ} :
     simp only [List.mem_cons, exists_eq_or_imp]
     exact or_congr Iff.rfl ih
 
-theorem settlesAt_listSum {n : ℕ} :
+private theorem settlesAt_listSum {n : ℕ} :
     ∀ (l : List (AggQueryIn T c n (ColKind.allReg n))) (D : Database T) (γ : Fin c → T),
       (∀ q ∈ l, q.SettlesAt D γ) → (listSum l).SettlesAt D γ
   | [], D, γ, _ => settlesAt_emptyRel n D γ
   | q :: l, D, γ, h => ⟨h q (List.mem_cons_self), settlesAt_listSum l D γ
       (fun q' hq' => h q' (List.mem_cons_of_mem _ hq'))⟩
 
-theorem usesOnly_listSum {S : Set OpKind} (hS : sumMuOps ⊆ S) {n : ℕ} :
+private theorem usesOnly_listSum {S : Set OpKind} (hS : sumMuOps ⊆ S) {n : ℕ} :
     ∀ (l : List (AggQueryIn T c n (ColKind.allReg n))), (∀ q ∈ l, q.usesOnly S) →
       (listSum l).usesOnly (insert OpKind.union S)
   | [], _ => AggQueryIn.usesOnly_mono (Set.subset_insert _ _) _ (usesOnly_emptyRel hS n)
@@ -1731,42 +1741,42 @@ theorem usesOnly_listSum {S : Set OpKind} (hS : sumMuOps ⊆ S) {n : ℕ} :
       AggQueryIn.usesOnly_mono (Set.subset_insert _ _) _ (h q List.mem_cons_self),
       usesOnly_listSum hS l (fun q' hq' => h q' (List.mem_cons_of_mem _ hq'))⟩
 
-theorem hygienic_listSum {n : ℕ} :
+private theorem hygienic_listSum {n : ℕ} :
     ∀ (l : List (AggQueryIn T c n (ColKind.allReg n))), (∀ q ∈ l, q.hygienic) →
       (listSum l).hygienic
   | [], _ => hygienic_emptyRel n
   | q :: l, h => ⟨h q List.mem_cons_self,
       hygienic_listSum l (fun q' hq' => h q' (List.mem_cons_of_mem _ hq'))⟩
 
-theorem inSig_listSum {Θ : Set (SeqAggFunc T)} {n : ℕ} :
+private theorem inSig_listSum {Θ : Set (SeqAggFunc T)} {n : ℕ} :
     ∀ (l : List (AggQueryIn T c n (ColKind.allReg n))), (∀ q ∈ l, q.inSig Θ) →
       (listSum l).inSig Θ
   | [], _ => inSig_emptyRel Θ n
   | q :: l, h => ⟨h q List.mem_cons_self,
       inSig_listSum l (fun q' hq' => h q' (List.mem_cons_of_mem _ hq'))⟩
 
-theorem sumsAllReg_listSum {n : ℕ} :
+private theorem sumsAllReg_listSum {n : ℕ} :
     ∀ (l : List (AggQueryIn T c n (ColKind.allReg n))), (∀ q ∈ l, q.sumsAllReg) →
       (listSum l).sumsAllReg
   | [], _ => by rw [listSum, emptyRel, AggQueryIn.sumsAllReg_castKind]; trivial
   | q :: l, h => ⟨rfl, h q List.mem_cons_self,
       sumsAllReg_listSum l (fun q' hq' => h q' (List.mem_cons_of_mem _ hq'))⟩
 
-theorem winsDerivable_listSum {n : ℕ} :
+private theorem winsDerivable_listSum {n : ℕ} :
     ∀ (l : List (AggQueryIn T c n (ColKind.allReg n))), (∀ q ∈ l, q.WinsDerivable) →
       (listSum l).WinsDerivable
   | [], _ => winsDerivable_emptyRel n
   | q :: l, h => ⟨h q List.mem_cons_self,
       winsDerivable_listSum l (fun q' hq' => h q' (List.mem_cons_of_mem _ hq'))⟩
 
-theorem overSchema_listSum {sch : Schema} {n : ℕ} :
+private theorem overSchema_listSum {sch : Schema} {n : ℕ} :
     ∀ (l : List (AggQueryIn T c n (ColKind.allReg n))), (∀ q ∈ l, q.overSchema sch) →
       (listSum l).overSchema sch
   | [], _ => overSchema_emptyRel sch n
   | q :: l, h => ⟨h q List.mem_cons_self,
       overSchema_listSum l (fun q' hq' => h q' (List.mem_cons_of_mem _ hq'))⟩
 
-theorem mem_names_listSum {n : ℕ} :
+private theorem mem_names_listSum {n : ℕ} :
     ∀ (l : List (AggQueryIn T c n (ColKind.allReg n))) (x : String),
       x ∈ (listSum l).names → ∃ q ∈ l, x ∈ q.names
   | [], x, h => by rw [listSum, names_emptyRel] at h; exact absurd h (Finset.notMem_empty x)
@@ -1776,7 +1786,7 @@ theorem mem_names_listSum {n : ℕ} :
     · obtain ⟨q', hq', h'⟩ := mem_names_listSum l x h
       exact ⟨q', List.mem_cons_of_mem _ hq', h'⟩
 
-theorem noMention_listSum {n : ℕ} (t : String) :
+private theorem noMention_listSum {n : ℕ} (t : String) :
     ∀ (l : List (AggQueryIn T c n (ColKind.allReg n))), (∀ q ∈ l, q.noMention t) →
       (listSum l).noMention t
   | [], _ => noMention_emptyRel n t
@@ -1804,7 +1814,7 @@ at the null. -/
 def nonNullPred : GenPredIn T c (ColKind.allReg 1) :=
   GenPredIn.cmp CompOp.eq (TermGIn.index 0 rfl) (TermGIn.index 0 rfl)
 
-theorem holdsPlain_nonNullPred (y : Tuple T 1) (γ : Fin c → T) :
+private theorem holdsPlain_nonNullPred (y : Tuple T 1) (γ : Fin c → T) :
     (nonNullPred (c := c)).holdsPlain y γ ↔ ValueType.isNull (y 0) = false := by
   show CompOp.eq.eval3 (y 0) (y 0) = Kleene.true ↔ _
   by_cases h : ValueType.isNull (y 0) = true
@@ -1828,7 +1838,7 @@ def counterRel {n : ℕ} (B : AggQueryIn T c n (ColKind.allReg n)) (ls : List (�
     (cs : List T) : AggQueryIn T c 1 (ColKind.allReg 1) :=
   AggQueryIn.Sel nonNullPred (listSum (counterParts B ls cs))
 
-theorem mem_unaryVals_colRel {n : ℕ} (q : AggQueryIn T c n (ColKind.allReg n)) (i : Fin n)
+private theorem mem_unaryVals_colRel {n : ℕ} (q : AggQueryIn T c n (ColKind.allReg n)) (i : Fin n)
     (D : Database T) (γ : Fin c → T) (u : Tuple T n) (hu : Multiset.Mem (q.evaluatePlain D γ) u) :
     u i ∈ unaryVals ((colRel q i).evaluatePlain D γ) := by
   rw [colRel, AggQueryIn.evaluatePlain_castKind]
@@ -1836,14 +1846,14 @@ theorem mem_unaryVals_colRel {n : ℕ} (q : AggQueryIn T c n (ColKind.allReg n))
   rw [Multiset.map_map]
   exact Multiset.mem_map.mpr ⟨u, hu, rfl⟩
 
-theorem mem_unaryVals_constRel (a : T) (D : Database T) (γ : Fin c → T) :
+private theorem mem_unaryVals_constRel (a : T) (D : Database T) (γ : Fin c → T) :
     a ∈ unaryVals ((constRel (c := c) a).evaluatePlain D γ) := by
   rw [constRel, AggQueryIn.evaluatePlain_castKind]
   show a ∈ Multiset.map _ (Multiset.map _ ((unitC : AggQueryIn T c 0 _).evaluatePlain D γ))
   rw [evaluatePlain_unitC D γ (fun j => j.elim0), Multiset.map_singleton, Multiset.map_singleton]
   exact Multiset.mem_singleton_self _
 
-theorem mem_unaryVals_outerRel (j : Fin c) (D : Database T) (γ : Fin c → T) :
+private theorem mem_unaryVals_outerRel (j : Fin c) (D : Database T) (γ : Fin c → T) :
     γ j ∈ unaryVals ((outerRel (T := T) j).evaluatePlain D γ) := by
   rw [outerRel, AggQueryIn.evaluatePlain_castKind]
   show γ j ∈ Multiset.map _ (Multiset.map _ ((unitC : AggQueryIn T c 0 _).evaluatePlain D γ))
@@ -1851,7 +1861,7 @@ theorem mem_unaryVals_outerRel (j : Fin c) (D : Database T) (γ : Fin c → T) :
   exact Multiset.mem_singleton_self _
 
 /-- Membership in the counter relation. -/
-theorem mem_unaryVals_counterRel {n : ℕ} (B : AggQueryIn T c n (ColKind.allReg n))
+private theorem mem_unaryVals_counterRel {n : ℕ} (B : AggQueryIn T c n (ColKind.allReg n))
     (ls : List (ℕ × String)) (cs : List T) (D : Database T) (γ : Fin c → T) (a : T) :
     a ∈ unaryVals ((counterRel B ls cs).evaluatePlain D γ)
       ↔ ValueType.isNull a = false
@@ -1872,13 +1882,13 @@ theorem mem_unaryVals_counterRel {n : ℕ} (B : AggQueryIn T c n (ColKind.allReg
     exact (mem_listSum _ D γ y).mpr ⟨q, hq, hy⟩
 
 /-- Every value of the counter relation is non-null. -/
-theorem nonNull_counterRel {n : ℕ} (B : AggQueryIn T c n (ColKind.allReg n))
+private theorem nonNull_counterRel {n : ℕ} (B : AggQueryIn T c n (ColKind.allReg n))
     (ls : List (ℕ × String)) (cs : List T) (D : Database T) (γ : Fin c → T) :
     ∀ e ∈ unaryVals ((counterRel B ls cs).evaluatePlain D γ), ValueType.isNull e = false :=
   fun e he => ((mem_unaryVals_counterRel B ls cs D γ e).mp he).1
 
 /-- A non-null value of a column of `B` is a counter value. -/
-theorem mem_counterRel_of_mem_B {n : ℕ} (B : AggQueryIn T c n (ColKind.allReg n))
+private theorem mem_counterRel_of_mem_B {n : ℕ} (B : AggQueryIn T c n (ColKind.allReg n))
     (ls : List (ℕ × String)) (cs : List T) (D : Database T) (γ : Fin c → T) (u : Tuple T n)
     (hu : Multiset.Mem (B.evaluatePlain D γ) u) (i : Fin n) (hnn : ValueType.isNull (u i) = false) :
     u i ∈ unaryVals ((counterRel B ls cs).evaluatePlain D γ) :=
@@ -1888,7 +1898,7 @@ theorem mem_counterRel_of_mem_B {n : ℕ} (B : AggQueryIn T c n (ColKind.allReg 
     mem_unaryVals_colRel B i D γ u hu⟩
 
 /-- A non-null value of a relation `ls` names is a counter value. -/
-theorem mem_counterRel_of_mem_leaf {n : ℕ} (B : AggQueryIn T c n (ColKind.allReg n))
+private theorem mem_counterRel_of_mem_leaf {n : ℕ} (B : AggQueryIn T c n (ColKind.allReg n))
     (ls : List (ℕ × String)) (cs : List T) (D : Database T) (γ : Fin c → T) (p : ℕ × String)
     (hp : p ∈ ls) (r : Relation T p.1) (hr : D.find p.1 p.2 = some r) (u : Tuple T p.1)
     (hu : Multiset.Mem r u) (i : Fin p.1) (hnn : ValueType.isNull (u i) = false) :
@@ -1904,7 +1914,7 @@ theorem mem_counterRel_of_mem_leaf {n : ℕ} (B : AggQueryIn T c n (ColKind.allR
   exact hu
 
 /-- A non-null constant of `cs` is a counter value. -/
-theorem mem_counterRel_of_mem_consts {n : ℕ} (B : AggQueryIn T c n (ColKind.allReg n))
+private theorem mem_counterRel_of_mem_consts {n : ℕ} (B : AggQueryIn T c n (ColKind.allReg n))
     (ls : List (ℕ × String)) (cs : List T) (D : Database T) (γ : Fin c → T) (a : T)
     (ha : a ∈ cs) (hnn : ValueType.isNull a = false) :
     a ∈ unaryVals ((counterRel B ls cs).evaluatePlain D γ) :=
@@ -1913,7 +1923,7 @@ theorem mem_counterRel_of_mem_consts {n : ℕ} (B : AggQueryIn T c n (ColKind.al
     mem_unaryVals_constRel a D γ⟩
 
 /-- A non-null context value is a counter value. -/
-theorem mem_counterRel_of_outer {n : ℕ} (B : AggQueryIn T c n (ColKind.allReg n))
+private theorem mem_counterRel_of_outer {n : ℕ} (B : AggQueryIn T c n (ColKind.allReg n))
     (ls : List (ℕ × String)) (cs : List T) (D : Database T) (γ : Fin c → T) (j : Fin c)
     (hnn : ValueType.isNull (γ j) = false) :
     γ j ∈ unaryVals ((counterRel B ls cs).evaluatePlain D γ) :=
@@ -1929,7 +1939,7 @@ variable {c : ℕ}
 
 omit [ValueType T] in
 /-- The parts of the counter relation, one by one. -/
-theorem mem_counterParts {n : ℕ} (B : AggQueryIn T c n (ColKind.allReg n)) (ls : List (ℕ × String))
+private theorem mem_counterParts {n : ℕ} (B : AggQueryIn T c n (ColKind.allReg n)) (ls : List (ℕ × String))
     (cs : List T) (q : AggQueryIn T c 1 (ColKind.allReg 1)) (hq : q ∈ counterParts B ls cs) :
     (∃ i, q = colRel B i) ∨ (∃ p ∈ ls, ∃ i, q = colRel (AggQueryIn.Rel p.1 p.2) i)
       ∨ (∃ a ∈ cs, q = constRel a) ∨ (∃ j, q = outerRel j) := by
@@ -1946,34 +1956,34 @@ theorem mem_counterParts {n : ℕ} (B : AggQueryIn T c n (ColKind.allReg n)) (ls
   · obtain ⟨j, _, rfl⟩ := List.mem_map.mp h
     exact Or.inr (Or.inr (Or.inr ⟨j, rfl⟩))
 
-theorem settlesAt_unitC (D : Database T) (γ : Fin c → T) :
+private theorem settlesAt_unitC (D : Database T) (γ : Fin c → T) :
     (unitC : AggQueryIn T c 0 _).SettlesAt D γ := by
   rw [unitC, AggQueryIn.settlesAt_castKind]; trivial
 
 omit [ValueType T] in
-theorem hygienic_unitC : (unitC : AggQueryIn T c 0 _).hygienic := by
+private theorem hygienic_unitC : (unitC : AggQueryIn T c 0 _).hygienic := by
   rw [unitC, AggQueryIn.hygienic_castKind]; trivial
 
-theorem winsDerivable_unitC : (unitC : AggQueryIn T c 0 _).WinsDerivable := by
+private theorem winsDerivable_unitC : (unitC : AggQueryIn T c 0 _).WinsDerivable := by
   rw [unitC, AggQueryIn.winsDerivable_castKind]; trivial
 
 omit [ValueType T] in
-theorem sumsAllReg_unitC : (unitC : AggQueryIn T c 0 _).sumsAllReg := by
+private theorem sumsAllReg_unitC : (unitC : AggQueryIn T c 0 _).sumsAllReg := by
   rw [unitC, AggQueryIn.sumsAllReg_castKind]; trivial
 
 omit [ValueType T] in
-theorem names_unitC : (unitC : AggQueryIn T c 0 _).names = ∅ := by
+private theorem names_unitC : (unitC : AggQueryIn T c 0 _).names = ∅ := by
   rw [unitC, AggQueryIn.names_castKind]; rfl
 
 omit [ValueType T] in
-theorem noMention_unitC (t : String) : (unitC : AggQueryIn T c 0 _).noMention t := by
+private theorem noMention_unitC (t : String) : (unitC : AggQueryIn T c 0 _).noMention t := by
   rw [unitC, AggQueryIn.noMention_castKind]; trivial
 
 section CounterStructure
 
 variable {n : ℕ} (B : AggQueryIn T c n (ColKind.allReg n)) (ls : List (ℕ × String)) (cs : List T)
 
-theorem settlesAt_counterRel (D : Database T) (γ : Fin c → T) (hB : B.SettlesAt D γ) :
+private theorem settlesAt_counterRel (D : Database T) (γ : Fin c → T) (hB : B.SettlesAt D γ) :
     (counterRel B ls cs).SettlesAt D γ := by
   refine settlesAt_listSum _ D γ (fun q hq => ?_)
   rcases mem_counterParts B ls cs q hq with ⟨i, rfl⟩ | ⟨p, _, i, rfl⟩ | ⟨a, _, rfl⟩ | ⟨j, rfl⟩
@@ -1982,7 +1992,7 @@ theorem settlesAt_counterRel (D : Database T) (γ : Fin c → T) (hB : B.Settles
   · rw [constRel, AggQueryIn.settlesAt_castKind]; exact settlesAt_unitC D γ
   · rw [outerRel, AggQueryIn.settlesAt_castKind]; exact settlesAt_unitC D γ
 
-theorem usesOnly_counterRel {S : Set OpKind} (hS : sumMuOps ⊆ S) (hB : B.usesOnly S) :
+private theorem usesOnly_counterRel {S : Set OpKind} (hS : sumMuOps ⊆ S) (hB : B.usesOnly S) :
     (counterRel B ls cs).usesOnly (insert OpKind.union S) := by
   have hproj : OpKind.proj ∈ S := hS (by simp [sumMuOps])
   refine ⟨Set.mem_insert_of_mem _ (hS (by simp [sumMuOps])),
@@ -1993,7 +2003,7 @@ theorem usesOnly_counterRel {S : Set OpKind} (hS : sumMuOps ⊆ S) (hB : B.usesO
   · rw [constRel, AggQueryIn.usesOnly_castKind]; exact ⟨⟨hproj, fun _ => rfl⟩, usesOnly_unitC hS⟩
   · rw [outerRel, AggQueryIn.usesOnly_castKind]; exact ⟨⟨hproj, fun _ => rfl⟩, usesOnly_unitC hS⟩
 
-theorem hygienic_counterRel (hB : B.hygienic) : (counterRel B ls cs).hygienic := by
+private theorem hygienic_counterRel (hB : B.hygienic) : (counterRel B ls cs).hygienic := by
   refine hygienic_listSum _ (fun q hq => ?_)
   rcases mem_counterParts B ls cs q hq with ⟨i, rfl⟩ | ⟨p, _, i, rfl⟩ | ⟨a, _, rfl⟩ | ⟨j, rfl⟩
   · rw [colRel, AggQueryIn.hygienic_castKind]; exact hB
@@ -2001,7 +2011,7 @@ theorem hygienic_counterRel (hB : B.hygienic) : (counterRel B ls cs).hygienic :=
   · rw [constRel, AggQueryIn.hygienic_castKind]; exact hygienic_unitC
   · rw [outerRel, AggQueryIn.hygienic_castKind]; exact hygienic_unitC
 
-theorem inSig_counterRel {Θ : Set (SeqAggFunc T)} (hB : B.inSig Θ) :
+private theorem inSig_counterRel {Θ : Set (SeqAggFunc T)} (hB : B.inSig Θ) :
     (counterRel B ls cs).inSig Θ := by
   refine ⟨rfl, inSig_listSum _ (fun q hq => ?_)⟩
   rcases mem_counterParts B ls cs q hq with ⟨i, rfl⟩ | ⟨p, _, i, rfl⟩ | ⟨a, _, rfl⟩ | ⟨j, rfl⟩
@@ -2010,7 +2020,7 @@ theorem inSig_counterRel {Θ : Set (SeqAggFunc T)} (hB : B.inSig Θ) :
   · rw [constRel, AggQueryIn.inSig_castKind]; exact ⟨fun _ => rfl, inSig_unitC Θ⟩
   · rw [outerRel, AggQueryIn.inSig_castKind]; exact ⟨fun _ => rfl, inSig_unitC Θ⟩
 
-theorem sumsAllReg_counterRel (hB : B.sumsAllReg) : (counterRel B ls cs).sumsAllReg := by
+private theorem sumsAllReg_counterRel (hB : B.sumsAllReg) : (counterRel B ls cs).sumsAllReg := by
   refine sumsAllReg_listSum _ (fun q hq => ?_)
   rcases mem_counterParts B ls cs q hq with ⟨i, rfl⟩ | ⟨p, _, i, rfl⟩ | ⟨a, _, rfl⟩ | ⟨j, rfl⟩
   · rw [colRel, AggQueryIn.sumsAllReg_castKind]; exact hB
@@ -2018,7 +2028,7 @@ theorem sumsAllReg_counterRel (hB : B.sumsAllReg) : (counterRel B ls cs).sumsAll
   · rw [constRel, AggQueryIn.sumsAllReg_castKind]; exact sumsAllReg_unitC
   · rw [outerRel, AggQueryIn.sumsAllReg_castKind]; exact sumsAllReg_unitC
 
-theorem winsDerivable_counterRel (hB : B.WinsDerivable) : (counterRel B ls cs).WinsDerivable := by
+private theorem winsDerivable_counterRel (hB : B.WinsDerivable) : (counterRel B ls cs).WinsDerivable := by
   refine winsDerivable_listSum _ (fun q hq => ?_)
   rcases mem_counterParts B ls cs q hq with ⟨i, rfl⟩ | ⟨p, _, i, rfl⟩ | ⟨a, _, rfl⟩ | ⟨j, rfl⟩
   · rw [colRel, AggQueryIn.winsDerivable_castKind]; exact hB
@@ -2026,7 +2036,7 @@ theorem winsDerivable_counterRel (hB : B.WinsDerivable) : (counterRel B ls cs).W
   · rw [constRel, AggQueryIn.winsDerivable_castKind]; exact winsDerivable_unitC
   · rw [outerRel, AggQueryIn.winsDerivable_castKind]; exact winsDerivable_unitC
 
-theorem overSchema_counterRel {sch : Schema} (hB : B.overSchema sch)
+private theorem overSchema_counterRel {sch : Schema} (hB : B.overSchema sch)
     (hls : ∀ p ∈ ls, sch p.2 = some p.1) : (counterRel B ls cs).overSchema sch := by
   refine overSchema_listSum _ (fun q hq => ?_)
   rcases mem_counterParts B ls cs q hq with ⟨i, rfl⟩ | ⟨p, hp, i, rfl⟩ | ⟨a, _, rfl⟩ | ⟨j, rfl⟩
@@ -2035,7 +2045,7 @@ theorem overSchema_counterRel {sch : Schema} (hB : B.overSchema sch)
   · rw [constRel, AggQueryIn.overSchema_castKind]; exact overSchema_unitC sch
   · rw [outerRel, AggQueryIn.overSchema_castKind]; exact overSchema_unitC sch
 
-theorem mem_names_counterRel (x : String) (hx : x ∈ (counterRel B ls cs).names) :
+private theorem mem_names_counterRel (x : String) (hx : x ∈ (counterRel B ls cs).names) :
     x ∈ B.names ∨ ∃ p ∈ ls, x = p.2 := by
   obtain ⟨q, hq, hx⟩ := mem_names_listSum _ x hx
   rcases mem_counterParts B ls cs q hq with ⟨i, rfl⟩ | ⟨p, hp, i, rfl⟩ | ⟨a, _, rfl⟩ | ⟨j, rfl⟩
@@ -2047,7 +2057,7 @@ theorem mem_names_counterRel (x : String) (hx : x ∈ (counterRel B ls cs).names
   · rw [outerRel, AggQueryIn.names_castKind] at hx
     exact absurd ((names_unitC (T := T) (c := c)) ▸ hx) (Finset.notMem_empty x)
 
-theorem noMention_counterRel (t : String) (hB : B.noMention t) (hls : ∀ p ∈ ls, p.2 ≠ t) :
+private theorem noMention_counterRel (t : String) (hB : B.noMention t) (hls : ∀ p ∈ ls, p.2 ≠ t) :
     (counterRel B ls cs).noMention t := by
   refine noMention_listSum t _ (fun q hq => ?_)
   rcases mem_counterParts B ls cs q hq with ⟨i, rfl⟩ | ⟨p, hp, i, rfl⟩ | ⟨a, _, rfl⟩ | ⟨j, rfl⟩
@@ -2075,7 +2085,7 @@ section SubstRel
 variable {s : String} {n : ℕ} (pv : Fin n → T ⊕ Fin c)
 
 omit [ValueType T] in
-theorem usesOnly_substRel {S : Set OpKind} (hρ : (AggQueryIn.Param pv
+private theorem usesOnly_substRel {S : Set OpKind} (hρ : (AggQueryIn.Param pv
     (ColKind.allReg n) : AggQueryIn T c n (ColKind.allReg n)).usesOnly S) :
     ∀ {m : ℕ} {κ : Fin m → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c m κ l),
         q.recLinear s n →
@@ -2116,7 +2126,7 @@ theorem usesOnly_substRel {S : Set OpKind} (hρ : (AggQueryIn.Param pv
   | WinExpr P O o ws ts fs g q keeps ih => exact fun h => h.elim
 
 omit [ValueType T] in
-theorem hygienic_substRel (hρ : (AggQueryIn.Param pv (ColKind.allReg n) : AggQueryIn T c n
+private theorem hygienic_substRel (hρ : (AggQueryIn.Param pv (ColKind.allReg n) : AggQueryIn T c n
     (ColKind.allReg n)).hygienic) :
     ∀ {m : ℕ} {κ : Fin m → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c m κ l),
         q.recLinear s n →
@@ -2156,7 +2166,7 @@ theorem hygienic_substRel (hρ : (AggQueryIn.Param pv (ColKind.allReg n) : AggQu
   | Win P O o w t fw q hrr dist keep ih => exact fun h => h.elim
   | WinExpr P O o ws ts fs g q keeps ih => exact fun h => h.elim
 
-theorem inSig_substRel {Θ : Set (SeqAggFunc T)} (hρ : (AggQueryIn.Param pv
+private theorem inSig_substRel {Θ : Set (SeqAggFunc T)} (hρ : (AggQueryIn.Param pv
     (ColKind.allReg n) : AggQueryIn T c n (ColKind.allReg n)).inSig Θ) :
     ∀ {m : ℕ} {κ : Fin m → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c m κ l),
         q.recLinear s n →
@@ -2197,7 +2207,7 @@ theorem inSig_substRel {Θ : Set (SeqAggFunc T)} (hρ : (AggQueryIn.Param pv
   | WinExpr P O o ws ts fs g q keeps ih => exact fun h => h.elim
 
 omit [ValueType T] in
-theorem sumsAllReg_substRel (hρ : (AggQueryIn.Param pv (ColKind.allReg n) : AggQueryIn T c n
+private theorem sumsAllReg_substRel (hρ : (AggQueryIn.Param pv (ColKind.allReg n) : AggQueryIn T c n
     (ColKind.allReg n)).sumsAllReg) :
     ∀ {m : ℕ} {κ : Fin m → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c m κ l),
         q.recLinear s n →
@@ -2241,7 +2251,7 @@ omit [ValueType T] in
 /-- **The substituted term is well-formed over the ambient schema**: the
 term is over the schema with the recursive name declared, and the
 substitute is over the schema. -/
-theorem overSchema_substRel {sch : Schema} (hρ : (AggQueryIn.Param pv
+private theorem overSchema_substRel {sch : Schema} (hρ : (AggQueryIn.Param pv
     (ColKind.allReg n) : AggQueryIn T c n (ColKind.allReg n)).overSchema sch) :
     ∀ {m : ℕ} {κ : Fin m → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c m κ l),
         q.recLinear s n →
@@ -2286,7 +2296,7 @@ theorem overSchema_substRel {sch : Schema} (hρ : (AggQueryIn.Param pv
   | WinExpr P O o ws ts fs g q keeps ih => exact fun h => h.elim
 
 omit [ValueType T] in
-theorem mem_names_substRel :
+private theorem mem_names_substRel :
     ∀ {m : ℕ} {κ : Fin m → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c m κ l),
         q.recLinear s n →
       ∀ x, x ∈ (AggQueryIn.substRel s pv q).names → x ∈ q.names ∨ x ∈ (AggQueryIn.Param pv
@@ -2342,7 +2352,7 @@ section Pow
 variable (EQ : AggQueryIn T c 1 (ColKind.allReg 1))
 
 omit [ValueType T] in
-theorem usesOnly_pow {S : Set OpKind} (hS : sumMuOps ⊆ S) (h : EQ.usesOnly S) :
+private theorem usesOnly_pow {S : Set OpKind} (hS : sumMuOps ⊆ S) (h : EQ.usesOnly S) :
     ∀ K, (pow EQ K).usesOnly S
   | 0 => usesOnly_unitC hS
   | K + 1 => by
@@ -2350,41 +2360,41 @@ theorem usesOnly_pow {S : Set OpKind} (hS : sumMuOps ⊆ S) (h : EQ.usesOnly S) 
     exact AggQueryIn.usesOnly_prodA _ _ (hS (by simp [sumMuOps])) (usesOnly_pow hS h K) h
 
 omit [ValueType T] in
-theorem hygienic_pow (h : EQ.hygienic) : ∀ K, (pow EQ K).hygienic
+private theorem hygienic_pow (h : EQ.hygienic) : ∀ K, (pow EQ K).hygienic
   | 0 => hygienic_unitC
   | K + 1 => by
     rw [pow]
     exact AggQueryIn.hygienic_prodA _ _ (hygienic_pow h K) h
 
-theorem inSig_pow {Θ : Set (SeqAggFunc T)} (h : EQ.inSig Θ) : ∀ K, (pow EQ K).inSig Θ
+private theorem inSig_pow {Θ : Set (SeqAggFunc T)} (h : EQ.inSig Θ) : ∀ K, (pow EQ K).inSig Θ
   | 0 => inSig_unitC Θ
   | K + 1 => by
     rw [pow]
     exact AggQueryIn.inSig_prodA _ _ (inSig_pow h K) h
 
 omit [ValueType T] in
-theorem sumsAllReg_prodA {n₁ n₂ : ℕ} (q₁ : AggQueryIn T c n₁ (ColKind.allReg n₁))
+private theorem sumsAllReg_prodA {n₁ n₂ : ℕ} (q₁ : AggQueryIn T c n₁ (ColKind.allReg n₁))
     (q₂ : AggQueryIn T c n₂ (ColKind.allReg n₂)) (h₁ : q₁.sumsAllReg) (h₂ : q₂.sumsAllReg) :
     (AggQueryIn.prodA q₁ q₂).sumsAllReg := by
   rw [AggQueryIn.prodA, AggQueryIn.sumsAllReg_castKind]
   exact ⟨h₁, (AggQueryIn.sumsAllReg_substMap _ _).mpr h₂⟩
 
 omit [ValueType T] in
-theorem sumsAllReg_pow (h : EQ.sumsAllReg) : ∀ K, (pow EQ K).sumsAllReg
+private theorem sumsAllReg_pow (h : EQ.sumsAllReg) : ∀ K, (pow EQ K).sumsAllReg
   | 0 => sumsAllReg_unitC
   | K + 1 => by
     rw [pow]
     exact sumsAllReg_prodA _ _ (sumsAllReg_pow h K) h
 
 omit [ValueType T] in
-theorem overSchema_pow {sch : Schema} (h : EQ.overSchema sch) : ∀ K, (pow EQ K).overSchema sch
+private theorem overSchema_pow {sch : Schema} (h : EQ.overSchema sch) : ∀ K, (pow EQ K).overSchema sch
   | 0 => overSchema_unitC sch
   | K + 1 => by
     rw [pow]
     exact AggQueryIn.overSchema_prodA _ _ (overSchema_pow h K) h
 
 omit [ValueType T] in
-theorem mem_names_pow : ∀ K (x : String), x ∈ (pow EQ K).names → x ∈ EQ.names
+private theorem mem_names_pow : ∀ K (x : String), x ∈ (pow EQ K).names → x ∈ EQ.names
   | 0, x, hx => by
     rw [pow, names_unitC] at hx
     exact absurd hx (Finset.notMem_empty x)
@@ -2398,7 +2408,7 @@ section Parts
 
 variable (n K : ℕ)
 
-theorem noFun_ltSel : (ltSel (T := T) (c := c) n K).noFun = true := by
+private theorem noFun_ltSel : (ltSel (T := T) (c := c) n K).noFun = true := by
   rw [ltSel, OrderSpec.ltPredOn]
   exact OrderSpec.noFun_ltPredOnOf (fun k => OrderCol.noFun_ltPred _ rfl rfl)
     (fun _ => rfl) (fun _ => rfl) _
@@ -2410,32 +2420,32 @@ section DedupG
 variable {n : ℕ} (q : AggQueryIn T c n (ColKind.allReg n))
 
 omit [ValueType T] in
-theorem usesOnly_dedupG {S : Set OpKind} (hg : OpKind.gamma ∈ S) (h : q.usesOnly S) :
+private theorem usesOnly_dedupG {S : Set OpKind} (hg : OpKind.gamma ∈ S) (h : q.usesOnly S) :
     (dedupG q).usesOnly S := by
   rw [dedupG, AggQueryIn.usesOnly_castKind]; exact ⟨hg, h⟩
 
 omit [ValueType T] in
-theorem hygienic_dedupG (h : q.hygienic) : (dedupG q).hygienic := by
+private theorem hygienic_dedupG (h : q.hygienic) : (dedupG q).hygienic := by
   rw [dedupG, AggQueryIn.hygienic_castKind]; exact h
 
-theorem inSig_dedupG {Θ : Set (SeqAggFunc T)} (h : q.inSig Θ) : (dedupG q).inSig Θ := by
+private theorem inSig_dedupG {Θ : Set (SeqAggFunc T)} (h : q.inSig Θ) : (dedupG q).inSig Θ := by
   rw [dedupG, AggQueryIn.inSig_castKind]
   exact ⟨fun j => j.elim0, fun j => j.elim0, fun j => j.elim0, h⟩
 
 omit [ValueType T] in
-theorem sumsAllReg_dedupG (h : q.sumsAllReg) : (dedupG q).sumsAllReg := by
+private theorem sumsAllReg_dedupG (h : q.sumsAllReg) : (dedupG q).sumsAllReg := by
   rw [dedupG, AggQueryIn.sumsAllReg_castKind]; exact h
 
 omit [ValueType T] in
-theorem overSchema_dedupG {sch : Schema} (h : q.overSchema sch) : (dedupG q).overSchema sch := by
+private theorem overSchema_dedupG {sch : Schema} (h : q.overSchema sch) : (dedupG q).overSchema sch := by
   rw [dedupG, AggQueryIn.overSchema_castKind]; exact h
 
 omit [ValueType T] in
-theorem names_dedupG : (dedupG q).names = q.names := by
+private theorem names_dedupG : (dedupG q).names = q.names := by
   rw [dedupG, AggQueryIn.names_castKind]; rfl
 
 omit [ValueType T] in
-theorem noMention_dedupG (t : String) (h : q.noMention t) : (dedupG q).noMention t := by
+private theorem noMention_dedupG (t : String) (h : q.noMention t) : (dedupG q).noMention t := by
   rw [dedupG, AggQueryIn.noMention_castKind]; exact h
 
 end DedupG
@@ -2453,7 +2463,7 @@ variable (s s' : String) (n K : ℕ) (EQ : AggQueryIn T c 1 (ColKind.allReg 1))
   (hL : L.recLinear s n)
 
 include hL in
-theorem usesOnly_simResult {S : Set OpKind} (hS : sumMuOps ⊆ S) (hLu : L.usesOnly S)
+private theorem usesOnly_simResult {S : Set OpKind} (hS : sumMuOps ⊆ S) (hLu : L.usesOnly S)
     (hBu : BQ.usesOnly S) (hEu : EQ.usesOnly S) : (simResult s s' n K EQ BQ L).usesOnly S := by
   have hproj : OpKind.proj ∈ S := hS (by simp [sumMuOps])
   have hsel : OpKind.sel ∈ S := hS (by simp [sumMuOps])
@@ -2472,7 +2482,7 @@ theorem usesOnly_simResult {S : Set OpKind} (hS : sumMuOps ⊆ S) (hLu : L.usesO
   · exact ⟨hsel, (AggQueryIn.usesOnly_substMap _ _).mpr (usesOnly_pow EQ hS hEu K)⟩
 
 include hL in
-theorem hygienic_simResult (hLr : L.hygienic) (hBr : BQ.hygienic)
+private theorem hygienic_simResult (hLr : L.hygienic) (hBr : BQ.hygienic)
     (hEr : EQ.hygienic) (hLs : L.noMention s') (hBs : BQ.noMention s')
     (hEs : EQ.noMention s') :
     (simResult s s' n K EQ BQ L).hygienic := by
@@ -2494,7 +2504,7 @@ theorem hygienic_simResult (hLr : L.hygienic) (hBr : BQ.hygienic)
     · exact (AggQueryIn.hygienic_substMap _ _).mpr (hygienic_pow EQ hEr K)
 
 include hL in
-theorem inSig_simResult {Θ : Set (SeqAggFunc T)} (hLi : L.inSig Θ) (hBi : BQ.inSig Θ)
+private theorem inSig_simResult {Θ : Set (SeqAggFunc T)} (hLi : L.inSig Θ) (hBi : BQ.inSig Θ)
     (hEi : EQ.inSig Θ) : (simResult s s' n K EQ BQ L).inSig Θ := by
   refine inSig_dedupG _ ?_
   rw [AggQueryIn.inSig_castKind]
@@ -2507,7 +2517,7 @@ theorem inSig_simResult {Θ : Set (SeqAggFunc T)} (hLi : L.inSig Θ) (hBi : BQ.i
   · exact ⟨noFun_ltSel n K, (AggQueryIn.inSig_substMap _ _).mpr (inSig_pow EQ hEi K)⟩
 
 include hL in
-theorem sumsAllReg_simResult (hLa : L.sumsAllReg) (hBa : BQ.sumsAllReg) (hEa : EQ.sumsAllReg) :
+private theorem sumsAllReg_simResult (hLa : L.sumsAllReg) (hBa : BQ.sumsAllReg) (hEa : EQ.sumsAllReg) :
     (simResult s s' n K EQ BQ L).sumsAllReg := by
   refine sumsAllReg_dedupG _ ?_
   rw [AggQueryIn.sumsAllReg_castKind]
@@ -2522,7 +2532,7 @@ theorem sumsAllReg_simResult (hLa : L.sumsAllReg) (hBa : BQ.sumsAllReg) (hEa : E
 include hL in
 /-- **The simulation is well-formed over the schema** the recursion is
 written over, its own recursive name being fresh. -/
-theorem overSchema_simResult {sch : Schema} (hs' : sch s' = none) (hss : s' ≠ s)
+private theorem overSchema_simResult {sch : Schema} (hs' : sch s' = none) (hss : s' ≠ s)
     (hLo : L.overSchema (sch.update s n)) (hLn : s' ∉ L.names) (hBo : BQ.overSchema sch)
     (hEo : EQ.overSchema sch) (hEn : s' ∉ EQ.names) :
     (simResult s s' n K EQ BQ L).overSchema sch := by
@@ -2549,7 +2559,7 @@ theorem overSchema_simResult {sch : Schema} (hs' : sch s' = none) (hss : s' ≠ 
       (fun h => hEn (mem_names_pow EQ K s' h))
 
 include hL in
-theorem mem_names_simResult (x : String) (hx : x ∈ (simResult s s' n K EQ BQ L).names) :
+private theorem mem_names_simResult (x : String) (hx : x ∈ (simResult s s' n K EQ BQ L).names) :
     x = s' ∨ x ∈ L.names ∨ x ∈ BQ.names ∨ x ∈ EQ.names := by
   rw [simResult, names_dedupG, AggQueryIn.names_castKind] at hx
   rcases Finset.mem_insert.mp hx with rfl | hx
@@ -2577,7 +2587,7 @@ theorem mem_names_simResult (x : String) (hx : x ∈ (simResult s s' n K EQ BQ L
       exact Or.inr (Or.inr (Or.inr (mem_names_pow EQ K x hx)))
 
 include hL in
-theorem noMention_simResult (t : String) (hLt : L.noMention t)
+private theorem noMention_simResult (t : String) (hLt : L.noMention t)
     (hBt : BQ.noMention t) (hEt : EQ.noMention t) : (simResult s s' n K EQ BQ L).noMention t := by
   refine noMention_dedupG _ t ?_
   rw [AggQueryIn.noMention_castKind]
@@ -2602,7 +2612,7 @@ variable {c : ℕ}
 omit [ValueType T] in
 /-- **A recursive term with no union is linear**: with one hole, the
 recursive relation at its arity, and no `⊎` on the way down to it. -/
-theorem recLinear_of_usesOnly {S : Set OpKind} (hSu : OpKind.union ∉ S) {s : String} {n : ℕ} :
+private theorem recLinear_of_usesOnly {S : Set OpKind} (hSu : OpKind.union ∉ S) {s : String} {n : ℕ} :
     ∀ {m : ℕ} {κ : Fin m → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c m κ l),
       l = [(s, n)] → q.noMention s → q.usesOnly S → q.recLinear s n := by
   intro m κ l q
@@ -2655,7 +2665,7 @@ variable {c : ℕ}
 
 /-- **The handler**, for any target holding the union's basis and no
 union. -/
-theorem muSetHandler {S : Set OpKind} (hS : sumMuOps ⊆ S) (hnu : OpKind.union ∉ S)
+private theorem muSetHandler {S : Set OpKind} (hS : sumMuOps ⊆ S) (hnu : OpKind.union ∉ S)
     (cnt : SeqAggFunc T) (hcnt : cnt.ReadsCount) : MuSetHandler (T := T) S {cnt} := by
   intro c n s q₀ q₀' qC q₁ q₁' f hf hfs hf0₀ hf0₁ hq₀n hq₁n sch hsch hss ho₀ ho₁ hh₀ hh₁ hi₀ hi₁
     hCn h₀n hb₀ hb₁ hbC he₀ he₁
@@ -2911,7 +2921,7 @@ end AggQueryIn
 /-! ## The whole algebra with one recursion -/
 
 omit [ValueType T] in
-theorem union_notMem_sumMuOps : OpKind.union ∉ AggQueryIn.sumMuOps := by
+private theorem union_notMem_sumMuOps : OpKind.union ∉ AggQueryIn.sumMuOps := by
   simp [AggQueryIn.sumMuOps]
 
 /-- **The basis of the whole algebra in the minimal universe**: the
@@ -2920,10 +2930,10 @@ construction's classes and the windows, `{∅, Π, σ, apply, γ, win, μ^⊎}`.
 `Provenance.RecursionBasisTheorem` that no proper subset does. -/
 def basisRecOps : Set OpKind := insert OpKind.win AggQueryIn.sumMuOps
 
-theorem union_notMem_basisRecOps : OpKind.union ∉ basisRecOps := by
+private theorem union_notMem_basisRecOps : OpKind.union ∉ basisRecOps := by
   simp [basisRecOps, AggQueryIn.sumMuOps]
 
-theorem muSet_notMem_basisRecOps : OpKind.muSet ∉ basisRecOps := by
+private theorem muSet_notMem_basisRecOps : OpKind.muSet ∉ basisRecOps := by
   simp [basisRecOps, AggQueryIn.sumMuOps]
 
 /-- **`μ^∪` is not needed, for every restricted term**: over a schema

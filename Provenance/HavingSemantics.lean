@@ -10,6 +10,10 @@ public import Provenance.QueryAnnotatedDatabase
 public import Mathlib.Data.Fintype.Powerset
 import Mathlib.Algebra.BigOperators.Fin
 import Mathlib.Tactic.Bound.Init
+import all Provenance.HavingMinMax
+import all Provenance.Query
+import all Provenance.SemiringWithMonus
+import all Provenance.Util.ValueTypeNull
 
 /-!
 # Possible-world semantics of the fused `Having` operator
@@ -89,7 +93,7 @@ def seqOf : (U : List β) → Finset (Fin U.length) → List β
 /-- Selecting, out of a mapped list, the positions whose *source* element
 satisfies a predicate: the mapped filtered list. `seqOf_filter_positions`
 is the case where the map is the identity. -/
-theorem seqOf_map_filter {β γ : Type} (F : β → γ) (Q : β → Bool) :
+private theorem seqOf_map_filter {β γ : Type} (F : β → γ) (Q : β → Bool) :
     ∀ (U : List β) (h : (U.map F).length = U.length),
       Having.seqOf (U.map F)
           (Finset.univ.filter (fun x => Q (U.get (Fin.cast h x)) = true))
@@ -126,7 +130,7 @@ theorem seqOf_map_filter {β γ : Type} (F : β → γ) (Q : β → Bool) :
 the filter keeps**: the predicate reads the element, so it does not
 matter whether it is applied before or after the selection.
 `seqOf_filter_positions` is the case of the full world. -/
-theorem seqOf_filter_inter {β : Type} (Q : β → Bool) :
+private theorem seqOf_filter_inter {β : Type} (Q : β → Bool) :
     ∀ (U : List β) (W : Finset (Fin U.length)),
       seqOf U (W.filter (fun i => Q (U.get i) = true))
         = (seqOf U W).filter Q
@@ -163,7 +167,7 @@ theorem seqOf_filter_inter {β : Type} (Q : β → Bool) :
 
 /-- Selecting the positions whose element satisfies a Boolean predicate
 yields the filtered list. -/
-theorem seqOf_filter_positions {β : Type} (P : β → Bool) :
+private theorem seqOf_filter_positions {β : Type} (P : β → Bool) :
     ∀ U : List β,
       seqOf U (Finset.univ.filter (fun i => P (U.get i) = true)) = U.filter P
   | [] => rfl
@@ -189,7 +193,7 @@ theorem seqOf_filter_positions {β : Type} (P : β → Bool) :
 /-- **Equal lists select equally**, the positions carried across by the
 length equality. This is the `seqOf` congruence a dependent `congrArg`
 cannot give, since the type of the position set depends on the list. -/
-theorem seqOf_congr_list {β : Type} : ∀ {L₁ L₂ : List β} (h : L₁ = L₂)
+private theorem seqOf_congr_list {β : Type} : ∀ {L₁ L₂ : List β} (h : L₁ = L₂)
     (S : Finset (Fin L₁.length)),
       seqOf L₁ S = seqOf L₂ (S.map (finCongr (congrArg List.length h)).toEmbedding)
   | _, _, rfl, S => by
@@ -201,7 +205,7 @@ theorem seqOf_congr_list {β : Type} : ∀ {L₁ L₂ : List β} (h : L₁ = L�
 order, read off the list. Everything about `seqOf` can be settled in this
 form, where the index bookkeeping is a `List.filter` on the index list
 and no transport between lists of equal length is needed. -/
-theorem seqOf_eq_filter_map {β : Type} :
+private theorem seqOf_eq_filter_map {β : Type} :
     ∀ (U : List β) (S : Finset (Fin U.length)),
       seqOf U S
         = ((List.finRange U.length).filter (fun i => decide (i ∈ S))).map U.get
@@ -224,7 +228,7 @@ theorem seqOf_eq_filter_map {β : Type} :
         (List.filter_congr (fun i _ => by simp))
 
 /-- A set of positions selects a sublist. -/
-theorem seqOf_sublist : ∀ (U : List β) (W : Finset (Fin U.length)),
+private theorem seqOf_sublist : ∀ (U : List β) (W : Finset (Fin U.length)),
     (seqOf U W).Sublist U
   | [], _ => List.Sublist.refl []
   | a :: U, W => by
@@ -234,7 +238,7 @@ theorem seqOf_sublist : ∀ (U : List β) (W : Finset (Fin U.length)),
     · exact (seqOf_sublist U _).cons a
 
 /-- Every sublist is selected by some set of positions. -/
-theorem sublist_eq_seqOf {U L : List β} (h : L.Sublist U) :
+private theorem sublist_eq_seqOf {U L : List β} (h : L.Sublist U) :
     ∃ W : Finset (Fin U.length), seqOf U W = L := by
   induction h with
   | slnil => exact ⟨∅, rfl⟩
@@ -271,7 +275,7 @@ theorem sublist_eq_seqOf {U L : List β} (h : L.Sublist U) :
 
 /-- The length of the selected subsequence is the number of selected
 positions: `Finset.card` is the `COUNT` aggregate of the bridge. -/
-theorem seqOf_length : ∀ (U : List β) (W : Finset (Fin U.length)),
+private theorem seqOf_length : ∀ (U : List β) (W : Finset (Fin U.length)),
     (seqOf U W).length = W.card
   | [], W => by
     have hW : W = ∅ := by
@@ -301,7 +305,7 @@ theorem seqOf_length : ∀ (U : List β) (W : Finset (Fin U.length)),
 
 /-- Under occurrence-uniqueness (`U.Nodup`), the position representation is
 faithful: distinct sets of positions select distinct subsequences. -/
-theorem seqOf_injective : ∀ {U : List β}, U.Nodup →
+private theorem seqOf_injective : ∀ {U : List β}, U.Nodup →
     Function.Injective (seqOf U)
   | [], _ => fun W₁ W₂ _ => by
     have hempty : ∀ W : Finset (Fin ([] : List β).length), W = ∅ := by
@@ -352,7 +356,7 @@ theorem seqOf_injective : ∀ {U : List β}, U.Nodup →
 
 /-- Membership in the selected subsequence: the elements of `seqOf U W` are
 exactly the entries of `U` at the positions in `W`. -/
-theorem mem_seqOf : ∀ (U : List β) (W : Finset (Fin U.length)) (x : β),
+private theorem mem_seqOf : ∀ (U : List β) (W : Finset (Fin U.length)) (x : β),
     x ∈ seqOf U W ↔ ∃ i ∈ W, U.get i = x
   | [], _, _ => by
     simp only [seqOf, List.not_mem_nil, false_iff]
@@ -389,7 +393,7 @@ def worldAnn {N : ℕ} (α : Fin N → K) (W : Finset (Fin N)) : K :=
 omit [DecidableEq K] in
 /-- **The empty world is annotated `𝟙 ⊖ ⊕ᵢ αᵢ`**: nothing of the group is
 present. -/
-@[simp] theorem worldAnn_empty {N : ℕ} (α : Fin N → K) :
+@[simp] private theorem worldAnn_empty {N : ℕ} (α : Fin N → K) :
     worldAnn α ∅ = 1 - ∑ i, α i := by
   unfold worldAnn
   rw [Finset.prod_empty, one_mul, Finset.compl_empty]
@@ -410,7 +414,7 @@ omit [DecidableEq K] in
 /-- The factored world annotation is `Having.ann` over the full universe
 of positions, unconditionally: this is the attachment the `≥` case uses,
 where distributivity is not available (or not needed). -/
-theorem worldAnn_eq_ann {N : ℕ} (α : Fin N → K) (W : Finset (Fin N)) :
+private theorem worldAnn_eq_ann {N : ℕ} (α : Fin N → K) (W : Finset (Fin N)) :
     worldAnn α W = Having.ann α Finset.univ W := by
   rw [worldAnn, Having.ann, Having.A, Finset.compl_eq_univ_sdiff]
 
@@ -422,7 +426,7 @@ def relAnn {N : ℕ} (α : Fin N → K) (S W : Finset (Fin N)) : K :=
   (∏ i ∈ W ∩ S, α i) * (1 - ∑ i ∈ S \ W, α i)
 
 omit [DecidableEq K] in
-theorem relAnn_univ {N : ℕ} (α : Fin N → K) (W : Finset (Fin N)) :
+private theorem relAnn_univ {N : ℕ} (α : Fin N → K) (W : Finset (Fin N)) :
     relAnn α Finset.univ W = worldAnn α W := by
   rw [relAnn, worldAnn, Finset.inter_univ, ← Finset.compl_eq_univ_sdiff]
 
@@ -432,7 +436,7 @@ omit [DecidableEq K] in
 complemented. Iterating it splits a family into as many parts as one
 likes – the shared part of two overlapping families and their two
 private parts, for one. -/
-theorem relAnn_split (hc : complemented K) {N : ℕ} (α : Fin N → K)
+private theorem relAnn_split (hc : complemented K) {N : ℕ} (α : Fin N → K)
     (S T W : Finset (Fin N)) :
     relAnn α S W = relAnn α (S ∩ T) W * relAnn α (S \ T) W := by
   have he₁ : W ∩ (S ∩ T) = (W ∩ S) ∩ T := by
@@ -460,7 +464,7 @@ shared part times those of the two private ones. With the families
 disjoint the shared part is empty and this is the disjoint split; with
 them equal the private parts are, and it says nothing – which is the
 regime `AggValue.predProvOf_mul_predProvOf` governs instead. -/
-theorem relAnn_split_union (hc : complemented K) {N : ℕ} (α : Fin N → K)
+private theorem relAnn_split_union (hc : complemented K) {N : ℕ} (α : Fin N → K)
     (V₁ V₂ W : Finset (Fin N)) :
     relAnn α (V₁ ∪ V₂) W
       = relAnn α (V₁ ∩ V₂) W * relAnn α (V₁ \ V₂) W
@@ -499,7 +503,7 @@ theorem worldAnn_split (hc : complemented K) {N : ℕ} (α : Fin N → K)
 omit [DecidableEq K] in
 /-- A relative world annotation reads only the part of the world inside
 the family. -/
-theorem relAnn_inter {N : ℕ} (α : Fin N → K) (S W : Finset (Fin N)) :
+private theorem relAnn_inter {N : ℕ} (α : Fin N → K) (S W : Finset (Fin N)) :
     relAnn α S W = relAnn α S (W ∩ S) := by
   unfold relAnn
   rw [show W ∩ S ∩ S = W ∩ S by ext x; simp only [Finset.mem_inter]; tauto,
@@ -557,7 +561,7 @@ omit [DecidableEq K] in
 /-- **Summing over the worlds of a union of two disjoint families is
 summing over the pairs.** `sum_split` is the case where the two halves
 are a subset and its complement. -/
-theorem sum_split_of_union {N : ℕ} {A B : Finset (Fin N)}
+private theorem sum_split_of_union {N : ℕ} {A B : Finset (Fin N)}
     (hd : Disjoint A B) (F : Finset (Fin N) → Finset (Fin N) → K) :
     ∑ W ∈ (A ∪ B).powerset, F (W ∩ A) (W ∩ B)
       = ∑ X ∈ A.powerset, ∑ Y ∈ B.powerset, F X Y := by
@@ -599,7 +603,7 @@ omit [DecidableEq K] in
 /-- **Distinct worlds of a sub-family annihilate each other** in an
 exclusive m-semiring: the relative counterpart of
 `worldAnn_mul_eq_zero_of_ne`, which is its case `S = univ`. -/
-theorem relAnn_mul_eq_zero_of_ne (hexcl : exclusive K) {N : ℕ}
+private theorem relAnn_mul_eq_zero_of_ne (hexcl : exclusive K) {N : ℕ}
     (α : Fin N → K) (S : Finset (Fin N)) {X X' : Finset (Fin N)}
     (hX : X ⊆ S) (hX' : X' ⊆ S) (h : X ≠ X') :
     relAnn α S X * relAnn α S X' = 0 := by
@@ -631,14 +635,14 @@ theorem relAnn_mul_eq_zero_of_ne (hexcl : exclusive K) {N : ℕ}
     exact key X' X hX' hX u (by tauto) huX
 
 omit [DecidableEq K] in
-theorem inter_union_sdiff_self {N : ℕ} (V T : Finset (Fin N)) :
+private theorem inter_union_sdiff_self {N : ℕ} (V T : Finset (Fin N)) :
     ((V ∩ T) ∪ (V \ T) : Finset (Fin N)) = V := by
   ext x
   simp only [Finset.mem_union, Finset.mem_inter, Finset.mem_sdiff]
   tauto
 
 omit [DecidableEq K] in
-theorem disjoint_inter_sdiff {N : ℕ} (V T : Finset (Fin N)) :
+private theorem disjoint_inter_sdiff {N : ℕ} (V T : Finset (Fin N)) :
     Disjoint (V ∩ T) (V \ T) :=
   Finset.disjoint_left.mpr (fun _x hx hx' =>
     (Finset.mem_sdiff.mp hx').2 (Finset.mem_inter.mp hx).2)
@@ -647,7 +651,7 @@ omit [DecidableEq K] in
 /-- **A family's world-sum splits along any subset**: the worlds of `V`
 are the pairs of a world of `V ∩ T` and a world of `V \ T`, and the
 annotation splits with them when the semiring is complemented. -/
-theorem sum_family_split (hc : complemented K) {N : ℕ} (α : Fin N → K)
+private theorem sum_family_split (hc : complemented K) {N : ℕ} (α : Fin N → K)
     (V T : Finset (Fin N)) (χ : Finset (Fin N) → K) :
     ∑ A ∈ V.powerset, relAnn α V A * χ A
       = ∑ X ∈ (V ∩ T).powerset, ∑ Y ∈ (V \ T).powerset,
@@ -669,7 +673,7 @@ theorem sum_family_split (hc : complemented K) {N : ℕ} (α : Fin N → K)
   rw [hsplit, relAnn_split hc α V T W, ← relAnn_inter, ← relAnn_inter]
 
 omit [DecidableEq K] in
-theorem overlap_sets {N : ℕ} (V₁ V₂ : Finset (Fin N)) :
+private theorem overlap_sets {N : ℕ} (V₁ V₂ : Finset (Fin N)) :
     ((V₁ ∪ V₂) ∩ (V₁ ∩ V₂) : Finset (Fin N)) = V₁ ∩ V₂
     ∧ ((V₁ ∪ V₂) \ (V₁ ∩ V₂) : Finset (Fin N)) = (V₁ \ V₂) ∪ (V₂ \ V₁)
     ∧ (((V₁ \ V₂) ∪ (V₂ \ V₁)) ∩ (V₁ \ V₂) : Finset (Fin N)) = V₁ \ V₂
@@ -678,7 +682,7 @@ theorem overlap_sets {N : ℕ} (V₁ V₂ : Finset (Fin N)) :
     simp only [Finset.mem_inter, Finset.mem_union, Finset.mem_sdiff] <;> tauto
 
 omit [DecidableEq K] in
-theorem overlap_tests {N : ℕ} (V₁ V₂ X Y₁ Y₂ : Finset (Fin N))
+private theorem overlap_tests {N : ℕ} (V₁ V₂ X Y₁ Y₂ : Finset (Fin N))
     (hX : X ⊆ V₁ ∩ V₂) (hY₁ : Y₁ ⊆ V₁ \ V₂) (hY₂ : Y₂ ⊆ V₂ \ V₁) :
     ((X ∪ (Y₁ ∪ Y₂)) ∩ V₁ : Finset (Fin N)) = X ∪ Y₁
     ∧ ((X ∪ (Y₁ ∪ Y₂)) ∩ V₂ : Finset (Fin N)) = X ∪ Y₂ := by
@@ -705,7 +709,7 @@ theorem overlap_tests {N : ℕ} (V₁ V₂ X Y₁ Y₂ : Finset (Fin N))
 
 omit [DecidableEq K] in
 /-- The three-part counterpart of `sum_split_of_union`. -/
-theorem sum_split_of_union3 {N : ℕ} {A B C : Finset (Fin N)}
+private theorem sum_split_of_union3 {N : ℕ} {A B C : Finset (Fin N)}
     (hAB : Disjoint A B) (hAC : Disjoint A C) (hBC : Disjoint B C)
     (F : Finset (Fin N) → Finset (Fin N) → Finset (Fin N) → K) :
     ∑ W ∈ ((A ∪ (B ∪ C) : Finset (Fin N))).powerset,
@@ -833,7 +837,7 @@ worlds of a frame that contains its current row. It fails in `How`
 circuit is built in, so the spurious terms are carried by the circuit and
 die only on evaluation into an exclusive semiring, homomorphisms commuting
 with `⊖`. -/
-theorem worldAnn_mul_eq_zero_of_ne (hexcl : exclusive K) {N : ℕ}
+private theorem worldAnn_mul_eq_zero_of_ne (hexcl : exclusive K) {N : ℕ}
     (α : Fin N → K) {W W' : Finset (Fin N)} (h : W ≠ W') :
     worldAnn α W * worldAnn α W' = 0 := by
   -- One direction of the asymmetry; the statement follows by commutativity.
@@ -867,7 +871,7 @@ omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] in
 elements: the underlying multiset of the resulting list is the original
 multiset. (`Multiset.sort` would serve the same purpose but is defined by
 well-founded recursion and does not reduce in the kernel.) -/
-theorem foldr_sortedInsert_coe {α' : Type} [LinearOrder α'] (s : Multiset α') :
+private theorem foldr_sortedInsert_coe {α' : Type} [LinearOrder α'] (s : Multiset α') :
     (↑((s.foldr sortedInsert ⟨[], by simp⟩).val) : Multiset α') = s := by
   induction s using Multiset.induction_on with
   | empty => rfl
@@ -918,7 +922,7 @@ omit [CommSemiringWithMonus K] [DecidableEq K] in
 /-- The group sequence is sorted: on consecutive occurrences, the tuple
 part is strictly increasing or equal (ties on the tuple part being broken
 by the alternative order on the annotations). -/
-theorem havingGroup_pairwise [HasAltLinearOrder K] (is : Tuple (Fin m) n₁)
+private theorem havingGroup_pairwise [HasAltLinearOrder K] (is : Tuple (Fin m) n₁)
     (r : AnnotatedRelation T K m) (g : Tuple T n₁) :
     (havingGroup is r g).Pairwise
       (fun p q => (p.fst < q.fst) ∨ p.fst = q.fst) := by
@@ -942,7 +946,7 @@ def aggValOn (U : List (AnnotatedTuple T K m)) (t : Term T m)
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] in
 /-- The full world selects the whole occurrence sequence. -/
-@[simp] theorem seqOf_univ {β : Type} (U : List β) :
+@[simp] private theorem seqOf_univ {β : Type} (U : List β) :
     seqOf U Finset.univ = U := by
   have h := seqOf_filter_positions (fun _ : β => true) U
   rw [List.filter_eq_self.mpr (fun _ _ => rfl)] at h
@@ -970,7 +974,7 @@ def aggValOnWhen (U : List (AnnotatedTuple T K m)) (keep : Tuple T m → Bool)
 
 omit [CommSemiringWithMonus K] [DecidableEq K] in
 /-- A clause that keeps every row is no clause. -/
-theorem aggValOnWhen_of_all (U : List (AnnotatedTuple T K m))
+private theorem aggValOnWhen_of_all (U : List (AnnotatedTuple T K m))
     {keep : Tuple T m → Bool} (h : ∀ u, keep u = true) (t : Term T m)
     (f : SeqAggFunc T) (W : Finset (Fin U.length)) :
     aggValOnWhen U keep t f W = aggValOn U t f W := by
@@ -997,13 +1001,13 @@ def chiOf (P : T → Kleene) (a : T) : K :=
   if P a = Kleene.true then 1 else 0
 
 omit [DecidableEq K] in
-theorem chi_eq_chiOf (op : CompOp) (a b : T) :
+private theorem chi_eq_chiOf (op : CompOp) (a b : T) :
     (chi op a b : K) = chiOf (fun v => op.eval3 v b) a := rfl
 
 omit [ValueType T] [DecidableEq K] in
 /-- **Two tests conjoin by `⊗`**, the characteristic values being
 `{𝟘, 𝟙}`-valued. -/
-theorem chiOf_mul_chiOf (P Q : T → Kleene) (a : T) :
+private theorem chiOf_mul_chiOf (P Q : T → Kleene) (a : T) :
     (chiOf P a : K) * chiOf Q a = chiOf (fun v => (P v).and (Q v)) a := by
   unfold chiOf
   cases hP : P a <;> cases hQ : Q a <;> simp [Kleene.and, hP, hQ]
@@ -1012,7 +1016,7 @@ omit [DecidableEq K] in
 /-- **Away from the null the indicator is the two-valued one.** The
 statements proved before the null was introduced are this case, and over a
 domain where nothing is null it is the definition. -/
-theorem chi_eq_ite (op : CompOp) {a b : T}
+private theorem chi_eq_ite (op : CompOp) {a b : T}
     (ha : ValueType.isNull a = false) (hb : ValueType.isNull b = false) :
     (chi op a b : K) = if op.eval a b then 1 else 0 := by
   unfold chi
@@ -1022,18 +1026,18 @@ theorem chi_eq_ite (op : CompOp) {a b : T}
       ite_eq_right h]
 
 omit [DecidableEq K] in
-@[simp] theorem chi_eq_ite_of_noNulls [NoNulls T] (op : CompOp) (a b : T) :
+@[simp] private theorem chi_eq_ite_of_noNulls [NoNulls T] (op : CompOp) (a b : T) :
     (chi op a b : K) = if op.eval a b then 1 else 0 :=
   chi_eq_ite op (isNull_eq_false a) (isNull_eq_false b)
 
 omit [DecidableEq K] in
 /-- A null-strict comparison with a `NULL` operand contributes nothing. -/
-@[simp] theorem chi_of_isNull_left {op : CompOp} (hs : op.strict = true)
+@[simp] private theorem chi_of_isNull_left {op : CompOp} (hs : op.strict = true)
     {a : T} (h : ValueType.isNull a = true) (b : T) : (chi op a b : K) = 0 := by
   simp [chi, CompOp.eval3_of_isNull_left hs h]
 
 omit [DecidableEq K] in
-@[simp] theorem chi_of_isNull_right {op : CompOp} (hs : op.strict = true)
+@[simp] private theorem chi_of_isNull_right {op : CompOp} (hs : op.strict = true)
     (a : T) {b : T} (h : ValueType.isNull b = true) : (chi op a b : K) = 0 := by
   simp [chi, CompOp.eval3_of_isNull_right hs a h]
 
@@ -1058,7 +1062,7 @@ annotated by the occurrence annotations. All the collapse results of
 `Provenance.Having` and `Provenance.HavingMinMax` (`F_eq_S`,
 `G_eq_S_monus_S`, `collapse_to_minimal`, `minScan_correct` …) thereby
 apply to the fused operator's semantics. -/
-theorem havingProv_eq_prov3 (h_distrib : mul_sub_left_distributive K)
+private theorem havingProv_eq_prov3 (h_distrib : mul_sub_left_distributive K)
     (U : List (AnnotatedTuple T K m)) (t : Term T m) (f : SeqAggFunc T)
     (op : CompOp) (c : T) :
     havingProv U t f op c
@@ -1077,7 +1081,7 @@ theorem havingProv_eq_prov3 (h_distrib : mul_sub_left_distributive K)
 omit [DecidableEq K] in
 /-- The same over a domain where nothing is null, where the comparison is
 two-valued. This is the form the `COUNT` algebra over `ℕ` uses. -/
-theorem havingProv_eq_prov [NoNulls T] (h_distrib : mul_sub_left_distributive K)
+private theorem havingProv_eq_prov [NoNulls T] (h_distrib : mul_sub_left_distributive K)
     (U : List (AnnotatedTuple T K m)) (t : Term T m) (f : SeqAggFunc T)
     (op : CompOp) (c : T) :
     havingProv U t f op c
@@ -1092,7 +1096,7 @@ omit [CommSemiringWithMonus K] [DecidableEq K] in
 `List.length` computes `|W|`, so a `COUNT` comparison depends on the world
 only through its cardinality. Together with `havingProv_eq_prov` this
 attaches the `Having.F`/`Having.G` algebra to the fused semantics. -/
-theorem aggValOn_count
+private theorem aggValOn_count
     (U : List (AnnotatedTuple ℕ K m)) (t : Term ℕ m)
     (W : Finset (Fin U.length)) :
     aggValOn U t SeqAggFunc.count W = W.card := by
@@ -1128,7 +1132,7 @@ omit [DecidableEq K] in
 provenance of `COUNT(*) = C + 1` is `Having.G` – hence, by
 `Having.G_eq_S_monus_S`, the join-side difference
 `S_{C+1} ⊖ S_{C+2}`. -/
-theorem havingProv_count_eq (h_distrib : mul_sub_left_distributive K)
+private theorem havingProv_count_eq (h_distrib : mul_sub_left_distributive K)
     (U : List (AnnotatedTuple ℕ K m)) (t : Term ℕ m) (C : ℕ) :
     havingProv U t SeqAggFunc.count CompOp.eq (C + 1)
       = G (fun i => (U.get i).snd) Finset.univ (C + 1) := by
@@ -1147,7 +1151,7 @@ omit [DecidableEq K] in
 provenance of `COUNT(*) ≤ C` is the `⊕`-sum of world annotations over the
 worlds of size between `1` and `C` – hence, by
 `Having.atMost_eq_S_monus_S`, the join-side difference `S_1 ⊖ S_{C+1}`. -/
-theorem havingProv_count_le (h_distrib : mul_sub_left_distributive K)
+private theorem havingProv_count_le (h_distrib : mul_sub_left_distributive K)
     (U : List (AnnotatedTuple ℕ K m)) (t : Term ℕ m) (C : ℕ) :
     havingProv U t SeqAggFunc.count CompOp.le C
       = ∑ W ∈ Finset.univ.powerset.filter
@@ -1163,14 +1167,14 @@ theorem havingProv_count_le (h_distrib : mul_sub_left_distributive K)
 
 omit [DecidableEq K] in
 /-- `COUNT(*) > c` is `COUNT(*) ≥ c + 1`. -/
-theorem havingProv_count_gt (U : List (AnnotatedTuple ℕ K m)) (t : Term ℕ m)
+private theorem havingProv_count_gt (U : List (AnnotatedTuple ℕ K m)) (t : Term ℕ m)
     (c : ℕ) :
     havingProv U t SeqAggFunc.count CompOp.gt c
       = havingProv U t SeqAggFunc.count CompOp.ge (c + 1) := rfl
 
 omit [DecidableEq K] in
 /-- `COUNT(*) < c + 1` is `COUNT(*) ≤ c`. -/
-theorem havingProv_count_lt (U : List (AnnotatedTuple ℕ K m)) (t : Term ℕ m)
+private theorem havingProv_count_lt (U : List (AnnotatedTuple ℕ K m)) (t : Term ℕ m)
     (c : ℕ) :
     havingProv U t SeqAggFunc.count CompOp.lt (c + 1)
       = havingProv U t SeqAggFunc.count CompOp.le c := by
@@ -1183,7 +1187,7 @@ omit [DecidableEq K] in
 the predicate provenance of `f(t) ≠ c` is the `⊕`-sum of those of
 `f(t) < c` and `f(t) > c`: the characteristic values agree world by
 world, by trichotomy of the linear order on the value domain. -/
-theorem havingProv_ne_split (U : List (AnnotatedTuple T K m)) (t : Term T m)
+private theorem havingProv_ne_split (U : List (AnnotatedTuple T K m)) (t : Term T m)
     (f : SeqAggFunc T) (c : T) :
     havingProv U t f CompOp.ne c
       = havingProv U t f CompOp.lt c + havingProv U t f CompOp.gt c := by
@@ -1251,7 +1255,7 @@ absorptive m-semiring and without distributivity of `⊗` over `⊖`. -/
 
 /-- Summing `f` over the entries of a list satisfying `P`, as a sum over
 positions. -/
-theorem sum_map_filter_coe {β γ : Type} [AddCommMonoid γ] (P : β → Prop)
+private theorem sum_map_filter_coe {β γ : Type} [AddCommMonoid γ] (P : β → Prop)
     [DecidablePred P] (f : β → γ) :
     ∀ U : List β, ((Multiset.filter P (↑U : Multiset β)).map f).sum
       = ∑ i : Fin U.length, if P (U.get i) then f (U.get i) else 0
@@ -1295,7 +1299,7 @@ def Existential3 (f : SeqAggFunc T) (op : CompOp) : Prop :=
     (op.eval3 (f L) c = Kleene.true ↔ ∃ x ∈ L, op.eval3 x c = Kleene.true)
 
 /-- Where nothing is null the two readings agree. -/
-theorem Existential.to3 [NoNulls T] {f : SeqAggFunc T} {op : CompOp}
+private theorem Existential.to3 [NoNulls T] {f : SeqAggFunc T} {op : CompOp}
     (hf : Existential f op) : Existential3 f op := by
   intro L c hL
   rw [CompOp.eval3_eq_true_iff_noNulls]
@@ -1307,7 +1311,7 @@ non-nullness**: `COUNT(t) ≠ 0` holds exactly when some occurrence has a
 non-null `t`-value. This is not a comparison of that value against `0` – a
 non-null value may well be zero – which is why the collapse of an
 existential `HAVING` has to be stated against a predicate on values. -/
-theorem existentialOn_counting {cnt : SeqAggFunc T}
+private theorem existentialOn_counting {cnt : SeqAggFunc T}
     (hc : SeqAggFunc.Counts cnt) :
     ExistentialOn cnt CompOp.ne 0
       (fun x => ValueType.isNull x = false) := by
@@ -1337,7 +1341,7 @@ The witness is a predicate on values rather than the comparison itself,
 because the two need not coincide: SQL's `COUNT(t) ≠ 0` holds exactly when
 some occurrence has a *non-null* `t`-value, which is not a comparison of
 that value against `0`. -/
-theorem havingProv_existentialOn (h_abs : absorptive K)
+private theorem havingProv_existentialOn (h_abs : absorptive K)
     {f : SeqAggFunc T} {op : CompOp} {c : T} {P : T → Prop} [DecidablePred P]
     (hf : ExistentialOn f op c P) (U : List (AnnotatedTuple T K m))
     (t : Term T m) :
@@ -1395,7 +1399,7 @@ distributivity of `⊗` over `⊖` is needed (`Having.sum_ann_meet`).
 An occurrence whose value is null contributes nothing, and rightly: SQL's
 aggregate skips it and the comparison is unknown on it, so it is in no
 world's reason for the predicate holding. -/
-theorem havingProv_existential3 (h_abs : absorptive K)
+private theorem havingProv_existential3 (h_abs : absorptive K)
     {f : SeqAggFunc T} {op : CompOp}
     (hf : Existential3 f op) (U : List (AnnotatedTuple T K m)) (t : Term T m)
     (c : T) :
@@ -1423,7 +1427,7 @@ theorem havingProv_existential [NoNulls T] (h_abs : absorptive K)
     CompOp.eval3_eq_true_iff_noNulls op (t.eval q.fst) c)
 
 /-- `MIN` over a non-empty sequence is below `c` iff some element is. -/
-theorem foldr_min_le_iff {V : Type} [LinearOrder V] (x c : V) :
+private theorem foldr_min_le_iff {V : Type} [LinearOrder V] (x c : V) :
     ∀ xs : List V, xs.foldr min x ≤ c ↔ x ≤ c ∨ ∃ y ∈ xs, y ≤ c
   | [] => by simp
   | y :: ys => by
@@ -1432,7 +1436,7 @@ theorem foldr_min_le_iff {V : Type} [LinearOrder V] (x c : V) :
     tauto
 
 /-- `MIN` over a non-empty sequence is strictly below `c` iff some element is. -/
-theorem foldr_min_lt_iff {V : Type} [LinearOrder V] (x c : V) :
+private theorem foldr_min_lt_iff {V : Type} [LinearOrder V] (x c : V) :
     ∀ xs : List V, (xs.foldr min x < c) ↔ (x < c) ∨ ∃ y ∈ xs, (y < c)
   | [] => by simp
   | y :: ys => by
@@ -1441,7 +1445,7 @@ theorem foldr_min_lt_iff {V : Type} [LinearOrder V] (x c : V) :
     tauto
 
 /-- `MAX` over a non-empty sequence is above `c` iff some element is. -/
-theorem le_foldr_max_iff {V : Type} [LinearOrder V] (x c : V) :
+private theorem le_foldr_max_iff {V : Type} [LinearOrder V] (x c : V) :
     ∀ xs : List V, c ≤ xs.foldr max x ↔ c ≤ x ∨ ∃ y ∈ xs, c ≤ y
   | [] => by simp
   | y :: ys => by
@@ -1450,7 +1454,7 @@ theorem le_foldr_max_iff {V : Type} [LinearOrder V] (x c : V) :
     tauto
 
 /-- `MAX` over a non-empty sequence is strictly above `c` iff some element is. -/
-theorem lt_foldr_max_iff {V : Type} [LinearOrder V] (x c : V) :
+private theorem lt_foldr_max_iff {V : Type} [LinearOrder V] (x c : V) :
     ∀ xs : List V, (c < xs.foldr max x) ↔ (c < x) ∨ ∃ y ∈ xs, (c < y)
   | [] => by simp
   | y :: ys => by
@@ -1459,7 +1463,7 @@ theorem lt_foldr_max_iff {V : Type} [LinearOrder V] (x c : V) :
     tauto
 
 /-- `MIN(t) ≤ c` is existential. -/
-theorem existential_min_le : Existential (SeqAggFunc.min (T := T)) CompOp.le := by
+private theorem existential_min_le : Existential (SeqAggFunc.min (T := T)) CompOp.le := by
   intro L c hL
   cases L with
   | nil => exact absurd rfl hL
@@ -1469,7 +1473,7 @@ theorem existential_min_le : Existential (SeqAggFunc.min (T := T)) CompOp.le := 
     simp only [List.mem_cons, exists_eq_or_imp]
 
 /-- `MIN(t) < c` is existential. -/
-theorem existential_min_lt : Existential (SeqAggFunc.min (T := T)) CompOp.lt := by
+private theorem existential_min_lt : Existential (SeqAggFunc.min (T := T)) CompOp.lt := by
   intro L c hL
   cases L with
   | nil => exact absurd rfl hL
@@ -1479,7 +1483,7 @@ theorem existential_min_lt : Existential (SeqAggFunc.min (T := T)) CompOp.lt := 
     simp only [List.mem_cons, exists_eq_or_imp]
 
 /-- `MAX(t) ≥ c` is existential. -/
-theorem existential_max_ge : Existential (SeqAggFunc.max (T := T)) CompOp.ge := by
+private theorem existential_max_ge : Existential (SeqAggFunc.max (T := T)) CompOp.ge := by
   intro L c hL
   cases L with
   | nil => exact absurd rfl hL
@@ -1489,7 +1493,7 @@ theorem existential_max_ge : Existential (SeqAggFunc.max (T := T)) CompOp.ge := 
     simp only [List.mem_cons, exists_eq_or_imp]
 
 /-- `MAX(t) > c` is existential. -/
-theorem existential_max_gt : Existential (SeqAggFunc.max (T := T)) CompOp.gt := by
+private theorem existential_max_gt : Existential (SeqAggFunc.max (T := T)) CompOp.gt := by
   intro L c hL
   cases L with
   | nil => exact absurd rfl hL
@@ -1509,7 +1513,7 @@ the occurrences that qualify are the same either way. -/
 existential**, three-valuedly, whenever the aggregate is. The two ways a
 null can enter agree: it is dropped before the aggregate sees it, and it
 makes the comparison unknown. -/
-theorem Existential.sqlOf3 {V : Type} [ValueTypeNull V] {f : SeqAggFunc V}
+private theorem Existential.sqlOf3 {V : Type} [ValueTypeNull V] {f : SeqAggFunc V}
     {op : CompOp} (hs : op.strict = true)
     (hmem : ∀ {L : List V}, L ≠ [] → f L ∈ L)
     (hf : Existential f op) : Existential3 f.sqlOf op := by
@@ -1578,22 +1582,22 @@ theorem Existential.sqlOf3 {V : Type} [ValueTypeNull V] {f : SeqAggFunc V}
       exact hxc
 
 /-- SQL's `MIN(t) ≤ c` is existential. -/
-theorem existential3_sqlOf_min_le {V : Type} [ValueTypeNull V] :
+private theorem existential3_sqlOf_min_le {V : Type} [ValueTypeNull V] :
     Existential3 (SeqAggFunc.min (T := V)).sqlOf CompOp.le :=
   Existential.sqlOf3 rfl (fun h => SeqAggFunc.min_mem h) existential_min_le
 
 /-- SQL's `MIN(t) < c` is existential. -/
-theorem existential3_sqlOf_min_lt {V : Type} [ValueTypeNull V] :
+private theorem existential3_sqlOf_min_lt {V : Type} [ValueTypeNull V] :
     Existential3 (SeqAggFunc.min (T := V)).sqlOf CompOp.lt :=
   Existential.sqlOf3 rfl (fun h => SeqAggFunc.min_mem h) existential_min_lt
 
 /-- SQL's `MAX(t) ≥ c` is existential. -/
-theorem existential3_sqlOf_max_ge {V : Type} [ValueTypeNull V] :
+private theorem existential3_sqlOf_max_ge {V : Type} [ValueTypeNull V] :
     Existential3 (SeqAggFunc.max (T := V)).sqlOf CompOp.ge :=
   Existential.sqlOf3 rfl (fun h => SeqAggFunc.max_mem h) existential_max_ge
 
 /-- SQL's `MAX(t) > c` is existential. -/
-theorem existential3_sqlOf_max_gt {V : Type} [ValueTypeNull V] :
+private theorem existential3_sqlOf_max_gt {V : Type} [ValueTypeNull V] :
     Existential3 (SeqAggFunc.max (T := V)).sqlOf CompOp.gt :=
   Existential.sqlOf3 rfl (fun h => SeqAggFunc.max_mem h) existential_max_gt
 
@@ -1668,7 +1672,7 @@ omit [CommSemiringWithMonus K] [DecidableEq K] in
 /-- **Where nothing is null the reading is two-valued.** No `HAVING`
 predicate is ever unknown there, so the statements proved before the null
 was introduced keep saying what they said. -/
-theorem HavingPred.evalOnSeq_ne_unknown [NoNulls T] (L : List (Tuple T m))
+private theorem HavingPred.evalOnSeq_ne_unknown [NoNulls T] (L : List (Tuple T m))
     (g : Tuple T n₁) : ∀ ψ : HavingPred T m n₁,
       ψ.evalOnSeq L g ≠ Kleene.unknown
   | cmp t f op s => by
@@ -1690,7 +1694,7 @@ theorem HavingPred.evalOnSeq_ne_unknown [NoNulls T] (L : List (Tuple T m))
 
 omit [CommSemiringWithMonus K] [DecidableEq K] in
 /-- Negation is classical where nothing is null. -/
-theorem HavingPred.holdsOnSeq_not_iff [NoNulls T] (L : List (Tuple T m))
+private theorem HavingPred.holdsOnSeq_not_iff [NoNulls T] (L : List (Tuple T m))
     (g : Tuple T n₁) (ψ : HavingPred T m n₁) :
     (HavingPred.not ψ).holdsOnSeq L g ↔ ¬ ψ.holdsOnSeq L g := by
   have h := evalOnSeq_ne_unknown L g ψ

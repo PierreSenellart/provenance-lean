@@ -8,6 +8,8 @@ public import Provenance.HavingQueryCorrectness
 import Mathlib.Tactic.NormNum.Inv
 import Mathlib.Tactic.NormNum.Pow
 import Provenance.QueryAnnotatedDatabaseHom
+import all Provenance.HavingQueryCorrectness
+import all Provenance.QueryAnnotatedDatabaseHom
 
 /-!
 # Compositional correctness of the JOIN rewriting for `HAVING COUNT(*)`
@@ -81,10 +83,10 @@ def joinCountQueryPadded (q : Query ℕ 3) (op : CompOp) (C : ℕ) :
     Query ℕ 1 :=
   keyPadded (fun q => Query.joinCountQuery q op C) q
 
-theorem keysQuery_source (q : Query ℕ 3) (hq : q.source) :
+private theorem keysQuery_source (q : Query ℕ 3) (hq : q.source) :
     (keysQuery q).source := hq
 
-theorem zeroPadQuery_source (q : Query ℕ 3) (hq : q.source) :
+private theorem zeroPadQuery_source (q : Query ℕ 3) (hq : q.source) :
     (zeroPadQuery q).source := ⟨hq, hq⟩
 
 theorem keyPadded_source (Q : Query ℕ 3 → Query ℕ 1) (q : Query ℕ 3)
@@ -104,7 +106,7 @@ variable [HasAltLinearOrder K]
 omit [HasAltLinearOrder K] in
 /-- Every row of the join chain carries the key of some base row in its
 key coordinate. -/
-theorem joinChain_key_mem (q : Query ℕ 3) (hq : q.source)
+private theorem joinChain_key_mem (q : Query ℕ 3) (hq : q.source)
     (d : AnnotatedDatabase ℕ K) :
     ∀ (C : ℕ) (x : AnnotatedTuple ℕ K (3 * C + 3)),
       x ∈ (joinChain q C).evaluateAnnotated (joinChain_source q hq C) d →
@@ -134,7 +136,7 @@ theorem joinChain_key_mem (q : Query ℕ 3) (hq : q.source)
 
 omit [HasAltLinearOrder K] in
 /-- The key multiset of the base query, through the key projection. -/
-theorem keyed_fst (q : Query ℕ 3) (hq : q.source) (d : AnnotatedDatabase ℕ K) :
+private theorem keyed_fst (q : Query ℕ 3) (hq : q.source) (d : AnnotatedDatabase ℕ K) :
     Multiset.map Prod.fst
         ((Query.Proj keyTerm q).evaluateAnnotated hq d)
       = (q.evaluateAnnotated hq d).map
@@ -146,7 +148,7 @@ theorem keyed_fst (q : Query ℕ 3) (hq : q.source) (d : AnnotatedDatabase ℕ K
 omit [HasAltLinearOrder K] in
 /-- Every row of the chain-projected key query carries a key of the base
 query. -/
-theorem joinChainQuery_key_mem (q : Query ℕ 3) (hq : q.source)
+private theorem joinChainQuery_key_mem (q : Query ℕ 3) (hq : q.source)
     (d : AnnotatedDatabase ℕ K) (C : ℕ) (x : AnnotatedTuple ℕ K 1)
     (hx : x ∈ (joinChainQuery q C).evaluateAnnotated (q2_source q hq C) d) :
     x.fst ∈ Multiset.dedup ((q.evaluateAnnotated hq d).map
@@ -171,7 +173,7 @@ theorem joinChainQuery_key_mem (q : Query ℕ 3) (hq : q.source)
 
 omit [HasAltLinearOrder K] in
 /-- Rows of a difference keep the data parts of its left argument. -/
-theorem diff_row_mem (q₁ q₂ : Query ℕ 1)
+private theorem diff_row_mem (q₁ q₂ : Query ℕ 1)
     (h₁ : q₁.source) (hd : (Query.Diff q₁ q₂).source)
     (d : AnnotatedDatabase ℕ K) (y : AnnotatedTuple ℕ K 1)
     (hy : y ∈ (Query.Diff q₁ q₂).evaluateAnnotated hd d) :
@@ -184,7 +186,7 @@ theorem diff_row_mem (q₁ q₂ : Query ℕ 1)
 omit [HasAltLinearOrder K] in
 /-- Every row of the join-based query, for any comparison operator,
 carries a key of the base query. -/
-theorem joinCountQuery_key_mem (q : Query ℕ 3) (hq : q.source)
+private theorem joinCountQuery_key_mem (q : Query ℕ 3) (hq : q.source)
     (d : AnnotatedDatabase ℕ K) (op : CompOp) (C : ℕ)
     (x : AnnotatedTuple ℕ K 1)
     (hx : x ∈ (Query.joinCountQuery q op C).evaluateAnnotated
@@ -230,7 +232,7 @@ variable [HasAltLinearOrder K]
 omit [HasAltLinearOrder K] in
 /-- The key query evaluates to one row per distinct key with the summed
 annotation. -/
-theorem keysQuery_eval (q : Query ℕ 3) (hq : q.source)
+private theorem keysQuery_eval (q : Query ℕ 3) (hq : q.source)
     (d : AnnotatedDatabase ℕ K) :
     (keysQuery q).evaluateAnnotated (keysQuery_source q hq) d
       = (Multiset.dedup ((q.evaluateAnnotated hq d).map
@@ -246,7 +248,7 @@ theorem keysQuery_eval (q : Query ℕ 3) (hq : q.source)
 omit [HasAltLinearOrder K] in
 /-- The padding query evaluates to one `𝟘`-annotated row per distinct
 key. -/
-theorem zeroPadQuery_eval (q : Query ℕ 3) (hq : q.source)
+private theorem zeroPadQuery_eval (q : Query ℕ 3) (hq : q.source)
     (d : AnnotatedDatabase ℕ K) :
     (zeroPadQuery q).evaluateAnnotated (zeroPadQuery_source q hq) d
       = (Multiset.dedup ((q.evaluateAnnotated hq d).map
@@ -289,7 +291,7 @@ exactly one row per group key `g` of `q`, annotated `F g`. Instances:
 `joinCountQueryPadded_correct_of` for the `COUNT(*)` join rewritings, and
 the existential and compositional rewritings of
 `Provenance.HavingMonotone`. -/
-theorem keyPadded_correct_of (Q : Query ℕ 3 → Query ℕ 1)
+private theorem keyPadded_correct_of (Q : Query ℕ 3 → Query ℕ 1)
     (q : Query ℕ 3) (hQ : (Q q).source) (hq : q.source) (d : AnnotatedDatabase ℕ K)
     (F : Tuple ℕ 1 → K)
     (hkeys : ∀ x ∈ (Q q).evaluateAnnotated hQ d,
@@ -343,7 +345,7 @@ provenance as a per-key annotation sum, the padded query evaluates to
 exactly one row per group key carrying it. Both
 `joinCountQueryPadded_correct` and `joinCountQueryPadded_monotone_correct`
 are instances. -/
-theorem joinCountQueryPadded_correct_of
+private theorem joinCountQueryPadded_correct_of
     (q : Query ℕ 3) (hq : q.source) (d : AnnotatedDatabase ℕ K)
     (ts : Tuple (Term ℕ 3) 1) (op : CompOp) (C : ℕ)
     (hkey : ∀ u : Tuple ℕ 1,
@@ -409,7 +411,7 @@ the base query, annotated with the predicate provenance of its group: the
 shape the padded rewritings evaluate to (`keyPadded_correct_of`), so that a
 padded rewriting can be substituted for the key-projected fused operator
 inside any surrounding query. -/
-theorem fused_key_proj_gen (qg : AggQuery ℕ 3 (ColKind.allReg 3))
+private theorem fused_key_proj_gen (qg : AggQuery ℕ 3 (ColKind.allReg 3))
     (q : Query ℕ 3) (hq : q.source) (d : AnnotatedDatabase ℕ K)
     (hin : qg.evaluateAnnotated d = q.evaluateAnnotated hq d)
     (ts' : Tuple (Term ℕ 3) 1) (fs : Tuple (SeqAggFunc ℕ) 1) (op : CompOp)

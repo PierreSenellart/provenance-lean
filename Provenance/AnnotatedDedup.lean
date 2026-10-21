@@ -3,6 +3,10 @@ module
 public import Provenance.AnnotatedBasis
 public import Provenance.RecursionBasisPass
 import Mathlib.Analysis.SpecialFunctions.Pow.NNReal
+import all Provenance.AggQuery
+import all Provenance.PlainBasis
+import all Provenance.RecursionBasisPass
+import all Provenance.SumByMu
 
 /-!
 # Duplicate elimination from the set recursion, annotated
@@ -37,7 +41,7 @@ def dedupMu {c n : ℕ} (s : String) (q : AggQueryIn T c n (ColKind.allReg n)) :
   AggQueryIn.MuSet s q (AggQueryIn.Sel falsePred (AggQueryIn.Hole n s) (SelOK.of_noAggAtom rfl))
 
 /-- The recursive term reads the round and keeps nothing. -/
-theorem evaluate_selFalse_hole {c n : ℕ} (s : String) (d : AnnotatedDatabase T K)
+private theorem evaluate_selFalse_hole {c n : ℕ} (s : String) (d : AnnotatedDatabase T K)
     (γ : Fin c → T) (E : EvalEnv T K) :
     (AggQueryIn.Sel (falsePred : GenPredIn T c (ColKind.allReg n)) (AggQueryIn.Hole n s)
       (SelOK.of_noAggAtom rfl)).evaluate d γ E = 0 := by
@@ -50,7 +54,7 @@ theorem evaluate_selFalse_hole {c n : ℕ} (s : String) (d : AnnotatedDatabase T
 
 /-- The round function of the recursion is constant: the deduplication of
 `q`. -/
-theorem muSetStep_dedupMu {c n : ℕ} (s : String) (q : AggQueryIn T c n (ColKind.allReg n))
+private theorem muSetStep_dedupMu {c n : ℕ} (s : String) (q : AggQueryIn T c n (ColKind.allReg n))
     (d : AnnotatedDatabase T K) (γ : Fin c → T) (E : EvalEnv T K) :
     AggQueryIn.muSetStep s q
         (AggQueryIn.Sel falsePred (AggQueryIn.Hole n s) (SelOK.of_noAggAtom rfl))
@@ -168,7 +172,7 @@ theorem evaluate_dedupFree :
     simp only [dedupFree, AggQueryIn.evaluate]
     rw [ih]
 
-theorem evaluateAnnotated_dedupFree {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)}
+private theorem evaluateAnnotated_dedupFree {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)}
     (q : AggQueryIn T c n κ l) (f : ℕ → String) (d : AnnotatedDatabase T K) (γ : Fin c → T)
     (E : EvalEnv T K) :
     (dedupFree f q).evaluateAnnotated d γ E = q.evaluateAnnotated d γ E := by
@@ -177,7 +181,7 @@ theorem evaluateAnnotated_dedupFree {c n : ℕ} {κ : Fin n → ColKind} {l : Li
 /-! ### Its plain readings -/
 
 /-- `ε(q) = μ^∪s.(q, σ_false(s))` in the plain semantics too. -/
-theorem evaluatePlain_dedupMu {c n : ℕ} (s : String) (q : AggQueryIn T c n (ColKind.allReg n))
+private theorem evaluatePlain_dedupMu {c n : ℕ} (s : String) (q : AggQueryIn T c n (ColKind.allReg n))
     (D : Database T) (γ : Fin c → T) :
     (dedupMu s q).evaluatePlain D γ = (q.evaluatePlain D γ).dedup := by
   rw [dedupMu, AggQueryIn.evaluatePlain]
@@ -192,7 +196,7 @@ theorem evaluatePlain_dedupMu {c n : ℕ} (s : String) (q : AggQueryIn T c n (Co
   · rw [muFix_eq_of_fix (j := 1) rfl]
     rfl
 
-theorem evaluatePlain_dedupFree :
+private theorem evaluatePlain_dedupFree :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l)
       (f : ℕ → String) (D : Database T) (γ : Fin c → T),
       (dedupFree f q).evaluatePlain D γ = q.evaluatePlain D γ := by
@@ -231,14 +235,14 @@ theorem evaluatePlain_dedupFree :
     simp only [dedupFree, AggQueryIn.evaluatePlain]
     rw [ih]
 
-theorem stripAgg_dedupMu {c n : ℕ} (s : String) (q : AggQueryIn T c n (ColKind.allReg n)) :
+private theorem stripAgg_dedupMu {c n : ℕ} (s : String) (q : AggQueryIn T c n (ColKind.allReg n)) :
     (dedupMu s q).stripAgg = dedupMu s q.stripAgg := by
   have hfa : (falsePred : GenPredIn T c (ColKind.allReg n)).hasAggAtom = false := rfl
   rw [dedupMu, dedupMu, AggQueryIn.stripAgg, AggQueryIn.stripAgg,
     ite_eq_right (by rw [hfa]; exact Bool.false_ne_true), AggQueryIn.stripAgg]
 
 /-- And so does its stripped form. -/
-theorem evaluatePlain_stripAgg_dedupFree :
+private theorem evaluatePlain_stripAgg_dedupFree :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l)
       (f : ℕ → String) (D : Database T) (γ : Fin c → T),
       (dedupFree f q).stripAgg.evaluatePlain D γ = q.stripAgg.evaluatePlain D γ := by
@@ -355,11 +359,11 @@ theorem annSettlesAt_dedupFree :
 /-! ## What the pass keeps -/
 
 /-- A class of the source other than `ε` is a class of the target. -/
-theorem mem_diff_dedup {S : Set OpKind} {op : OpKind} (h : op ∈ S) (hne : op ≠ OpKind.dedup) :
+private theorem mem_diff_dedup {S : Set OpKind} {op : OpKind} (h : op ∈ S) (hne : op ≠ OpKind.dedup) :
     op ∈ S \ {OpKind.dedup} :=
   ⟨h, fun h' => hne (Set.mem_singleton_iff.mp h')⟩
 
-theorem usesOnly_dedupFree {S : Set OpKind} (hsel : OpKind.sel ∈ S) (hmu : OpKind.muSet ∈ S) :
+private theorem usesOnly_dedupFree {S : Set OpKind} (hsel : OpKind.sel ∈ S) (hmu : OpKind.muSet ∈ S) :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l)
       (f : ℕ → String), q.usesOnly S → (dedupFree f q).usesOnly (S \ {OpKind.dedup}) := by
   intro c n κ l q
@@ -399,7 +403,7 @@ theorem usesOnly_dedupFree {S : Set OpKind} (hsel : OpKind.sel ∈ S) (hmu : OpK
   | WinExpr P O o ws ts fs g q keeps ih =>
     exact fun f h => ⟨mem_diff_dedup h.1 (by decide), ih f h.2⟩
 
-theorem inSig_dedupFree {Θ : Set (SeqAggFunc T)} :
+private theorem inSig_dedupFree {Θ : Set (SeqAggFunc T)} :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l)
       (f : ℕ → String), q.inSig Θ → (dedupFree f q).inSig Θ := by
   intro c n κ l q
@@ -428,7 +432,7 @@ theorem inSig_dedupFree {Θ : Set (SeqAggFunc T)} :
     h.2.2.2.2⟩
   | WinExpr P O o ws ts fs g q keeps ih => exact fun _ h => h.elim
 
-theorem noExplode_dedupFree :
+private theorem noExplode_dedupFree :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l)
       (f : ℕ → String), q.noExplode → (dedupFree f q).noExplode := by
   intro c n κ l q
@@ -456,7 +460,7 @@ theorem noExplode_dedupFree :
   | Win P O o w t g q hrr dist keep ih => exact fun f h => ih f h
   | WinExpr P O o ws ts fs g q keeps ih => exact fun f h => ih f h
 
-theorem noMention_dedupFree {s : String} :
+private theorem noMention_dedupFree {s : String} :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l)
       (f : ℕ → String), q.noMention s → (dedupFree f q).noMention s := by
   intro c n κ l q
@@ -485,7 +489,7 @@ theorem noMention_dedupFree {s : String} :
   | WinExpr P O o ws ts fs g q keeps ih => exact fun f h => ih f h
 
 /-- A name of the pass's output is a name of the query or one of the supply. -/
-theorem names_dedupFree :
+private theorem names_dedupFree :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l)
       (f : ℕ → String) (x : String), x ∈ (dedupFree f q).names → x ∈ q.names ∨ ∃ i, x = f i := by
   intro c n κ l q
@@ -552,7 +556,7 @@ theorem names_dedupFree :
   | WinExpr P O o ws ts fs g q keeps ih => exact fun f x h => ih f x h
 
 /-- **The pass is hygienic**: the fresh names are mentioned by no leaf. -/
-theorem hygienic_dedupFree :
+private theorem hygienic_dedupFree :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l)
       (f : ℕ → String), Function.Injective f → (∀ i, f i ∉ q.names) → q.hygienic →
         (dedupFree f q).hygienic := by
@@ -617,7 +621,7 @@ theorem hygienic_dedupFree :
 
 /-- **The pass is well-formed over any schema declaring none of the fresh
 names.** -/
-theorem overSchema_dedupFree :
+private theorem overSchema_dedupFree :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l)
       (f : ℕ → String), (∀ i, f i ∉ q.names) → ∀ sch : Schema, (∀ i, sch (f i) = none) →
         q.overSchema sch → (dedupFree f q).overSchema sch := by
@@ -698,7 +702,7 @@ theorem overSchema_dedupFree :
 omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 /-- **The pass keeps the query well-kinded**: the set recursion reads its
 round through a regular hole. -/
-theorem wellKinded_dedupFree :
+private theorem wellKinded_dedupFree :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l)
       (f : ℕ → String) {ρc : Fin c → ColKind} {HK : HoleKinds},
       q.wellKinded ρc HK → (dedupFree f q).wellKinded ρc HK := by

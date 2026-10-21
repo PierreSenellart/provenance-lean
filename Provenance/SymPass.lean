@@ -6,6 +6,23 @@ public import Provenance.SymStruct
 import Mathlib.Analysis.SpecialFunctions.Pow.NNReal
 import Provenance.RecursionBasisTheorem
 import Provenance.SymSettle
+import all Provenance.AggQuery
+import all Provenance.AllRegular
+import all Provenance.Database
+import all Provenance.Decorrelate
+import all Provenance.MuUnion
+import all Provenance.PlainBasis
+import all Provenance.RecursionBasis
+import all Provenance.RecursionBasisPass
+import all Provenance.SumByMu
+import all Provenance.SumByProd
+import all Provenance.SymApply
+import all Provenance.SymCut
+import all Provenance.SymEnvBuild
+import all Provenance.SymOver
+import all Provenance.SymSettle
+import all Provenance.SymStruct
+import all Provenance.WinKept
 
 /-!
 # The apply replaced by products, through a whole query
@@ -37,7 +54,7 @@ namespace Sym
 
 /-! ## Reading an instance away from a name -/
 
-theorem settlesAt_assign_of_noMention' {s : String} {m : ℕ} (X : Relation T m) {c n : ℕ}
+private theorem settlesAt_assign_of_noMention' {s : String} {m : ℕ} (X : Relation T m) {c n : ℕ}
     {κ : Fin n → ColKind} (q : AggQueryIn T c n κ) (hq : q.noMention s) (D : Database T)
     (γ : Fin c → T) (h : q.SettlesAt D γ) : q.SettlesAt (D.assign s X) γ :=
   AggQueryIn.settlesAt_of_noMention q hq
@@ -46,7 +63,7 @@ theorem settlesAt_assign_of_noMention' {s : String} {m : ℕ} (X : Relation T m)
           (fun hc => (hs'.resolve_right List.not_mem_nil) hc.2)).symm)
     γ h
 
-theorem evaluatePlain_hole_assign {c m : ℕ} (s : String) (κ : Fin m → ColKind) (X : Relation T m)
+private theorem evaluatePlain_hole_assign {c m : ℕ} (s : String) (κ : Fin m → ColKind) (X : Relation T m)
     (D : Database T) (γ : Fin c → T) :
     (AggQueryIn.Hole m s κ).evaluatePlain (D.assign s X) γ = X := by
   simp only [AggQueryIn.evaluatePlain, Database.find_assign]
@@ -56,7 +73,7 @@ theorem evaluatePlain_hole_assign {c m : ℕ} (s : String) (κ : Fin m → ColKi
 /-- **A bag recursion renamed**: its base and body matched, the body at
 the rounds of the source (which a predicate `P` on rounds describes), give
 the renamed recursion defined and equal wherever the source is. -/
-theorem mu_rename {c n : ℕ} {κ κ' : Fin n → ColKind} (s t : String)
+private theorem mu_rename {c n : ℕ} {κ κ' : Fin n → ColKind} (s t : String)
     (q₀ : AggQueryIn T c n κ) (q₀' : AggQueryIn T c n κ')
     (q₁ : AggQueryIn T c n κ [(s, n)]) (q₁' : AggQueryIn T c n κ' [(t, n)])
     (D : Database T) (γ : Fin c → T) (hset : (AggQueryIn.Mu s q₀ q₁).SettlesAt D γ)
@@ -117,7 +134,7 @@ inductive Enc : (ℕ → String) → String → Prop
   | vs (f : ℕ → String) (i : ℕ) : Enc f (part (part f 0) 1 i)
   | down (f : ℕ → String) (x : String) : Enc (part f 1) x → Enc f x
 
-theorem enc_index {f : ℕ → String} {x : String} (h : Enc f x) :
+private theorem enc_index {f : ℕ → String} {x : String} (h : Enc f x) :
     ∃ i, x = f i ∧ (i % 8 = 4 ∨ i % 64 = 8 ∨ i % 8 = 1) := by
   induction h with
   | vq f i => exact ⟨8 * i + 4, rfl, Or.inl (by omega)⟩
@@ -126,7 +143,7 @@ theorem enc_index {f : ℕ → String} {x : String} (h : Enc f x) :
     obtain ⟨i, rfl, -⟩ := ih
     exact ⟨8 * i + 1, rfl, Or.inr (Or.inr (by omega))⟩
 
-theorem not_enc {f : ℕ → String} (hf : Function.Injective f) {i : ℕ}
+private theorem not_enc {f : ℕ → String} (hf : Function.Injective f) {i : ℕ}
     (hi : i % 8 ≠ 4 ∧ i % 64 ≠ 8 ∧ i % 8 ≠ 1) : ¬ Enc f (f i) := fun h => by
   obtain ⟨j, hj, hj'⟩ := enc_index h
   have := hf hj
@@ -135,7 +152,7 @@ theorem not_enc {f : ℕ → String} (hf : Function.Injective f) {i : ℕ}
 
 /-- A name of slice 1 binding around the pool binds around the pool of
 the child. -/
-theorem enc_part1 {f : ℕ → String} (hf : Function.Injective f) {j : ℕ}
+private theorem enc_part1 {f : ℕ → String} (hf : Function.Injective f) {j : ℕ}
     (h : Enc f (part f 1 j)) : Enc (part f 1) (part f 1 j) := by
   generalize hx : part f 1 j = x at h
   cases h with
@@ -145,7 +162,7 @@ theorem enc_part1 {f : ℕ → String} (hf : Function.Injective f) {j : ℕ}
 
 /-! ## A window kept is of the fragment -/
 
-theorem fine_winKept {Θ : Set (SeqAggFunc T)} {c n m p : ℕ} (P : Tuple (Fin n) m)
+private theorem fine_winKept {Θ : Set (SeqAggFunc T)} {c n m p : ℕ} (P : Tuple (Fin n) m)
     (O : Tuple (Fin n) p) (o : OrderSpec p) (w : ValueFrame T p) {hsql : w.IsSQL o}
     (t : TermIn T c n)
     (f : SeqAggFunc T) (κ : Fin n → ColKind) (q : AggQueryIn T c n (ColKind.allReg n))
@@ -161,7 +178,7 @@ theorem fine_winKept {Θ : Set (SeqAggFunc T)} {c n m p : ℕ} (P : Tuple (Fin n
   rw [AggQueryIn.doubled, winAllReg_castKind]
   exact hq.2.2.1
 
-theorem over_winKept {c n m p : ℕ} {sch : Schema} {A : String → Prop} (P : Tuple (Fin n) m)
+private theorem over_winKept {c n m p : ℕ} {sch : Schema} {A : String → Prop} (P : Tuple (Fin n) m)
     (O : Tuple (Fin n) p) (o : OrderSpec p) (w : ValueFrame T p) {hsql : w.IsSQL o}
     (t : TermIn T c n)
     (f : SeqAggFunc T) (κ : Fin n → ColKind) (q : AggQueryIn T c n (ColKind.allReg n))
@@ -174,7 +191,7 @@ theorem over_winKept {c n m p : ℕ} {sch : Schema} {A : String → Prop} (P : T
 
 /-- **A value of the right side of an apply, at a parameter row, is a
 value of the row or of the right side's cut.** -/
-theorem vals_applyRight (Θ : Set (SeqAggFunc T)) {cnt : SeqAggFunc T} (hc : SeqAggFunc.Counts cnt)
+private theorem vals_applyRight (Θ : Set (SeqAggFunc T)) {cnt : SeqAggFunc T} (hc : SeqAggFunc.Counts cnt)
     (g : ℕ → String) {k c n₂ : ℕ} {κ₂ : Fin n₂ → ColKind} (R : AggQueryIn T (k + c) n₂ κ₂)
     (hU : R.usesOnly basisProdOps) (hsrc : SymSrc Θ R) (hg : ∀ i, R.noMention (g i))
     (D : Database T) (γ : Fin c → T) (u : Tuple T k) (hset : R.SettlesAt D (Fin.append u γ))
@@ -205,17 +222,17 @@ section Lift
 
 variable {A B : String → Prop} {f : ℕ → String} {t : String}
 
-theorem crN_part1 (hf : Function.Injective f) {x : String} (hx : CrN A (part f 1) x) :
+private theorem crN_part1 (hf : Function.Injective f) {x : String} (hx : CrN A (part f 1) x) :
     CrN A f x := by
   rcases hx with hx | ⟨i, rfl, hi⟩
   · exact Or.inl hx
   · exact Or.inr ⟨_, rfl, fun h => hi (enc_part1 hf h)⟩
 
-theorem encB_part1 (hB : ∀ x, B x → ¬ Enc f x ∧ x ≠ t) :
+private theorem encB_part1 (hB : ∀ x, B x → ¬ Enc f x ∧ x ≠ t) :
     ∀ x, B x → ¬ Enc (part f 1) x ∧ x ≠ t :=
   fun x hx => ⟨fun h => (hB x hx).1 (Enc.down f x h), (hB x hx).2⟩
 
-theorem supBt_part (j : ℕ) {x : String} (hx : Sup A (part f j) x ∨ B x ∨ x = t) :
+private theorem supBt_part (j : ℕ) {x : String} (hx : Sup A (part f j) x ∨ B x ∨ x = t) :
     Sup A f x ∨ B x ∨ x = t := by
   rcases hx with hx | hx
   · exact Or.inl (sup_mono_slice _ hx)
@@ -223,13 +240,13 @@ theorem supBt_part (j : ℕ) {x : String} (hx : Sup A (part f j) x ∨ B x ∨ x
 
 end Lift
 
-theorem fine_selReg {Θ : Set (SeqAggFunc T)} {c N : ℕ} {κ : Fin N → ColKind}
+private theorem fine_selReg {Θ : Set (SeqAggFunc T)} {c N : ℕ} {κ : Fin N → ColKind}
     {l : List (String × ℕ)} (φ : GenPredIn T c κ) (hφ : φ.noFun = true)
     {q : AggQueryIn T c N (ColKind.allReg N) l} (h : Fine Θ q) :
     Fine Θ (AggQueryIn.Sel φ.toReg q (SelOK.of_noAggAtom (GenPredIn.hasAggAtom_toReg φ))) :=
   ⟨⟨mem_sel, h.1⟩, ⟨GenPredIn.noFun_toReg hφ, h.2.1⟩, h.2.2.1, h.2.2.2⟩
 
-theorem evaluatePlain_selReg {c N : ℕ} {κ : Fin N → ColKind} {l : List (String × ℕ)}
+private theorem evaluatePlain_selReg {c N : ℕ} {κ : Fin N → ColKind} {l : List (String × ℕ)}
     (φ : GenPredIn T c κ) (q : AggQueryIn T c N (ColKind.allReg N) l) (D : Database T)
     (γ : Fin c → T) :
     (AggQueryIn.Sel φ.toReg q (SelOK.of_noAggAtom (GenPredIn.hasAggAtom_toReg φ))).evaluatePlain D γ
@@ -244,14 +261,14 @@ section CrPieces
 variable {c : ℕ} {sch : Schema} {A : String → Prop} {Θ : Set (SeqAggFunc T)}
 
 omit [ValueType T] in
-theorem noMention_of_over {n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)}
+private theorem noMention_of_over {n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)}
     {q : AggQueryIn T c n κ l} {P : String → Prop} (h : Over sch P q) {x : String} (hx : ¬ P x) :
     q.noMention x :=
   AggQueryIn.noMention_of_not_mem_names q (fun hm => hx (h.2 x hm))
 
 /-- The names of a slice-indexed part of the supply, away from slice 3,
 are names a created-values query may carry beside a union of slice 3. -/
-theorem crX3 {f : ℕ → String} (hf : SupOK sch A f) {P : ℕ → Prop}
+private theorem crX3 {f : ℕ → String} (hf : SupOK sch A f) {P : ℕ → Prop}
     (hP : ∀ i, P i → i % 8 ≠ 4 ∧ i % 64 ≠ 8 ∧ i % 8 ≠ 1 ∧ i % 8 ≠ 3) :
     ∀ x, SupP A f P x → CrN A f x ∧ ∀ i, x ≠ part f 3 i := fun x hx => by
   rcases hx with hx | ⟨j, hj, rfl⟩
@@ -261,7 +278,7 @@ theorem crX3 {f : ℕ → String} (hf : SupOK sch A f) {P : ℕ → Prop}
     have := hf.inj h
     omega
 
-theorem crX3_part1 {f : ℕ → String} (hf : SupOK sch A f) :
+private theorem crX3_part1 {f : ℕ → String} (hf : SupOK sch A f) :
     ∀ x, CrN A (part f 1) x → CrN A f x ∧ ∀ i, x ≠ part f 3 i := fun x hx => by
   refine ⟨crN_part1 hf.inj hx, fun i h => ?_⟩
   rcases hx with hx | ⟨j, rfl, -⟩
@@ -270,7 +287,7 @@ theorem crX3_part1 {f : ℕ → String} (hf : SupOK sch A f) :
     omega
 
 /-- **A union of created values**, over slice 3. -/
-theorem over_crU2 {f : ℕ → String} (hf : SupOK sch A f) {B : String → Prop}
+private theorem over_crU2 {f : ℕ → String} (hf : SupOK sch A f) {B : String → Prop}
     {a b : AggQueryIn T c 1 (ColKind.allReg 1)} (ha : Over sch B a) (hb : Over sch B b)
     (hB : ∀ x, B x → CrN A f x ∧ ∀ i, x ≠ part f 3 i) : Over sch (CrN A f) (u2 (part f 3) a b) :=
   (over_u2 (part f 3) (B := fun x => CrN A f x ∧ ∀ i, x ≠ part f 3 i) (ha.mono hB) (hb.mono hB)
@@ -284,7 +301,7 @@ theorem over_crU2 {f : ℕ → String} (hf : SupOK sch A f) {B : String → Prop
 noncomputable def emitQ (f : ℕ → String) (S : Finset T) : AggQueryIn T c 1 (ColKind.allReg 1) :=
   u2 (part f 5) (constsQ (part f 6) S) (ambQ (part f 7) c)
 
-theorem over_emitQ {f : ℕ → String} (S : Finset T) (hf : SupOK sch A f) :
+private theorem over_emitQ {f : ℕ → String} (S : Finset T) (hf : SupOK sch A f) :
     Over sch (SupP A f (fun i => i % 8 = 5 ∨ i % 8 = 6 ∨ i % 8 = 7)) (emitQ (c := c) f S) := by
   have hA' : ∀ x, A x → SupP A f (fun i => i % 8 = 6 ∨ i % 8 = 7) x := fun x h => Or.inl h
   have hc6 := (over_constsQ (c := c) (part f 6) S (supOK_of_part hf 6)).mono
@@ -297,7 +314,7 @@ theorem over_emitQ {f : ℕ → String} (S : Finset T) (hf : SupOK sch A f) :
   · exact Or.inr ⟨i, Or.inr hi, rfl⟩
   · exact Or.inr ⟨_, Or.inl (by omega), rfl⟩
 
-theorem fine_emitQ (f : ℕ → String) (S : Finset T) : Fine Θ (emitQ (c := c) f S) := by
+private theorem fine_emitQ (f : ℕ → String) (S : Finset T) : Fine Θ (emitQ (c := c) f S) := by
   have hamb : Fine Θ (ambQ (T := T) (part f 7) c) :=
     fine_unionFin _ c _ (fun _ _ => noMention_projQ _ _ (AggQueryIn.noMention_unitC _))
       (fun _ => fine_projQ _ fine_unitC)
@@ -306,7 +323,7 @@ theorem fine_emitQ (f : ℕ → String) (S : Finset T) : Fine Θ (emitQ (c := c)
   exact fine_sumByMuX _ _ hcs hamb (noMention_constsQ _ S _) (noMention_constsQ _ S _)
     (noMention_ambQ _ _)
 
-theorem settlesAt_emitQ (f : ℕ → String) (S : Finset T) (D : Database T) (γ : Fin c → T) :
+private theorem settlesAt_emitQ (f : ℕ → String) (S : Finset T) (D : Database T) (γ : Fin c → T) :
     (emitQ f S).SettlesAt D γ := by
   have hamb : (ambQ (T := T) (part f 7) c).SettlesAt D γ :=
     settlesAt_unionFin D γ _ c _ (fun _ _ => noMention_projQ _ _ (AggQueryIn.noMention_unitC _))
@@ -316,7 +333,7 @@ theorem settlesAt_emitQ (f : ℕ → String) (S : Finset T) (D : Database T) (γ
   exact AggQueryIn.settlesAt_sumByMuX _ _ _ _ (noMention_constsQ _ S _) (noMention_ambQ _ _) D γ
     hcs hamb
 
-theorem mem_valsU_emitQ (f : ℕ → String) (S : Finset T) (D : Database T) (γ : Fin c → T)
+private theorem mem_valsU_emitQ (f : ℕ → String) (S : Finset T) (D : Database T) (γ : Fin c → T)
     (a : T) (ha : a ∈ S ∨ ∃ j, γ j = a) : a ∈ valsU ((emitQ f S).evaluatePlain D γ) := by
   rw [emitQ, valsU_u2 (part f 5) _ _ (noMention_constsQ _ S _) (noMention_ambQ _ _) D γ]
   rcases ha with ha | ⟨j, rfl⟩
@@ -336,7 +353,7 @@ def projReg {l : List (String × ℕ)} (ps : Fin M → ProjColIn T c κ)
     (p : AggQueryIn T c N (ColKind.allReg N) l) : AggQueryIn T c M (ColKind.allReg M) l :=
   (AggQueryIn.Proj (fun j => (ps j).toReg) p).castKind (funext fun j => ProjColIn.kind_toReg (ps j))
 
-theorem fine_projReg {Θ : Set (SeqAggFunc T)} {l : List (String × ℕ)}
+private theorem fine_projReg {Θ : Set (SeqAggFunc T)} {l : List (String × ℕ)}
     (ps : Fin M → ProjColIn T c κ) (hs : ∀ j, (ps j).sourceCol = true)
     (hn : ∀ j, (ps j).noFun = true) {p : AggQueryIn T c N (ColKind.allReg N) l} (h : Fine Θ p) :
     Fine Θ (projReg ps p) := by
@@ -347,21 +364,21 @@ theorem fine_projReg {Θ : Set (SeqAggFunc T)} {l : List (String × ℕ)}
     AggQueryIn.hygienic_castKind]
   exact this
 
-theorem over_projReg {sch : Schema} {A : String → Prop} {l : List (String × ℕ)}
+private theorem over_projReg {sch : Schema} {A : String → Prop} {l : List (String × ℕ)}
     (ps : Fin M → ProjColIn T c κ) {p : AggQueryIn T c N (ColKind.allReg N) l}
     (h : Over sch A p) : Over sch A (projReg ps p) := by
   unfold Over projReg
   rw [AggQueryIn.overSchema_castKind, AggQueryIn.names_castKind]
   exact h
 
-theorem noMention_projReg {l : List (String × ℕ)} (ps : Fin M → ProjColIn T c κ)
+private theorem noMention_projReg {l : List (String × ℕ)} (ps : Fin M → ProjColIn T c κ)
     {p : AggQueryIn T c N (ColKind.allReg N) l} {t : String} (h : p.noMention t) :
     (projReg ps p).noMention t := by
   unfold projReg
   rw [AggQueryIn.noMention_castKind]
   exact h
 
-theorem evaluatePlain_projReg {l : List (String × ℕ)} (ps : Fin M → ProjColIn T c κ)
+private theorem evaluatePlain_projReg {l : List (String × ℕ)} (ps : Fin M → ProjColIn T c κ)
     (hs : ∀ j, (ps j).sourceCol = true) (p : AggQueryIn T c N (ColKind.allReg N) l)
     (D : Database T) (γ : Fin c → T) :
     (projReg ps p).evaluatePlain D γ
@@ -372,7 +389,7 @@ theorem evaluatePlain_projReg {l : List (String × ℕ)} (ps : Fin M → ProjCol
   refine Multiset.map_congr rfl (fun u _ => funext (fun j => ?_))
   exact ProjColIn.evalPlain_toReg (ps j) (hs j) u γ
 
-theorem settlesAt_projReg {l : List (String × ℕ)} (ps : Fin M → ProjColIn T c κ)
+private theorem settlesAt_projReg {l : List (String × ℕ)} (ps : Fin M → ProjColIn T c κ)
     (p : AggQueryIn T c N (ColKind.allReg N) l) (D : Database T) (γ : Fin c → T)
     (h : p.SettlesAt D γ) : (projReg ps p).SettlesAt D γ := by
   rw [projReg, AggQueryIn.settlesAt_castKind]
@@ -386,7 +403,7 @@ section SliceNames
 
 variable {sch : Schema} {A B : String → Prop} {f : ℕ → String}
 
-theorem sup_of_slice {g : ℕ → String} (hg : ∀ i, ∃ j, g i = f j) {x : String} (hx : Sup A g x) :
+private theorem sup_of_slice {g : ℕ → String} (hg : ∀ i, ∃ j, g i = f j) {x : String} (hx : Sup A g x) :
     Sup A f x := by
   rcases hx with hx | ⟨i, rfl⟩
   · exact Or.inl hx
@@ -394,21 +411,21 @@ theorem sup_of_slice {g : ℕ → String} (hg : ∀ i, ∃ j, g i = f j) {x : St
     exact Or.inr ⟨j, hj⟩
 
 /-- A name of one slice is no name of another. -/
-theorem not_sup_part (hf : SupOK sch A f) {j j' : ℕ} (hjj : j ≠ j') (hj : j < 8) (hj' : j' < 8)
+private theorem not_sup_part (hf : SupOK sch A f) {j j' : ℕ} (hjj : j ≠ j') (hj : j < 8) (hj' : j' < 8)
     (i : ℕ) : ¬ Sup A (part f j) (part f j' i) := by
   rintro (h | ⟨i', h⟩)
   · exact hf.out _ h
   · have := hf.inj h
     omega
 
-theorem not_crN_part (hf : SupOK sch A f) {j : ℕ} (hj : j ≠ 1) (hj' : j < 8) (i : ℕ) :
+private theorem not_crN_part (hf : SupOK sch A f) {j : ℕ} (hj : j ≠ 1) (hj' : j < 8) (i : ℕ) :
     ¬ CrN A (part f 1) (part f j i) := by
   rintro (h | ⟨i', h, -⟩)
   · exact hf.out _ h
   · have := hf.inj h
     omega
 
-theorem enc_range {g : ℕ → String} {x : String} (h : Enc g x) : ∃ i, x = g i := by
+private theorem enc_range {g : ℕ → String} {x : String} (h : Enc g x) : ∃ i, x = g i := by
   obtain ⟨i, hi, -⟩ := enc_index h
   exact ⟨i, hi⟩
 

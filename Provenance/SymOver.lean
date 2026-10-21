@@ -4,6 +4,15 @@ public import Provenance.SymApply
 import Mathlib.Algebra.Order.Ring.Nat
 import Mathlib.Tactic.NormNum.Inv
 import Mathlib.Tactic.NormNum.Pow
+import all Provenance.AllRegular
+import all Provenance.MuUnion
+import all Provenance.PlainBasis
+import all Provenance.RecursionBasisPass
+import all Provenance.SumByMu
+import all Provenance.SumByProd
+import all Provenance.SymCorrect
+import all Provenance.SymCut
+import all Provenance.SymEnvBuild
 
 /-!
 # The apply written with products is well formed over the schema
@@ -33,19 +42,19 @@ section Prim
 variable {c : ℕ} {sch : Schema} {A A' : String → Prop}
 
 omit [ValueType T] in
-theorem Over.mono {n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)}
+private theorem Over.mono {n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)}
     {q : AggQueryIn T c n κ l} (h : Over sch A q) (hA : ∀ x, A x → A' x) : Over sch A' q :=
   ⟨h.1, fun x hx => hA x (h.2 x hx)⟩
 
 omit [ValueType T] in
-theorem over_projQ {N M : ℕ} {l : List (String × ℕ)} (F : Fin M → SA T c N)
+private theorem over_projQ {N M : ℕ} {l : List (String × ℕ)} (F : Fin M → SA T c N)
     {q : AggQueryIn T c N (ColKind.allReg N) l} (h : Over sch A q) : Over sch A (projQ F q) := by
   unfold Over projQ
   rw [AggQueryIn.overSchema_castKind, AggQueryIn.names_castKind]
   exact h
 
 omit [ValueType T] in
-theorem over_prodR {a b : ℕ} {l₁ l₂ : List (String × ℕ)}
+private theorem over_prodR {a b : ℕ} {l₁ l₂ : List (String × ℕ)}
     {q₁ : AggQueryIn T c a (ColKind.allReg a) l₁} {q₂ : AggQueryIn T c b (ColKind.allReg b) l₂}
     (h₁ : Over sch A q₁) (h₂ : Over sch A q₂) : Over sch A (prodR q₁ q₂) := by
   unfold Over prodR
@@ -56,52 +65,52 @@ theorem over_prodR {a b : ℕ} {l₁ l₂ : List (String × ℕ)}
   · exact h₂.2 x hx
 
 omit [ValueType T] in
-theorem over_sel {N : ℕ} {κ : Fin N → ColKind} {l : List (String × ℕ)} (φ : GenPredIn T c κ)
+private theorem over_sel {N : ℕ} {κ : Fin N → ColKind} {l : List (String × ℕ)} (φ : GenPredIn T c κ)
     {q : AggQueryIn T c N κ l} (hφ : SelOK l φ) (h : Over sch A q) :
     Over sch A (AggQueryIn.Sel φ q hφ) := h
 
 omit [ValueType T] in
-theorem over_rel (n : ℕ) (s : String) (hs : sch s = some n) (hA : A s) :
+private theorem over_rel (n : ℕ) (s : String) (hs : sch s = some n) (hA : A s) :
     Over sch A (AggQueryIn.Rel (T := T) (c := c) n s) :=
   ⟨hs, fun x hx => by rw [Finset.mem_singleton.mp hx]; exact hA⟩
 
 omit [ValueType T] in
-theorem over_hole (n : ℕ) (s : String) (hs : sch s = some n) (hA : A s) :
+private theorem over_hole (n : ℕ) (s : String) (hs : sch s = some n) (hA : A s) :
     Over sch A (AggQueryIn.Hole (T := T) (c := c) n s (ColKind.allReg n)) :=
   ⟨hs, fun x hx => by rw [Finset.mem_singleton.mp hx]; exact hA⟩
 
 omit [ValueType T] in
-theorem over_param {m : ℕ} (pv : Fin m → T ⊕ Fin c) :
+private theorem over_param {m : ℕ} (pv : Fin m → T ⊕ Fin c) :
     Over sch A (AggQueryIn.Param pv (ColKind.allReg m)) :=
   ⟨trivial, fun x hx => absurd hx (Finset.notMem_empty x)⟩
 
 omit [ValueType T] in
-theorem over_constQ (a : T) : Over sch A (constQ (c := c) a) := over_param _
+private theorem over_constQ (a : T) : Over sch A (constQ (c := c) a) := over_param _
 
-theorem over_emptyRel (n : ℕ) : Over sch A (AggQueryIn.emptyRel (T := T) (c := c) n) :=
+private theorem over_emptyRel (n : ℕ) : Over sch A (AggQueryIn.emptyRel (T := T) (c := c) n) :=
   ⟨AggQueryIn.overSchema_emptyRel sch n, fun x hx => by
     rw [AggQueryIn.names_emptyRel] at hx; exact absurd hx (Finset.notMem_empty x)⟩
 
 omit [ValueType T] in
-theorem over_unitC : Over sch A (AggQueryIn.unitC (T := T) (c := c)) :=
+private theorem over_unitC : Over sch A (AggQueryIn.unitC (T := T) (c := c)) :=
   ⟨AggQueryIn.overSchema_unitC sch, fun x hx => by
     rw [AggQueryIn.names_unitC] at hx; exact absurd hx (Finset.notMem_empty x)⟩
 
 omit [ValueType T] in
-theorem over_dedupG {n : ℕ} {q : AggQueryIn T c n (ColKind.allReg n)} (h : Over sch A q) :
+private theorem over_dedupG {n : ℕ} {q : AggQueryIn T c n (ColKind.allReg n)} (h : Over sch A q) :
     Over sch A (AggQueryIn.dedupG q) :=
   ⟨AggQueryIn.overSchema_dedupG (q := q) h.1, fun x hx => by
     rw [AggQueryIn.names_dedupG] at hx; exact h.2 x hx⟩
 
 omit [ValueType T] in
-theorem over_allRegOf {n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)}
+private theorem over_allRegOf {n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)}
     {q : AggQueryIn T c n κ l} (h : Over sch A q) : Over sch A q.allRegOf := by
   unfold Over
   rw [AggQueryIn.overSchema_allRegOf, AggQueryIn.names_allRegOf]
   exact h
 
 /-- **A union binds its two names**, fresh for its operands. -/
-theorem over_sumByMuX {n : ℕ} (s₁ s₂ : String) {q₁ q₂ : AggQueryIn T c n (ColKind.allReg n)}
+private theorem over_sumByMuX {n : ℕ} (s₁ s₂ : String) {q₁ q₂ : AggQueryIn T c n (ColKind.allReg n)}
     (h₁ : Over sch A q₁) (h₂ : Over sch A q₂) (hs₁ : sch s₁ = none) (hs₂ : sch s₂ = none)
     (hA₁ : ¬ A s₁) (hA₂ : ¬ A s₂) :
     Over sch (fun x => A x ∨ x = s₁ ∨ x = s₂) (AggQueryIn.sumByMuX s₁ s₂ q₁ q₂) := by
@@ -115,7 +124,7 @@ theorem over_sumByMuX {n : ℕ} (s₁ s₂ : String) {q₁ q₂ : AggQueryIn T c
   · exact Or.inl (h₁.2 x h)
   · exact Or.inl (h₂.2 x h)
 
-theorem over_notInDiffX {k : ℕ} (s₁ s₂ : String) (cnt : SeqAggFunc T)
+private theorem over_notInDiffX {k : ℕ} (s₁ s₂ : String) (cnt : SeqAggFunc T)
     {q₁ q₂ : AggQueryIn T c k (ColKind.allReg k)}
     (h₁ : Over sch A q₁) (h₂ : Over sch A q₂) (hs₁ : sch s₁ = none) (hs₂ : sch s₂ = none)
     (hA₁ : ¬ A s₁) (hA₂ : ¬ A s₂) :
@@ -140,7 +149,7 @@ variable {c : ℕ} {sch : Schema} {A : String → Prop}
 
 /-- **A union binding the next two names of a supply**, its operands
 naming only later ones. -/
-theorem over_sumByMuX_from {n : ℕ} (f : ℕ → String) (hf : Function.Injective f) (m : ℕ)
+private theorem over_sumByMuX_from {n : ℕ} (f : ℕ → String) (hf : Function.Injective f) (m : ℕ)
     {q₁ q₂ : AggQueryIn T c n (ColKind.allReg n)}
     (h₁ : Over sch (fun x => A x ∨ ∃ i, m + 2 ≤ i ∧ x = f i) q₁)
     (h₂ : Over sch (fun x => A x ∨ ∃ i, m + 2 ≤ i ∧ x = f i) q₂)
@@ -167,49 +176,49 @@ section EnvOver
 
 variable {c : ℕ} {sch : Schema} {A : String → Prop}
 
-theorem over_ltQ {p : ℕ} {R : AggQueryIn T c p (ColKind.allReg p)} (h : Over sch A R) :
+private theorem over_ltQ {p : ℕ} {R : AggQueryIn T c p (ColKind.allReg p)} (h : Over sch A R) :
     Over sch A (ltQ R) := over_sel _ _ (over_prodR h h)
 
-theorem over_midQ {p : ℕ} {R : AggQueryIn T c p (ColKind.allReg p)} (h : Over sch A R) :
+private theorem over_midQ {p : ℕ} {R : AggQueryIn T c p (ColKind.allReg p)} (h : Over sch A R) :
     Over sch A (midQ R) := over_projQ _ (over_sel _ _ (over_prodR (over_prodR h h) h))
 
-theorem over_belowQ {p : ℕ} {R : AggQueryIn T c p (ColKind.allReg p)} (h : Over sch A R) :
+private theorem over_belowQ {p : ℕ} {R : AggQueryIn T c p (ColKind.allReg p)} (h : Over sch A R) :
     Over sch A (belowQ R) := over_projQ _ (over_ltQ h)
 
-theorem over_aboveQ {p : ℕ} {R : AggQueryIn T c p (ColKind.allReg p)} (h : Over sch A R) :
+private theorem over_aboveQ {p : ℕ} {R : AggQueryIn T c p (ColKind.allReg p)} (h : Over sch A R) :
     Over sch A (aboveQ R) := over_projQ _ (over_ltQ h)
 
 omit [ValueType T] in
-theorem over_nnQ {CQ : AggQueryIn T c 1 (ColKind.allReg 1)} (h : Over sch A CQ) :
+private theorem over_nnQ {CQ : AggQueryIn T c 1 (ColKind.allReg 1)} (h : Over sch A CQ) :
     Over sch A (nnQ CQ) := over_sel _ _ h
 
 /-- The order queries name what their relation does and two names more. -/
-theorem over_succQ (s₁ s₂ : String) (cnt : SeqAggFunc T) {p : ℕ}
+private theorem over_succQ (s₁ s₂ : String) (cnt : SeqAggFunc T) {p : ℕ}
     {R : AggQueryIn T c p (ColKind.allReg p)} (h : Over sch A R) (hs₁ : sch s₁ = none)
     (hs₂ : sch s₂ = none) (hA₁ : ¬ A s₁) (hA₂ : ¬ A s₂) :
     Over sch (fun x => A x ∨ x = s₁ ∨ x = s₂) (succQ s₁ s₂ cnt R) :=
   over_notInDiffX s₁ s₂ cnt (over_ltQ h) (over_midQ h) hs₁ hs₂ hA₁ hA₂
 
-theorem over_leastQ (s₁ s₂ : String) (cnt : SeqAggFunc T) {p : ℕ}
+private theorem over_leastQ (s₁ s₂ : String) (cnt : SeqAggFunc T) {p : ℕ}
     {R : AggQueryIn T c p (ColKind.allReg p)} (h : Over sch A R) (hs₁ : sch s₁ = none)
     (hs₂ : sch s₂ = none) (hA₁ : ¬ A s₁) (hA₂ : ¬ A s₂) :
     Over sch (fun x => A x ∨ x = s₁ ∨ x = s₂) (leastQ s₁ s₂ cnt R) :=
   over_notInDiffX s₁ s₂ cnt h (over_aboveQ h) hs₁ hs₂ hA₁ hA₂
 
-theorem over_greatestQ (s₁ s₂ : String) (cnt : SeqAggFunc T) {p : ℕ}
+private theorem over_greatestQ (s₁ s₂ : String) (cnt : SeqAggFunc T) {p : ℕ}
     {R : AggQueryIn T c p (ColKind.allReg p)} (h : Over sch A R) (hs₁ : sch s₁ = none)
     (hs₂ : sch s₂ = none) (hA₁ : ¬ A s₁) (hA₂ : ¬ A s₂) :
     Over sch (fun x => A x ∨ x = s₁ ∨ x = s₂) (greatestQ s₁ s₂ cnt R) :=
   over_notInDiffX s₁ s₂ cnt h (over_belowQ h) hs₁ hs₂ hA₁ hA₂
 
 omit [ValueType T] in
-theorem over_powU {EQ : AggQueryIn T c 1 (ColKind.allReg 1)} (h : Over sch A EQ) :
+private theorem over_powU {EQ : AggQueryIn T c 1 (ColKind.allReg 1)} (h : Over sch A EQ) :
     ∀ K, Over sch A (powU EQ K)
   | 0 => by rw [powU]; exact over_unitC
   | K + 1 => by rw [powU]; exact over_prodR (over_powU h K) h
 
 omit [ValueType T] in
-theorem over_powX {m : ℕ} {R : AggQueryIn T c m (ColKind.allReg m)} (h : Over sch A R) :
+private theorem over_powX {m : ℕ} {R : AggQueryIn T c m (ColKind.allReg m)} (h : Over sch A R) :
     ∀ K, Over sch A (powX R K)
   | 0 => by rw [powX]; exact over_unitC
   | K + 1 => by rw [powX]; exact over_prodR (over_powX h K) h
@@ -218,7 +227,7 @@ variable (f : ℕ → String) (hf : Function.Injective f) (hsch : ∀ i, sch (f 
   (hA : ∀ i, ¬ A (f i))
 include hf hsch hA
 
-theorem over_alphaQ {CQ : AggQueryIn T c 1 (ColKind.allReg 1)} (h : Over sch A CQ) :
+private theorem over_alphaQ {CQ : AggQueryIn T c 1 (ColKind.allReg 1)} (h : Over sch A CQ) :
     Over sch (fun x => A x ∨ ∃ i, LT.lt i 4 ∧ x = f i) (alphaQ f CQ) := by
   have hf' : Function.Injective (fun i => f (i + 0)) := fun a b hab => by
     have := hf hab; omega
@@ -258,11 +267,11 @@ theorem over_alphaQ {CQ : AggQueryIn T c 1 (ColKind.allReg 1)} (h : Over sch A C
     · exact Or.inl h''
     · exact Or.inr ⟨i, hi, rfl⟩
 
-theorem over_ctrQ {CQ : AggQueryIn T c 1 (ColKind.allReg 1)} (h : Over sch A CQ) (K : ℕ) :
+private theorem over_ctrQ {CQ : AggQueryIn T c 1 (ColKind.allReg 1)} (h : Over sch A CQ) (K : ℕ) :
     Over sch (fun x => A x ∨ ∃ i, LT.lt i 4 ∧ x = f i) (ctrQ f CQ K) :=
   over_powU (over_alphaQ f hf hsch hA h) K
 
-theorem over_lqQ (cnt : SeqAggFunc T) {CQ : AggQueryIn T c 1 (ColKind.allReg 1)}
+private theorem over_lqQ (cnt : SeqAggFunc T) {CQ : AggQueryIn T c 1 (ColKind.allReg 1)}
     (h : Over sch A CQ) (K : ℕ) : Over sch (fun x => A x ∨ ∃ i, x = f i) (lqQ f cnt CQ K) := by
   refine (over_leastQ (f 4) (f 5) cnt (over_ctrQ f hf hsch hA h K) (hsch _) (hsch _) ?_ ?_).mono
     fun x hx => ?_
@@ -278,7 +287,7 @@ theorem over_lqQ (cnt : SeqAggFunc T) {CQ : AggQueryIn T c 1 (ColKind.allReg 1)}
     · exact Or.inr ⟨4, rfl⟩
     · exact Or.inr ⟨5, rfl⟩
 
-theorem over_sqQ (cnt : SeqAggFunc T) {CQ : AggQueryIn T c 1 (ColKind.allReg 1)}
+private theorem over_sqQ (cnt : SeqAggFunc T) {CQ : AggQueryIn T c 1 (ColKind.allReg 1)}
     (h : Over sch A CQ) (K : ℕ) : Over sch (fun x => A x ∨ ∃ i, x = f i) (sqQ f cnt CQ K) := by
   refine (over_succQ (f 6) (f 7) cnt (over_ctrQ f hf hsch hA h K) (hsch _) (hsch _) ?_ ?_).mono
     fun x hx => ?_
@@ -294,7 +303,7 @@ theorem over_sqQ (cnt : SeqAggFunc T) {CQ : AggQueryIn T c 1 (ColKind.allReg 1)}
     · exact Or.inr ⟨6, rfl⟩
     · exact Or.inr ⟨7, rfl⟩
 
-theorem over_thQ (k : ℕ) : ∀ r, Over sch (fun x => A x ∨ ∃ i, LT.lt i (2 * r) ∧ x = f i)
+private theorem over_thQ (k : ℕ) : ∀ r, Over sch (fun x => A x ∨ ∃ i, LT.lt i (2 * r) ∧ x = f i)
     (thQ (T := T) (c := c) f k r)
   | 0 => over_param _
   | r + 1 => by
@@ -316,9 +325,9 @@ theorem over_thQ (k : ℕ) : ∀ r, Over sch (fun x => A x ∨ ∃ i, LT.lt i (2
       · exact Or.inr ⟨2 * r + 1, by omega, rfl⟩
 
 omit hsch hA in
-theorem ne_of_lt_inj {i j : ℕ} (h : i ≠ j) : f i ≠ f j := fun he => h (hf he)
+private theorem ne_of_lt_inj {i j : ℕ} (h : i ≠ j) : f i ≠ f j := fun he => h (hf he)
 
-theorem over_cellsQ (cnt : SeqAggFunc T) (k : ℕ) {CQ : AggQueryIn T c 1 (ColKind.allReg 1)}
+private theorem over_cellsQ (cnt : SeqAggFunc T) (k : ℕ) {CQ : AggQueryIn T c 1 (ColKind.allReg 1)}
     (h : Over sch A CQ) : Over sch (fun x => A x ∨ ∃ i, x = f i) (cellsQ f cnt k CQ) := by
   -- the pieces name only the supply's names from `8` on
   have hth : Over sch (fun x => A x ∨ ∃ i, 8 ≤ i ∧ x = f i) (thP (T := T) (c := c) f k) := by
@@ -382,7 +391,7 @@ theorem over_cellsQ (cnt : SeqAggFunc T) (k : ℕ) {CQ : AggQueryIn T c 1 (ColKi
     · exact Or.inl h'
     · exact Or.inr ⟨i, rfl⟩
 
-theorem over_descQ (cnt : SeqAggFunc T) (k : ℕ) {CQ : AggQueryIn T c 1 (ColKind.allReg 1)}
+private theorem over_descQ (cnt : SeqAggFunc T) (k : ℕ) {CQ : AggQueryIn T c 1 (ColKind.allReg 1)}
     (h : Over sch A CQ) : Over sch (fun x => A x ∨ ∃ i, x = f i) (descQ f cnt k CQ) :=
   over_projQ _ (over_powX (over_cellsQ f hf hsch hA cnt k h) k)
 
@@ -395,7 +404,7 @@ structure EnvOver {k c : ℕ} (sch : Schema) (A : String → Prop) (env : SymEnv
   lq : ∀ n, Over sch A (env.Lq n)
   sq : ∀ n, Over sch A (env.Sq n)
 
-theorem envOver_envOf {c : ℕ} {sch : Schema} {A : String → Prop} (f : ℕ → String)
+private theorem envOver_envOf {c : ℕ} {sch : Schema} {A : String → Prop} (f : ℕ → String)
     (hf : Function.Injective f) (hsch : ∀ i, sch (f i) = none) (hA : ∀ i, ¬ A (f i))
     (cnt : SeqAggFunc T) (k : ℕ) {CQ : AggQueryIn T c 1 (ColKind.allReg 1)} (h : Over sch A CQ) :
     EnvOver sch (fun x => A x ∨ ∃ i, x = f i) (envOf f cnt k CQ) := by
@@ -444,7 +453,7 @@ def RelsIn (sch : Schema) (A : String → Prop) : {c n : ℕ} → {κ : Fin n �
   | _, _, _, _, .WinExpr _ _ _ _ _ _ _ q _ => RelsIn sch A q
 
 omit [ValueType T] in
-theorem relsIn_update {sch : Schema} {A : String → Prop} {t : String} {m : ℕ} :
+private theorem relsIn_update {sch : Schema} {A : String → Prop} {t : String} {m : ℕ} :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l),
       q.noMention t → (RelsIn (sch.update t m) A q ↔ RelsIn sch A q) := by
   intro c n κ l q
@@ -477,7 +486,7 @@ theorem relsIn_update {sch : Schema} {A : String → Prop} {t : String} {m : ℕ
 
 omit [ValueType T] in
 /-- **A well-formed hygienic query reads only declared relations.** -/
-theorem relsIn_of_overSchema {A : String → Prop} :
+private theorem relsIn_of_overSchema {A : String → Prop} :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l)
       {sch : Schema}, q.overSchema sch → q.hygienic → (∀ x ∈ q.names, A x) → RelsIn sch A q := by
   intro c n κ l q
@@ -524,22 +533,22 @@ theorem relsIn_of_overSchema {A : String → Prop} :
   | WinExpr _ _ _ _ _ _ _ _ _ ih => exact fun ho hr hA => ih ho hr hA
 
 omit [ValueType T] in
-theorem Over.update {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} {sch : Schema}
+private theorem Over.update {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} {sch : Schema}
     {A : String → Prop} {q : AggQueryIn T c n κ l} (h : Over sch A q) {t : String} (ht : ¬ A t)
     (m : ℕ) : Over (sch.update t m) A q :=
   ⟨AggQueryIn.overSchema_update_of_not_mem_names q h.1 (fun hm => ht (h.2 t hm)), h.2⟩
 
-theorem EnvOver.update {k c : ℕ} {sch : Schema} {A : String → Prop} {env : SymEnv T k c}
+private theorem EnvOver.update {k c : ℕ} {sch : Schema} {A : String → Prop} {env : SymEnv T k c}
     (h : EnvOver sch A env) {t : String} (ht : ¬ A t) (m : ℕ) : EnvOver (sch.update t m) A env :=
   ⟨h.cq.update ht m, h.desc.update ht m, fun n => (h.lq n).update ht m,
     fun n => (h.sq n).update ht m⟩
 
-theorem EnvOver.mono {k c : ℕ} {sch : Schema} {A A' : String → Prop} {env : SymEnv T k c}
+private theorem EnvOver.mono {k c : ℕ} {sch : Schema} {A A' : String → Prop} {env : SymEnv T k c}
     (h : EnvOver sch A env) (hA : ∀ x, A x → A' x) : EnvOver sch A' env :=
   ⟨h.cq.mono hA, h.desc.mono hA, fun n => (h.lq n).mono hA, fun n => (h.sq n).mono hA⟩
 
 omit [ValueType T] in
-theorem noMention_of_relsIn {sch : Schema} {A : String → Prop} {t : String} (ht : ¬ A t) :
+private theorem noMention_of_relsIn {sch : Schema} {A : String → Prop} {t : String} (ht : ¬ A t) :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l),
       RelsIn sch A q → q.noMention t := by
   intro c n κ l q
@@ -567,14 +576,14 @@ theorem noMention_of_relsIn {sch : Schema} {A : String → Prop} {t : String} (h
   | Win _ _ _ _ _ _ _ _ _ _ ih => exact fun h => ih h
   | WinExpr _ _ _ _ _ _ _ _ _ ih => exact fun h => ih h
 
-theorem envNoMention_of_over {k c : ℕ} {sch : Schema} {A : String → Prop} {env : SymEnv T k c}
+private theorem envNoMention_of_over {k c : ℕ} {sch : Schema} {A : String → Prop} {env : SymEnv T k c}
     (h : EnvOver sch A env) {t : String} (ht : ¬ A t) : EnvNoMention env t :=
   ⟨AggQueryIn.noMention_of_not_mem_names _ (fun hm => ht (h.cq.2 t hm)),
     AggQueryIn.noMention_of_not_mem_names _ (fun hm => ht (h.desc.2 t hm)),
     fun n => ⟨AggQueryIn.noMention_of_not_mem_names _ (fun hm => ht ((h.lq n).2 t hm)),
       AggQueryIn.noMention_of_not_mem_names _ (fun hm => ht ((h.sq n).2 t hm))⟩⟩
 
-theorem over_junkB {c N M : ℕ} {sch : Schema} {A : String → Prop} (s : String)
+private theorem over_junkB {c N M : ℕ} {sch : Schema} {A : String → Prop} (s : String)
     (hs : sch s = some M) (hA : A s) : Over sch A (junkB (T := T) (c := c) N M s) := by
   unfold Over junkB
   rw [AggQueryIn.overSchema_castKind, AggQueryIn.names_castKind]
@@ -582,7 +591,7 @@ theorem over_junkB {c N M : ℕ} {sch : Schema} {A : String → Prop} (s : Strin
 
 /-- **The symbolic evaluation is well formed**, its recursions binding
 names of its supply. -/
-theorem over_sym_aux {k c : ℕ} (env : SymEnv T k c) (A : String → Prop) :
+private theorem over_sym_aux {k c : ℕ} (env : SymEnv T k c) (A : String → Prop) :
     ∀ (N : ℕ) (g : ℕ → String) {n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)}
       (q : AggQueryIn T (k + c) n κ l), sizeOf q ≤ N → Function.Injective g →
       (∀ i, ¬ A (g i)) → ∀ (sch : Schema), (∀ i, sch (g i) = none) → EnvOver sch A env →
@@ -778,37 +787,37 @@ section Slices
 
 variable {sch : Schema} {A B : String → Prop} {f : ℕ → String}
 
-theorem SupOK.slice (h : SupOK sch A f) (ρ : ℕ → ℕ) (hrho : Function.Injective ρ) :
+private theorem SupOK.slice (h : SupOK sch A f) (ρ : ℕ → ℕ) (hrho : Function.Injective ρ) :
     SupOK sch A (fun i => f (ρ i)) :=
   ⟨fun _ _ he => hrho (h.inj he), fun _ => h.fresh _, fun _ => h.out _⟩
 
 /-- A slice's names are outside another, disjoint slice and outside `A`. -/
-theorem SupOK.slice_out (h : SupOK sch A f) (ρ τ : ℕ → ℕ) (hrt : ∀ i j, ρ i ≠ τ j)
+private theorem SupOK.slice_out (h : SupOK sch A f) (ρ τ : ℕ → ℕ) (hrt : ∀ i j, ρ i ≠ τ j)
     (hτ : Function.Injective τ) : SupOK sch (Sup A (fun i => f (ρ i))) (fun i => f (τ i)) :=
   ⟨fun _ _ he => hτ (h.inj he), fun _ => h.fresh _, fun j hj => by
     rcases hj with hj | ⟨i, hi⟩
     · exact h.out _ hj
     · exact hrt i j (h.inj hi).symm⟩
 
-theorem SupOK.mono (h : SupOK sch B f) (hAB : ∀ x, A x → B x) : SupOK sch A f :=
+private theorem SupOK.mono (h : SupOK sch B f) (hAB : ∀ x, A x → B x) : SupOK sch A f :=
   ⟨h.inj, h.fresh, fun i hi => h.out i (hAB _ hi)⟩
 
-theorem sup_mono_slice (ρ : ℕ → ℕ) {x : String} (hx : Sup A (fun i => f (ρ i)) x) : Sup A f x := by
+private theorem sup_mono_slice (ρ : ℕ → ℕ) {x : String} (hx : Sup A (fun i => f (ρ i)) x) : Sup A f x := by
   rcases hx with hx | ⟨i, rfl⟩
   · exact Or.inl hx
   · exact Or.inr ⟨ρ i, rfl⟩
 
-theorem sup_mono_left (hAB : ∀ x, A x → B x) {x : String} (hx : Sup A f x) : Sup B f x := by
+private theorem sup_mono_left (hAB : ∀ x, A x → B x) {x : String} (hx : Sup A f x) : Sup B f x := by
   rcases hx with hx | hx
   · exact Or.inl (hAB _ hx)
   · exact Or.inr hx
 
-theorem sup_left {x : String} (hx : A x) : Sup A f x := Or.inl hx
+private theorem sup_left {x : String} (hx : A x) : Sup A f x := Or.inl hx
 
 end Slices
 
 omit [ValueType T] in
-theorem relsIn_mono {sch : Schema} {A B : String → Prop} (hAB : ∀ x, A x → B x) :
+private theorem relsIn_mono {sch : Schema} {A B : String → Prop} (hAB : ∀ x, A x → B x) :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l),
       RelsIn sch A q → RelsIn sch B q := by
   intro c n κ l q
@@ -837,7 +846,7 @@ theorem relsIn_mono {sch : Schema} {A B : String → Prop} (hAB : ∀ x, A x →
   | WinExpr _ _ _ _ _ _ _ _ _ ih => exact fun h => ih h
 
 omit [ValueType T] in
-theorem over_of_projQ {c N M : ℕ} {sch : Schema} {A : String → Prop} {l : List (String × ℕ)}
+private theorem over_of_projQ {c N M : ℕ} {sch : Schema} {A : String → Prop} {l : List (String × ℕ)}
     (F : Fin M → SA T c N) {q : AggQueryIn T c N (ColKind.allReg N) l}
     (h : Over sch A (projQ F q)) : Over sch A q := by
   unfold Over projQ at h
@@ -850,7 +859,7 @@ section CutOver
 
 variable {c : ℕ} {sch : Schema} {A : String → Prop}
 
-theorem over_u2 {B : String → Prop} (f : ℕ → String) {a b : AggQueryIn T c 1 (ColKind.allReg 1)}
+private theorem over_u2 {B : String → Prop} (f : ℕ → String) {a b : AggQueryIn T c 1 (ColKind.allReg 1)}
     (ha : Over sch B a) (hb : Over sch B b) (hf : SupOK sch B f) :
     Over sch (Sup B f) (u2 f a b) :=
   (over_sumByMuX _ _ ha hb (hf.fresh 0) (hf.fresh 1) (hf.out 0) (hf.out 1)).mono fun x hx => by
@@ -859,7 +868,7 @@ theorem over_u2 {B : String → Prop} (f : ℕ → String) {a b : AggQueryIn T c
     · exact Or.inr ⟨0, rfl⟩
     · exact Or.inr ⟨1, rfl⟩
 
-theorem over_unionFin : ∀ (f : ℕ → String) (n : ℕ)
+private theorem over_unionFin : ∀ (f : ℕ → String) (n : ℕ)
     (F : Fin n → AggQueryIn T c 1 (ColKind.allReg 1)),
     SupOK sch A f → (∀ i, Over sch A (F i)) → Over sch (Sup A f) (unionFin f n F)
   | _, 0, _, _, _ => by rw [unionFin]; exact over_emptyRel 1
@@ -878,25 +887,25 @@ theorem over_unionFin : ∀ (f : ℕ → String) (n : ℕ)
     · exact Or.inr ⟨0, rfl⟩
     · exact Or.inr ⟨1, rfl⟩
 
-theorem over_valsOf (f : ℕ → String) {n : ℕ} {q : AggQueryIn T c n (ColKind.allReg n)}
+private theorem over_valsOf (f : ℕ → String) {n : ℕ} {q : AggQueryIn T c n (ColKind.allReg n)}
     (hf : SupOK sch A f) (h : Over sch A q) : Over sch (Sup A f) (valsOf f q) :=
   over_unionFin f n _ hf fun _ => over_projQ _ h
 
-theorem over_colsQ {N p : ℕ} (f : ℕ → String) {q : AggQueryIn T c N (ColKind.allReg N)}
+private theorem over_colsQ {N p : ℕ} (f : ℕ → String) {q : AggQueryIn T c N (ColKind.allReg N)}
     (idx : Fin p → Fin N) (hf : SupOK sch A f) (h : Over sch A q) :
     Over sch (Sup A f) (colsQ f q idx) :=
   over_unionFin f p _ hf fun _ => over_projQ _ h
 
-theorem over_ambQ (f : ℕ → String) (hf : SupOK sch A f) : Over sch (Sup A f) (ambQ (T := T) f c) :=
+private theorem over_ambQ (f : ℕ → String) (hf : SupOK sch A f) : Over sch (Sup A f) (ambQ (T := T) f c) :=
   over_unionFin f c _ hf fun _ => over_projQ _ over_unitC
 
-theorem over_nullQ : Over sch A (nullQ (T := T) (c := c)) := by
+private theorem over_nullQ : Over sch A (nullQ (T := T) (c := c)) := by
   unfold nullQ
   split
   · exact over_constQ _
   · exact over_emptyRel 1
 
-theorem over_constsQ (f : ℕ → String) (S : Finset T) (hf : SupOK sch A f) :
+private theorem over_constsQ (f : ℕ → String) (S : Finset T) (hf : SupOK sch A f) :
     Over sch (Sup A f) (constsQ (c := c) f S) :=
   over_unionFin f _ _ hf fun _ => over_constQ _
 
@@ -904,31 +913,31 @@ theorem over_constsQ (f : ℕ → String) (S : Finset T) (hf : SupOK sch A f) :
 def SupP (A : String → Prop) (f : ℕ → String) (P : ℕ → Prop) : String → Prop :=
   fun x => A x ∨ ∃ i, P i ∧ x = f i
 
-theorem supOK_part {f : ℕ → String} {P : ℕ → Prop} (hf : SupOK sch A f) (j : ℕ)
+private theorem supOK_part {f : ℕ → String} {P : ℕ → Prop} (hf : SupOK sch A f) (j : ℕ)
     (hP : ∀ i, ¬ P (8 * i + j)) : SupOK sch (SupP A f P) (part f j) :=
   ⟨fun a b he => by have := hf.inj he; omega, fun _ => hf.fresh _, fun i hx => by
     rcases hx with hx | ⟨i', hi', he⟩
     · exact hf.out _ hx
     · have := hf.inj he; subst this; exact hP i hi'⟩
 
-theorem supP_part {B : String → Prop} {f : ℕ → String} {P : ℕ → Prop} (j : ℕ)
+private theorem supP_part {B : String → Prop} {f : ℕ → String} {P : ℕ → Prop} (j : ℕ)
     (hP : ∀ i, P (8 * i + j)) (hB : ∀ x, B x → SupP A f P x) :
     ∀ x, Sup B (part f j) x → SupP A f P x := fun x hx => by
   rcases hx with hx | ⟨i, rfl⟩
   · exact hB x hx
   · exact Or.inr ⟨_, hP i, rfl⟩
 
-theorem sup_of_supP {f : ℕ → String} {P : ℕ → Prop} {x : String} (hx : SupP A f P x) :
+private theorem sup_of_supP {f : ℕ → String} {P : ℕ → Prop} {x : String} (hx : SupP A f P x) :
     Sup A f x := by
   rcases hx with hx | ⟨i, -, rfl⟩
   · exact Or.inl hx
   · exact Or.inr ⟨i, rfl⟩
 
-theorem supOK_of_part {f : ℕ → String} (hf : SupOK sch A f) (j : ℕ) :
+private theorem supOK_of_part {f : ℕ → String} (hf : SupOK sch A f) (j : ℕ) :
     SupOK sch A (part f j) :=
   hf.slice (fun i => 8 * i + j) fun _ _ h => by simp only at h; omega
 
-theorem over_cutOf (f : ℕ → String) (S : Finset T) {core : AggQueryIn T c 1 (ColKind.allReg 1)}
+private theorem over_cutOf (f : ℕ → String) (S : Finset T) {core : AggQueryIn T c 1 (ColKind.allReg 1)}
     (hf : SupOK sch A f) (h : Over sch A core) : Over sch (Sup A f) (cutOf f S core) := by
   have hP : ∀ j, j % 8 ≠ 0 → ∀ i, (fun j => j % 8 ≠ 0) (8 * i + j) := fun j hj i => by
     simp only; omega
@@ -956,7 +965,7 @@ variable {k c : ℕ} {sch : Schema} {A : String → Prop}
 
 /-- **An aggregation's contribution to a cut is well formed**, given that
 its raw symbolic counterpart is, in any environment and with any supply. -/
-theorem over_aggCut (cnt : SeqAggFunc T) (f : ℕ → String) (hf : SupOK sch A f)
+private theorem over_aggCut (cnt : SeqAggFunc T) (f : ℕ → String) (hf : SupOK sch A f)
     {X : AggQueryIn T c 1 (ColKind.allReg 1)} (hX : Over sch (Sup A (part f 1)) X) (S : Finset T)
     {p p' : ℕ} (raw : SymEnv T k c → (ℕ → String) → AggQueryIn T c p (ColKind.allReg p))
     (idx : Fin p' → Fin p)
@@ -1003,7 +1012,7 @@ theorem over_aggCut (cnt : SeqAggFunc T) (f : ℕ → String) (hf : SupOK sch A 
   · exact Or.inr ⟨_, rfl⟩
 
 /-- **Two operands of a cut's union**, named by slices 1 and 2. -/
-theorem over_u2Parts (f : ℕ → String) (hf : SupOK sch A f)
+private theorem over_u2Parts (f : ℕ → String) (hf : SupOK sch A f)
     {a b : AggQueryIn T c 1 (ColKind.allReg 1)}
     (ha : Over sch (Sup A (part f 1)) a) (hb : Over sch (Sup A (part f 2)) b) :
     Over sch (Sup A f) (u2 (part f 0) a b) := by
@@ -1017,7 +1026,7 @@ theorem over_u2Parts (f : ℕ → String) (hf : SupOK sch A f)
   · exact Or.inr ⟨_, rfl⟩
 
 /-- **The core of a cut is well formed.** -/
-theorem over_cutCore (cnt : SeqAggFunc T) :
+private theorem over_cutCore (cnt : SeqAggFunc T) :
     ∀ (N : ℕ) (f : ℕ → String) {A : String → Prop} {n : ℕ} {κ : Fin n → ColKind}
       {l : List (String × ℕ)} (q : AggQueryIn T (k + c) n κ l), sizeOf q ≤ N →
       SupOK sch A f → RelsIn sch A q → Over sch (Sup A f) (cutCore cnt f q) := by
@@ -1094,7 +1103,7 @@ section TabOver
 
 variable {k c : ℕ} {sch : Schema} {A : String → Prop}
 
-theorem over_cutQ (cnt : SeqAggFunc T) (f : ℕ → String) {n : ℕ} {κ : Fin n → ColKind}
+private theorem over_cutQ (cnt : SeqAggFunc T) (f : ℕ → String) {n : ℕ} {κ : Fin n → ColKind}
     {l : List (String × ℕ)} (q : AggQueryIn T (k + c) n κ l) (hf : SupOK sch A f)
     (hr : RelsIn sch A q) : Over sch (Sup A f) (cutQ cnt f q) := by
   have hA' : ∀ x, A x → SupP A f (fun i => i % 8 = 1) x := fun x h => Or.inl h
@@ -1107,7 +1116,7 @@ theorem over_cutQ (cnt : SeqAggFunc T) (f : ℕ → String) {n : ℕ} {κ : Fin 
   · exact sup_of_supP hx
   · exact Or.inr ⟨_, rfl⟩
 
-theorem envOver_tabEnv' (cnt : SeqAggFunc T) (f : ℕ → String) {n : ℕ} {κ : Fin n → ColKind}
+private theorem envOver_tabEnv' (cnt : SeqAggFunc T) (f : ℕ → String) {n : ℕ} {κ : Fin n → ColKind}
     (q : AggQueryIn T (k + c) n κ) (hf : SupOK sch A f) (hr : RelsIn sch A q) :
     EnvOver sch (SupP A f (fun i => i % 8 = 0 ∨ i % 8 = 1)) (tabEnv cnt f q) := by
   have hA' : ∀ x, A x → SupP A f (fun i => i % 8 = 1) x := fun x h => Or.inl h
@@ -1120,12 +1129,12 @@ theorem envOver_tabEnv' (cnt : SeqAggFunc T) (f : ℕ → String) {n : ℕ} {κ 
   · exact Or.inr ⟨i, Or.inr hi, rfl⟩
   · exact Or.inr ⟨_, Or.inl (by omega), rfl⟩
 
-theorem envOver_tabEnv (cnt : SeqAggFunc T) (f : ℕ → String) {n : ℕ} {κ : Fin n → ColKind}
+private theorem envOver_tabEnv (cnt : SeqAggFunc T) (f : ℕ → String) {n : ℕ} {κ : Fin n → ColKind}
     (q : AggQueryIn T (k + c) n κ) (hf : SupOK sch A f) (hr : RelsIn sch A q) :
     EnvOver sch (Sup A f) (tabEnv cnt f q) :=
   (envOver_tabEnv' cnt f q hf hr).mono fun _ hx => sup_of_supP hx
 
-theorem over_tabQ (cnt : SeqAggFunc T) (f : ℕ → String) {n : ℕ} {κ : Fin n → ColKind}
+private theorem over_tabQ (cnt : SeqAggFunc T) (f : ℕ → String) {n : ℕ} {κ : Fin n → ColKind}
     (q : AggQueryIn T (k + c) n κ) (hf : SupOK sch A f) (hr : RelsIn sch A q) :
     Over sch (Sup A f) (tabQ cnt f q) := by
   have hok := supOK_part hf 2 (P := fun i => i % 8 = 0 ∨ i % 8 = 1) fun i h => by omega
@@ -1136,7 +1145,7 @@ theorem over_tabQ (cnt : SeqAggFunc T) (f : ℕ → String) {n : ℕ} {κ : Fin 
   · exact sup_of_supP hx
   · exact Or.inr ⟨_, rfl⟩
 
-theorem over_valsQ (f : ℕ → String) {env : SymEnv T k c} {VQ : AggQueryIn T c 1 (ColKind.allReg 1)}
+private theorem over_valsQ (f : ℕ → String) {env : SymEnv T k c} {VQ : AggQueryIn T c 1 (ColKind.allReg 1)}
     (henv : EnvOver sch A env) (hV : Over sch A VQ) (hf : SupOK sch A f) :
     Over sch (Sup A f) (valsQ f env VQ) :=
   over_dedupG (over_u2 f hV henv.cq hf)
@@ -1171,7 +1180,7 @@ theorem over_applyX (cnt : SeqAggFunc T) (f : ℕ → String) {n₂ : ℕ} {l : 
   · exact Or.inl (h0 x hx)
   · exact Or.inl (Or.inr ⟨_, rfl⟩)
 
-theorem noMention_applyX (cnt : SeqAggFunc T) (f : ℕ → String) {n₂ : ℕ} {l : List (String × ℕ)}
+private theorem noMention_applyX (cnt : SeqAggFunc T) (f : ℕ → String) {n₂ : ℕ} {l : List (String × ℕ)}
     {κ₂ : Fin n₂ → ColKind} {L : AggQueryIn T c k (ColKind.allReg k) l}
     {R : AggQueryIn T (k + c) n₂ κ₂} {VQ : AggQueryIn T c 1 (ColKind.allReg 1)} {s : String}
     (hL : L.noMention s) (hR : R.noMention s) (hV : VQ.noMention s) :

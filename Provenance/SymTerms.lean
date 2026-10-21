@@ -4,6 +4,8 @@ public import Provenance.SymRel
 public import Provenance.Genericity
 import Mathlib.Tactic.NormNum.Inv
 import Mathlib.Tactic.NormNum.Pow
+import all Provenance.SymCells
+import all Provenance.SymRel
 
 /-!
 # Terms and predicates over symbolic rows
@@ -67,7 +69,7 @@ noncomputable def rowEncP (C : Finset T) (par : Fin k → T) (v : Tuple T n) {P 
     (e : Tuple T P) : Tuple T ((k + n) * (7 + k) + P) :=
   Fin.append (rowEnc C par v) e
 
-theorem concCols_eval {m : ℕ} (C : Finset T) (vcol : SA T c m) (r : Tuple T m) (γ : Fin c → T)
+private theorem concCols_eval {m : ℕ} (C : Finset T) (vcol : SA T c m) (r : Tuple T m) (γ : Fin c → T)
     (i : Fin (7 + k)) :
     (concCols vcol i).eval r γ = enc C k (.conc (vcol.eval r γ)) i := by
   refine Fin.addCases (fun i => ?_) (fun i => ?_) i
@@ -126,7 +128,7 @@ def termCS {κ : Fin n → ColKind} : TermGIn T (k + c) κ → CS T k c n
   | .provIndex i _ => .col i
   | _ => .const 0
 
-theorem termCS_val {κ : Fin n → ColKind} (t : TermGIn T (k + c) κ) (ht : t.noFun = true)
+private theorem termCS_val {κ : Fin n → ColKind} (t : TermGIn T (k + c) κ) (ht : t.noFun = true)
     (par : Fin k → T) (γ : Fin c → T) (v : Tuple T n) :
     (termCS t).val par γ v = t.evalPlain v (Fin.append par γ) := by
   cases t with
@@ -143,7 +145,7 @@ theorem termCS_val {κ : Fin n → ColKind} (t : TermGIn T (k + c) κ) (ht : t.n
   | _ => simp [TermGIn.noFun] at ht
 
 /-- The constant a term's source names is one of the term's. -/
-theorem termCS_const {κ : Fin n → ColKind} (t : TermGIn T (k + c) κ) (ht : t.noFun = true)
+private theorem termCS_const {κ : Fin n → ColKind} (t : TermGIn T (k + c) κ) (ht : t.noFun = true)
     {a : T} (h : termCS t = .const a) : a ∈ t.consts := by
   cases t with
   | const b => cases h; exact Finset.mem_singleton_self _
@@ -168,7 +170,7 @@ def projCS {κ : Fin n → ColKind} : ProjColIn T (k + c) κ → CS T k c n
     | _ => .const 0
   | .provTerm t => termCS t
 
-theorem projCS_val {κ : Fin n → ColKind} (p : ProjColIn T (k + c) κ) (hp : p.noFun = true)
+private theorem projCS_val {κ : Fin n → ColKind} (p : ProjColIn T (k + c) κ) (hp : p.noFun = true)
     (par : Fin k → T) (γ : Fin c → T) (v : Tuple T n) :
     (projCS p).val par γ v = p.evalPlain v (Fin.append par γ) := by
   cases p with
@@ -185,7 +187,7 @@ theorem projCS_val {κ : Fin n → ColKind} (p : ProjColIn T (k + c) κ) (hp : p
     | _ => simp [ProjColIn.noFun, TermIn.noFun] at hp
   | provTerm t => exact termCS_val t hp par γ v
 
-theorem projCS_const {κ : Fin n → ColKind} (p : ProjColIn T (k + c) κ) (hp : p.noFun = true)
+private theorem projCS_const {κ : Fin n → ColKind} (p : ProjColIn T (k + c) κ) (hp : p.noFun = true)
     {a : T} (h : projCS p = .const a) : a ∈ p.consts := by
   cases p with
   | term t => exact termCS_const t hp h
@@ -201,7 +203,7 @@ theorem projCS_const {κ : Fin n → ColKind} (p : ProjColIn T (k + c) κ) (hp :
 
 /-- **A source's value is good** where the row, the context and the
 constants are. -/
-theorem goodVal_val {C : Finset T} (s : CS T k c n) (par : Fin k → T) (γ : Fin c → T)
+private theorem goodVal_val {C : Finset T} (s : CS T k c n) (par : Fin k → T) (γ : Fin c → T)
     (v : Tuple T n) (hv : ∀ i, GoodVal (C := C) par (v i)) (hamb : ∀ j, CG C (γ j))
     (hc : ∀ a, s = .const a → CG C a) : GoodVal (C := C) par (s.val par γ v) := by
   cases s with
@@ -225,7 +227,7 @@ def transPred (P : ℕ) {κ : Fin n → ColKind} :
   | .not φ => .not (transPred P φ)
 
 /-- One comparison between two sources, read on an encoded row. -/
-theorem eval3_cellCmp_cs {C : Finset T} (P : ℕ) (op : CompOp) (s₁ s₂ : CS T k c n)
+private theorem eval3_cellCmp_cs {C : Finset T} (P : ℕ) (op : CompOp) (s₁ s₂ : CS T k c n)
     (par : Fin k → T) (γ : Fin c → T) (v : Tuple T n) (e : Tuple T P)
     (hv : ∀ i, GoodVal (C := C) par (v i)) (hamb : ∀ j, CG C (γ j))
     (hc₁ : ∀ a, s₁ = .const a → CG C a) (hc₂ : ∀ a, s₂ = .const a → CG C a) :
@@ -292,7 +294,7 @@ def termCST : TermIn T 0 n → CS T k 0 n
   | .index i => .col i
   | _ => .const 0
 
-theorem termCST_val (t : TermIn T 0 n) (ht : t.noFun = true) (par : Fin k → T)
+private theorem termCST_val (t : TermIn T 0 n) (ht : t.noFun = true) (par : Fin k → T)
     (γ : Fin 0 → T) (v : Tuple T n) :
     (termCST (k := k) t).val par γ v = t.eval v := by
   cases t with
@@ -301,7 +303,7 @@ theorem termCST_val (t : TermIn T 0 n) (ht : t.noFun = true) (par : Fin k → T)
   | index i => rfl
   | _ => simp [TermIn.noFun] at ht
 
-theorem termCST_const (t : TermIn T 0 n) (ht : t.noFun = true) {a : T}
+private theorem termCST_const (t : TermIn T 0 n) (ht : t.noFun = true) {a : T}
     (h : termCST (k := k) t = .const a) : a ∈ t.consts := by
   cases t with
   | const b => cases h; exact Finset.mem_singleton_self _
@@ -319,7 +321,7 @@ def transSel (P : ℕ) : Selection T n → SP T 0 ((k + n) * (7 + k) + P)
 
 /-- **The translated selection keeps the encodings of the rows the
 selection keeps**, where the values involved are good. -/
-theorem eval3_transSel {C : Finset T} (P : ℕ) (φ : Selection T n) (hφ : φ.noFun = true)
+private theorem eval3_transSel {C : Finset T} (P : ℕ) (φ : Selection T n) (hφ : φ.noFun = true)
     (hφc : ∀ a ∈ φ.consts, CG C a) (par : Fin k → T) (v : Tuple T n) (e : Tuple T P)
     (hv : ∀ i, GoodVal (C := C) par (v i)) (γ : Fin 0 → T) :
     (transSel P φ).eval3 (rowEncP C par v e) γ = φ.eval3 v := by
@@ -362,7 +364,7 @@ omit [ValueType T] in
 theorem projSA_kind {N M : ℕ} (f : Fin M → SA T c N) :
     (fun x => (projSA f x).kind) = ColKind.allReg M := rfl
 
-theorem evalPlain_projSA {N M : ℕ} (f : Fin M → SA T c N) (r : Tuple T N) (γ : Fin c → T)
+private theorem evalPlain_projSA {N M : ℕ} (f : Fin M → SA T c N) (r : Tuple T N) (γ : Fin c → T)
     (x : Fin M) : (projSA f x).evalPlain r γ = (f x).eval r γ :=
   SA.evalPlain_toG _ r γ
 
@@ -377,7 +379,7 @@ def symProjSA (P : ℕ) {m : ℕ} (srcs : Fin m → CS T k c n) :
       (fun i₁ => (srcs i₁).sa P (finProdFinEquiv.symm y).2) (finProdFinEquiv.symm y).1)
     (fun z => .col (Fin.natAdd _ z))
 
-theorem rowEncP_cc (C : Finset T) (par : Fin k → T) (v : Tuple T n) {P : ℕ} (e : Tuple T P)
+private theorem rowEncP_cc (C : Finset T) (par : Fin k → T) (v : Tuple T n) {P : ℕ} (e : Tuple T P)
     (i : Fin (k + n)) (j : Fin (7 + k)) :
     rowEncP C par v e (cc P i j)
       = (Fin.append (fun i => enc C k (code C par i))
@@ -389,7 +391,7 @@ theorem rowEncP_cc (C : Finset T) (par : Fin k → T) (v : Tuple T n) {P : ℕ} 
 
 /-- **A symbolic projection maps the encoding of a row to the encoding of
 the projected row**, where the values involved are good. -/
-theorem eval_symProjSA {C : Finset T} (P : ℕ) {m : ℕ} (srcs : Fin m → CS T k c n)
+private theorem eval_symProjSA {C : Finset T} (P : ℕ) {m : ℕ} (srcs : Fin m → CS T k c n)
     (par : Fin k → T) (γ : Fin c → T) (v : Tuple T n) (e : Tuple T P)
     (hamb : ∀ j, CG C (γ j)) (hc : ∀ j a, srcs j = .const a → CG C a) :
     (fun x => (symProjSA P srcs x).eval (rowEncP C par v e) γ)

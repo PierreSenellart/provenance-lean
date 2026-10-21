@@ -9,6 +9,8 @@ public import Mathlib.Logic.Equiv.Fin.Basic
 import Mathlib.Algebra.BigOperators.Group.Finset.Basic
 import Mathlib.Tactic.NormNum.Inv
 import Mathlib.Tactic.NormNum.Pow
+import all Provenance.AggValue
+import all Provenance.Nested
 
 /-!
 # Nested values under a homomorphism, at every storey
@@ -44,21 +46,21 @@ variable {α γ : Type} {eqv : α → α → Prop}
 def liftEquiv {n m : ℕ} (π : Fin n ≃ Fin m) : Fin (n + 1) ≃ Fin (m + 1) :=
   (finSuccEquiv n).trans ((Equiv.optionCongr π).trans (finSuccEquiv m).symm)
 
-@[simp] theorem liftEquiv_zero {n m : ℕ} (π : Fin n ≃ Fin m) : liftEquiv π 0 = 0 := by
+@[simp] private theorem liftEquiv_zero {n m : ℕ} (π : Fin n ≃ Fin m) : liftEquiv π 0 = 0 := by
   simp [liftEquiv]
 
-@[simp] theorem liftEquiv_succ {n m : ℕ} (π : Fin n ≃ Fin m) (i : Fin n) :
+@[simp] private theorem liftEquiv_succ {n m : ℕ} (π : Fin n ≃ Fin m) (i : Fin n) :
     liftEquiv π i.succ = (π i).succ := by
   simp [liftEquiv]
 
-@[simp] theorem liftEquiv_symm_zero {n m : ℕ} (π : Fin n ≃ Fin m) : (liftEquiv π).symm 0 = 0 := by
+@[simp] private theorem liftEquiv_symm_zero {n m : ℕ} (π : Fin n ≃ Fin m) : (liftEquiv π).symm 0 = 0 := by
   rw [Equiv.symm_apply_eq, liftEquiv_zero]
 
-@[simp] theorem liftEquiv_symm_succ {n m : ℕ} (π : Fin n ≃ Fin m) (i : Fin m) :
+@[simp] private theorem liftEquiv_symm_succ {n m : ℕ} (π : Fin n ≃ Fin m) (i : Fin m) :
     (liftEquiv π).symm i.succ = (π.symm i).succ := by
   rw [Equiv.symm_apply_eq, liftEquiv_succ, Equiv.apply_symm_apply]
 
-theorem seqOf_cons_map {n : ℕ} (a : α) (t : List α)
+private theorem seqOf_cons_map {n : ℕ} (a : α) (t : List α)
     (π : Fin (n + 1) ≃ Fin (t.length + 1)) (W : Finset (Fin (n + 1))) :
     Having.seqOf (a :: t) (W.map π.toEmbedding)
       = (if π.symm 0 ∈ W then [a] else [])
@@ -190,11 +192,11 @@ noncomputable def ListingRel.move {f : K →+* K'} (D : ListingRel f T) :
     Fin D.L.length ≃ Fin D.L'.length :=
   Classical.choose D.exists_move
 
-theorem ListingRel.move_ann {f : K →+* K'} (D : ListingRel f T) (i : Fin D.L.length) :
+private theorem ListingRel.move_ann {f : K →+* K'} (D : ListingRel f T) (i : Fin D.L.length) :
     D.ann' (D.L'.get (D.move i)) = f (D.ann (D.L.get i)) :=
   (Classical.choose_spec D.exists_move).1 i
 
-theorem ListingRel.move_seqOf {f : K →+* K'} (D : ListingRel f T)
+private theorem ListingRel.move_seqOf {f : K →+* K'} (D : ListingRel f T)
     (W : Finset (Fin D.L.length)) :
     (Having.seqOf D.L' (W.map D.move.toEmbedding)).map D.str'
       = (Having.seqOf D.L W).map D.str :=
@@ -241,7 +243,7 @@ variable {f : K →+* K'} {lp : LeafKey T K → ListingRel f T}
   {LG : AggExpr T K' → AggExpr T K → Prop}
   {NG : (j : ℕ) → NestNode T K' (NestInner T K' j) → NestNode T K (NestInner T K j) → Prop}
 
-theorem annList_of_presBy {ρ β K₀ : Type} {e : AggExpr T K₀} {L : List β} {ann : β → K₀}
+private theorem annList_of_presBy {ρ β K₀ : Type} {e : AggExpr T K₀} {L : List β} {ann : β → K₀}
     {str : β → ρ} {ok : List ρ → Prop} {val : List ρ → T}
     (hP : e.PresBy L ann str ok val) : e.annList = L.map ann := by
   obtain ⟨h, ha, -, -⟩ := hP
@@ -256,14 +258,14 @@ theorem annList_of_presBy {ρ β K₀ : Type} {e : AggExpr T K₀} {L : List β}
 def lkey (lp : LeafKey T K → ListingRel f T) (κ : LeafKey T K) : LeafKey T K' :=
   (κ.1, (lp κ).L'.map (lp κ).ann')
 
-theorem Rel.leafKey_eq {e' : AggExpr T K'} {e : AggExpr T K}
+private theorem Rel.leafKey_eq {e' : AggExpr T K'} {e : AggExpr T K}
     (h : NestInner.Rel f lp LG NG 0 e' e) : leafKey e' = lkey lp (leafKey e) := by
   obtain ⟨-, hf, ok, val, -, hP'⟩ := h
   unfold lkey
   rw [show leafKey e' = (e'.fam.family, e'.annList) from rfl, hf, annList_of_presBy hP']
   rfl
 
-theorem Rel.leaves : ∀ (j : ℕ) (x' : NestInner T K' j) (x : NestInner T K j),
+private theorem Rel.leaves : ∀ (j : ℕ) (x' : NestInner T K' j) (x : NestInner T K j),
     NestInner.Rel f lp LG NG j x' x →
       NestInner.leaves j x' = (NestInner.leaves j x).map (lkey lp)
   | 0, e', e, h => by
@@ -280,7 +282,7 @@ theorem Rel.leaves : ∀ (j : ℕ) (x' : NestInner T K' j) (x : NestInner T K j)
 
 /-- Every expression family a related value reads is that of a related
 pair. -/
-theorem Rel.mem_leaves : ∀ (j : ℕ) (x' : NestInner T K' j) (x : NestInner T K j),
+private theorem Rel.mem_leaves : ∀ (j : ℕ) (x' : NestInner T K' j) (x : NestInner T K j),
     NestInner.Rel f lp LG NG j x' x → ∀ κ ∈ NestInner.leaves j x,
       ∃ e' e, NestInner.Rel f lp LG NG 0 e' e ∧ leafKey e = κ
   | 0, e', e, h, κ, hκ => ⟨e', e, h, (Multiset.mem_singleton.mp hκ).symm⟩
@@ -295,7 +297,7 @@ theorem Rel.mem_leaves : ∀ (j : ℕ) (x' : NestInner T K' j) (x : NestInner T 
   | _ + 1, Sum.inr _, Sum.inl _, h, _, _ => h.elim
 
 /-- Every node a related value reads is that of a related pair. -/
-theorem Rel.mem_nodes : ∀ (j : ℕ) (x' : NestInner T K' j) (x : NestInner T K j),
+private theorem Rel.mem_nodes : ∀ (j : ℕ) (x' : NestInner T K' j) (x : NestInner T K j),
     NestInner.Rel f lp LG NG j x' x → ∀ e ∈ NestInner.nodes j x,
       ∃ N' N, NestInner.Rel f lp LG NG (e.1 + 1) (Sum.inr N') (Sum.inr N) ∧ N.key = e.2
   | 0, _, _, _, e, he => absurd he (Multiset.notMem_zero _)
@@ -334,7 +336,7 @@ def PairsOf (f : K →+* K') (lp : LeafKey T K → ListingRel f T)
   Z.map (fun z => (z.1.1, z.1.2.1)) = N'.occs ∧ Z.map (fun z => (z.1.2.2, z.2)) = N.occs
     ∧ ∀ z ∈ Z, z.1.2.1 = f z.2 ∧ NestInner.Rel f lp LG NG j z.1.1 z.1.2.2
 
-theorem rel_inr_iff {j : ℕ} {N' : NestNode T K' (NestInner T K' j)}
+private theorem rel_inr_iff {j : ℕ} {N' : NestNode T K' (NestInner T K' j)}
     {N : NestNode T K (NestInner T K j)} :
     NestInner.Rel f lp LG NG (j + 1) (Sum.inr N') (Sum.inr N)
       ↔ NG j N' N ∧ N'.agg = N.agg ∧ N'.scalar = N.scalar ∧ N'.fam.family = N.fam.family
@@ -370,7 +372,7 @@ noncomputable def nkey (f : K →+* K') (lp : LeafKey T K → ListingRel f T)
 /-- **The chosen bag presents every copy of a node**, and the copies on
 the target side have the key it gives them – where two related nodes have
 one key on one side exactly when they have one on the other. -/
-theorem Rel.zof
+private theorem Rel.zof
     (hN : ∀ j N'₁ N₁ N'₂ N₂, NestInner.Rel f lp LG NG (j + 1) (Sum.inr N'₁) (Sum.inr N₁) →
       NestInner.Rel f lp LG NG (j + 1) (Sum.inr N'₂) (Sum.inr N₂) →
         (N'₁.key = N'₂.key ↔ N₁.key = N₂.key))
@@ -398,7 +400,7 @@ theorem Rel.zof
   · rw [hz]
     exact ⟨hZ₀.1.trans hocc', hZ₀.2.1.trans hocc, hZ₀.2.2⟩
 
-theorem Rel.nodes
+private theorem Rel.nodes
     (hN : ∀ j N'₁ N₁ N'₂ N₂, NestInner.Rel f lp LG NG (j + 1) (Sum.inr N'₁) (Sum.inr N₁) →
       NestInner.Rel f lp LG NG (j + 1) (Sum.inr N'₂) (Sum.inr N₂) →
         (N'₁.key = N'₂.key ↔ N₁.key = N₂.key)) :
@@ -423,7 +425,7 @@ end Nodes
 
 namespace NestedValue
 
-theorem memChoices_map {X Y K₁ K₂ : Type} (g : X × K₁ → Y × K₂) :
+private theorem memChoices_map {X Y K₁ K₂ : Type} (g : X × K₁ → Y × K₂) :
     ∀ M : Multiset (X × K₁), memChoices (M.map g)
       = (memChoices M).map (Multiset.map (fun m => ((g (m.1, m.2.1)).1, (g (m.1, m.2.1)).2,
           m.2.2))) := by
@@ -439,7 +441,7 @@ theorem memChoices_map {X Y K₁ K₂ : Type} (g : X × K₁ → Y × K₂) :
 
 end NestedValue
 
-theorem Multiset.dedup_map_of_injOn {α β : Type} [DecidableEq α] [DecidableEq β]
+private theorem Multiset.dedup_map_of_injOn {α β : Type} [DecidableEq α] [DecidableEq β]
     {g : α → β} {s : Multiset α} (hg : ∀ x ∈ s, ∀ y ∈ s, g x = g y → x = y) :
     (s.map g).dedup = s.dedup.map g := by
   refine (Multiset.Nodup.ext (Multiset.nodup_dedup _) ?_).mpr (fun b => ?_)
@@ -461,12 +463,12 @@ noncomputable def ListingRel.moveS {f : K →+* K'} (D : ListingRel f T) (S : Fi
     Finset ℕ :=
   ((finsOf S : Finset (Fin D.L.length)).map D.move.toEmbedding).map Fin.valEmbedding
 
-theorem finsOf_map_val {n : ℕ} (W : Finset (Fin n)) : finsOf (W.map Fin.valEmbedding) = W := by
+private theorem finsOf_map_val {n : ℕ} (W : Finset (Fin n)) : finsOf (W.map Fin.valEmbedding) = W := by
   ext i
   simp only [finsOf, Finset.mem_filter, Finset.mem_univ, true_and, Finset.mem_map,
     Fin.valEmbedding_apply, Fin.val_inj, exists_eq_right]
 
-theorem map_val_finsOf {n : ℕ} {S : Finset ℕ} (hS : S ⊆ Finset.range n) :
+private theorem map_val_finsOf {n : ℕ} {S : Finset ℕ} (hS : S ⊆ Finset.range n) :
     (finsOf S : Finset (Fin n)).map Fin.valEmbedding = S := by
   ext i
   simp only [finsOf, Finset.mem_map, Finset.mem_filter, Finset.mem_univ, true_and,
@@ -475,7 +477,7 @@ theorem map_val_finsOf {n : ℕ} {S : Finset ℕ} (hS : S ⊆ Finset.range n) :
   · rintro ⟨j, hj, rfl⟩; exact hj
   · intro hi; exact ⟨⟨i, Finset.mem_range.mp (hS hi)⟩, hi, rfl⟩
 
-theorem range_powerset_val (n : ℕ) :
+private theorem range_powerset_val (n : ℕ) :
     (Finset.range n).powerset.val
       = (Finset.univ : Finset (Finset (Fin n))).val.map (fun W => W.map Fin.valEmbedding) := by
   have : (Finset.range n).powerset
@@ -493,7 +495,7 @@ theorem range_powerset_val (n : ℕ) :
   rfl
 
 /-- **Moving positions permutes the subsets of a family.** -/
-theorem ListingRel.powerset_moveS {f : K →+* K'} (D : ListingRel f T) :
+private theorem ListingRel.powerset_moveS {f : K →+* K'} (D : ListingRel f T) :
     (Finset.range D.L.length).powerset.val.map D.moveS
       = (Finset.range D.L'.length).powerset.val := by
   rw [range_powerset_val, range_powerset_val, Multiset.map_map]
@@ -504,25 +506,25 @@ theorem ListingRel.powerset_moveS {f : K →+* K'} (D : ListingRel f T) :
   rw [hc, ← Multiset.map_map, ← Finset.map_univ_equiv (D.move.finsetCongr), Finset.map_val]
   rfl
 
-theorem ListingRel.moveS_subset {f : K →+* K'} (D : ListingRel f T) (S : Finset ℕ) :
+private theorem ListingRel.moveS_subset {f : K →+* K'} (D : ListingRel f T) (S : Finset ℕ) :
     D.moveS S ⊆ Finset.range D.L'.length := by
   intro i hi
   obtain ⟨j, -, rfl⟩ := Finset.mem_map.mp hi
   exact Finset.mem_range.mpr j.isLt
 
-theorem finsOf_moveS {f : K →+* K'} (D : ListingRel f T) (S : Finset ℕ) :
+private theorem finsOf_moveS {f : K →+* K'} (D : ListingRel f T) (S : Finset ℕ) :
     (finsOf (D.moveS S) : Finset (Fin D.L'.length))
       = (finsOf S : Finset (Fin D.L.length)).map D.move.toEmbedding := by
   rw [ListingRel.moveS, finsOf_map_val]
 
-theorem trS_eq_map_finsOf {n m : ℕ} (h : n = m) (S : Finset ℕ) :
+private theorem trS_eq_map_finsOf {n m : ℕ} (h : n = m) (S : Finset ℕ) :
     (trS S : Finset (Fin m)) = (finsOf S : Finset (Fin n)).map (finCongr h).toEmbedding := by
   ext i
   simp [trS, finsOf]
 
 /-- **An expression presented by a listing reads a set of positions off the
 rows it selects.** -/
-theorem presBy_valOn {ρ β K₀ : Type} {e : AggExpr T K₀} {L : List β} {ann : β → K₀}
+private theorem presBy_valOn {ρ β K₀ : Type} {e : AggExpr T K₀} {L : List β} {ann : β → K₀}
     {str : β → ρ} {ok : List ρ → Prop} {val : List ρ → T} (hP : e.PresBy L ann str ok val)
     (S : Finset ℕ) :
     e.valOn (trS S) = val ((Having.seqOf L (finsOf S)).map str)
@@ -533,7 +535,7 @@ theorem presBy_valOn {ρ β K₀ : Type} {e : AggExpr T K₀} {L : List β} {ann
 
 /-- **Two expressions presented by a listing pair read a set of positions
 and its move alike.** -/
-theorem ListingRel.read_moveS {f : K →+* K'} (D : ListingRel f T) {e : AggExpr T K}
+private theorem ListingRel.read_moveS {f : K →+* K'} (D : ListingRel f T) {e : AggExpr T K}
     {e' : AggExpr T K'} {ok : List D.ρ → Prop} {val : List D.ρ → T}
     (hP : e.PresBy D.L D.ann D.str ok val) (hP' : e'.PresBy D.L' D.ann' D.str' ok val)
     (S : Finset ℕ) :
@@ -545,7 +547,7 @@ theorem ListingRel.read_moveS {f : K →+* K'} (D : ListingRel f T) {e : AggExpr
   exact ⟨hv'.trans hv.symm, hw'.trans hw.symm⟩
 
 /-- **And weigh them alike, pushed through `f`.** -/
-theorem ListingRel.prod_moveS {f : K →+* K'} (D : ListingRel f T) {S : Finset ℕ}
+private theorem ListingRel.prod_moveS {f : K →+* K'} (D : ListingRel f T) {S : Finset ℕ}
     (hS : S ⊆ Finset.range D.L.length) :
     ∏ i ∈ D.moveS S, (D.L'.map D.ann').getD i 0 = f (∏ i ∈ S, (D.L.map D.ann).getD i 0) := by
   rw [map_prod]
@@ -560,7 +562,7 @@ theorem ListingRel.prod_moveS {f : K →+* K'} (D : ListingRel f T) {S : Finset 
   simp only [List.get_eq_getElem] at this
   exact this
 
-theorem ListingRel.sum_moveS {f : K →+* K'} (D : ListingRel f T) (S : Finset ℕ) :
+private theorem ListingRel.sum_moveS {f : K →+* K'} (D : ListingRel f T) (S : Finset ℕ) :
     ∑ i ∈ Finset.range D.L'.length \ D.moveS S, (D.L'.map D.ann').getD i 0
       = f (∑ i ∈ Finset.range D.L.length \ S, (D.L.map D.ann).getD i 0) := by
   have hc : Finset.range D.L'.length \ D.moveS S
@@ -644,7 +646,7 @@ noncomputable def entK' (f : K →+* K') (lp : LeafKey T K → ListingRel f T)
   ⟨e.1, nkeyAt f lp LG NG e.1 e.2.1, e.2.2.map (fun m => (m.1.1, m.1.2.1, m.2.2))⟩
 
 omit [CommSemiringWithMonus K] [CommSemiringWithMonus K'] in
-theorem foldr_addNode_src
+private theorem foldr_addNode_src
     (Zf : (j : ℕ) → NodeKey T K j → Multiset ((NestInner T K' j × K' × NestInner T K j) × K)) :
     ∀ s : Multiset (Σ j, NodeKey T K j),
       (∀ e ∈ s, (Zf e.1 e.2).map (fun z => (z.1.2.2, z.2)) = e.2.2) →
@@ -663,7 +665,7 @@ theorem foldr_addNode_src
     simp only [Function.comp_apply, Multiset.map_cons]
     rfl
 
-theorem foldr_addNode_tgt
+private theorem foldr_addNode_tgt
     (s : Multiset (Σ j, NodeKey T K j)) :
     (s.map (nkey f lp LG NG)).foldr NestedValue.addNode {0}
       = (s.foldr (addNodeP (Zof f lp LG NG)) {0}).map (Multiset.map (entK' f lp LG NG)) := by
@@ -682,7 +684,7 @@ theorem foldr_addNode_tgt
     rfl
 
 omit [CommSemiringWithMonus K] [CommSemiringWithMonus K'] in
-theorem mem_foldr_addNodeP
+private theorem mem_foldr_addNodeP
     {Zf : (j : ℕ) → NodeKey T K j → Multiset ((NestInner T K' j × K' × NestInner T K j) × K)} :
     ∀ {s : Multiset (Σ j, NodeKey T K j)} {Nd : Multiset (PEntry T K K')},
       Nd ∈ s.foldr (addNodeP Zf) {0} →
@@ -705,7 +707,7 @@ theorem mem_foldr_addNodeP
     · exact NestedValue.map_of_mem_memChoices hD
     · exact h2 e he
 
-theorem foldr_addLeaf_tgt :
+private theorem foldr_addLeaf_tgt :
     ∀ s : Multiset (LeafKey T K), (∀ κ ∈ s, κ.2.length = (lp κ).L.length) →
       (s.map (lkey lp)).foldr NestedValue.addLeaf {0}
         = (s.foldr NestedValue.addLeaf {0}).map
@@ -755,7 +757,7 @@ def KeysFaithful (f : K →+* K') (lp : LeafKey T K → ListingRel f T)
 omit [ValueType T] [CommSemiringWithMonus K] in
 /-- The families a node holds, read off a bag its occurrences are the
 image of. -/
-theorem leaves_ofNode_eq {K₀ Y : Type} [DecidableEq T] [DecidableEq K₀] {j : ℕ}
+private theorem leaves_ofNode_eq {K₀ Y : Type} [DecidableEq T] [DecidableEq K₀] {j : ℕ}
     (N : NestNode T K₀ (NestInner T K₀ j)) (Z : Multiset Y) (g : Y → NestInner T K₀ j × K₀)
     (hZ : Z.map g = N.occs) :
     (NestedValue.ofNode N).leaves = (Z.bind (fun z => NestInner.leaves j (g z).1)).dedup := by
@@ -765,7 +767,7 @@ theorem leaves_ofNode_eq {K₀ Y : Type} [DecidableEq T] [DecidableEq K₀] {j :
 
 omit [ValueType T] [CommSemiringWithMonus K] in
 open Classical in
-theorem nodes_ofNode_eq {K₀ Y : Type} [DecidableEq T] [DecidableEq K₀] {j : ℕ}
+private theorem nodes_ofNode_eq {K₀ Y : Type} [DecidableEq T] [DecidableEq K₀] {j : ℕ}
     (N : NestNode T K₀ (NestInner T K₀ j)) (Z : Multiset Y) (g : Y → NestInner T K₀ j × K₀)
     (hZ : Z.map g = N.occs) :
     (NestedValue.ofNode N).nodes = (Z.bind (fun z => NestInner.nodes j (g z).1)).dedup := by
@@ -778,7 +780,7 @@ omit [ValueType T] [DecidableEq K] [DecidableEq K'] in
 decisions**: the target's decision is the source's moved position by
 position on each expression family the value reads, and on each node it
 reads both sides of one decision over the node's chosen pairs. -/
-theorem val_of_rel (hK : KeysFaithful f lp LG NG) (D : NestDec T K) (D' : NestDec T K')
+private theorem val_of_rel (hK : KeysFaithful f lp LG NG) (D : NestDec T K) (D' : NestDec T K')
     (PL : LeafKey T K → Prop) (PN : (Σ j, NodeKey T K j) → Prop)
     (hLk : ∀ κ, PL κ → D'.leaf (lkey lp κ) = (lp κ).moveS (D.leaf κ))
     (hNk : ∀ e, PN e → ∃ Dc : Multiset ((NestInner T K' e.1 × K' × NestInner T K e.1) × K × Bool),
@@ -848,7 +850,7 @@ theorem val_of_rel (hK : KeysFaithful f lp LG NG) (D : NestDec T K) (D' : NestDe
 
 omit [ValueType T] [DecidableEq K] [DecidableEq K'] in
 /-- A decision over pairs weighs its two sides alike, pushed through `f`. -/
-theorem decProd_decAbs_pair {A B : Type} (D : Multiset ((A × K' × B) × K × Bool))
+private theorem decProd_decAbs_pair {A B : Type} (D : Multiset ((A × K' × B) × K × Bool))
     (hD : ∀ m ∈ D, m.1.2.1 = f m.2.1) :
     NestedValue.decProd (D.map (fun m => (m.1.1, m.1.2.1, m.2.2)))
         = f (NestedValue.decProd (D.map (fun m => (m.1.2.2, m.2.1, m.2.2))))

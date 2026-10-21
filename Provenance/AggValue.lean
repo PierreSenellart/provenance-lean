@@ -7,6 +7,8 @@ module
 public import Provenance.HavingSemantics
 import Mathlib.Algebra.BigOperators.Ring.Finset
 import Mathlib.Tactic.Bound.Init
+import all Provenance.Database
+import all Provenance.HavingSemantics
 
 /-!
 # Symbolic aggregate tokens
@@ -131,7 +133,7 @@ def family : FamId T → ℕ × List T × List (T ⊕ FamId T)
 def addTerm (t : TermIn T 1 0) : FamId T → FamId T
   | .mk l k p c ts => .mk l k p c (ts ++ [t])
 
-@[simp] theorem family_addTerm (t : TermIn T 1 0) (φ : FamId T) :
+@[simp] private theorem family_addTerm (t : TermIn T 1 0) (φ : FamId T) :
     (φ.addTerm t).family = φ.family := by
   cases φ; rfl
 
@@ -250,12 +252,12 @@ merged. -/
 def classSum [ValueType T] [AddCommMonoid K] (l : List (T × K)) (v : T) : K :=
   (l.map (fun p => if p.1 = v then p.2 else 0)).sum
 
-theorem classSum_perm [ValueType T] [AddCommMonoid K] {l l' : List (T × K)}
+private theorem classSum_perm [ValueType T] [AddCommMonoid K] {l l' : List (T × K)}
     (h : l.Perm l') (v : T) : classSum l v = classSum l' v :=
   (h.map _).sum_eq
 
 /-- A class sum commutes with a pushforward of the annotations. -/
-theorem sum_map_of_additive {K'' : Type} [AddCommMonoid K] [AddCommMonoid K'']
+private theorem sum_map_of_additive {K'' : Type} [AddCommMonoid K] [AddCommMonoid K'']
     {g : K → K''} (hg0 : g 0 = 0) (hg : ∀ x y, g (x + y) = g x + g y) :
     ∀ l : List K, g l.sum = (l.map g).sum
   | [] => hg0
@@ -266,7 +268,7 @@ theorem sum_map_of_additive {K'' : Type} [AddCommMonoid K] [AddCommMonoid K'']
 /-- A class sum commutes with a pushforward of the annotations. The map
 is taken bare rather than bundled, so that it matches the coercion a
 homomorphism is applied through at the use sites. -/
-theorem classSum_map [ValueType T] [AddCommMonoid K] {K'' : Type}
+private theorem classSum_map [ValueType T] [AddCommMonoid K] {K'' : Type}
     [AddCommMonoid K''] {h : K → K''} (hg0 : h 0 = 0)
     (hg : ∀ x y, h (x + y) = h x + h y) (l : List (T × K)) (v : T) :
     classSum (l.map (fun p => (p.1, h p.2))) v = h (classSum l v) := by
@@ -292,13 +294,13 @@ def mergeByValue [ValueType T] [AddCommMonoid K] (a : AggValue T K) :
     AggValue T K :=
   ⟨a.agg, mergeOccs a.occs, a.scalar, a.fam, []⟩
 
-@[simp] theorem agg_mergeByValue [ValueType T] [AddCommMonoid K]
+@[simp] private theorem agg_mergeByValue [ValueType T] [AddCommMonoid K]
     (a : AggValue T K) : (mergeByValue a).agg = a.agg := rfl
 
-@[simp] theorem scalar_mergeByValue [ValueType T] [AddCommMonoid K]
+@[simp] private theorem scalar_mergeByValue [ValueType T] [AddCommMonoid K]
     (a : AggValue T K) : (mergeByValue a).scalar = a.scalar := rfl
 
-@[simp] theorem map_fst_mergeByValue [ValueType T] [AddCommMonoid K]
+@[simp] private theorem map_fst_mergeByValue [ValueType T] [AddCommMonoid K]
     (a : AggValue T K) :
     (mergeByValue a).occs.map Prod.fst
       = sortList ((a.occs.map Prod.fst).dedup : Multiset T) := by
@@ -307,7 +309,7 @@ def mergeByValue [ValueType T] [AddCommMonoid K] (a : AggValue T K) :
   exact List.map_id' _
 
 /-- Every occurrence's class is an occurrence of the merged payload. -/
-theorem mem_mergeOccs [ValueType T] [AddCommMonoid K]
+private theorem mem_mergeOccs [ValueType T] [AddCommMonoid K]
     {l : List (T × K)} {x : T × K} (hx : x ∈ l) :
     (x.fst, classSum l x.fst) ∈ mergeOccs l := by
   refine List.mem_map.mpr ⟨x.fst, ?_, rfl⟩
@@ -315,7 +317,7 @@ theorem mem_mergeOccs [ValueType T] [AddCommMonoid K]
   exact List.mem_map.mpr ⟨x, hx, rfl⟩
 
 /-- The same on a token. -/
-theorem mem_occs_mergeByValue [ValueType T] [AddCommMonoid K]
+private theorem mem_occs_mergeByValue [ValueType T] [AddCommMonoid K]
     (a : AggValue T K) {x : T × K} (hx : x ∈ a.occs) :
     (x.fst, classSum a.occs x.fst) ∈ (mergeByValue a).occs :=
   mem_mergeOccs hx
@@ -323,7 +325,7 @@ theorem mem_occs_mergeByValue [ValueType T] [AddCommMonoid K]
 /-- **The merged token reads the distinct values.** Its deterministic
 reading is `SeqAggFunc.distinct` of the original: the aggregate over the
 distinct values in the domain's order. -/
-theorem collapse_mergeByValue [ValueType T] [AddCommMonoid K]
+private theorem collapse_mergeByValue [ValueType T] [AddCommMonoid K]
     (a : AggValue T K) :
     (mergeByValue a).collapse = a.agg.distinct (a.occs.map Prod.fst) := by
   rw [collapse, agg_mergeByValue, map_fst_mergeByValue]
@@ -333,7 +335,7 @@ theorem collapse_mergeByValue [ValueType T] [AddCommMonoid K]
 with the same aggregate and the same occurrences in a different order
 collapse to the same value. This is what makes the order a group or a frame
 is sequenced in immaterial, and `PICKFIRST` is where it is not. -/
-theorem collapse_congr_of_symmetric {a b : AggValue T K}
+private theorem collapse_congr_of_symmetric {a b : AggValue T K}
     (hf : a.agg.Symmetric) (hagg : b.agg = a.agg)
     (hocc : a.occs.Perm b.occs) : a.collapse = b.collapse := by
   unfold collapse
@@ -354,7 +356,7 @@ def mapAnn (h : K → K') (a : AggValue T K) : AggValue T K' :=
 /-- **The merge commutes with a pushforward of the annotations**: the
 classes are the same, since the values are untouched, and each class's
 `⊕` is pushed. -/
-theorem mergeOccs_map [ValueType T] [AddCommMonoid K] {K'' : Type}
+private theorem mergeOccs_map [ValueType T] [AddCommMonoid K] {K'' : Type}
     [AddCommMonoid K''] {h : K → K''} (hg0 : h 0 = 0)
     (hg : ∀ x y, h (x + y) = h x + h y) (l : List (T × K)) :
     mergeOccs (l.map (fun o => (o.fst, h o.snd)))
@@ -370,7 +372,7 @@ theorem mergeOccs_map [ValueType T] [AddCommMonoid K] {K'' : Type}
     Prod.ext rfl (classSum_map hg0 hg l v))
 
 /-- The same on a token. -/
-theorem mergeByValue_map [ValueType T] [AddCommMonoid K] {K'' : Type}
+private theorem mergeByValue_map [ValueType T] [AddCommMonoid K] {K'' : Type}
     [AddCommMonoid K''] {h : K → K''} (hg0 : h 0 = 0)
     (hg : ∀ x y, h (x + y) = h x + h y) (a : AggValue T K) :
     mergeByValue (a.mapAnn h) = (mergeByValue a).mapAnn h := by
@@ -424,12 +426,12 @@ def predProvOf [ValueType T] [CommSemiringWithMonus K] [DecidableEq K]
     (a : AggValue T K) (op : CompOp) (c : T) : K :=
   if a.scalar then a.predProvScalar op c else a.predProv op c
 
-@[simp] theorem predProvOf_of_grouped [ValueType T] [CommSemiringWithMonus K]
+@[simp] private theorem predProvOf_of_grouped [ValueType T] [CommSemiringWithMonus K]
     [DecidableEq K] {a : AggValue T K} (h : a.scalar = false) (op : CompOp) (c : T) :
     a.predProvOf op c = a.predProv op c := by
   simp [predProvOf, h]
 
-@[simp] theorem predProvOf_of_scalar [ValueType T] [CommSemiringWithMonus K]
+@[simp] private theorem predProvOf_of_scalar [ValueType T] [CommSemiringWithMonus K]
     [DecidableEq K] {a : AggValue T K} (h : a.scalar = true) (op : CompOp) (c : T) :
     a.predProvOf op c = a.predProvScalar op c := by
   simp [predProvOf, h]
@@ -459,7 +461,7 @@ where the two sums pick different worlds, and multiplicative idempotence
 collapses the diagonal, leaving the joint sum. Neither holds of every
 m-semiring: `𝔹[X]` has both, `ℕ` is exclusive and not idempotent, and an
 absorptive domain such as Viterbi is not exclusive. -/
-theorem predProv_mul_predProv [ValueType T] [CommSemiringWithMonus K]
+private theorem predProv_mul_predProv [ValueType T] [CommSemiringWithMonus K]
     [DecidableEq K] (hexcl : exclusive K) (hidem : mulIdempotent K)
     (a : AggValue T K) (op₁ : CompOp) (c₁ : T) (op₂ : CompOp) (c₂ : T) :
     a.predProv op₁ c₁ * a.predProv op₂ c₂ = a.predProvAnd op₁ c₁ op₂ c₂ := by
@@ -486,7 +488,7 @@ def predProvScalarAnd [ValueType T] [CommSemiringWithMonus K] [DecidableEq K]
       * (Having.chi op₁ (a.valOn W) c₁ * Having.chi op₂ (a.valOn W) c₂)
 
 /-- The scalar-convention counterpart of `predProv_mul_predProv`. -/
-theorem predProvScalar_mul_predProvScalar [ValueType T]
+private theorem predProvScalar_mul_predProvScalar [ValueType T]
     [CommSemiringWithMonus K] [DecidableEq K] (hexcl : exclusive K)
     (hidem : mulIdempotent K) (a : AggValue T K)
     (op₁ : CompOp) (c₁ : T) (op₂ : CompOp) (c₂ : T) :
@@ -558,16 +560,16 @@ def predProvOfWith [ValueType T] [CommSemiringWithMonus K] [DecidableEq K]
     (a : AggValue T K) (P : T → Kleene) : K :=
   if a.scalar then a.predProvScalarWith P else a.predProvWith P
 
-theorem predProv_eq_predProvWith [ValueType T] [CommSemiringWithMonus K]
+private theorem predProv_eq_predProvWith [ValueType T] [CommSemiringWithMonus K]
     [DecidableEq K] (a : AggValue T K) (op : CompOp) (c : T) :
     a.predProv op c = a.predProvWith (fun v => op.eval3 v c) := rfl
 
-theorem predProvScalar_eq_predProvScalarWith [ValueType T] [CommSemiringWithMonus K]
+private theorem predProvScalar_eq_predProvScalarWith [ValueType T] [CommSemiringWithMonus K]
     [DecidableEq K] (a : AggValue T K)
     (op : CompOp) (c : T) :
     a.predProvScalar op c = a.predProvScalarWith (fun v => op.eval3 v c) := rfl
 
-theorem predProvOf_eq_predProvOfWith [ValueType T] [CommSemiringWithMonus K]
+private theorem predProvOf_eq_predProvOfWith [ValueType T] [CommSemiringWithMonus K]
     [DecidableEq K] (a : AggValue T K) (op : CompOp)
     (c : T) : a.predProvOf op c = a.predProvOfWith (fun v => op.eval3 v c) := by
   unfold predProvOf predProvOfWith
@@ -575,7 +577,7 @@ theorem predProvOf_eq_predProvOfWith [ValueType T] [CommSemiringWithMonus K]
 
 /-- **A range is one atom, not a product of two.** The joint reading of
 two tests is the reading of their conjunction. -/
-theorem predProvAnd_eq_predProvWith [ValueType T] [CommSemiringWithMonus K]
+private theorem predProvAnd_eq_predProvWith [ValueType T] [CommSemiringWithMonus K]
     [DecidableEq K] (a : AggValue T K) (op₁ : CompOp) (c₁ : T)
     (op₂ : CompOp) (c₂ : T) :
     a.predProvAnd op₁ c₁ op₂ c₂
@@ -584,7 +586,7 @@ theorem predProvAnd_eq_predProvWith [ValueType T] [CommSemiringWithMonus K]
   rw [← Having.chiOf_mul_chiOf]
   rfl
 
-theorem predProvScalarAnd_eq_predProvScalarWith [ValueType T] [CommSemiringWithMonus K]
+private theorem predProvScalarAnd_eq_predProvScalarWith [ValueType T] [CommSemiringWithMonus K]
     [DecidableEq K] (a : AggValue T K)
     (op₁ : CompOp) (c₁ : T) (op₂ : CompOp) (c₂ : T) :
     a.predProvScalarAnd op₁ c₁ op₂ c₂
@@ -593,7 +595,7 @@ theorem predProvScalarAnd_eq_predProvScalarWith [ValueType T] [CommSemiringWithM
   rw [← Having.chiOf_mul_chiOf]
   rfl
 
-theorem predProvOfAnd_eq_predProvOfWith [ValueType T] [CommSemiringWithMonus K]
+private theorem predProvOfAnd_eq_predProvOfWith [ValueType T] [CommSemiringWithMonus K]
     [DecidableEq K] (a : AggValue T K)
     (op₁ : CompOp) (c₁ : T) (op₂ : CompOp) (c₂ : T) :
     a.predProvOfAnd op₁ c₁ op₂ c₂
@@ -609,7 +611,7 @@ multiplication is idempotent. This is the form the `∧` rule takes once
 an atom may carry a test rather than a comparison: not a rule of the
 semantics but a decomposition of one sum into two, valid there and not
 in general. -/
-theorem predProvOf_mul_predProvOf_with [ValueType T] [CommSemiringWithMonus K]
+private theorem predProvOf_mul_predProvOf_with [ValueType T] [CommSemiringWithMonus K]
     [DecidableEq K] (hexcl : exclusive K)
     (hidem : mulIdempotent K) (a : AggValue T K)
     (op₁ : CompOp) (c₁ : T) (op₂ : CompOp) (c₂ : T) :
@@ -619,12 +621,12 @@ theorem predProvOf_mul_predProvOf_with [ValueType T] [CommSemiringWithMonus K]
 
 
 /-- A token built from a group is grouped. -/
-@[simp] theorem scalar_ofGroup [ValueType T] {c : ℕ} (f : SeqAggFunc T)
+@[simp] private theorem scalar_ofGroup [ValueType T] {c : ℕ} (f : SeqAggFunc T)
     (t : TermIn T c m) (U : List (AnnotatedTuple T K m)) {γ : Fin c → T} :
     (ofGroup f t U γ).scalar = false := rfl
 
 /-- A token built from a group in the scalar convention is scalar. -/
-@[simp] theorem scalar_ofScalarGroup [ValueType T] {c : ℕ} (f : SeqAggFunc T)
+@[simp] private theorem scalar_ofScalarGroup [ValueType T] {c : ℕ} (f : SeqAggFunc T)
     (t : TermIn T c m) (U : List (AnnotatedTuple T K m)) {γ : Fin c → T} :
     (ofScalarGroup f t U γ).scalar = true := rfl
 
@@ -642,7 +644,7 @@ variable {β γ : Type}
 
 /-- `seqOf` commutes with mapping the underlying list, up to reindexing
 the world along the length equality. -/
-theorem seqOf_map (g : β → γ) :
+private theorem seqOf_map (g : β → γ) :
     ∀ (U : List β) (h : U.length = (U.map g).length)
       (W : Finset (Fin U.length)),
       Having.seqOf (U.map g) (W.map (finCongr h).toEmbedding)
@@ -678,7 +680,7 @@ theorem seqOf_map (g : β → γ) :
     · rw [ite_eq_right h0, ite_eq_right (fun hc => h0 (hzero.mp hc))]; rfl
 
 /-- The whole-sequence world: `seqOf` over `univ` is the identity. -/
-theorem seqOf_univ : ∀ (U : List β), Having.seqOf U Finset.univ = U
+private theorem seqOf_univ : ∀ (U : List β), Having.seqOf U Finset.univ = U
   | [] => rfl
   | b :: U => by
     rw [Having.seqOf]
@@ -690,7 +692,7 @@ theorem seqOf_univ : ∀ (U : List β), Having.seqOf U Finset.univ = U
     simp
 
 /-- The empty world selects nothing. -/
-theorem seqOf_empty : ∀ (U : List β), Having.seqOf U (∅ : Finset (Fin U.length)) = []
+private theorem seqOf_empty : ∀ (U : List β), Having.seqOf U (∅ : Finset (Fin U.length)) = []
   | [] => rfl
   | b :: U => by
     rw [Having.seqOf]
@@ -703,7 +705,7 @@ theorem seqOf_empty : ∀ (U : List β), Having.seqOf U (∅ : Finset (Fin U.len
 
 /-- Filtering a list is taking the subsequence of the positions whose
 element satisfies the predicate. -/
-theorem filter_eq_seqOf (p : β → Bool) :
+private theorem filter_eq_seqOf (p : β → Bool) :
     ∀ (U : List β),
       U.filter p = Having.seqOf U (Finset.univ.filter (fun i => p (U.get i)))
   | [] => rfl
@@ -728,7 +730,7 @@ end Reindex
 /-! ## The readings, related -/
 
 /-- `collapse` is the aggregate value of the whole-group world. -/
-theorem collapse_eq_valOn_univ (a : AggValue T K) :
+private theorem collapse_eq_valOn_univ (a : AggValue T K) :
     a.collapse = a.valOn Finset.univ := by
   unfold collapse valOn
   rw [seqOf_univ]
@@ -739,14 +741,14 @@ that realizes every occurrence. So `specialize` is the general form of the
 given valuation realizes – and `collapse` is the case where every occurrence
 is realized. The two part company as soon as a token carries occurrences that
 hold in no world: those a difference or a rejected comparison leaves behind. -/
-theorem collapse_eq_specialize_true (a : AggValue T K) :
+private theorem collapse_eq_specialize_true (a : AggValue T K) :
     a.collapse = a.specialize (fun _ => true) := by
   unfold collapse specialize
   simp
 
 /-- `specialize` is the aggregate value of the world of realized
 occurrences. -/
-theorem specialize_eq_valOn (a : AggValue T K) (ν : K → Bool) :
+private theorem specialize_eq_valOn (a : AggValue T K) (ν : K → Bool) :
     a.specialize ν = a.valOn (Finset.univ.filter (fun i => ν (a.anns i))) := by
   unfold specialize valOn
   rw [filter_eq_seqOf (fun o => ν o.snd) a.occs]
@@ -755,14 +757,14 @@ theorem specialize_eq_valOn (a : AggValue T K) (ν : K → Bool) :
 /-- The empty world reads the aggregate over no occurrence: `f` of the empty
 sequence. This is the value a comparison sees where the group exists in no
 world. -/
-theorem valOn_empty (a : AggValue T K) : a.valOn ∅ = a.agg [] := by
+private theorem valOn_empty (a : AggValue T K) : a.valOn ∅ = a.agg [] := by
   unfold valOn
   rw [seqOf_empty]
   rfl
 
 /-- The same splitting for an arbitrary test: the scalar reading is the
 grouped one plus the empty world's term. -/
-theorem predProvScalarWith_eq_predProvWith_add [ValueType T]
+private theorem predProvScalarWith_eq_predProvWith_add [ValueType T]
     [CommSemiringWithMonus K] [DecidableEq K] (a : AggValue T K)
     (P : T → Kleene) :
     a.predProvScalarWith P
@@ -783,7 +785,7 @@ theorem predProvScalarWith_eq_predProvWith_add [ValueType T]
 empty world, annotated `𝟙 ⊖ ⊕ᵢ αᵢ` and reading `f` of the empty sequence. In
 particular the two agree whenever that term vanishes – when the comparison
 fails on `f []`, and in any semiring where no world is empty of annotation. -/
-theorem predProvScalar_eq_predProv_add [ValueType T] [CommSemiringWithMonus K]
+private theorem predProvScalar_eq_predProv_add [ValueType T] [CommSemiringWithMonus K]
     [DecidableEq K] (a : AggValue T K) (op : CompOp) (c : T) :
     a.predProvScalar op c
       = a.predProv op c + Having.worldAnn a.anns ∅ * Having.chi op (a.agg []) c := by
@@ -807,7 +809,7 @@ could be: there is no family of worlds to collapse, only one term. This is
 what makes `COUNT(κ) = 0` cheap in the scalar convention, where the empty
 world is a world – `COUNT` of nothing is `0`, and a non-empty world of
 occurrences whose `κ` is never null counts at least one. -/
-theorem predProvScalar_of_only_empty [ValueType T] [CommSemiringWithMonus K]
+private theorem predProvScalar_of_only_empty [ValueType T] [CommSemiringWithMonus K]
     [DecidableEq K] (a : AggValue T K) (op : CompOp) (c : T)
     (hempty : Having.chi (K := K) op (a.agg []) c = 1)
     (hne : ∀ W : Finset (Fin a.occs.length), W.Nonempty →
@@ -825,7 +827,7 @@ counted values are never null, a non-empty world counts at least one, so
 the comparison holds in the empty world alone. This is an antijoin's
 annotation, and no hypothesis on `K` enters it: not absorptivity, not
 distributivity of `⊗` over `⊖`. -/
-theorem predProvScalar_count_eq_zero [ValueType T] [CommSemiringWithMonus K]
+private theorem predProvScalar_count_eq_zero [ValueType T] [CommSemiringWithMonus K]
     [DecidableEq K] (a : AggValue T K) (hc : SeqAggFunc.Counts a.agg)
     (hnn : ∀ o ∈ a.occs, ValueType.isNull o.fst = false) :
     a.predProvScalar CompOp.eq 0 = 1 - ∑ i, a.anns i := by
@@ -923,14 +925,14 @@ variable [ValueType T]
 
 /-- The occurrence payload of `ofGroup` has the length of the group
 sequence. -/
-theorem length_ofGroup_occs (f : SeqAggFunc T) (t : Term T m)
+private theorem length_ofGroup_occs (f : SeqAggFunc T) (t : Term T m)
     (U : List (AnnotatedTuple T K m)) :
     U.length = (ofGroup f t U).occs.length := by
   simp [ofGroup]
 
 /-- The world value of the token of a group is the aggregate value of the
 fused semantics on that world. -/
-theorem valOn_ofGroup (f : SeqAggFunc T) (t : Term T m)
+private theorem valOn_ofGroup (f : SeqAggFunc T) (t : Term T m)
     (U : List (AnnotatedTuple T K m)) (W : Finset (Fin U.length)) :
     (ofGroup f t U).valOn
         (W.map (finCongr (length_ofGroup_occs f t U)).toEmbedding)
@@ -943,7 +945,7 @@ theorem valOn_ofGroup (f : SeqAggFunc T) (t : Term T m)
 
 /-- The annotations of the token of a group are the occurrence
 annotations. -/
-theorem anns_ofGroup (f : SeqAggFunc T) (t : Term T m)
+private theorem anns_ofGroup (f : SeqAggFunc T) (t : Term T m)
     (U : List (AnnotatedTuple T K m)) (i : Fin U.length) :
     (ofGroup f t U).anns (finCongr (length_ofGroup_occs f t U) i)
       = (U.get i).snd := by
@@ -954,7 +956,7 @@ variable [CommSemiringWithMonus K] [DecidableEq K]
 
 omit [ValueType T] [DecidableEq K] in
 /-- The world annotation transports along the reindexing. -/
-theorem worldAnn_map_finCongr {N M : ℕ} (h : N = M) (α : Fin M → K)
+private theorem worldAnn_map_finCongr {N M : ℕ} (h : N = M) (α : Fin M → K)
     (W : Finset (Fin N)) :
     Having.worldAnn α (W.map (finCongr h).toEmbedding)
       = Having.worldAnn (fun i => α (finCongr h i)) W := by
@@ -1000,7 +1002,7 @@ section MapAnn
 carrying a subfamily across an equality of lengths agree, which is what
 lets a reading stated with `Finset.map` be used where the occurrences are
 picked out by a test. -/
-theorem filter_cast_eq_map {N N' : ℕ} (hN : N' = N) (W : Finset (Fin N)) :
+private theorem filter_cast_eq_map {N N' : ℕ} (hN : N' = N) (W : Finset (Fin N)) :
     Finset.univ.filter (fun j : Fin N' => Fin.cast hN j ∈ W)
       = W.map (finCongr hN).symm.toEmbedding := by
   subst hN
@@ -1008,7 +1010,7 @@ theorem filter_cast_eq_map {N N' : ℕ} (hN : N' = N) (W : Finset (Fin N)) :
   simp
 
 /-- The pushforward keeps the occurrence list's length. -/
-theorem occs_length_mapAnn (h : K → K') (a : AggValue T K) :
+private theorem occs_length_mapAnn (h : K → K') (a : AggValue T K) :
     (a.mapAnn h).occs.length = a.occs.length := by
   show (a.occs.map _).length = _
   rw [List.length_map]
@@ -1017,7 +1019,7 @@ theorem occs_length_mapAnn (h : K → K') (a : AggValue T K) :
 world is the reading in the world it came from. This is
 `AggValue.valOn_mapAnn` for a bare function, with the world picked out by
 a test rather than transported. -/
-theorem valOn_mapAnn_cast (h : K → K') (a : AggValue T K)
+private theorem valOn_mapAnn_cast (h : K → K') (a : AggValue T K)
     (W : Finset (Fin a.occs.length)) :
     (a.mapAnn h).valOn
         (Finset.univ.filter (fun j => Fin.cast (occs_length_mapAnn h a) j ∈ W))
@@ -1035,14 +1037,14 @@ theorem valOn_mapAnn_cast (h : K → K') (a : AggValue T K)
   rfl
 
 /-- The deterministic reading is unchanged by the pushforward. -/
-@[simp] theorem collapse_mapAnn (h : K → K') (a : AggValue T K) :
+@[simp] private theorem collapse_mapAnn (h : K → K') (a : AggValue T K) :
     (a.mapAnn h).collapse = a.collapse := by
   unfold collapse mapAnn
   rw [List.map_map]
   rfl
 
 /-- The world-faithful reading composes with the pushforward. -/
-@[simp] theorem specialize_mapAnn (h : K → K') (a : AggValue T K)
+@[simp] private theorem specialize_mapAnn (h : K → K') (a : AggValue T K)
     (ν : K' → Bool) :
     (a.mapAnn h).specialize ν = a.specialize (fun k => ν (h k)) := by
   unfold specialize mapAnn
@@ -1065,7 +1067,7 @@ def collapseSumVal : T ⊕ AggValue T K → T :=
 
 /-- The deterministic reading of a lifted value is unchanged by the
 pushforward. -/
-@[simp] theorem collapseSumVal_mapAnnSumVal (h : K → K')
+@[simp] private theorem collapseSumVal_mapAnnSumVal (h : K → K')
     (x : T ⊕ AggValue T K) :
     collapseSumVal (mapAnnSumVal h x) = collapseSumVal x := by
   cases x <;> simp [collapseSumVal, mapAnnSumVal]
@@ -1147,7 +1149,7 @@ theorem vals_mapAnn {K'' : Type} (h : K → K'') (a : AggValue T K) :
 
 /-- **A test read over the worlds.** The two conventions differ only in
 which subfamilies count, which is what `worlds` records. -/
-theorem predProvOfWith_eq_sum_worlds (a : AggValue T K) (P : T → Kleene) :
+private theorem predProvOfWith_eq_sum_worlds (a : AggValue T K) (P : T → Kleene) :
     a.predProvOfWith P
       = ∑ W ∈ a.worlds, Having.worldAnn a.anns W * Having.chiOf P (a.valOn W) := by
   unfold AggValue.predProvOfWith AggValue.worlds
@@ -1168,7 +1170,7 @@ def altProv (a : AggValue T K) (v : T) : K :=
   a.predProvOfWith (fun x => CompOp.syneq.eval3 x v)
 
 /-- The share of a value is the mass of the worlds that take it. -/
-theorem altProv_eq_sum (a : AggValue T K) (v : T) :
+private theorem altProv_eq_sum (a : AggValue T K) (v : T) :
     a.altProv v
       = ∑ W ∈ a.worlds.filter (fun W => a.valOn W = v),
           Having.worldAnn a.anns W := by

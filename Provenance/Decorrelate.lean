@@ -8,6 +8,12 @@ public import Provenance.AllRegular
 import Mathlib.Algebra.Order.Ring.Nat
 import Mathlib.Tactic.NormNum.Inv
 import Mathlib.Tactic.NormNum.Pow
+import all Provenance.AggQuery
+import all Provenance.AllRegular
+import all Provenance.Database
+import all Provenance.Derived
+import all Provenance.OrderSpec
+import all Provenance.PlainBasis
 
 /-!
 # Decorrelation: an apply read as a product
@@ -79,7 +85,7 @@ def TermIn.lift {c k : ℕ} : TermIn T c k → TermIn T 0 (c + k)
 /-- **Lifting does not change what a term reads**: on the row that holds
 the parameters and the query's own columns together, the lifted term
 reads what the term read of that row under those parameters. -/
-theorem TermIn.eval_lift {c k : ℕ} (t : TermIn T c k) (v : Tuple T c)
+private theorem TermIn.eval_lift {c k : ℕ} (t : TermIn T c k) (v : Tuple T c)
     (w : Tuple T k) :
     (t.lift).eval (Fin.append v w) (fun _ => 0) = t.eval w v := by
   induction t with
@@ -170,7 +176,7 @@ def GenPredIn.lift {c k : ℕ} {κ : Fin k → ColKind} :
   | .not φ => .not φ.lift
 
 /-- **Lifting does not change which rows a predicate keeps.** -/
-theorem GenPredIn.evalPlain3_lift {c k : ℕ} {κ : Fin k → ColKind}
+private theorem GenPredIn.evalPlain3_lift {c k : ℕ} {κ : Fin k → ColKind}
     (φ : GenPredIn T c κ) (v : Tuple T c) (w : Tuple T k) :
     (φ.lift).evalPlain3 (Fin.append v w) (fun _ => 0)
       = φ.evalPlain3 w v := by
@@ -191,7 +197,7 @@ theorem GenPredIn.evalPlain3_lift {c k : ℕ} {κ : Fin k → ColKind}
   | or φ ψ ihφ ihψ => exact congrArg₂ _ ihφ ihψ
   | not φ ih => exact congrArg _ ih
 
-theorem GenPredIn.holdsPlain_lift {c k : ℕ} {κ : Fin k → ColKind}
+private theorem GenPredIn.holdsPlain_lift {c k : ℕ} {κ : Fin k → ColKind}
     (φ : GenPredIn T c κ) (v : Tuple T c) (w : Tuple T k) :
     (φ.lift).holdsPlain (Fin.append v w) (fun _ => 0)
       ↔ φ.holdsPlain w v := by
@@ -200,7 +206,7 @@ theorem GenPredIn.holdsPlain_lift {c k : ℕ} {κ : Fin k → ColKind}
 
 omit [ValueType T] in
 /-- Lifting a predicate over the parameters keeps its atoms. -/
-theorem GenPredIn.hasAggAtom_lift {c k : ℕ} {κ : Fin k → ColKind} (φ : GenPredIn T c κ) :
+private theorem GenPredIn.hasAggAtom_lift {c k : ℕ} {κ : Fin k → ColKind} (φ : GenPredIn T c κ) :
     φ.lift.hasAggAtom = φ.hasAggAtom := by
   induction φ with
   | cmp op t₁ t₂ => rfl
@@ -224,19 +230,19 @@ def ProjColIn.lift {c k : ℕ} {κ : Fin k → ColKind} :
 omit [ValueType T] in
 /-- Lifting a column over the parameters does not turn a source column
 into the rewritten world's. -/
-@[simp] theorem ProjColIn.sourceCol_lift {c k : ℕ} {κ : Fin k → ColKind}
+@[simp] private theorem ProjColIn.sourceCol_lift {c k : ℕ} {κ : Fin k → ColKind}
     (pc : ProjColIn T c κ) : pc.lift.sourceCol = pc.sourceCol := by
   cases pc <;> rfl
 
 omit [ValueType T] in
 /-- Lifting keeps a projection column's kind. -/
-@[simp] theorem ProjColIn.kind_lift {c k : ℕ} {κ : Fin k → ColKind}
+@[simp] private theorem ProjColIn.kind_lift {c k : ℕ} {κ : Fin k → ColKind}
     (p : ProjColIn T c κ) : (p.lift).kind = p.kind := by
   cases p <;> rfl
 
 /-- **Lifting does not change what a projection column computes**, over
 plain rows. -/
-theorem ProjColIn.evalPlain_lift {c k : ℕ} {κ : Fin k → ColKind}
+private theorem ProjColIn.evalPlain_lift {c k : ℕ} {κ : Fin k → ColKind}
     (p : ProjColIn T c κ) (v : Tuple T c) (w : Tuple T k) :
     (p.lift).evalPlain (Fin.append v w) (fun _ => 0) = p.evalPlain w v := by
   cases p with
@@ -271,7 +277,7 @@ def Relation.slices {c k : ℕ} (P : Multiset (Tuple T c))
 omit [ValueType T] in
 /-- Appending is injective in both arguments, which is what keeps the
 slices apart. -/
-theorem Fin.append_inj {c k : ℕ} {v v' : Tuple T c} {w w' : Tuple T k}
+private theorem Fin.append_inj {c k : ℕ} {v v' : Tuple T c} {w w' : Tuple T k}
     (h : (Fin.append v w : Tuple T (c + k)) = Fin.append v' w') :
     v = v' ∧ w = w' := by
   refine ⟨funext (fun j => ?_), funext (fun i => ?_)⟩
@@ -282,7 +288,7 @@ theorem Fin.append_inj {c k : ℕ} {v v' : Tuple T c} {w w' : Tuple T k}
 
 omit [ValueType T] in
 /-- A row of the slices is a row of one slice. -/
-theorem Relation.mem_slices {c k : ℕ} (P : Multiset (Tuple T c))
+private theorem Relation.mem_slices {c k : ℕ} (P : Multiset (Tuple T c))
     (f : Tuple T c → Multiset (Tuple T k)) (x : Tuple T (c + k)) :
     x ∈ Relation.slices P f
       ↔ ∃ v ∈ P, ∃ w ∈ f v, x = (Fin.append v w : Tuple T (c + k)) := by
@@ -296,7 +302,7 @@ theorem Relation.mem_slices {c k : ℕ} (P : Multiset (Tuple T c))
 
 omit [ValueType T] in
 /-- Slices add slice by slice. -/
-theorem Relation.slices_add {c k : ℕ} (P : Multiset (Tuple T c))
+private theorem Relation.slices_add {c k : ℕ} (P : Multiset (Tuple T c))
     (f g : Tuple T c → Multiset (Tuple T k)) :
     Relation.slices P (fun v => f v + g v)
       = Relation.slices P f + Relation.slices P g := by
@@ -306,7 +312,7 @@ theorem Relation.slices_add {c k : ℕ} (P : Multiset (Tuple T c))
 
 omit [ValueType T] in
 /-- A filter that reads the whole row acts slice by slice. -/
-theorem Relation.slices_filter {c k : ℕ} (P : Multiset (Tuple T c))
+private theorem Relation.slices_filter {c k : ℕ} (P : Multiset (Tuple T c))
     (f : Tuple T c → Multiset (Tuple T k))
     (p : Tuple T (c + k) → Prop) [DecidablePred p] :
     Multiset.filter p (Relation.slices P f)
@@ -318,7 +324,7 @@ theorem Relation.slices_filter {c k : ℕ} (P : Multiset (Tuple T c))
 
 omit [ValueType T] in
 /-- A map that keeps the parameters acts slice by slice. -/
-theorem Relation.slices_map {c k k' : ℕ} (P : Multiset (Tuple T c))
+private theorem Relation.slices_map {c k k' : ℕ} (P : Multiset (Tuple T c))
     (f : Tuple T c → Multiset (Tuple T k))
     (F : Tuple T c → Tuple T k → Tuple T k') :
     Multiset.map (fun x : Tuple T (c + k) =>
@@ -344,7 +350,7 @@ theorem Relation.slices_map {c k k' : ℕ} (P : Multiset (Tuple T c))
 omit [ValueType T] in
 /-- A row of one slice is in the slices exactly when it is in that
 slice, the parameter block telling the slices apart. -/
-theorem Relation.append_mem_slices {c k : ℕ} {P : Multiset (Tuple T c)}
+private theorem Relation.append_mem_slices {c k : ℕ} {P : Multiset (Tuple T c)}
     {f : Tuple T c → Multiset (Tuple T k)} {v : Tuple T c} (hv : v ∈ P)
     (w : Tuple T k) :
     (Fin.append v w : Tuple T (c + k)) ∈ Relation.slices P f ↔ w ∈ f v := by
@@ -358,7 +364,7 @@ theorem Relation.append_mem_slices {c k : ℕ} {P : Multiset (Tuple T c)}
 
 /-- **Duplicate elimination acts slice by slice**, the parameter rows
 being pairwise distinct: a row of one slice is a row of no other. -/
-theorem Relation.slices_dedup {c k : ℕ} (P : Multiset (Tuple T c))
+private theorem Relation.slices_dedup {c k : ℕ} (P : Multiset (Tuple T c))
     (hP : P.Nodup) (f : Tuple T c → Multiset (Tuple T k)) :
     (Relation.slices P f).dedup
       = Relation.slices P (fun v => (f v).dedup) := by
@@ -378,7 +384,7 @@ theorem Relation.slices_dedup {c k : ℕ} (P : Multiset (Tuple T c))
 
 /-- **The difference acts slice by slice**: a row of one slice matches a
 row of the right side exactly when it matches one in its own slice. -/
-theorem Relation.slices_diff {c k : ℕ} (P : Multiset (Tuple T c))
+private theorem Relation.slices_diff {c k : ℕ} (P : Multiset (Tuple T c))
     (f g : Tuple T c → Multiset (Tuple T k)) :
     Multiset.filter (fun x => x ∉ Relation.slices P g) (Relation.slices P f)
       = Relation.slices P (fun v =>
@@ -405,7 +411,7 @@ def Relation.paramsOf {c k : ℕ} (x : Tuple T (c + k)) : Tuple T c :=
 
 omit [ValueType T] in
 /-- The parameters of a row built from them. -/
-@[simp] theorem Relation.paramsOf_append {c k : ℕ} (v : Tuple T c)
+@[simp] private theorem Relation.paramsOf_append {c k : ℕ} (v : Tuple T c)
     (w : Tuple T k) :
     Relation.paramsOf (Fin.append v w : Tuple T (c + k)) = v :=
   funext (fun j => by
@@ -433,7 +439,7 @@ def Relation.joinCols {c k₁ k₂ : ℕ} (x : Tuple T ((c + k₁) + (c + k₂))
 
 /-- Binding a choice that is the same on one value and empty elsewhere
 is binding over the rows that match it. -/
-theorem Multiset.bind_ite_eq {α β : Type} [DecidableEq α] (s : Multiset α)
+private theorem Multiset.bind_ite_eq {α β : Type} [DecidableEq α] (s : Multiset α)
     (a : α) (X : Multiset β) :
     (s.bind (fun x => if x = a then X else 0))
       = (s.filter (fun x => x = a)).bind (fun _ => X) := by
@@ -486,7 +492,7 @@ theorem Relation.filter_paramsOf_slices {c k : ℕ} (P : Multiset (Tuple T c))
 
 /-- **The parameter join of two decorrelated queries** is the
 decorrelation of their product: each slice is paired with its own. -/
-theorem Relation.slices_joinParams {c k₁ k₂ : ℕ} (P : Multiset (Tuple T c))
+private theorem Relation.slices_joinParams {c k₁ k₂ : ℕ} (P : Multiset (Tuple T c))
     (hP : P.Nodup) (f : Tuple T c → Multiset (Tuple T k₁))
     (g : Tuple T c → Multiset (Tuple T k₂)) :
     (((Relation.slices P f).bind (fun a => (Relation.slices P g).map
@@ -580,7 +586,7 @@ side. -/
 def decorrCore : Set OpKind :=
   {OpKind.empty, OpKind.proj, OpKind.prod, OpKind.union, OpKind.diff}
 
-theorem decorrCore_subset_decorrOps : decorrCore ⊆ decorrOps := by
+private theorem decorrCore_subset_decorrOps : decorrCore ⊆ decorrOps := by
   intro k hk
   simp only [decorrCore, decorrOps, Set.mem_insert_iff, Set.mem_singleton_iff] at hk ⊢
   tauto
@@ -614,18 +620,18 @@ def AggQueryIn.paramsReg : {c n : ℕ} → {κ : Fin n → ColKind} → {l : Lis
   | _, _, _, _, .WinExpr _ _ _ _ _ _ _ q _ => q.paramsReg
 
 omit [ValueType T] in
-@[simp] theorem AggQueryIn.paramsReg_castKind {c n : ℕ} {κ κ' : Fin n → ColKind}
+@[simp] private theorem AggQueryIn.paramsReg_castKind {c n : ℕ} {κ κ' : Fin n → ColKind}
     {l : List (String × ℕ)} (h : κ = κ') (q : AggQueryIn T c n κ l) :
     (q.castKind h).paramsReg ↔ q.paramsReg := by
   cases h; exact Iff.rfl
 
 omit [ValueType T] in
-theorem AggQueryIn.noFun_carryCol {n : ℕ} (κ : Fin n → ColKind) (k : Fin n) :
+private theorem AggQueryIn.noFun_carryCol {n : ℕ} (κ : Fin n → ColKind) (k : Fin n) :
     (AggQueryIn.carryCol (T := T) κ k).noFun = true := by
   unfold AggQueryIn.carryCol
   split <;> rfl
 
-theorem keyJoinCond_noFun {n m : ℕ} {κ : Fin m → ColKind} (posL posR : Fin n → Fin m)
+private theorem keyJoinCond_noFun {n m : ℕ} {κ : Fin m → ColKind} (posL posR : Fin n → Fin m)
     (hL : ∀ k, κ (posL k) = ColKind.reg) (hR : ∀ k, κ (posR k) = ColKind.reg) :
     (keyJoinCond (T' := T) posL posR hL hR).noFun = true := by
   unfold keyJoinCond
@@ -637,16 +643,16 @@ theorem keyJoinCond_noFun {n m : ℕ} {κ : Fin m → ColKind} (posL posR : Fin 
     rfl
 
 omit [ValueType T] in
-theorem TermIn.noFun_lift {c k : ℕ} (t : TermIn T c k) : t.lift.noFun = t.noFun := by
+private theorem TermIn.noFun_lift {c k : ℕ} (t : TermIn T c k) : t.lift.noFun = t.noFun := by
   cases t <;> rfl
 
 omit [ValueType T] in
-theorem TermGIn.noFun_lift {c k : ℕ} {κ : Fin k → ColKind} (t : TermGIn T c κ) :
+private theorem TermGIn.noFun_lift {c k : ℕ} {κ : Fin k → ColKind} (t : TermGIn T c κ) :
     t.lift.noFun = t.noFun := by
   cases t <;> rfl
 
 omit [ValueType T] in
-theorem GenPredIn.noFun_lift {c k : ℕ} {κ : Fin k → ColKind} (φ : GenPredIn T c κ) :
+private theorem GenPredIn.noFun_lift {c k : ℕ} {κ : Fin k → ColKind} (φ : GenPredIn T c κ) :
     φ.lift.noFun = φ.noFun := by
   induction φ with
   | cmp op t₁ t₂ =>
@@ -661,7 +667,7 @@ theorem GenPredIn.noFun_lift {c k : ℕ} {κ : Fin k → ColKind} (φ : GenPredI
   | not φ ih => exact ih
 
 omit [ValueType T] in
-theorem ProjColIn.noFun_lift {c k : ℕ} {κ : Fin k → ColKind} (p : ProjColIn T c κ) :
+private theorem ProjColIn.noFun_lift {c k : ℕ} {κ : Fin k → ColKind} (p : ProjColIn T c κ) :
     p.lift.noFun = p.noFun := by
   cases p with
   | term t => exact TermGIn.noFun_lift t
@@ -693,7 +699,7 @@ def AggQueryIn.HasDecorrelation {c k : ℕ} {κ : Fin k → ColKind} {l : List (
 
 /-- **A relation reference** is the product of the parameters with it:
 the same rows under every parameter row. -/
-theorem AggQueryIn.hasDecorrelation_rel {c n : ℕ} {S : Set OpKind} {sch : Schema}
+private theorem AggQueryIn.hasDecorrelation_rel {c n : ℕ} {S : Set OpKind} {sch : Schema}
     (hS : decorrCore ⊆ S)
     (P : AggQuery T c (ColKind.allReg c)) (hP : P.usesOnly S)
     (hPs : P.overSchema sch) (s : String) (hs : sch s = some n) :
@@ -706,7 +712,7 @@ theorem AggQueryIn.hasDecorrelation_rel {c n : ℕ} {S : Set OpKind} {sch : Sche
   rfl
 
 /-- **A hole** reads the round as a relation reference reads the instance. -/
-theorem AggQueryIn.hasDecorrelation_hole {c n : ℕ} {S : Set OpKind} {sch : Schema}
+private theorem AggQueryIn.hasDecorrelation_hole {c n : ℕ} {S : Set OpKind} {sch : Schema}
     (hS : decorrCore ⊆ S)
     (P : AggQuery T c (ColKind.allReg c)) (hP : P.usesOnly S)
     (hPs : P.overSchema sch) (s : String) (hs : sch s = some n) :
@@ -719,7 +725,7 @@ theorem AggQueryIn.hasDecorrelation_hole {c n : ℕ} {S : Set OpKind} {sch : Sch
   rfl
 
 /-- **The empty relation** likewise: no row under any parameter row. -/
-theorem AggQueryIn.hasDecorrelation_empty {c : ℕ} {S : Set OpKind} {sch : Schema}
+private theorem AggQueryIn.hasDecorrelation_empty {c : ℕ} {S : Set OpKind} {sch : Schema}
     (hS : decorrCore ⊆ S)
     (P : AggQuery T c (ColKind.allReg c)) (hP : P.usesOnly S)
     (hPs : P.overSchema sch) :
@@ -758,7 +764,7 @@ def paramCol {c m : ℕ} (pv : Fin m → T ⊕ Fin c) (ρ : Fin m → ColKind) (
   | ColKind.prov => .provTerm (pvTermG (pv k))
 
 omit [ValueType T] in
-theorem paramCol_kind {c m : ℕ} (pv : Fin m → T ⊕ Fin c) (ρ : Fin m → ColKind) (k : Fin m) :
+private theorem paramCol_kind {c m : ℕ} (pv : Fin m → T ⊕ Fin c) (ρ : Fin m → ColKind) (k : Fin m) :
     (paramCol (T := T) pv ρ k).kind = ρ k := by
   unfold paramCol
   split <;> (rename_i h; rw [h]; rfl)
@@ -771,7 +777,7 @@ def paramCols {c m : ℕ} (pv : Fin m → T ⊕ Fin c) (ρ : Fin m → ColKind) 
     (paramCol pv ρ)
 
 omit [ValueType T] in
-theorem paramCols_kind {c m : ℕ} (pv : Fin m → T ⊕ Fin c) (ρ : Fin m → ColKind) :
+private theorem paramCols_kind {c m : ℕ} (pv : Fin m → T ⊕ Fin c) (ρ : Fin m → ColKind) :
     (fun i => (paramCols (T := T) pv ρ i).kind) = ColKind.liftKinds c ρ := by
   funext i
   refine Fin.addCases (fun j => ?_) (fun k => ?_) i
@@ -788,7 +794,7 @@ def paramColsReg {c m : ℕ} (pv : Fin m → T ⊕ Fin c) :
 
 /-- **A row of regular parameters** is a projection of the parameter
 relation: one row per parameter row, its values read off that row. -/
-theorem AggQueryIn.hasDecorrelation_param_reg {c m : ℕ} {S : Set OpKind} {sch : Schema}
+private theorem AggQueryIn.hasDecorrelation_param_reg {c m : ℕ} {S : Set OpKind} {sch : Schema}
     (hS : decorrCore ⊆ S) (P : AggQuery T c (ColKind.allReg c)) (hP : P.usesOnly S)
     (hPs : P.overSchema sch) (pv : Fin m → T ⊕ Fin c) (ρ : Fin m → ColKind)
     (hreg : ∀ k, ρ k = ColKind.reg) :
@@ -832,7 +838,7 @@ theorem AggQueryIn.hasDecorrelation_param_reg {c m : ℕ} {S : Set OpKind} {sch 
 their columns – one row per group, the rows being distinct – its columns
 read off that row, an aggregate one through an aggregate that reads the
 one value of its group, so that the leaf's kinds come back. -/
-theorem AggQueryIn.hasDecorrelation_param {c m : ℕ} {S : Set OpKind} {sch : Schema}
+private theorem AggQueryIn.hasDecorrelation_param {c m : ℕ} {S : Set OpKind} {sch : Schema}
     (hS : decorrCore ⊆ S) (hg : OpKind.gamma ∈ S)
     (P : AggQuery T c (ColKind.allReg c)) (hP : P.usesOnly S)
     (hPs : P.overSchema sch) (hnd : ∀ D : Database T, (P.evaluatePlain D).Nodup)
@@ -897,7 +903,7 @@ theorem AggQueryIn.hasDecorrelation_param {c m : ℕ} {S : Set OpKind} {sch : Sc
 /-! ### The operators that act slice by slice -/
 
 /-- **A union** is the union of the decorrelations. -/
-theorem AggQueryIn.hasDecorrelation_sum {c k : ℕ} {κ : Fin k → ColKind}
+private theorem AggQueryIn.hasDecorrelation_sum {c k : ℕ} {κ : Fin k → ColKind}
     {l₁ l₂ : List (String × ℕ)} {S : Set OpKind} {sch : Schema}
     (hS : decorrCore ⊆ S)
     {P : AggQuery T c (ColKind.allReg c)} {q₁ : AggQueryIn T c k κ l₁} {q₂ : AggQueryIn T c k κ l₂}
@@ -916,7 +922,7 @@ theorem AggQueryIn.hasDecorrelation_sum {c k : ℕ} {κ : Fin k → ColKind}
 /-- **A selection** is the selection on the lifted predicate: it reads
 the parameters as columns, and the rows it keeps in a slice are those
 the original keeps under that slice's parameters. -/
-theorem AggQueryIn.hasDecorrelation_sel {c k : ℕ} {κ : Fin k → ColKind} {l : List
+private theorem AggQueryIn.hasDecorrelation_sel {c k : ℕ} {κ : Fin k → ColKind} {l : List
     (String × ℕ)} {S : Set OpKind} {sch : Schema}
     (_hS : decorrCore ⊆ S) (hsel : OpKind.sel ∈ S)
     {P : AggQuery T c (ColKind.allReg c)} {q : AggQueryIn T c k κ l}
@@ -936,7 +942,7 @@ theorem AggQueryIn.hasDecorrelation_sel {c k : ℕ} {κ : Fin k → ColKind} {l 
 /-- **Duplicate elimination** is duplicate elimination of the
 decorrelation: the slices are disjoint, the parameter rows being
 pairwise distinct. -/
-theorem AggQueryIn.hasDecorrelation_dedup {c k : ℕ} {S : Set OpKind} {sch : Schema}
+private theorem AggQueryIn.hasDecorrelation_dedup {c k : ℕ} {S : Set OpKind} {sch : Schema}
     (_hS : decorrCore ⊆ S) (hded : OpKind.dedup ∈ S)
     {P : AggQuery T c (ColKind.allReg c)}
     (hnd : ∀ D : Database T, (P.evaluatePlain D).Nodup)
@@ -962,7 +968,7 @@ theorem AggQueryIn.hasDecorrelation_dedup {c k : ℕ} {S : Set OpKind} {sch : Sc
 /-- **A difference** is the difference of the decorrelations: a row of
 one slice matches a row of the right side exactly when it matches one in
 its own slice. -/
-theorem AggQueryIn.hasDecorrelation_diff {c k : ℕ} {S : Set OpKind} {sch : Schema}
+private theorem AggQueryIn.hasDecorrelation_diff {c k : ℕ} {S : Set OpKind} {sch : Schema}
     (hS : decorrCore ⊆ S)
     {P : AggQuery T c (ColKind.allReg c)}
     {q₁ q₂ : AggQueryIn T c k (ColKind.allReg k)}
@@ -998,7 +1004,7 @@ theorem AggQueryIn.hasDecorrelation_diff {c k : ℕ} {S : Set OpKind} {sch : Sch
 
 omit [ValueType T] in
 /-- A row of a decorrelated query is its parameters and its own columns. -/
-theorem Relation.append_paramsOf {c k : ℕ} (x : Tuple T (c + k)) :
+private theorem Relation.append_paramsOf {c k : ℕ} (x : Tuple T (c + k)) :
     (Fin.append (Relation.paramsOf x) (fun i : Fin k => x (Fin.natAdd c i))
       : Tuple T (c + k)) = x := by
   funext j
@@ -1009,7 +1015,7 @@ theorem Relation.append_paramsOf {c k : ℕ} (x : Tuple T (c + k)) :
 
 /-- **A projection** keeps the parameters and reads each of its columns
 lifted: a column that read a parameter reads the column holding it. -/
-theorem AggQueryIn.hasDecorrelation_proj {c k m : ℕ} {κ : Fin k → ColKind} {l : List
+private theorem AggQueryIn.hasDecorrelation_proj {c k m : ℕ} {κ : Fin k → ColKind} {l : List
     (String × ℕ)} {S : Set OpKind} {sch : Schema}
     (hS : decorrCore ⊆ S)
     {P : AggQuery T c (ColKind.allReg c)} {q : AggQueryIn T c k κ l}
@@ -1094,7 +1100,7 @@ def joinSrc (c k₁ k₂ : ℕ) :
       (fun i₂ : Fin k₂ => Fin.natAdd (c + k₁) (Fin.natAdd c i₂)))
 
 /-- **A product** is the parameter join of the two decorrelations. -/
-theorem AggQueryIn.hasDecorrelation_prod {c k₁ k₂ : ℕ} {S : Set OpKind} {sch : Schema}
+private theorem AggQueryIn.hasDecorrelation_prod {c k₁ k₂ : ℕ} {S : Set OpKind} {sch : Schema}
     (hS : decorrCore ⊆ S) (hsel : OpKind.sel ∈ S)
     {κ₁ : Fin k₁ → ColKind} {κ₂ : Fin k₂ → ColKind} {l₁ l₂ : List (String × ℕ)}
     {P : AggQuery T c (ColKind.allReg c)}
@@ -1180,7 +1186,7 @@ theorem AggQueryIn.hasDecorrelation_prod {c k₁ k₂ : ℕ} {S : Set OpKind} {s
 
 omit [ValueType T] in
 /-- A parameter column is not a column of the query's own. -/
-theorem Fin.castAdd_ne_natAdd {c k : ℕ} (jp : Fin c) (i : Fin k) :
+private theorem Fin.castAdd_ne_natAdd {c k : ℕ} (jp : Fin c) (i : Fin k) :
     (Fin.castAdd k jp : Fin (c + k)) ≠ Fin.natAdd c i := by
   intro hc
   have hv := congrArg Fin.val hc
@@ -1190,7 +1196,7 @@ theorem Fin.castAdd_ne_natAdd {c k : ℕ} (jp : Fin c) (i : Fin k) :
 
 omit [ValueType T] in
 /-- The query's own columns are named injectively. -/
-theorem Fin.natAdd_left_inj {c k : ℕ} {i i' : Fin k}
+private theorem Fin.natAdd_left_inj {c k : ℕ} {i i' : Fin k}
     (h : (Fin.natAdd c i : Fin (c + k)) = Fin.natAdd c i') : i = i' := by
   have hv := congrArg Fin.val h
   simp only [Fin.val_natAdd] at hv
@@ -1199,7 +1205,7 @@ theorem Fin.natAdd_left_inj {c k : ℕ} {i i' : Fin k}
 /-! ### The operators the plain semantics does not see -/
 
 /-- **A retagging** is a retagging: it changes no row. -/
-theorem AggQueryIn.hasDecorrelation_retag {c k : ℕ} {S : Set OpKind} {sch : Schema}
+private theorem AggQueryIn.hasDecorrelation_retag {c k : ℕ} {S : Set OpKind} {sch : Schema}
     (_hS : decorrCore ⊆ S)
     {κ κ' : Fin k → ColKind} {l : List (String × ℕ)} {P : AggQuery T c (ColKind.allReg c)}
     (hbase : ∀ i, (κ i).base = (κ' i).base) {q : AggQueryIn T c k κ l}
@@ -1221,7 +1227,7 @@ theorem AggQueryIn.hasDecorrelation_retag {c k : ℕ} {S : Set OpKind} {sch : Sc
 
 /-- **The alternatives reading of an aggregate column** likewise: it
 reads the column as a key and changes no row of the plain semantics. -/
-theorem AggQueryIn.hasDecorrelation_explode {c k : ℕ} {κ : Fin k → ColKind} {l : List
+private theorem AggQueryIn.hasDecorrelation_explode {c k : ℕ} {κ : Fin k → ColKind} {l : List
     (String × ℕ)} {S : Set OpKind} {sch : Schema}
     (_hS : decorrCore ⊆ S)
     {P : AggQuery T c (ColKind.allReg c)} (i : Fin k)
@@ -1282,7 +1288,7 @@ def TermIn.shift (c : ℕ) {c' k : ℕ} : TermIn T c' k → TermIn T c' (c + k)
 
 /-- **Shifting does not change what a term reads**, the block it skips
 holding the parameters. -/
-theorem TermIn.eval_shift (c : ℕ) {c' k : ℕ} (t : TermIn T c' k)
+private theorem TermIn.eval_shift (c : ℕ) {c' k : ℕ} (t : TermIn T c' k)
     (v : Tuple T c) (u : Tuple T k) (γ : Fin c' → T) :
     (t.shift c).eval (Fin.append v u) γ = t.eval u γ := by
   induction t with
@@ -1306,7 +1312,7 @@ theorem TermIn.eval_shift (c : ℕ) {c' k : ℕ} (t : TermIn T c' k)
 omit [ValueType T] in
 /-- Shifting a term's reading does not change which kinds of column it
 reads, the parameters being regular. -/
-theorem TermIn.regOnly_shift {c c' k : ℕ} (κ : Fin k → ColKind)
+private theorem TermIn.regOnly_shift {c c' k : ℕ} (κ : Fin k → ColKind)
     (t : TermIn T c' k) :
     (t.shift c).regOnly (ColKind.liftKinds c κ) = t.regOnly κ := by
   induction t with
@@ -1326,7 +1332,7 @@ theorem TermIn.regOnly_shift {c c' k : ℕ} (κ : Fin k → ColKind)
 
 omit [ValueType T] in
 /-- And lifting a term's parameters into columns does not either. -/
-theorem TermIn.regOnly_lift {c k : ℕ} (κ : Fin k → ColKind)
+private theorem TermIn.regOnly_lift {c k : ℕ} (κ : Fin k → ColKind)
     (t : TermIn T c k) :
     (t.lift).regOnly (ColKind.liftKinds c κ) = t.regOnly κ := by
   induction t with
@@ -1359,7 +1365,7 @@ def BoolTerm.shift (c : ℕ) {k : ℕ} : BoolTerm T k → BoolTerm T (c + k)
   | .SYNNE a b => .SYNNE (a.shift c) (b.shift c)
 
 /-- It compares the same two values. -/
-theorem BoolTerm.eval3_shift (c : ℕ) {k : ℕ} (φ : BoolTerm T k)
+private theorem BoolTerm.eval3_shift (c : ℕ) {k : ℕ} (φ : BoolTerm T k)
     (v : Tuple T c) (u : Tuple T k) :
     (φ.shift c).eval3 (Fin.append v u) = φ.eval3 u := by
   have hargs : ∀ ψ : BoolTerm T k,
@@ -1382,17 +1388,17 @@ def Selection.shift (c : ℕ) {k : ℕ} : Selection T k → Selection T (c + k)
   | .True => .True
 
 omit [ValueType T] in
-theorem TermIn.noFun_shift (c : ℕ) {c' k : ℕ} (t : TermIn T c' k) :
+private theorem TermIn.noFun_shift (c : ℕ) {c' k : ℕ} (t : TermIn T c' k) :
     (t.shift c).noFun = t.noFun := by
   cases t <;> rfl
 
 omit [ValueType T] in
-theorem BoolTerm.noFun_shift (c : ℕ) {k : ℕ} (b : BoolTerm T k) :
+private theorem BoolTerm.noFun_shift (c : ℕ) {k : ℕ} (b : BoolTerm T k) :
     (b.shift c).noFun = b.noFun := by
   cases b <;> exact congrArg₂ (· && ·) (TermIn.noFun_shift c _) (TermIn.noFun_shift c _)
 
 omit [ValueType T] in
-theorem Selection.noFun_shift (c : ℕ) {k : ℕ} (φ : Selection T k) :
+private theorem Selection.noFun_shift (c : ℕ) {k : ℕ} (φ : Selection T k) :
     (φ.shift c).noFun = φ.noFun := by
   induction φ with
   | BT b => exact BoolTerm.noFun_shift c b
@@ -1402,7 +1408,7 @@ theorem Selection.noFun_shift (c : ℕ) {k : ℕ} (φ : Selection T k) :
   | True => rfl
 
 omit [ValueType T] in
-theorem Selection.noFunOpt_map_shift (c : ℕ) {k : ℕ} (o : Option (Selection T k)) :
+private theorem Selection.noFunOpt_map_shift (c : ℕ) {k : ℕ} (o : Option (Selection T k)) :
     Selection.noFunOpt (o.map (Selection.shift c)) = Selection.noFunOpt o := by
   cases o with
   | none => rfl
@@ -1435,7 +1441,7 @@ the aggregates then read. -/
 order on tuples is lexicographic, and the block the two rows share is
 read first. (The comparisons are written out: this file is in the scope
 of the relational notation, where `<` reads as a predicate's.) -/
-theorem Fin.append_lt_append {c k : ℕ} (v : Tuple T c) (w w' : Tuple T k) :
+private theorem Fin.append_lt_append {c k : ℕ} (v : Tuple T c) (w w' : Tuple T k) :
     @LT.lt (Tuple T (c + k)) _ (Fin.append v w) (Fin.append v w')
       ↔ @LT.lt (Tuple T k) _ w w' := by
   show (∃ i : Fin (c + k),
@@ -1483,7 +1489,7 @@ theorem Fin.append_lt_append {c k : ℕ} (v : Tuple T c) (w w' : Tuple T k) :
       exact hi
 
 /-- **Sorting commutes with prefixing a common block.** -/
-theorem sortList_map_append {c k : ℕ} (v : Tuple T c)
+private theorem sortList_map_append {c k : ℕ} (v : Tuple T c)
     (M : Multiset (Tuple T k)) :
     sortList (Multiset.map (fun w => (Fin.append v w : Tuple T (c + k))) M
         : Multiset (Tuple T (c + k)))
@@ -1506,7 +1512,7 @@ def winOrd (c : ℕ) {k p : ℕ} (O : Tuple (Fin k) p) :
 omit [ValueType T] in
 /-- Prefixing a block does not change the order values the clause
 reads. -/
-theorem Tuple.key_winOrd {c k p : ℕ} (O : Tuple (Fin k) p) (v : Tuple T c)
+private theorem Tuple.key_winOrd {c k p : ℕ} (O : Tuple (Fin k) p) (v : Tuple T c)
     (u : Tuple T k) :
     Tuple.key (winOrd c O) (Fin.append v u : Tuple T (c + k))
       = Tuple.key O u :=
@@ -1539,7 +1545,7 @@ theorem OrderSpec.readLe_append {c k p : ℕ} (O : Tuple (Fin k) p)
   · rw [ite_eq_right hp, ite_eq_right hp]
 
 /-- **Sorting by the clause commutes with prefixing a block.** -/
-theorem OrderSpec.sortSeq_map_append {c k p : ℕ} (O : Tuple (Fin k) p)
+private theorem OrderSpec.sortSeq_map_append {c k p : ℕ} (O : Tuple (Fin k) p)
     (o : OrderSpec p) (v : Tuple T c) (L : List (Tuple T k)) :
     OrderSpec.sortSeq (Tuple.key (winOrd c O))
         (id : Tuple T (c + k) → Tuple T (c + k)) o
@@ -1563,7 +1569,7 @@ def groupKey (c : ℕ) {m n₁ : ℕ} (is : Tuple (Fin m) n₁) :
 /-- **A group of the decorrelated query is a group of one slice**: the
 parameters are part of the key, so the rows of the group at `(v, g)` are
 the rows of `f v`'s group at `g`, with `v` in front. -/
-theorem Relation.groupSeq_slices {c m n₁ : ℕ} (P : Multiset (Tuple T c))
+private theorem Relation.groupSeq_slices {c m n₁ : ℕ} (P : Multiset (Tuple T c))
     (hP : P.Nodup) (f : Tuple T c → Multiset (Tuple T m))
     (is : Tuple (Fin m) n₁) {v : Tuple T c} (hv : v ∈ P) (g : Tuple T n₁) :
     Relation.groupSeq (groupKey c is) (Relation.slices P f)
@@ -1630,7 +1636,7 @@ def GroupOrder.lift (c : ℕ) {m : ℕ} : GroupOrder T m → GroupOrder T (c + m
 /-- **A group of the decorrelated query, read in the clause's order**, is
 one slice's group read in that order: the clause reads the shifted
 columns, and the parameter block it shares does not reorder the rows. -/
-theorem Relation.groupSeqOrd_slices {c m n₁ : ℕ} (P : Multiset (Tuple T c))
+private theorem Relation.groupSeqOrd_slices {c m n₁ : ℕ} (P : Multiset (Tuple T c))
     (hP : P.Nodup) (f : Tuple T c → Multiset (Tuple T m))
     (is : Tuple (Fin m) n₁) (ord : GroupOrder T m) {v : Tuple T c}
     (hv : v ∈ P) (g : Tuple T n₁) :
@@ -1650,7 +1656,7 @@ theorem Relation.groupSeqOrd_slices {c m n₁ : ℕ} (P : Multiset (Tuple T c))
     rfl
 
 /-- **And under a `FILTER` clause**, which keeps the same rows. -/
-theorem Relation.groupSeqOptOrd_slices {c m n₁ : ℕ} (P : Multiset (Tuple T c))
+private theorem Relation.groupSeqOptOrd_slices {c m n₁ : ℕ} (P : Multiset (Tuple T c))
     (hP : P.Nodup) (f : Tuple T c → Multiset (Tuple T m))
     (is : Tuple (Fin m) n₁) (ord : GroupOrder T m) {v : Tuple T c}
     (hv : v ∈ P) (g : Tuple T n₁) (keep : Option (Selection T m)) :
@@ -1683,7 +1689,7 @@ set_option maxHeartbeats 1000000 in
 /-- **A grouped aggregation** groups by the parameters as well: each
 group is one slice's group, read in the same order, so the aggregates
 read what they read there. -/
-theorem AggQueryIn.hasDecorrelation_gamma {lab : ℕ} {c m n₁ n₂ : ℕ} {rd : Fin c → Bool}
+private theorem AggQueryIn.hasDecorrelation_gamma {lab : ℕ} {c m n₁ n₂ : ℕ} {rd : Fin c → Bool}
     {S : Set OpKind} {sch : Schema}
     (hS : decorrCore ⊆ S) (hg : OpKind.gamma ∈ S)
     {P : AggQuery T c (ColKind.allReg c)}
@@ -1808,7 +1814,7 @@ operator can build it. -/
 
 /-- The group of a decorrelated query at a parameter row, when the
 parameters are the whole key: the slice itself. -/
-theorem Relation.groupSeq_paramsKey {c m : ℕ} (P : Multiset (Tuple T c))
+private theorem Relation.groupSeq_paramsKey {c m : ℕ} (P : Multiset (Tuple T c))
     (hP : P.Nodup) (f : Tuple T c → Multiset (Tuple T m))
     {v : Tuple T c} (hv : v ∈ P) :
     Relation.groupSeq (fun j : Fin c => Fin.castAdd m j)
@@ -1825,7 +1831,7 @@ theorem Relation.groupSeq_paramsKey {c m : ℕ} (P : Multiset (Tuple T c))
 
 /-- **The parameter rows the slices reach** are those with a non-empty
 slice, each once. -/
-theorem Relation.dedup_paramsOf_slices {c m : ℕ} (P : Multiset (Tuple T c))
+private theorem Relation.dedup_paramsOf_slices {c m : ℕ} (P : Multiset (Tuple T c))
     (hP : P.Nodup) (f : Tuple T c → Multiset (Tuple T m)) :
     ((Relation.slices P f).map Relation.paramsOf).dedup
       = P.filter (fun v => f v ≠ 0) := by
@@ -1850,7 +1856,7 @@ theorem Relation.dedup_paramsOf_slices {c m : ℕ} (P : Multiset (Tuple T c))
     · exact Relation.paramsOf_append v w
 
 /-- **And the ones they do not reach** are those with an empty slice. -/
-theorem Relation.filter_notMem_paramsOf_slices {c m : ℕ}
+private theorem Relation.filter_notMem_paramsOf_slices {c m : ℕ}
     (P : Multiset (Tuple T c)) (f : Tuple T c → Multiset (Tuple T m)) :
     Multiset.filter
         (fun v => v ∉ (Relation.slices P f).map Relation.paramsOf) P
@@ -1874,7 +1880,7 @@ theorem Relation.filter_notMem_paramsOf_slices {c m : ℕ}
 set_option maxHeartbeats 1000000 in
 /-- **An empty relation has an empty group**, whatever order the clause
 asks for. -/
-@[simp] theorem Relation.groupSeqOrd_zero {m n₁ : ℕ} (is : Tuple (Fin m) n₁)
+@[simp] private theorem Relation.groupSeqOrd_zero {m n₁ : ℕ} (is : Tuple (Fin m) n₁)
     (ord : GroupOrder T m) (g : Tuple T n₁) :
     Relation.groupSeqOrd is ord (0 : Relation T m) g = [] := by
   cases ord with
@@ -1887,7 +1893,7 @@ asks for. -/
 
 /-- **The group at a parameter row, read in the clause's order**: the
 slice itself, read in that order. -/
-theorem Relation.groupSeqOrd_paramsKey {c m : ℕ} (P : Multiset (Tuple T c))
+private theorem Relation.groupSeqOrd_paramsKey {c m : ℕ} (P : Multiset (Tuple T c))
     (hP : P.Nodup) (f : Tuple T c → Multiset (Tuple T m))
     (ord : GroupOrder T m) {v : Tuple T c} (hv : v ∈ P) :
     Relation.groupSeqOrd (fun j : Fin c => Fin.castAdd m j) (ord.lift c)
@@ -1919,7 +1925,7 @@ theorem Relation.groupSeqOrd_paramsKey {c m : ℕ} (P : Multiset (Tuple T c))
 decorrelation by the parameters gives those whose slice is non-empty;
 the others are the parameter rows the slices do not reach, carrying each
 aggregate's value on no input. -/
-theorem AggQueryIn.hasDecorrelation_gammaScalar {lab : ℕ} {c m n₂ : ℕ} {rd : Fin c → Bool}
+private theorem AggQueryIn.hasDecorrelation_gammaScalar {lab : ℕ} {c m n₂ : ℕ} {rd : Fin c → Bool}
     {S : Set OpKind}
     {sch : Schema}
     (hS : decorrCore ⊆ S) (hg : OpKind.gamma ∈ S)
@@ -2076,7 +2082,7 @@ def winPart (c : ℕ) {k mp : ℕ} (P' : Tuple (Fin k) mp) :
 
 omit [ValueType T] in
 /-- And the partition key is the parameters beside the original key. -/
-theorem Tuple.key_winPart {c k mp : ℕ} (P' : Tuple (Fin k) mp)
+private theorem Tuple.key_winPart {c k mp : ℕ} (P' : Tuple (Fin k) mp)
     (v : Tuple T c) (u : Tuple T k) :
     Tuple.key (winPart c P') (Fin.append v u : Tuple T (c + k))
       = Fin.append v (Tuple.key P' u) := by
@@ -2094,7 +2100,7 @@ omit [ValueType T] in
 /-- **Which decision procedure an erasure uses does not matter**: a
 decidable equality is unique, and the frame machinery's comes from the
 domain's order where instance search finds the pointwise one. -/
-theorem Multiset.erase_instEq {α : Type} (i j : DecidableEq α)
+private theorem Multiset.erase_instEq {α : Type} (i j : DecidableEq α)
     (s : Multiset α) (a : α) :
     @Multiset.erase α i s a = @Multiset.erase α j s a := by
   rw [Subsingleton.elim i j]
@@ -2102,7 +2108,7 @@ theorem Multiset.erase_instEq {α : Type} (i j : DecidableEq α)
 /-- **Erasing a row of one slice is erasing it from that slice**: the
 parameter block is carried along injectively, so one occurrence goes on
 each side. -/
-theorem Multiset.map_erase_append {c k : ℕ} (v : Tuple T c) (u : Tuple T k)
+private theorem Multiset.map_erase_append {c k : ℕ} (v : Tuple T c) (u : Tuple T k)
     (X : Multiset (Tuple T k)) :
     @Multiset.erase (Tuple T (c + k)) (fun a b => LinearOrder.toDecidableEq a b)
         (X.map (fun x => (Fin.append v x : Tuple T (c + k)))) (Fin.append v u)
@@ -2204,7 +2210,7 @@ theorem ValueFrame.frameOf_slices {c k mp p : ℕ} (P : Multiset (Tuple T c))
     rw [ite_eq_right hs, ite_eq_right hs', hfil, Multiset.map_erase_append]
 
 /-- **And so is the sequence it is read as.** -/
-theorem ValueFrame.frameListOf_slices {c k mp p : ℕ}
+private theorem ValueFrame.frameListOf_slices {c k mp p : ℕ}
     (P : Multiset (Tuple T c)) (hP : P.Nodup)
     (f : Tuple T c → Multiset (Tuple T k)) (P' : Tuple (Fin k) mp)
     (O : Tuple (Fin k) p) (o : OrderSpec p) (w : ValueFrame T p)
@@ -2220,7 +2226,7 @@ theorem ValueFrame.frameListOf_slices {c k mp p : ℕ}
 /-- **What a window reads of a decorrelated row**: the parameters, which
 are regular columns and so read as they stand, and what it reads of the
 row's own half. -/
-theorem ColKind.readTuple_liftKinds {c k : ℕ} (κ : Fin k → ColKind)
+private theorem ColKind.readTuple_liftKinds {c k : ℕ} (κ : Fin k → ColKind)
     (v : Tuple T c) (u : Tuple T k) :
     ColKind.readTuple (ColKind.liftKinds c κ)
         (Fin.append v u : Tuple T (c + k))
@@ -2246,7 +2252,7 @@ omit [ValueType T] in
 /-- **A window of the decorrelated query reads regular columns too**:
 the parameters are regular, and the partition, the order and the term
 read what they read before. -/
-theorem winReadsReg_lift {c k mp p : ℕ} {κ : Fin k → ColKind}
+private theorem winReadsReg_lift {c k mp p : ℕ} {κ : Fin k → ColKind}
     {P' : Tuple (Fin k) mp} {O : Tuple (Fin k) p} {t : TermIn T c k}
     (hrr : WinReadsReg κ P' O t) :
     WinReadsReg (ColKind.liftKinds c κ) (winPart c P') (winOrd c O)
@@ -2269,7 +2275,7 @@ theorem winReadsReg_lift {c k mp p : ℕ} {κ : Fin k → ColKind}
 /-- **The value a window's column takes on a decorrelated row** is the
 value it takes on the row of its slice: the frame is that slice's frame,
 and the term reads the parameters off the row instead of the context. -/
-theorem ValueFrame.windowValue_slices {c k mp p : ℕ}
+private theorem ValueFrame.windowValue_slices {c k mp p : ℕ}
     (P : Multiset (Tuple T c)) (hP : P.Nodup)
     (f : Tuple T c → Multiset (Tuple T k)) (P' : Tuple (Fin k) mp)
     (O : Tuple (Fin k) p) (o : OrderSpec p) (w : ValueFrame T p)
@@ -2285,7 +2291,7 @@ theorem ValueFrame.windowValue_slices {c k mp p : ℕ}
 
 /-- **And so under a `FILTER` clause**, which keeps the same rows of the
 frame, reading them through the shifted columns. -/
-theorem ValueFrame.windowValueWhen_slices {c k mp p : ℕ}
+private theorem ValueFrame.windowValueWhen_slices {c k mp p : ℕ}
     (P : Multiset (Tuple T c)) (hP : P.Nodup)
     (f : Tuple T c → Multiset (Tuple T k)) (P' : Tuple (Fin k) mp)
     (O : Tuple (Fin k) p) (o : OrderSpec p) (w : ValueFrame T p)
@@ -2304,7 +2310,7 @@ theorem ValueFrame.windowValueWhen_slices {c k mp p : ℕ}
   exact TermIn.eval_lift t v x
 
 /-- **The clause or no clause.** -/
-theorem ValueFrame.windowValueOpt_slices {c k mp p : ℕ}
+private theorem ValueFrame.windowValueOpt_slices {c k mp p : ℕ}
     (P : Multiset (Tuple T c)) (hP : P.Nodup)
     (f : Tuple T c → Multiset (Tuple T k)) (P' : Tuple (Fin k) mp)
     (O : Tuple (Fin k) p) (o : OrderSpec p) (w : ValueFrame T p)
@@ -2331,7 +2337,7 @@ omit [ValueType T] in
 /-- **The kinds a decorrelated window's columns are read from**: a
 parameter and an input column keep their kind, and the column the window
 adds is the aggregate one. -/
-theorem ColKind.snoc_winSrc {c n : ℕ} (κ : Fin n → ColKind)
+private theorem ColKind.snoc_winSrc {c n : ℕ} (κ : Fin n → ColKind)
     {κ' : Fin (c + n) → ColKind} (h : κ' = ColKind.liftKinds c κ)
     (j : Fin (c + (n + 1))) :
     (Fin.snoc κ' ColKind.agg : Fin ((c + n) + 1) → ColKind) (winSrc c n j)
@@ -2355,7 +2361,7 @@ then lies inside one slice, so a frame is a frame of that slice and the
 column takes the value it takes there. Every frame is covered,
 `EXCLUDE CURRENT ROW` and `EXCLUDE TIES` included: the row a frame takes
 out is the same row on both sides (`ValueFrame.frameOf_slices`). -/
-theorem AggQueryIn.hasDecorrelation_win {lab : ℕ} {c n mp p : ℕ} {rd : Fin c → Bool}
+private theorem AggQueryIn.hasDecorrelation_win {lab : ℕ} {c n mp p : ℕ} {rd : Fin c → Bool}
     {κ : Fin n → ColKind}
     {S : Set OpKind} {sch : Schema}
     (hS : decorrCore ⊆ S) (hw : OpKind.win ∈ S)
@@ -2446,7 +2452,7 @@ theorem AggQueryIn.hasDecorrelation_win {lab : ℕ} {c n mp p : ℕ} {rd : Fin c
 same way: the parameters join the partition, every leaf reads its own
 frame of the slice, and the leaves' values are combined as before. Each
 frame is asked to contain its current row. -/
-theorem AggQueryIn.hasDecorrelation_winExpr {lab : ℕ} {c n mp p na : ℕ} {rd : Fin c → Bool}
+private theorem AggQueryIn.hasDecorrelation_winExpr {lab : ℕ} {c n mp p na : ℕ} {rd : Fin c → Bool}
     {S : Set OpKind}
     {sch : Schema}
     (hS : decorrCore ⊆ S) (hw : OpKind.win ∈ S)
@@ -2533,7 +2539,7 @@ than the sequence it is read as. -/
 /-- **The rows of a decorrelated group**: with the parameters in the key,
 the group at `(v, g)` holds the rows of `f v`'s group at `g`, each with
 `v` in front. This is `Relation.groupSeq_slices` for the bag. -/
-theorem Relation.filter_groupKey_slices {c m n₁ : ℕ}
+private theorem Relation.filter_groupKey_slices {c m n₁ : ℕ}
     (P : Multiset (Tuple T c)) (hP : P.Nodup)
     (f : Tuple T c → Multiset (Tuple T m)) (is : Tuple (Fin m) n₁)
     {v : Tuple T c} (hv : v ∈ P) (g : Tuple T n₁) :
@@ -2585,7 +2591,7 @@ set_option maxHeartbeats 1000000 in
 /-- **A second-level aggregation** decorrelates as a grouped one does:
 the parameters join the key, and the group at each key is one slice's
 group, whose rows the aggregate reads through the lifted column. -/
-theorem AggQueryIn.hasDecorrelation_gammaNest {lab : ℕ} {c m n₁ : ℕ} {rd : Fin c → Bool}
+private theorem AggQueryIn.hasDecorrelation_gammaNest {lab : ℕ} {c m n₁ : ℕ} {rd : Fin c → Bool}
     {S : Set OpKind} {sch : Schema}
     (hS : decorrCore ⊆ S) (hg : OpKind.gamma ∈ S)
     {κ : Fin m → ColKind} {P : AggQuery T c (ColKind.allReg c)}
@@ -2725,7 +2731,7 @@ def Relation.swapBlocks (c n₁ : ℕ) (x : Tuple T (c + n₁)) : Tuple T (n₁ 
   fun j => x (swapSrc c n₁ j)
 
 omit [ValueType T] in
-@[simp] theorem Relation.swapBlocks_append {c n₁ : ℕ} (v : Tuple T c)
+@[simp] private theorem Relation.swapBlocks_append {c n₁ : ℕ} (v : Tuple T c)
     (u : Tuple T n₁) :
     Relation.swapBlocks c n₁ (Fin.append v u : Tuple T (c + n₁))
       = (Fin.append u v : Tuple T (n₁ + c)) := by
@@ -2741,7 +2747,7 @@ omit [ValueType T] in
 omit [ValueType T] in
 /-- Swapping the blocks loses nothing: it is a bijection of the
 columns. -/
-theorem Relation.swapBlocks_injective {c n₁ : ℕ} :
+private theorem Relation.swapBlocks_injective {c n₁ : ℕ} :
     Function.Injective (Relation.swapBlocks (T := T) c n₁) := by
   intro x y h
   funext k
@@ -2761,7 +2767,7 @@ omit [ValueType T] in
 /-- **Binding slice by slice**: a choice made of a row's parameters and
 its own columns, put back under the same parameters, acts on the slices
 as it acts on each slice. -/
-theorem Relation.slices_bind {c k k' : ℕ} (P : Multiset (Tuple T c))
+private theorem Relation.slices_bind {c k k' : ℕ} (P : Multiset (Tuple T c))
     (f : Tuple T c → Multiset (Tuple T k))
     (F : Tuple T c → Tuple T k → Multiset (Tuple T k')) :
     (Relation.slices P f).bind (fun x =>
@@ -2780,7 +2786,7 @@ theorem Relation.slices_bind {c k k' : ℕ} (P : Multiset (Tuple T c))
 
 omit [ValueType T] in
 /-- The swapped row, read off the blocks. -/
-theorem Relation.swapBlocks_eq_append {c n₁ : ℕ} (x : Tuple T (c + n₁)) :
+private theorem Relation.swapBlocks_eq_append {c n₁ : ℕ} (x : Tuple T (c + n₁)) :
     Relation.swapBlocks c n₁ x
       = (Fin.append (fun i => x (Fin.natAdd c i)) (Relation.paramsOf x)
           : Tuple T (n₁ + c)) := by
@@ -2902,21 +2908,21 @@ def Tuple.dupBlock {m X : ℕ} (z : Tuple T (m + X)) : Tuple T ((m + m) + X) :=
     (fun x => z (Fin.natAdd m x))
 
 omit [ValueType T] in
-theorem Tuple.dupBlock_dupL {m X : ℕ} (z : Tuple T (m + X)) (k : Fin (m + X)) :
+private theorem Tuple.dupBlock_dupL {m X : ℕ} (z : Tuple T (m + X)) (k : Fin (m + X)) :
     z.dupBlock (dupL m X k) = z k := by
   refine Fin.addCases (fun i => ?_) (fun x => ?_) k
   · rw [dupL, Fin.addCases_left, Tuple.dupBlock, Fin.append_left, Fin.append_left]
   · rw [dupL, Fin.addCases_right, Tuple.dupBlock, Fin.append_right]
 
 omit [ValueType T] in
-theorem Tuple.dupBlock_dupR {m X : ℕ} (z : Tuple T (m + X)) (k : Fin (m + X)) :
+private theorem Tuple.dupBlock_dupR {m X : ℕ} (z : Tuple T (m + X)) (k : Fin (m + X)) :
     z.dupBlock (dupR m X k) = z k := by
   refine Fin.addCases (fun i => ?_) (fun x => ?_) k
   · rw [dupR, Fin.addCases_left, Tuple.dupBlock, Fin.append_left, Fin.append_right]
   · rw [dupR, Fin.addCases_right, Tuple.dupBlock, Fin.append_right]
 
 omit [ValueType T] in
-theorem Tuple.dupBlock_append {m X : ℕ} (a : Tuple T m) (y : Tuple T X) :
+private theorem Tuple.dupBlock_append {m X : ℕ} (a : Tuple T m) (y : Tuple T X) :
     Tuple.dupBlock (Fin.append a y : Tuple T (m + X))
       = (Fin.append (Fin.append a a) y : Tuple T ((m + m) + X)) := by
   funext k
@@ -2928,12 +2934,12 @@ theorem Tuple.dupBlock_append {m X : ℕ} (a : Tuple T m) (y : Tuple T X) :
   · rw [Tuple.dupBlock, Fin.append_right, Fin.append_right, Fin.append_right]
 
 omit [ValueType T] in
-theorem regBelow_append_left {m : ℕ} (κ : Fin m → ColKind) (i : Fin m) :
+private theorem regBelow_append_left {m : ℕ} (κ : Fin m → ColKind) (i : Fin m) :
     regBelow (Fin.append κ κ) m (Fin.castAdd m i) = ColKind.reg :=
   ite_eq_left i.isLt
 
 omit [ValueType T] in
-theorem regBelow_append_right {m : ℕ} (κ : Fin m → ColKind) (i : Fin m) :
+private theorem regBelow_append_right {m : ℕ} (κ : Fin m → ColKind) (i : Fin m) :
     regBelow (Fin.append κ κ) m (Fin.natAdd m i) = κ i := by
   show (if (Fin.natAdd m i).val < m then ColKind.reg else Fin.append κ κ (Fin.natAdd m i)) = _
   rw [ite_eq_right (fun h => absurd h (by simp)), Fin.append_right]
@@ -2948,7 +2954,7 @@ theorem dup_kind {m : ℕ} (κ : Fin m → ColKind) :
   · rw [Fin.addCases_left, Fin.append_left]; rfl
   · rw [Fin.addCases_right, Fin.append_right]; rfl
 
-theorem AggQueryIn.inSig_explodeBelow {c n : ℕ} {Θ : Set (SeqAggFunc T)} :
+private theorem AggQueryIn.inSig_explodeBelow {c n : ℕ} {Θ : Set (SeqAggFunc T)} :
     ∀ (m : ℕ) {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l),
       (q.explodeBelow m).inSig Θ ↔ q.inSig Θ := by
   intro m
@@ -2972,7 +2978,7 @@ theorem AggQueryIn.inSig_explodeBelow {c n : ℕ} {Θ : Set (SeqAggFunc T)} :
     · rw [AggQueryIn.inSig_castKind]
       exact ih q
 
-@[simp] theorem AggQueryIn.inSig_allRegOf {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)}
+@[simp] private theorem AggQueryIn.inSig_allRegOf {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)}
     (q : AggQueryIn T c n κ l) (Θ : Set (SeqAggFunc T)) : (q.allRegOf).inSig Θ ↔ q.inSig Θ := by
   rw [AggQueryIn.allRegOf, AggQueryIn.inSig_castKind, AggQueryIn.inSig_explodeBelow]
 
@@ -2983,7 +2989,7 @@ def AggQueryIn.withRegCopy {m : ℕ} {κ : Fin m → ColKind} {l : List (String 
     (dup_kind κ)).explodeBelow m
 
 omit [ValueType T] in
-@[simp] theorem AggQueryIn.usesOnly_withRegCopy {m : ℕ} {κ : Fin m → ColKind}
+@[simp] private theorem AggQueryIn.usesOnly_withRegCopy {m : ℕ} {κ : Fin m → ColKind}
     {l : List (String × ℕ)} {S : Set OpKind} (A : AggQueryIn T 0 m κ l) :
     A.withRegCopy.usesOnly S ↔ (OpKind.proj ∈ S ∧ A.usesOnly S) := by
   rw [AggQueryIn.withRegCopy, AggQueryIn.usesOnly_explodeBelow, AggQueryIn.usesOnly_castKind]
@@ -2991,14 +2997,14 @@ omit [ValueType T] in
     fun h => ⟨⟨h.1, fun j => AggQueryIn.sourceCol_carryCol _ _⟩, h.2⟩⟩
 
 omit [ValueType T] in
-@[simp] theorem AggQueryIn.overSchema_withRegCopy {m : ℕ} {κ : Fin m → ColKind}
+@[simp] private theorem AggQueryIn.overSchema_withRegCopy {m : ℕ} {κ : Fin m → ColKind}
     {l : List (String × ℕ)} {sch : Schema} (A : AggQueryIn T 0 m κ l) :
     A.withRegCopy.overSchema sch ↔ A.overSchema sch := by
   rw [AggQueryIn.withRegCopy, AggQueryIn.overSchema_explodeBelow,
     AggQueryIn.overSchema_castKind]
   rfl
 
-theorem AggQueryIn.evaluatePlain_withRegCopy {m : ℕ} {κ : Fin m → ColKind}
+private theorem AggQueryIn.evaluatePlain_withRegCopy {m : ℕ} {κ : Fin m → ColKind}
     {l : List (String × ℕ)} (A : AggQueryIn T 0 m κ l) (D : Database T) (γ : Fin 0 → T) :
     A.withRegCopy.evaluatePlain D γ
       = (A.evaluatePlain D γ).map (fun a => (Fin.append a a : Tuple T (m + m))) := by
@@ -3023,7 +3029,7 @@ parameter relation at all. The two are then joined on those columns.
 This is the case the construction exists for, and the only one whose
 hypothesis is the statement for *another* parameter relation: the
 recursion is on the query, over every parameter relation at once. -/
-theorem AggQueryIn.hasDecorrelation_apply {c n₁ n₂ : ℕ} {S : Set OpKind} {sch : Schema}
+private theorem AggQueryIn.hasDecorrelation_apply {c n₁ n₂ : ℕ} {S : Set OpKind} {sch : Schema}
     (hS : decorrCore ⊆ S) (hsel : OpKind.sel ∈ S) (hded : OpKind.dedup ∈ S)
     {κ₁ : Fin n₁ → ColKind} {κ₂ : Fin n₂ → ColKind} {P : AggQuery T c (ColKind.allReg c)}
     {q₁ : AggQueryIn T c n₁ κ₁}
@@ -3309,7 +3315,7 @@ theorem AggQueryIn.hasDecorrelation_of_usesOnly {S : Set OpKind}
 
 omit [ValueType T] in
 /-- The unit names no relation, so it is over every schema. -/
-theorem AggQueryIn.overSchema_unit {sch : Schema} :
+private theorem AggQueryIn.overSchema_unit {sch : Schema} :
     (AggQueryIn.unit : AggQuery T 0 (ColKind.allReg 0)).overSchema sch := by
   rw [AggQueryIn.unit, AggQueryIn.overSchema_castKind]
   exact trivial

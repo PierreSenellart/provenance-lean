@@ -5,6 +5,14 @@ public import Provenance.WinRow
 public import Provenance.AggQueryAdequacy
 import Mathlib.Analysis.SpecialFunctions.Pow.NNReal
 import Provenance.RoundBound
+import all Provenance.AggQuery
+import all Provenance.AggQueryAdequacy
+import all Provenance.AggQuerySubst
+import all Provenance.Database
+import all Provenance.PlainBasis
+import all Provenance.QueryAdequacy
+import all Provenance.RecursionBasis
+import all Provenance.WinRow
 
 /-!
 # The basis of the annotated semantics: the statement and the inherited rows
@@ -49,7 +57,7 @@ def Relation.liftOne {n : ℕ} (r : Relation T n) : AnnotatedRelation T K n :=
   Multiset.map (fun u => (u, (1 : K))) r
 
 omit [ValueType T] [DecidableEq K] [HasAltLinearOrder K] in
-theorem Relation.toPlain_liftOne {n : ℕ} (r : Relation T n) :
+private theorem Relation.toPlain_liftOne {n : ℕ} (r : Relation T n) :
     (Relation.liftOne (K := K) r).toPlain = r := by
   unfold Relation.liftOne AnnotatedRelation.toPlain
   rw [Multiset.map_map]
@@ -60,7 +68,7 @@ def Database.liftOne (D : Database T) : AnnotatedDatabase T K :=
   D.map (fun e => (e.fst, ⟨e.snd.fst, Relation.liftOne (K := K) e.snd.snd⟩))
 
 omit [ValueType T] [DecidableEq K] [HasAltLinearOrder K] in
-theorem Database.toPlain_liftOne (D : Database T) : (D.liftOne (K := K)).toPlain = D := by
+private theorem Database.toPlain_liftOne (D : Database T) : (D.liftOne (K := K)).toPlain = D := by
   unfold Database.liftOne AnnotatedDatabase.toPlain
   rw [List.map_map]
   refine Eq.trans (List.map_congr_left (fun e _ => ?_)) (List.map_id _)
@@ -103,19 +111,19 @@ def AggQueryIn.liftFaithful : {c n : ℕ} → {κ : Fin n → ColKind} → {l : 
   | _, _, _, _, .WinExpr _ _ _ _ _ _ _ q _ => q.liftFaithful
 
 omit [ValueType T] in
-@[simp] theorem AggQueryIn.liftFaithful_castKind {c n : ℕ} {κ κ' : Fin n → ColKind}
+@[simp] private theorem AggQueryIn.liftFaithful_castKind {c n : ℕ} {κ κ' : Fin n → ColKind}
     {l : List (String × ℕ)} (h : κ = κ') (q : AggQueryIn T c n κ l) :
     (q.castKind h).liftFaithful ↔ q.liftFaithful := by
   cases h; exact Iff.rfl
 
 omit [ValueType T] in
-@[simp] theorem AggQueryIn.noExplode_castKind {c n : ℕ} {κ κ' : Fin n → ColKind}
+@[simp] private theorem AggQueryIn.noExplode_castKind {c n : ℕ} {κ κ' : Fin n → ColKind}
     {l : List (String × ℕ)} (h : κ = κ') (q : AggQueryIn T c n κ l) :
     (q.castKind h).noExplode ↔ q.noExplode := by
   cases h; exact Iff.rfl
 
 omit [ValueType T] in
-theorem AggQueryIn.stripAgg_eq_of_liftFaithful :
+private theorem AggQueryIn.stripAgg_eq_of_liftFaithful :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l),
       q.liftFaithful → q.stripAgg = q := by
   intro c n κ l q
@@ -148,7 +156,7 @@ theorem AggQueryIn.stripAgg_eq_of_liftFaithful :
 /-! ## What stripping keeps -/
 
 omit [ValueType T] in
-theorem AggQueryIn.usesOnly_stripAgg {S : Set OpKind} :
+private theorem AggQueryIn.usesOnly_stripAgg {S : Set OpKind} :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l),
       q.usesOnly S → q.stripAgg.usesOnly S := by
   intro c n κ l q
@@ -181,7 +189,7 @@ theorem AggQueryIn.usesOnly_stripAgg {S : Set OpKind} :
   | Win P O o w t f q hrr dist keep ih => exact fun h => ⟨h.1, ih h.2⟩
   | WinExpr P O o ws ts fs g q keeps ih => exact fun h => ⟨h.1, ih h.2⟩
 
-theorem AggQueryIn.inSig_stripAgg {Θ : Set (SeqAggFunc T)} :
+private theorem AggQueryIn.inSig_stripAgg {Θ : Set (SeqAggFunc T)} :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l),
       q.inSig Θ → q.stripAgg.inSig Θ := by
   intro c n κ l q
@@ -216,7 +224,7 @@ theorem AggQueryIn.inSig_stripAgg {Θ : Set (SeqAggFunc T)} :
   | WinExpr P O o ws ts fs g q keeps ih => exact fun h => h.elim
 
 omit [ValueType T] in
-theorem AggQueryIn.noMention_stripAgg {s : String} :
+private theorem AggQueryIn.noMention_stripAgg {s : String} :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l),
       q.noMention s → q.stripAgg.noMention s := by
   intro c n κ l q
@@ -250,7 +258,7 @@ theorem AggQueryIn.noMention_stripAgg {s : String} :
   | WinExpr P O o ws ts fs g q keeps ih => exact fun h => ih h
 
 omit [ValueType T] in
-theorem AggQueryIn.overSchema_stripAgg {sch : Schema} :
+private theorem AggQueryIn.overSchema_stripAgg {sch : Schema} :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l),
       q.overSchema sch → q.stripAgg.overSchema sch := by
   intro c n κ l q
@@ -286,7 +294,7 @@ theorem AggQueryIn.overSchema_stripAgg {sch : Schema} :
   | WinExpr P O o ws ts fs g q keeps ih => exact fun h => ih h
 
 omit [ValueType T] in
-theorem AggQueryIn.noExplode_stripAgg :
+private theorem AggQueryIn.noExplode_stripAgg :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l),
       q.noExplode → q.stripAgg.noExplode := by
   intro c n κ l q
@@ -323,7 +331,7 @@ theorem AggQueryIn.noExplode_stripAgg :
 
 /-- A closed query settling at a round settles at the empty round: it
 reads the round through nothing. -/
-theorem AggQueryIn.settlesAt_assign_zero_of_noMention {s : String} {m : ℕ} (X : Relation T m)
+private theorem AggQueryIn.settlesAt_assign_zero_of_noMention {s : String} {m : ℕ} (X : Relation T m)
     {c n : ℕ} {κ : Fin n → ColKind} (q : AggQueryIn T c n κ) (hq : q.noMention s)
     (D : Database T) (γ : Fin c → T) (h : q.SettlesAt (D.assign s X) γ) :
     q.SettlesAt (D.assign s (0 : Relation T m)) γ := by
@@ -337,7 +345,7 @@ theorem AggQueryIn.settlesAt_assign_zero_of_noMention {s : String} {m : ℕ} (X 
 reads of the round, it reads through its hole once, so the rows the
 empty round gives its apply's right sides are among the ones any round
 gives. -/
-theorem AggQueryIn.settlesAt_assign_zero_of_body {s : String} {m : ℕ} :
+private theorem AggQueryIn.settlesAt_assign_zero_of_body {s : String} {m : ℕ} :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l),
       l = [(s, m)] → q.noMention s → ∀ (D : Database T) (γ : Fin c → T) (X : Relation T m),
         q.SettlesAt (D.assign s X) γ → q.SettlesAt (D.assign s (0 : Relation T m)) γ := by
@@ -394,18 +402,18 @@ theorem AggQueryIn.settlesAt_assign_zero_of_body {s : String} {m : ℕ} :
 
 omit [ValueType T] [DecidableEq K] [HasAltLinearOrder K] in
 /-- The data part of the empty annotated relation. -/
-theorem AnnotatedRelation.toPlain_zero {n : ℕ} :
+private theorem AnnotatedRelation.toPlain_zero {n : ℕ} :
     (0 : AnnotatedRelation T K n).toPlain = (0 : Multiset (Tuple T n)) :=
   Multiset.map_zero _
 
 omit [ValueType T] [DecidableEq K] [HasAltLinearOrder K] in
-theorem AnnotatedRelation.toPlain_eq_zero_iff {n : ℕ} (r : AnnotatedRelation T K n) :
+private theorem AnnotatedRelation.toPlain_eq_zero_iff {n : ℕ} (r : AnnotatedRelation T K n) :
     r.toPlain = 0 ↔ r = 0 :=
   Multiset.map_eq_zero
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 /-- Stripping the aggregate selections keeps the query well-kinded. -/
-theorem AggQueryIn.wellKinded_stripAgg :
+private theorem AggQueryIn.wellKinded_stripAgg :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l)
       {ρc : Fin c → ColKind} {HK : HoleKinds},
           q.wellKinded ρc HK → q.stripAgg.wellKinded ρc HK := by
@@ -457,7 +465,7 @@ private theorem conforms_ofAnnotated {m : ℕ} (X : AnnotatedRelation T K m) :
 evaluation's recursions settle, the stripped query's do on the data
 part – under an environment, the plain instance binding each recursive
 name to the data part of the round the environment binds it to. -/
-theorem AggQueryIn.settlesAt_stripAgg_of_annSettlesAt_env :
+private theorem AggQueryIn.settlesAt_stripAgg_of_annSettlesAt_env :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l),
       q.noExplode → q.hygienic → ∀ {ρc : Fin c → ColKind} {HK : HoleKinds},
       q.wellKinded ρc HK →
@@ -669,7 +677,7 @@ the plain evaluation's recursions settle on the data part of an
 instance, the annotated evaluation's settle on the instance. A set
 recursion is excluded by `liftFaithful`: its annotated rounds may keep
 changing where its plain rounds have stopped. -/
-theorem AggQueryIn.annSettlesAt_of_settlesAt_env :
+private theorem AggQueryIn.annSettlesAt_of_settlesAt_env :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l),
       q.liftFaithful → q.noExplode → q.hygienic → ∀ {ρc : Fin c → ColKind} {HK : HoleKinds},
       q.wellKinded ρc HK →
@@ -868,7 +876,7 @@ theorem GeneratesAnn.mono {sch : Schema} {cnt : SeqAggFunc T} {S S' : Set OpKind
   obtain ⟨q', h₁, h₂, h₃, h₄, h₅, h₆⟩ := h q ho hu hi ha hp
   exact ⟨q', h₁, AggQueryIn.usesOnly_mono hSS q' h₂, h₃, h₄, h₅, h₆⟩
 
-theorem GeneratesAtNoExplode.toGeneratesAt {sch : Schema} {cnt : SeqAggFunc T} {S : Set OpKind}
+private theorem GeneratesAtNoExplode.toGeneratesAt {sch : Schema} {cnt : SeqAggFunc T} {S : Set OpKind}
     {n : ℕ} {κ : Fin n → ColKind} {q : AggQuery T n κ} (h : GeneratesAtNoExplode T sch cnt S q) :
     GeneratesAt T sch cnt S q := by
   intro ho hu hi
@@ -909,82 +917,82 @@ theorem generatesAtNoExplode_of_generatesAnn {sch : Schema} {cnt : SeqAggFunc T}
 /-! ## The witnesses are faithful -/
 
 omit [ValueType T] in
-theorem AggQueryIn.liftFaithful_unit : (AggQueryIn.unit : AggQuery T 0 _).liftFaithful := by
+private theorem AggQueryIn.liftFaithful_unit : (AggQueryIn.unit : AggQuery T 0 _).liftFaithful := by
   rw [AggQueryIn.unit, AggQueryIn.liftFaithful_castKind]; exact trivial
 
 omit [ValueType T] in
-theorem AggQueryIn.noExplode_unit : (AggQueryIn.unit : AggQuery T 0 _).noExplode := by
+private theorem AggQueryIn.noExplode_unit : (AggQueryIn.unit : AggQuery T 0 _).noExplode := by
   rw [AggQueryIn.unit, AggQueryIn.noExplode_castKind]; exact trivial
 
 omit [ValueType T] in
-theorem AggQueryIn.wellKinded_unit :
+private theorem AggQueryIn.wellKinded_unit :
     (AggQueryIn.unit : AggQuery T 0 _).wellKinded (ColKind.allReg 0) HoleKinds.empty := by
   rw [AggQueryIn.unit, AggQueryIn.wellKinded_castKind]; exact ⟨fun j => j.elim0, trivial⟩
 
-theorem liftFaithful_selWitness : selWitness.liftFaithful := ⟨rfl, trivial⟩
-theorem noExplode_selWitness : selWitness.noExplode := trivial
-theorem wellKinded_selWitness : selWitness.wellKinded (ColKind.allReg 0) HoleKinds.empty := by
+private theorem liftFaithful_selWitness : selWitness.liftFaithful := ⟨rfl, trivial⟩
+private theorem noExplode_selWitness : selWitness.noExplode := trivial
+private theorem wellKinded_selWitness : selWitness.wellKinded (ColKind.allReg 0) HoleKinds.empty := by
   simp [selWitness, AggQueryIn.wellKinded, GenPredIn.outerOk, TermGIn.outerOk]
-theorem liftFaithful_projWitness : projWitness.liftFaithful := trivial
-theorem noExplode_projWitness : projWitness.noExplode := trivial
-theorem wellKinded_projWitness : projWitness.wellKinded (ColKind.allReg 0) HoleKinds.empty := by
+private theorem liftFaithful_projWitness : projWitness.liftFaithful := trivial
+private theorem noExplode_projWitness : projWitness.noExplode := trivial
+private theorem wellKinded_projWitness : projWitness.wellKinded (ColKind.allReg 0) HoleKinds.empty := by
   simp [projWitness, AggQueryIn.wellKinded, TermGIn.outerOk, ProjColIn.outerOk]
-theorem liftFaithful_prodWitness : prodWitness.liftFaithful := ⟨trivial, trivial⟩
-theorem noExplode_prodWitness : prodWitness.noExplode := ⟨trivial, trivial⟩
-theorem wellKinded_prodWitness : prodWitness.wellKinded (ColKind.allReg 0) HoleKinds.empty := by
+private theorem liftFaithful_prodWitness : prodWitness.liftFaithful := ⟨trivial, trivial⟩
+private theorem noExplode_prodWitness : prodWitness.noExplode := ⟨trivial, trivial⟩
+private theorem wellKinded_prodWitness : prodWitness.wellKinded (ColKind.allReg 0) HoleKinds.empty := by
   simp [prodWitness, AggQueryIn.wellKinded]
-theorem liftFaithful_chainWitness : chainWitness.liftFaithful := by
+private theorem liftFaithful_chainWitness : chainWitness.liftFaithful := by
   simp [chainWitness, reachStep, AggQueryIn.liftFaithful, GenPredIn.hasAggAtom]
-theorem noExplode_chainWitness : chainWitness.noExplode := by
+private theorem noExplode_chainWitness : chainWitness.noExplode := by
   simp [chainWitness, reachStep, AggQueryIn.noExplode]
-theorem wellKinded_chainWitness : chainWitness.wellKinded (ColKind.allReg 0) HoleKinds.empty := by
+private theorem wellKinded_chainWitness : chainWitness.wellKinded (ColKind.allReg 0) HoleKinds.empty := by
   simp [chainWitness, reachStep, HoleKinds.assign, AggQueryIn.wellKinded, GenPredIn.outerOk,
       TermGIn.outerOk, ProjColIn.outerOk]
-theorem liftFaithful_winWitness : WinRow.winWitness.liftFaithful := trivial
-theorem noExplode_winWitness : WinRow.winWitness.noExplode := trivial
-theorem wellKinded_winWitness : WinRow.winWitness.wellKinded
+private theorem liftFaithful_winWitness : WinRow.winWitness.liftFaithful := trivial
+private theorem noExplode_winWitness : WinRow.winWitness.noExplode := trivial
+private theorem wellKinded_winWitness : WinRow.winWitness.wellKinded
     (ColKind.allReg 0) HoleKinds.empty := by
   simp [WinRow.winWitness, AggQueryIn.wellKinded, TermIn.outerOk]
-theorem liftFaithful_ltWitness : ltWitness.liftFaithful := ⟨rfl, trivial⟩
-theorem noExplode_ltWitness : ltWitness.noExplode := trivial
-theorem wellKinded_ltWitness : ltWitness.wellKinded (ColKind.allReg 0) HoleKinds.empty := by
+private theorem liftFaithful_ltWitness : ltWitness.liftFaithful := ⟨rfl, trivial⟩
+private theorem noExplode_ltWitness : ltWitness.noExplode := trivial
+private theorem wellKinded_ltWitness : ltWitness.wellKinded (ColKind.allReg 0) HoleKinds.empty := by
   simp [ltWitness, AggQueryIn.wellKinded, GenPredIn.outerOk, TermGIn.outerOk]
 
 /-! ## The inherited rows -/
 
 /-- `∅` is in every set generating the annotated algebra over the empty schema. -/
-theorem empty_mem_of_generatesAnn {cnt : SeqAggFunc T} {S : Set OpKind}
+private theorem empty_mem_of_generatesAnn {cnt : SeqAggFunc T} {S : Set OpKind}
     (h : GeneratesAnn T K Schema.empty cnt S) : OpKind.empty ∈ S :=
   empty_mem_of_generatesAt (generatesAtNoExplode_of_generatesAnn h _
     AggQueryIn.liftFaithful_unit AggQueryIn.noExplode_unit AggQueryIn.wellKinded_unit).toGeneratesAt
 
 /-- `γ` is in every set generating the annotated algebra. -/
-theorem gamma_mem_of_generatesAnn {sch : Schema} {cnt : SeqAggFunc T} {S : Set OpKind}
+private theorem gamma_mem_of_generatesAnn {sch : Schema} {cnt : SeqAggFunc T} {S : Set OpKind}
     (h : GeneratesAnn T K sch cnt S) : OpKind.gamma ∈ S :=
   gamma_mem_of_generatesAt (generatesAtNoExplode_of_generatesAnn h _
     AggQueryIn.liftFaithful_unit AggQueryIn.noExplode_unit AggQueryIn.wellKinded_unit).toGeneratesAt
 
 /-- `Π` is in every set generating the annotated algebra over `ℕ`. -/
-theorem proj_mem_of_generatesAnn {cnt : SeqAggFunc ℕ} {S : Set OpKind}
+private theorem proj_mem_of_generatesAnn {cnt : SeqAggFunc ℕ} {S : Set OpKind}
     (h : GeneratesAnn ℕ K schemaS cnt S) : OpKind.proj ∈ S :=
   proj_mem_of_generatesAt (generatesAtNoExplode_of_generatesAnn h _
     liftFaithful_projWitness noExplode_projWitness wellKinded_projWitness).toGeneratesAt
 
 /-- `×` or the apply is in every set generating the annotated algebra over `ℕ`. -/
-theorem prod_or_apply_mem_of_generatesAnn {cnt : SeqAggFunc ℕ} {S : Set OpKind}
+private theorem prod_or_apply_mem_of_generatesAnn {cnt : SeqAggFunc ℕ} {S : Set OpKind}
     (h : GeneratesAnn ℕ K schemaR cnt S) : OpKind.prod ∈ S ∨ OpKind.apply ∈ S :=
   prod_or_apply_mem_of_generatesAt (generatesAtNoExplode_of_generatesAnn h _
     liftFaithful_prodWitness noExplode_prodWitness wellKinded_prodWitness).toGeneratesAt
 
 /-- `μ^⊎` is in every set generating the annotated algebra over `ℕ`. -/
-theorem muBag_mem_of_generatesAnn {cnt : SeqAggFunc ℕ} (hcnt : cnt.ReadsCount) {S : Set OpKind}
+private theorem muBag_mem_of_generatesAnn {cnt : SeqAggFunc ℕ} (hcnt : cnt.ReadsCount) {S : Set OpKind}
     (h : GeneratesAnn ℕ K schemaSE cnt S) : OpKind.muBag ∈ S :=
   muBag_mem_of_generatesAt hcnt (generatesAtNoExplode_of_generatesAnn h _
     liftFaithful_chainWitness noExplode_chainWitness wellKinded_chainWitness).toGeneratesAt
 
 /-- `win` is in every set generating the annotated algebra over `ℕ` with
 the counting aggregate. -/
-theorem win_mem_of_generatesAnn {S : Set OpKind}
+private theorem win_mem_of_generatesAnn {S : Set OpKind}
     (h : GeneratesAnn ℕ K schemaR SeqAggFunc.count S) : OpKind.win ∈ S :=
   win_mem_of_generatesAt (generatesAtNoExplode_of_generatesAnn h _
     liftFaithful_winWitness noExplode_winWitness wellKinded_winWitness).toGeneratesAt
@@ -992,7 +1000,7 @@ theorem win_mem_of_generatesAnn {S : Set OpKind}
 /-- **`σ` is in every set generating the annotated algebra over `ℕ`**: the
 alternatives being out of the language, the selection row holds outright,
 with no difference to trade it for. -/
-theorem sel_mem_of_generatesAnn {cnt : SeqAggFunc ℕ} {S : Set OpKind}
+private theorem sel_mem_of_generatesAnn {cnt : SeqAggFunc ℕ} {S : Set OpKind}
     (h : GeneratesAnn ℕ K schemaS cnt S) : OpKind.sel ∈ S :=
   sel_mem_of_generatesAtNoExplode (generatesAtNoExplode_of_generatesAnn h _
     liftFaithful_ltWitness noExplode_ltWitness wellKinded_ltWitness)

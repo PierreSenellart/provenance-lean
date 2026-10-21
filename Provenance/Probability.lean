@@ -16,6 +16,8 @@ import Mathlib.Tactic.NormNum.Abs
 import Mathlib.Tactic.NormNum.DivMod
 import Mathlib.Tactic.NormNum.OfScientific
 import Provenance.Semirings.Bool
+import all Provenance.QueryRewriting
+import all Provenance.Util.KeyAccValueList
 
 /-!
 # Probability distributions over Boolean variables
@@ -121,7 +123,7 @@ theorem valProb_nonneg (v : X → Bool) : 0 ≤ P.valProb v :=
   Finset.prod_nonneg (fun x _ => P.valProb_factor_nonneg v x)
 
 omit [DecidableEq X] in
-theorem valProb_le_one (v : X → Bool) : P.valProb v ≤ 1 := by
+private theorem valProb_le_one (v : X → Bool) : P.valProb v ≤ 1 := by
   unfold valProb
   calc ∏ x, (if v x then P.prob x else 1 - P.prob x)
       ≤ ∏ _x : X, (1 : ℚ) :=
@@ -142,7 +144,7 @@ private lemma sum_factor_at (x : X) :
   simp
 
 /-- The valuations form a probability distribution: `∑ v, Pr(v) = 1`. -/
-theorem sum_valProb_eq_one : ∑ v : X → Bool, P.valProb v = 1 := by
+private theorem sum_valProb_eq_one : ∑ v : X → Bool, P.valProb v = 1 := by
   -- Reduce ∑_v ∏_x f(x, v x) to ∏_x ∑_b f(x, b) via Fintype.prod_sum, then
   -- close via `sum_factor_at`.
   have hps :
@@ -159,7 +161,7 @@ theorem sum_valProb_eq_one : ∑ v : X → Bool, P.valProb v = 1 := by
 def funcProb (f : BoolFunc X) : ℚ :=
   ∑ v : X → Bool, if f v then P.valProb v else 0
 
-theorem funcProb_nonneg (f : BoolFunc X) : 0 ≤ P.funcProb f := by
+private theorem funcProb_nonneg (f : BoolFunc X) : 0 ≤ P.funcProb f := by
   unfold funcProb
   apply Finset.sum_nonneg
   intro v _
@@ -168,7 +170,7 @@ theorem funcProb_nonneg (f : BoolFunc X) : 0 ≤ P.funcProb f := by
   · simp [hv]
 
 /-- `Pr(f) ≤ ∑_v Pr(v) = 1`. -/
-theorem funcProb_le_one (f : BoolFunc X) : P.funcProb f ≤ 1 := by
+private theorem funcProb_le_one (f : BoolFunc X) : P.funcProb f ≤ 1 := by
   rw [← P.sum_valProb_eq_one]
   unfold funcProb
   apply Finset.sum_le_sum
@@ -189,7 +191,7 @@ theorem funcProb_zero : P.funcProb (0 : BoolFunc X) = 0 := by
   simp
 
 /-- `Pr(1) = 1`: the constant-true function has probability one. -/
-theorem funcProb_one : P.funcProb (1 : BoolFunc X) = 1 := by
+private theorem funcProb_one : P.funcProb (1 : BoolFunc X) = 1 := by
   rw [← P.sum_valProb_eq_one]
   unfold funcProb
   apply Finset.sum_congr rfl
@@ -207,7 +209,7 @@ theorem funcProb_congr {f g : BoolFunc X} (h : ∀ v, f v = g v) :
   rw [h v]
 
 /-- Reformulation: `Pr(f)` as a sum over the satisfying valuations. -/
-theorem funcProb_eq_filter_sum (f : BoolFunc X) :
+private theorem funcProb_eq_filter_sum (f : BoolFunc X) :
     P.funcProb f = ∑ v ∈ Finset.univ.filter (fun v => f v = true), P.valProb v := by
   unfold funcProb
   rw [← Finset.sum_filter]
@@ -411,13 +413,13 @@ attribute [instance] Selection.evalDecidable Selection.evalDecidableAnnotated
 /-! ### Helper lemmas: random-world commutes with Multiset operations -/
 
 omit [Fintype X] [DecidableEq X] [ValueType T] in
-@[simp] lemma randomWorld_zero (v : X → Bool) :
+@[simp] private lemma randomWorld_zero (v : X → Bool) :
     randomWorld v (0 : AnnotatedRelation T (BoolFunc X) n) = 0 := rfl
 
 omit [Fintype X] [DecidableEq X] [ValueType T] in
 /-- `randomWorld` is additive on relations: filtering and projecting the
 data side commutes with multiset sum. -/
-lemma randomWorld_add (v : X → Bool)
+private lemma randomWorld_add (v : X → Bool)
     (r₁ r₂ : AnnotatedRelation T (BoolFunc X) n) :
     randomWorld v (r₁ + r₂) = randomWorld v r₁ + randomWorld v r₂ := by
   unfold randomWorld
@@ -428,7 +430,7 @@ lemma randomWorld_add (v : X → Bool)
 
 omit [Fintype X] [DecidableEq X] [ValueType T] in
 /-- Filtering the data side commutes with `randomWorld v`. -/
-lemma randomWorld_filter_data (v : X → Bool)
+private lemma randomWorld_filter_data (v : X → Bool)
     (φ : Tuple T n → Prop) [DecidablePred φ]
     (r : AnnotatedRelation T (BoolFunc X) n) :
     Multiset.filter φ (randomWorld v r) =
@@ -481,7 +483,7 @@ omit [Fintype X] [DecidableEq X] [ValueType T] in
 called with named `(p := ...)` / explicit-type arguments so Lean's HOU does
 not pick a wrong decomposition and so the underlying `Lex`-unfolded carrier
 type matches between goal and rewrite. -/
-lemma randomWorld_map_data (v : X → Bool) (f : Tuple T n → Tuple T m)
+private lemma randomWorld_map_data (v : X → Bool) (f : Tuple T n → Tuple T m)
     (r : AnnotatedRelation T (BoolFunc X) n) :
     Multiset.map f (randomWorld v r) =
       randomWorld v (r.map (fun p : AnnotatedTuple T (BoolFunc X) n => (f p.fst, p.snd))) := by
@@ -515,7 +517,7 @@ lemma randomWorld_map_data (v : X → Bool) (f : Tuple T n → Tuple T m)
 /-! ### Random world commutes with `find` -/
 
 omit [Fintype X] [DecidableEq X] [ValueType T] in
-lemma AnnotatedDatabase.find_randomWorld
+private lemma AnnotatedDatabase.find_randomWorld
     (n : ℕ) (s : String) (Î : AnnotatedDatabase T (BoolFunc X)) (v : X → Bool) :
     (Î.randomWorld v).find n s = (Î.find n s).map (_root_.randomWorld v) := by
   induction Î with
@@ -541,7 +543,7 @@ not in the random world of `r₂`. -/
 omit [Fintype X] [DecidableEq X] in
 /-- The `Diff` subtraction-annotation evaluates to `false` at `v` iff the
 data tuple is absent from the random world of the subtracted relation. -/
-lemma diff_annotation_eq_false_iff
+private lemma diff_annotation_eq_false_iff
     (v : X → Bool) (r₂ : AnnotatedRelation T (BoolFunc X) n) (u : Tuple T n) :
     ((((groupByKey r₂).val.find?
         (fun q : Tuple T n × BoolFunc X => q.1 = u)).map Prod.snd).getD 0 : BoolFunc X) v = false

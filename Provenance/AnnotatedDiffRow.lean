@@ -11,6 +11,14 @@ public import Provenance.AnnotatedBasis
 import Mathlib.Algebra.Order.Monoid.Prod
 import Mathlib.Analysis.SpecialFunctions.Pow.NNReal
 import Provenance.HavingQueryCorrectness
+import all Provenance.AggQuery
+import all Provenance.AggQueryAdequacy
+import all Provenance.AggQueryBridges
+import all Provenance.AnnotatedDatabase
+import all Provenance.AnnotatedMuUnion
+import all Provenance.Database
+import all Provenance.Nested
+import all Provenance.OrderSpec
 
 /-!
 # The difference is necessary in the annotated algebra
@@ -56,20 +64,20 @@ def snd (a : NatPair) : ℕ := Prod.snd (α := ℕ) (β := ℕ) a
 /-- A pair from its coordinates. -/
 def mk (u v : ℕ) : NatPair := ((u, v) : ℕ × ℕ)
 
-@[simp] theorem fst_mk (u v : ℕ) : (mk u v).fst = u := rfl
-@[simp] theorem snd_mk (u v : ℕ) : (mk u v).snd = v := rfl
+@[simp] private theorem fst_mk (u v : ℕ) : (mk u v).fst = u := rfl
+@[simp] private theorem snd_mk (u v : ℕ) : (mk u v).snd = v := rfl
 theorem ext {a b : NatPair} (h₁ : a.fst = b.fst) (h₂ : a.snd = b.snd) : a = b :=
   Prod.ext h₁ h₂
-@[simp] theorem fst_add (a b : NatPair) : (a + b).fst = a.fst + b.fst := rfl
-@[simp] theorem snd_add (a b : NatPair) : (a + b).snd = a.snd + b.snd := rfl
-@[simp] theorem fst_mul (a b : NatPair) : (a * b).fst = a.fst * b.fst := rfl
-@[simp] theorem snd_mul (a b : NatPair) : (a * b).snd = a.snd * b.snd := rfl
-@[simp] theorem fst_sub (a b : NatPair) : (a - b).fst = a.fst - b.fst := rfl
-@[simp] theorem snd_sub (a b : NatPair) : (a - b).snd = a.snd - b.snd := rfl
-@[simp] theorem fst_zero : (0 : NatPair).fst = 0 := rfl
-@[simp] theorem snd_zero : (0 : NatPair).snd = 0 := rfl
-@[simp] theorem fst_one : (1 : NatPair).fst = 1 := rfl
-@[simp] theorem snd_one : (1 : NatPair).snd = 1 := rfl
+@[simp] private theorem fst_add (a b : NatPair) : (a + b).fst = a.fst + b.fst := rfl
+@[simp] private theorem snd_add (a b : NatPair) : (a + b).snd = a.snd + b.snd := rfl
+@[simp] private theorem fst_mul (a b : NatPair) : (a * b).fst = a.fst * b.fst := rfl
+@[simp] private theorem snd_mul (a b : NatPair) : (a * b).snd = a.snd * b.snd := rfl
+@[simp] private theorem fst_sub (a b : NatPair) : (a - b).fst = a.fst - b.fst := rfl
+@[simp] private theorem snd_sub (a b : NatPair) : (a - b).snd = a.snd - b.snd := rfl
+@[simp] private theorem fst_zero : (0 : NatPair).fst = 0 := rfl
+@[simp] private theorem snd_zero : (0 : NatPair).snd = 0 := rfl
+@[simp] private theorem fst_one : (1 : NatPair).fst = 1 := rfl
+@[simp] private theorem snd_one : (1 : NatPair).snd = 1 := rfl
 theorem le_iff {a b : NatPair} : a ≤ b ↔ a.fst ≤ b.fst ∧ a.snd ≤ b.snd := Prod.le_def
 
 instance : CanonicallyOrderedAdd NatPair := inferInstanceAs (CanonicallyOrderedAdd (ℕ × ℕ))
@@ -112,9 +120,9 @@ instance : CommSemiringWithMonus NatPair where
 instance : HasAltLinearOrder NatPair where
   altOrder := inferInstanceAs (LinearOrder (ℕ ×ₗ ℕ))
 
-@[simp] theorem fst_delta (a : NatPair) :
+@[simp] private theorem fst_delta (a : NatPair) :
     (SemiringWithMonus.delta a).fst = if a.fst = 0 then 0 else 1 := rfl
-@[simp] theorem snd_delta (a : NatPair) :
+@[simp] private theorem snd_delta (a : NatPair) :
     (SemiringWithMonus.delta a).snd = if a.snd = 0 then 0 else 1 := rfl
 
 /-- **The two coordinates vanish together.** -/
@@ -138,7 +146,7 @@ structure AnnClosed (Q : K → Prop) : Prop where
   one_sub : ∀ a, Q a → Q (1 - a)
 
 /-- **Equal zero patterns are kept by every operator but the difference.** -/
-theorem NatPair.annClosed_zeroPat : AnnClosed NatPair.ZeroPat := by
+private theorem NatPair.annClosed_zeroPat : AnnClosed NatPair.ZeroPat := by
   refine ⟨Iff.rfl, by simp [NatPair.ZeroPat], fun a b ha hb => ?_, fun a b ha hb => ?_,
     fun a ha => ?_, fun a ha => ?_⟩
   · unfold NatPair.ZeroPat at *
@@ -162,7 +170,7 @@ variable {Q : K → Prop} (hQ : AnnClosed Q)
 include hQ
 
 omit [ValueType T] [DecidableEq K] [HasAltLinearOrder K] in
-theorem msum : ∀ s : Multiset K, (∀ a ∈ s, Q a) → Q s.sum := by
+private theorem msum : ∀ s : Multiset K, (∀ a ∈ s, Q a) → Q s.sum := by
   intro s
   induction s using Multiset.induction_on with
   | empty => intro _; exact hQ.zero
@@ -173,7 +181,7 @@ theorem msum : ∀ s : Multiset K, (∀ a ∈ s, Q a) → Q s.sum := by
       (ih fun b hb => h b (Multiset.mem_cons_of_mem hb))
 
 omit [ValueType T] [DecidableEq K] [HasAltLinearOrder K] in
-theorem mprod : ∀ s : Multiset K, (∀ a ∈ s, Q a) → Q s.prod := by
+private theorem mprod : ∀ s : Multiset K, (∀ a ∈ s, Q a) → Q s.prod := by
   intro s
   induction s using Multiset.induction_on with
   | empty => intro _; exact hQ.one
@@ -184,12 +192,12 @@ theorem mprod : ∀ s : Multiset K, (∀ a ∈ s, Q a) → Q s.prod := by
       (ih fun b hb => h b (Multiset.mem_cons_of_mem hb))
 
 omit [ValueType T] [DecidableEq K] [HasAltLinearOrder K] in
-theorem lsum (l : List K) (h : ∀ a ∈ l, Q a) : Q l.sum := by
+private theorem lsum (l : List K) (h : ∀ a ∈ l, Q a) : Q l.sum := by
   rw [← Multiset.sum_coe]
   exact hQ.msum _ fun a ha => h a (Multiset.mem_coe.1 ha)
 
 omit [ValueType T] [DecidableEq K] [HasAltLinearOrder K] in
-theorem fsum {ι : Type} (s : Finset ι) (f : ι → K) (h : ∀ i ∈ s, Q (f i)) :
+private theorem fsum {ι : Type} (s : Finset ι) (f : ι → K) (h : ∀ i ∈ s, Q (f i)) :
     Q (∑ i ∈ s, f i) := by
   unfold Finset.sum
   exact hQ.msum _ fun a ha => by
@@ -197,7 +205,7 @@ theorem fsum {ι : Type} (s : Finset ι) (f : ι → K) (h : ∀ i ∈ s, Q (f i
     exact h i hi
 
 omit [ValueType T] [DecidableEq K] [HasAltLinearOrder K] in
-theorem fprod {ι : Type} (s : Finset ι) (f : ι → K) (h : ∀ i ∈ s, Q (f i)) :
+private theorem fprod {ι : Type} (s : Finset ι) (f : ι → K) (h : ∀ i ∈ s, Q (f i)) :
     Q (∏ i ∈ s, f i) := by
   unfold Finset.prod
   exact hQ.mprod _ fun a ha => by
@@ -205,15 +213,15 @@ theorem fprod {ι : Type} (s : Finset ι) (f : ι → K) (h : ∀ i ∈ s, Q (f 
     exact h i hi
 
 omit [DecidableEq K] [HasAltLinearOrder K] in
-theorem chi (op : CompOp) (a b : T) : Q (Having.chi op a b : K) := by
+private theorem chi (op : CompOp) (a b : T) : Q (Having.chi op a b : K) := by
   unfold Having.chi; split_ifs; exacts [hQ.one, hQ.zero]
 
 omit [ValueType T] [DecidableEq K] [HasAltLinearOrder K] in
-theorem chiOf (P : T → Kleene) (a : T) : Q (Having.chiOf P a : K) := by
+private theorem chiOf (P : T → Kleene) (a : T) : Q (Having.chiOf P a : K) := by
   unfold Having.chiOf; split_ifs; exacts [hQ.one, hQ.zero]
 
 omit [ValueType T] [DecidableEq K] [HasAltLinearOrder K] in
-theorem worldAnn {N : ℕ} (α : Fin N → K) (hα : ∀ i, Q (α i)) (W : Finset (Fin N)) :
+private theorem worldAnn {N : ℕ} (α : Fin N → K) (hα : ∀ i, Q (α i)) (W : Finset (Fin N)) :
     Q (Having.worldAnn α W) :=
   hQ.mul _ _ (hQ.fprod _ _ fun i _ => hα i)
     (hQ.one_sub _ (hQ.fsum _ _ fun i _ => hα i))
@@ -246,7 +254,7 @@ def AggTok.AnnsIn (Q : K → Prop) : AggTok T K → Prop
   | .expr e => e.AnnsIn Q
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
-@[simp] theorem AggTok.AnnsIn_setFam (Q : K → Prop) (φ : FamId T) {ids : Option (List (OccId T))}
+@[simp] private theorem AggTok.AnnsIn_setFam (Q : K → Prop) (φ : FamId T) {ids : Option (List (OccId T))}
     (x : AggTok T K) :
     (x.setFam φ ids).AnnsIn Q ↔ x.AnnsIn Q := by
   cases x <;> exact Iff.rfl
@@ -256,15 +264,15 @@ section Tokens
 variable {Q : K → Prop}
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
-theorem AggValue.AnnsIn.anns {a : AggValue T K} (h : a.AnnsIn Q) (i : Fin a.occs.length) :
+private theorem AggValue.AnnsIn.anns {a : AggValue T K} (h : a.AnnsIn Q) (i : Fin a.occs.length) :
     Q (a.anns i) := h _ (List.get_mem _ _)
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
-theorem AggExpr.AnnsIn.anns {e : AggExpr T K} (h : e.AnnsIn Q) (i : Fin e.occs.length) :
+private theorem AggExpr.AnnsIn.anns {e : AggExpr T K} (h : e.AnnsIn Q) (i : Fin e.occs.length) :
     Q (e.anns i) := h _ (List.get_mem _ _)
 
 omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
-theorem AggValue.annsIn_ofGroup {c m : ℕ} (f : SeqAggFunc T) (t : TermIn T c m)
+private theorem AggValue.annsIn_ofGroup {c m : ℕ} (f : SeqAggFunc T) (t : TermIn T c m)
     (U : List (AnnotatedTuple T K m)) (γ : Fin c → T) (hU : ∀ p ∈ U, Q p.2) :
     (AggValue.ofGroup f t U γ).AnnsIn Q := by
   intro p hp
@@ -272,13 +280,13 @@ theorem AggValue.annsIn_ofGroup {c m : ℕ} (f : SeqAggFunc T) (t : TermIn T c m
   exact hU p' hp'
 
 omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
-theorem AggValue.annsIn_ofScalarGroup {c m : ℕ} (f : SeqAggFunc T) (t : TermIn T c m)
+private theorem AggValue.annsIn_ofScalarGroup {c m : ℕ} (f : SeqAggFunc T) (t : TermIn T c m)
     (U : List (AnnotatedTuple T K m)) (γ : Fin c → T) (hU : ∀ p ∈ U, Q p.2) :
     (AggValue.ofScalarGroup f t U γ).AnnsIn Q :=
   AggValue.annsIn_ofGroup f t U γ hU
 
 omit [DecidableEq K] [HasAltLinearOrder K] in
-theorem AggValue.annsIn_mergeOccs (hQ : AnnClosed Q) (l : List (T × K))
+private theorem AggValue.annsIn_mergeOccs (hQ : AnnClosed Q) (l : List (T × K))
     (hl : ∀ p ∈ l, Q p.2) : ∀ p ∈ AggValue.mergeOccs l, Q p.2 := by
   intro p hp
   obtain ⟨v, -, rfl⟩ := List.mem_map.1 hp
@@ -289,12 +297,12 @@ theorem AggValue.annsIn_mergeOccs (hQ : AnnClosed Q) (l : List (T × K))
   · exact hQ.zero
 
 omit [DecidableEq K] [HasAltLinearOrder K] in
-theorem AggValue.annsIn_mergeByValue (hQ : AnnClosed Q) {a : AggValue T K}
+private theorem AggValue.annsIn_mergeByValue (hQ : AnnClosed Q) {a : AggValue T K}
     (h : a.AnnsIn Q) : a.mergeByValue.AnnsIn Q :=
   AggValue.annsIn_mergeOccs hQ a.occs h
 
 omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
-theorem AggExpr.annsIn_ofSeqWhen {c m : ℕ} (f : SeqAggFunc T) (t : TermIn T c m)
+private theorem AggExpr.annsIn_ofSeqWhen {c m : ℕ} (f : SeqAggFunc T) (t : TermIn T c m)
     (keep : Tuple T m → Bool) (U : List (AnnotatedTuple T K m)) (sc : Bool) (γ : Fin c → T)
     (hU : ∀ p ∈ U, Q p.2) : (AggExpr.ofSeqWhen f t keep U sc γ).AnnsIn Q := by
   intro p hp
@@ -302,7 +310,7 @@ theorem AggExpr.annsIn_ofSeqWhen {c m : ℕ} (f : SeqAggFunc T) (t : TermIn T c 
   exact hU p' hp'
 
 omit [DecidableEq K] [HasAltLinearOrder K] in
-theorem AggExpr.annsIn_ofSeqDistWhen (hQ : AnnClosed Q) {c m : ℕ} (f : SeqAggFunc T)
+private theorem AggExpr.annsIn_ofSeqDistWhen (hQ : AnnClosed Q) {c m : ℕ} (f : SeqAggFunc T)
     (t : TermIn T c m) (keep : Tuple T m → Bool) (U : List (AnnotatedTuple T K m)) (sc : Bool)
     (γ : Fin c → T) (hU : ∀ p ∈ U, Q p.2) : (AggExpr.ofSeqDistWhen f t keep U sc γ).AnnsIn Q := by
   intro p hp
@@ -317,7 +325,7 @@ theorem AggExpr.annsIn_ofSeqDistWhen (hQ : AnnClosed Q) {c m : ℕ} (f : SeqAggF
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 /-- **The expression families an inner value within `Q` reads are within
 `Q`.** -/
-theorem NestInner.AnnsIn.leaves : ∀ (j : ℕ) (x : NestInner T K j), NestInner.AnnsIn Q j x →
+private theorem NestInner.AnnsIn.leaves : ∀ (j : ℕ) (x : NestInner T K j), NestInner.AnnsIn Q j x →
     ∀ κ ∈ NestInner.leaves j x, ∀ k ∈ κ.2, Q k
   | 0, e, h, κ, hκ, k, hk => by
     simp only [NestInner.leaves, Multiset.mem_singleton] at hκ
@@ -332,7 +340,7 @@ theorem NestInner.AnnsIn.leaves : ∀ (j : ℕ) (x : NestInner T K j), NestInner
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 /-- **And so are the nodes it reads.** -/
-theorem NestInner.AnnsIn.nodes : ∀ (j : ℕ) (x : NestInner T K j), NestInner.AnnsIn Q j x →
+private theorem NestInner.AnnsIn.nodes : ∀ (j : ℕ) (x : NestInner T K j), NestInner.AnnsIn Q j x →
     ∀ e ∈ NestInner.nodes j x, ∀ o ∈ e.2.2, Q o.2
   | 0, _, _, e, he => absurd he (Multiset.notMem_zero _)
   | j + 1, Sum.inl x, h, e, he => NestInner.AnnsIn.nodes j x h e he
@@ -343,21 +351,21 @@ theorem NestInner.AnnsIn.nodes : ∀ (j : ℕ) (x : NestInner T K j), NestInner.
       exact NestInner.AnnsIn.nodes j o.1 (h o ho).2 e heo
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
-theorem NestInner.AnnsIn.mono {Q' : K → Prop} (hQ : ∀ k, Q k → Q' k) :
+private theorem NestInner.AnnsIn.mono {Q' : K → Prop} (hQ : ∀ k, Q k → Q' k) :
     ∀ (j : ℕ) (x : NestInner T K j), NestInner.AnnsIn Q j x → NestInner.AnnsIn Q' j x
   | 0, _, h => fun p hp => hQ _ (h p hp)
   | j + 1, Sum.inl x, h => NestInner.AnnsIn.mono hQ j x h
   | j + 1, Sum.inr _, h => fun o ho => ⟨hQ _ (h o ho).1, NestInner.AnnsIn.mono hQ j o.1 (h o ho).2⟩
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
-theorem NestedValue.AnnsIn.mono {Q' : K → Prop} (hQ : ∀ k, Q k → Q' k) {a : NestedValue T K}
+private theorem NestedValue.AnnsIn.mono {Q' : K → Prop} (hQ : ∀ k, Q k → Q' k) {a : NestedValue T K}
     (h : a.AnnsIn Q) : a.AnnsIn Q' :=
   fun o ho => ⟨hQ _ (h o ho).1, NestInner.AnnsIn.mono hQ _ o.1 (h o ho).2⟩
 
 omit [ValueType T] [CommSemiringWithMonus K] [HasAltLinearOrder K] in
 /-- **A world of a nested value within `Q` decides within `Q`**: its own
 occurrences, each expression family and each node it holds. -/
-theorem NestedValue.AnnsIn.world [DecidableEq T] {a : NestedValue T K} (h : a.AnnsIn Q)
+private theorem NestedValue.AnnsIn.world [DecidableEq T] {a : NestedValue T K} (h : a.AnnsIn Q)
     {W : NestedValue.World T K a.lev} (hW : W ∈ a.worlds) :
     (∀ m ∈ W.root, Q m.2.1) ∧ (∀ e ∈ W.leaf, ∀ k ∈ e.1.2, Q k)
       ∧ ∀ e ∈ W.node, ∀ m ∈ e.2.2, Q m.2.1 := by
@@ -377,14 +385,14 @@ theorem NestedValue.AnnsIn.world [DecidableEq T] {a : NestedValue T K} (h : a.An
     exact NestInner.AnnsIn.nodes _ o.1 (h o ho).2 _ hκo _ hm'
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
-theorem AggExpr.annsIn_ofValue {a : AggValue T K} (h : a.AnnsIn Q) :
+private theorem AggExpr.annsIn_ofValue {a : AggValue T K} (h : a.AnnsIn Q) :
     (AggExpr.ofValue a).AnnsIn Q := by
   intro p hp
   obtain ⟨p', hp', rfl⟩ := List.mem_map.1 hp
   exact h p' hp'
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
-theorem GenValue.annsIn_innerValue (x : GenValue T K)
+private theorem GenValue.annsIn_innerValue (x : GenValue T K)
     (h : ∀ a, x = Sum.inr a → a.AnnsIn Q) : (GenValue.innerValue x).AnnsIn Q := by
   rcases x with v | a
   · intro p hp; exact absurd hp (by simp [GenValue.innerValue, NestedValue.constInner,
@@ -398,7 +406,7 @@ theorem GenValue.annsIn_innerValue (x : GenValue T K)
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 /-- **What a lifted value reads as an occurrence of a second-level
 aggregation, at every storey, is within `Q`** where the value is. -/
-theorem GenValue.annsIn_innerAt (x : GenValue T K) (h : ∀ a, x = Sum.inr a → a.AnnsIn Q) :
+private theorem GenValue.annsIn_innerAt (x : GenValue T K) (h : ∀ a, x = Sum.inr a → a.AnnsIn Q) :
     ∀ D : ℕ, NestInner.AnnsIn Q D (x.innerAt D)
   | 0 => GenValue.annsIn_innerValue x h
   | D + 1 => by
@@ -416,7 +424,7 @@ theorem GenValue.annsIn_innerAt (x : GenValue T K) (h : ∀ a, x = Sum.inr a →
       | expr e => exact GenValue.annsIn_innerAt _ h D
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
-theorem AggTok.annsIn_postcomp (gf : T → T) {x : AggTok T K} (h : x.AnnsIn Q) :
+private theorem AggTok.annsIn_postcomp (gf : T → T) {x : AggTok T K} (h : x.AnnsIn Q) :
     (x.postcomp gf).AnnsIn Q := by
   cases x with
   | tok a => exact h
@@ -426,7 +434,7 @@ theorem AggTok.annsIn_postcomp (gf : T → T) {x : AggTok T K} (h : x.AnnsIn Q) 
 /-! ### The predicate provenance -/
 
 omit [HasAltLinearOrder K] in
-theorem AggValue.annIn_predProvOfWith (hQ : AnnClosed Q) {a : AggValue T K}
+private theorem AggValue.annIn_predProvOfWith (hQ : AnnClosed Q) {a : AggValue T K}
     (h : a.AnnsIn Q) (P : T → Kleene) : Q (a.predProvOfWith P) := by
   unfold AggValue.predProvOfWith AggValue.predProvWith AggValue.predProvScalarWith
   split_ifs
@@ -434,12 +442,12 @@ theorem AggValue.annIn_predProvOfWith (hQ : AnnClosed Q) {a : AggValue T K}
   · exact hQ.fsum _ _ fun W _ => hQ.mul _ _ (hQ.worldAnn _ h.anns W) (hQ.chiOf P _)
 
 omit [HasAltLinearOrder K] in
-theorem AggExpr.annIn_predProvWith (hQ : AnnClosed Q) {e : AggExpr T K}
+private theorem AggExpr.annIn_predProvWith (hQ : AnnClosed Q) {e : AggExpr T K}
     (h : e.AnnsIn Q) (P : T → Kleene) : Q (e.predProvWith P) :=
   hQ.fsum _ _ fun W _ => hQ.mul _ _ (hQ.worldAnn _ h.anns W) (hQ.chiOf P _)
 
 omit [ValueType T] [DecidableEq K] [HasAltLinearOrder K] in
-theorem annIn_getD (hQ : AnnClosed Q) {A : List K} (hA : ∀ k ∈ A, Q k) (i : ℕ) :
+private theorem annIn_getD (hQ : AnnClosed Q) {A : List K} (hA : ∀ k ∈ A, Q k) (i : ℕ) :
     Q (A.getD i 0) := by
   rw [List.getD_eq_getElem?_getD]
   cases hi : A[i]? with
@@ -447,7 +455,7 @@ theorem annIn_getD (hQ : AnnClosed Q) {A : List K} (hA : ∀ k ∈ A, Q k) (i : 
   | some k => exact hA k (List.mem_of_getElem? hi)
 
 omit [ValueType T] [DecidableEq K] [HasAltLinearOrder K] in
-theorem NestedValue.World.annIn_presentProd (hQ : AnnClosed Q) {d : ℕ}
+private theorem NestedValue.World.annIn_presentProd (hQ : AnnClosed Q) {d : ℕ}
     {W : NestedValue.World T K d} (hr : ∀ m ∈ W.root, Q m.2.1)
     (hl : ∀ e ∈ W.leaf, ∀ k ∈ e.1.2, Q k) (hn : ∀ e ∈ W.node, ∀ m ∈ e.2.2, Q m.2.1) :
     Q W.presentProd := by
@@ -467,7 +475,7 @@ theorem NestedValue.World.annIn_presentProd (hQ : AnnClosed Q) {d : ℕ}
     exact hdec _ (hn e he)
 
 omit [ValueType T] [DecidableEq K] [HasAltLinearOrder K] in
-theorem NestedValue.World.annIn_absentSum (hQ : AnnClosed Q) {d : ℕ}
+private theorem NestedValue.World.annIn_absentSum (hQ : AnnClosed Q) {d : ℕ}
     {W : NestedValue.World T K d} (hr : ∀ m ∈ W.root, Q m.2.1)
     (hl : ∀ e ∈ W.leaf, ∀ k ∈ e.1.2, Q k) (hn : ∀ e ∈ W.node, ∀ m ∈ e.2.2, Q m.2.1) :
     Q W.absentSum := by
@@ -487,7 +495,7 @@ theorem NestedValue.World.annIn_absentSum (hQ : AnnClosed Q) {d : ℕ}
     exact hdec _ (hn e he)
 
 omit [HasAltLinearOrder K] in
-theorem NestedValue.annIn_predProvWith (hQ : AnnClosed Q) {a : NestedValue T K}
+private theorem NestedValue.annIn_predProvWith (hQ : AnnClosed Q) {a : NestedValue T K}
     (h : a.AnnsIn Q) (P : T → Kleene) : Q (a.predProvWith P) := by
   unfold NestedValue.predProvWith
   refine hQ.msum _ fun x hx => ?_
@@ -497,7 +505,7 @@ theorem NestedValue.annIn_predProvWith (hQ : AnnClosed Q) {a : NestedValue T K}
     (hQ.one_sub _ (NestedValue.World.annIn_absentSum hQ hr hl hn))) (hQ.chiOf P _)
 
 omit [HasAltLinearOrder K] in
-theorem AggTok.annIn_predProvOfWith (hQ : AnnClosed Q) {x : AggTok T K} (h : x.AnnsIn Q)
+private theorem AggTok.annIn_predProvOfWith (hQ : AnnClosed Q) {x : AggTok T K} (h : x.AnnsIn Q)
     (P : T → Kleene) : Q (x.predProvOfWith P) := by
   cases x with
   | tok a => exact AggValue.annIn_predProvOfWith hQ h P
@@ -506,7 +514,7 @@ theorem AggTok.annIn_predProvOfWith (hQ : AnnClosed Q) {x : AggTok T K} (h : x.A
 
 omit [HasAltLinearOrder K] in
 /-- The worlds of one family carry products and sums of its annotations. -/
-theorem classWorlds_annIn (hQ : AnnClosed Q) {n : ℕ} (u : Tuple (GenValue T K) n)
+private theorem classWorlds_annIn (hQ : AnnClosed Q) {n : ℕ} (u : Tuple (GenValue T K) n)
     (M : List (Fin n)) {x₀ : AggTok T K} (h : x₀.AnnsIn Q) :
     ∀ w ∈ classWorlds u M x₀, Q w.1 ∧ Q w.2.1 := by
   intro w hw
@@ -531,7 +539,7 @@ theorem classWorlds_annIn (hQ : AnnClosed Q) {n : ℕ} (u : Tuple (GenValue T K)
 omit [HasAltLinearOrder K] in
 open Classical in
 /-- So do the joint worlds of a row. -/
-theorem jointWorlds_annIn (hQ : AnnClosed Q) {n : ℕ} (u : Tuple (GenValue T K) n)
+private theorem jointWorlds_annIn (hQ : AnnClosed Q) {n : ℕ} (u : Tuple (GenValue T K) n)
     (cols : List (Fin n)) (hu : ∀ k a, u k = Sum.inr a → a.AnnsIn Q) :
     ∀ w ∈ jointWorlds u cols, Q w.1 ∧ Q w.2.1 := by
   unfold jointWorlds
@@ -558,7 +566,7 @@ theorem jointWorlds_annIn (hQ : AnnClosed Q) {n : ℕ} (u : Tuple (GenValue T K)
 omit [HasAltLinearOrder K] in
 /-- **A predicate's joint reading is within `Q`** where every token of the
 row carries annotations within `Q`. -/
-theorem GenPredIn.annIn_predsemJ (hQ : AnnClosed Q) {c n : ℕ} {κ : Fin n → ColKind}
+private theorem GenPredIn.annIn_predsemJ (hQ : AnnClosed Q) {c n : ℕ} {κ : Fin n → ColKind}
     (u : Tuple (GenValue T K) n) (γ : Fin c → T)
     (hu : ∀ k a, u k = Sum.inr a → a.AnnsIn Q) (φ : GenPredIn T c κ) (neg : Bool) :
     Q (φ.predsemJ neg u γ) := by
@@ -573,7 +581,7 @@ theorem GenPredIn.annIn_predsemJ (hQ : AnnClosed Q) {c n : ℕ} {κ : Fin n → 
 omit [HasAltLinearOrder K] in
 /-- **A predicate's provenance is within `Q`** where every token it reads
 carries annotations within `Q`. -/
-theorem GenPredIn.annIn_predsem (hQ : AnnClosed Q) {c n : ℕ} {κ : Fin n → ColKind}
+private theorem GenPredIn.annIn_predsem (hQ : AnnClosed Q) {c n : ℕ} {κ : Fin n → ColKind}
     (u : Tuple (GenValue T K) n) (γ : Fin c → T)
     (hu : ∀ k a, u k = Sum.inr a → a.AnnsIn Q) :
     ∀ (φ : GenPredIn T c κ) (neg : Bool), Q (φ.predsem neg u γ) := by
@@ -625,21 +633,21 @@ def GenRow.AnnIn (Q : K → Prop) {n : ℕ} (r : GenRow T K n) : Prop :=
     ∧ ∀ k a, r.fst k = Sum.inr a → a.AnnsIn Q
 
 omit [ValueType T] [DecidableEq K] [HasAltLinearOrder K] in
-theorem GenRow.AnnIn.finalize (hQ : AnnClosed Q) {n : ℕ} {r : GenRow T K n}
+private theorem GenRow.AnnIn.finalize (hQ : AnnClosed Q) {n : ℕ} {r : GenRow T K n}
     (h : r.AnnIn Q) : Q r.snd.finalize :=
   hQ.mul _ _ h.1 (hQ.mprod _ fun a ha => by
     obtain ⟨l, hl, rfl⟩ := Multiset.mem_map.1 ha
     exact hQ.delta _ (hQ.lsum _ (h.2.1 l hl)))
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
-theorem GenRow.annIn_ofAnnotated {n : ℕ} {p : AnnotatedTuple T K n}
+private theorem GenRow.annIn_ofAnnotated {n : ℕ} {p : AnnotatedTuple T K n}
     (h : Q p.2) : (GenRow.ofAnnotated p).AnnIn Q :=
   ⟨h, fun l hl => absurd hl (Multiset.notMem_zero l), fun k a hk => by
     simp [GenRow.ofAnnotated] at hk⟩
 
 omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 /-- A projection column reads a token of the row, perhaps through a term. -/
-theorem ProjColIn.annsIn_eval {c n : ℕ} {κ : Fin n → ColKind} (p : ProjColIn T c κ)
+private theorem ProjColIn.annsIn_eval {c n : ℕ} {κ : Fin n → ColKind} (p : ProjColIn T c κ)
     {u : Tuple (GenValue T K) n} (γ : Fin c → T) (hu : ∀ k a, u k = Sum.inr a → a.AnnsIn Q)
     {a : AggTok T K} (h : p.eval u γ = Sum.inr a) : a.AnnsIn Q := by
   cases p with
@@ -666,7 +674,7 @@ theorem ProjColIn.annsIn_eval {c n : ℕ} {κ : Fin n → ColKind} (p : ProjColI
 
 omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 /-- An occurrence of a frame is the row's own or one of the relation's. -/
-theorem mem_frameListOf {α : Type} [LinearOrder α] {n m p : ℕ} (val : α → Tuple T n)
+private theorem mem_frameListOf {α : Type} [LinearOrder α] {n m p : ℕ} (val : α → Tuple T n)
     (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p) (w : ValueFrame T p)
     (X : Multiset α) (x y : α) (h : y ∈ ValueFrame.frameListOf val P O o w X x) :
     y = x ∨ y ∈ X := by
@@ -681,7 +689,7 @@ theorem mem_frameListOf {α : Type} [LinearOrder α] {n m p : ℕ} (val : α →
   · exact Or.inr (Multiset.mem_of_mem_filter (Multiset.mem_of_mem_erase h1))
 
 omit [DecidableEq K] in
-theorem annsIn_tokenOfDist (hQ : AnnClosed Q) {c n m p : ℕ} (P : Tuple (Fin n) m)
+private theorem annsIn_tokenOfDist (hQ : AnnClosed Q) {c n m p : ℕ} (P : Tuple (Fin n) m)
     (O : Tuple (Fin n) p) (o : OrderSpec p) (w : ValueFrame T p) (t : TermIn T c n)
     (f : SeqAggFunc T) (dist : Bool) (X : AnnotatedRelation T K n) (x : AnnotatedTuple T K n)
     (γ : Fin c → T) (hX : ∀ q ∈ X, Q q.2) (hx : Q x.2) :
@@ -702,7 +710,7 @@ theorem annsIn_tokenOfDist (hQ : AnnClosed Q) {c n m p : ℕ} (P : Tuple (Fin n)
   · exact htok
 
 omit [DecidableEq K] in
-theorem annsIn_exprWhenOf (hQ : AnnClosed Q) {c n m p : ℕ} (P : Tuple (Fin n) m)
+private theorem annsIn_exprWhenOf (hQ : AnnClosed Q) {c n m p : ℕ} (P : Tuple (Fin n) m)
     (O : Tuple (Fin n) p) (o : OrderSpec p) (w : ValueFrame T p) (t : TermIn T c n)
     (f : SeqAggFunc T) (dist : Bool) (keep : Tuple T n → Bool) (X : AnnotatedRelation T K n)
     (x : AnnotatedTuple T K n) (γ : Fin c → T) (hX : ∀ q ∈ X, Q q.2) (hx : Q x.2) :
@@ -1006,7 +1014,7 @@ def dDiff : AnnotatedDatabase ℕ NatPair :=
           (((fun _ => 0) : Tuple ℕ 1), NatPair.mk 1 1)}
         : Multiset (AnnotatedTuple ℕ NatPair 1)) : AnnotatedRelation ℕ NatPair 1) [])
 
-theorem dDiff_zeroPat : ∀ k t (r : AnnotatedRelation ℕ NatPair k), dDiff.find k t = some r →
+private theorem dDiff_zeroPat : ∀ k t (r : AnnotatedRelation ℕ NatPair k), dDiff.find k t = some r →
     ∀ a ∈ r, NatPair.ZeroPat a.2 := by
   intro k t r hr a ha
   unfold dDiff at hr
@@ -1035,7 +1043,7 @@ theorem dDiff_zeroPat : ∀ k t (r : AnnotatedRelation ℕ NatPair k), dDiff.fin
         simp)
 
 /-- **`R − S` there**: `(1, 3) ⊖ (2, 2) = (0, 1)`. -/
-theorem evaluateAnnotated_diffWitness :
+private theorem evaluateAnnotated_diffWitness :
     diffWitness.evaluateAnnotated dDiff (fun _ => 0)
       = ({(((fun _ => 0) : Tuple ℕ 1), NatPair.mk 0 1)}
         : Multiset (AnnotatedTuple ℕ NatPair 1)) := by
@@ -1046,10 +1054,10 @@ theorem evaluateAnnotated_diffWitness :
   simp only [Multiset.map_singleton]
   congr 1
 
-theorem overSchema_diffWitness : diffWitness.overSchema schemaRS := by
+private theorem overSchema_diffWitness : diffWitness.overSchema schemaRS := by
   simp [diffWitness, AggQueryIn.overSchema, schemaRS]
 
-theorem usesOnly_diffWitness : diffWitness.usesOnly plainRecOps :=
+private theorem usesOnly_diffWitness : diffWitness.usesOnly plainRecOps :=
   ⟨by simp [plainRecOps, plainOps, basisDD, basisOps], trivial, trivial⟩
 
 /-- **`−` is in every set generating the annotated algebra over `ℕ × ℕ`**:

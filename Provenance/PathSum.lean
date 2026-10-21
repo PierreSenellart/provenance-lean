@@ -84,7 +84,7 @@ def ep : List α → R
 omit [DecidableEq α] in
 /-- **A path factors at any of its tuples**: the edges up to it, times
 the path from it back to the start. -/
-theorem pw_append_cons (a : α) (m : List α) :
+private theorem pw_append_cons (a : α) (m : List α) :
     ∀ l₁ : List α, pw b g (l₁ ++ a :: m) = ep g (l₁ ++ [a]) * pw b g (a :: m)
   | [] => by simp [ep]
   | [v] => by simp [pw, ep]
@@ -98,7 +98,7 @@ def pathsTo : ℕ → α → Finset (List α)
   | 0, v => if v ∈ S then {[v]} else ∅
   | j + 1, v => if v ∈ S then S.biUnion (fun u => (pathsTo j u).image (v :: ·)) else ∅
 
-theorem mem_pathsTo : ∀ (j : ℕ) (v : α) (l : List α),
+private theorem mem_pathsTo : ∀ (j : ℕ) (v : α) (l : List α),
     l ∈ pathsTo S j v ↔ l.length = j + 1 ∧ l.head? = some v ∧ ∀ a ∈ l, a ∈ S
   | 0, v, l => by
     unfold pathsTo
@@ -142,7 +142,7 @@ theorem mem_pathsTo : ∀ (j : ℕ) (v : α) (l : List α),
         simp only [List.head?_cons, Option.some.injEq] at hh
         exact hv (hh ▸ hS w (by simp))
 
-theorem eq_cons_of_mem_pathsTo {j : ℕ} {v : α} {l : List α} (h : l ∈ pathsTo S j v) :
+private theorem eq_cons_of_mem_pathsTo {j : ℕ} {v : α} {l : List α} (h : l ∈ pathsTo S j v) :
     ∃ t, l = v :: t := by
   obtain ⟨-, hh, -⟩ := (mem_pathsTo S j v l).1 h
   match l, hh with
@@ -150,7 +150,7 @@ theorem eq_cons_of_mem_pathsTo {j : ℕ} {v : α} {l : List α} (h : l ∈ paths
 
 /-- **The rounds are path sums**: the weight of `v` at round `j` is the sum
 of the weights of the paths of `j` steps through `S` ending at `v`. -/
-theorem y_eq_sum_pathsTo (hb : ∀ u, u ∉ S → b u = 0)
+private theorem y_eq_sum_pathsTo (hb : ∀ u, u ∉ S → b u = 0)
     (hg : ∀ u ∈ S, ∀ v, v ∉ S → g u v = 0) :
     ∀ (j : ℕ) (v : α), y S b g j v = ∑ l ∈ pathsTo S j v, pw b g l
   | 0, v => by
@@ -185,7 +185,7 @@ theorem y_eq_sum_pathsTo (hb : ∀ u, u ∉ S → b u = 0)
 
 omit [DecidableEq α] in
 /-- A list longer than the set it lives in repeats an element. -/
-theorem exists_repeat : ∀ l : List α, ¬ l.Nodup →
+private theorem exists_repeat : ∀ l : List α, ¬ l.Nodup →
     ∃ l₁ a l₂ l₃, l = l₁ ++ a :: (l₂ ++ a :: l₃)
   | [], h => absurd List.nodup_nil h
   | x :: t, h => by
@@ -198,7 +198,7 @@ theorem exists_repeat : ∀ l : List α, ¬ l.Nodup →
 
 /-- **The cycle a long path goes through**: a path of `M ≥ |S|` steps is a
 shorter path with a cycle spliced in, whose weight it multiplies. -/
-theorem exists_cut {M : ℕ} {v : α} {l : List α} (hM : S.card ≤ M) (hl : l ∈ pathsTo S M v) :
+private theorem exists_cut {M : ℕ} {v : α} {l : List α} (hM : S.card ≤ M) (hl : l ∈ pathsTo S M v) :
     ∃ l₁ a l₂ l₃, l = l₁ ++ a :: (l₂ ++ a :: l₃)
       ∧ l₁ ++ a :: l₃ ∈ pathsTo S (M - (l₂.length + 1)) v
       ∧ l₂.length + 1 ≤ M := by
@@ -223,7 +223,7 @@ theorem exists_cut {M : ℕ} {v : α} {l : List α} (hM : S.card ≤ M) (hl : l 
 omit [DecidableEq α] in
 /-- The weight of a path is that of the path with its cycle cut, times
 the cycle's. -/
-theorem pw_cut (l₁ : List α) (a : α) (l₂ l₃ : List α) :
+private theorem pw_cut (l₁ : List α) (a : α) (l₂ l₃ : List α) :
     pw b g (l₁ ++ a :: (l₂ ++ a :: l₃))
       = pw b g (l₁ ++ a :: l₃) * ep g (a :: (l₂ ++ [a])) := by
   rw [pw_append_cons, pw_append_cons]
@@ -234,7 +234,7 @@ theorem pw_cut (l₁ : List α) (a : α) (l₂ l₃ : List α) :
 
 /-- **Absorption**: in an absorptive semiring the round of `M ≥ |S|` steps
 adds nothing to the rounds before it. -/
-theorem x_add_y_of_absorptive (habs : ∀ a : R, 1 + a = 1) (hb : ∀ u, u ∉ S → b u = 0)
+private theorem x_add_y_of_absorptive (habs : ∀ a : R, 1 + a = 1) (hb : ∀ u, u ∉ S → b u = 0)
     (hg : ∀ u ∈ S, ∀ v, v ∉ S → g u v = 0) {M : ℕ} (hM : S.card ≤ M) (v : α) :
     x S b g M v + y S b g M v = x S b g M v := by
   rw [y_eq_sum_pathsTo S b g hb hg]
@@ -264,7 +264,7 @@ omit [DecidableEq α] in
 /-- **Rounds read on a smaller set**: where the weights vanish off `S'` and
 lead nowhere out of it, the rounds over `S` are those over `S'`, and vanish
 off `S'`. -/
-theorem y_restrict {S' : Finset α} (hsub : S' ⊆ S) (hb' : ∀ u, u ∉ S' → b u = 0)
+private theorem y_restrict {S' : Finset α} (hsub : S' ⊆ S) (hb' : ∀ u, u ∉ S' → b u = 0)
     (hg' : ∀ u ∈ S', ∀ v, v ∉ S' → g u v = 0) :
     ∀ j v, y S b g j v = y S' b g j v ∧ (v ∉ S' → y S' b g j v = 0)
   | 0, v => ⟨rfl, hb' v⟩
@@ -286,7 +286,7 @@ variable [CommSemiring R] [PartialOrder R] [CanonicallyOrderedAdd R]
 
 /-- **A long path can be shortened**: a tuple of non-zero weight at a round
 of `M ≥ |S|` steps already has non-zero weight at an earlier one. -/
-theorem exists_lt_ne_zero (hb : ∀ u, u ∉ S → b u = 0)
+private theorem exists_lt_ne_zero (hb : ∀ u, u ∉ S → b u = 0)
     (hg : ∀ u ∈ S, ∀ v, v ∉ S → g u v = 0) {M : ℕ} (hM : S.card ≤ M) {v : α}
     (h : y S b g M v ≠ 0) : ∃ j < M, y S b g j v ≠ 0 := by
   rw [y_eq_sum_pathsTo S b g hb hg] at h
@@ -305,7 +305,7 @@ def pumped (a : α) (l₂ l₃ : List α) : ℕ → List α
   | k + 1 => a :: (l₂ ++ pumped a l₂ l₃ k)
 
 omit [DecidableEq α] [PartialOrder R] [CanonicallyOrderedAdd R] in
-theorem pw_pumped (a : α) (l₂ l₃ : List α) :
+private theorem pw_pumped (a : α) (l₂ l₃ : List α) :
     ∀ k, pw b g (pumped a l₂ l₃ k) = ep g (a :: (l₂ ++ [a])) ^ k * pw b g (a :: l₃)
   | 0 => by simp [pumped]
   | k + 1 => by
@@ -319,7 +319,7 @@ theorem pw_pumped (a : α) (l₂ l₃ : List α) :
     ring
 
 omit [DecidableEq α] in
-theorem length_pumped (a : α) (l₂ l₃ : List α) :
+private theorem length_pumped (a : α) (l₂ l₃ : List α) :
     ∀ k, (pumped a l₂ l₃ k).length = l₃.length + 1 + k * (l₂.length + 1)
   | 0 => by simp [pumped]
   | k + 1 => by
@@ -327,7 +327,7 @@ theorem length_pumped (a : α) (l₂ l₃ : List α) :
     ring
 
 omit [DecidableEq α] in
-theorem mem_pumped (a : α) (l₂ l₃ : List α) (c : α) :
+private theorem mem_pumped (a : α) (l₂ l₃ : List α) (c : α) :
     ∀ k, c ∈ pumped a l₂ l₃ k → c = a ∨ c ∈ l₂ ∨ c ∈ l₃
   | 0, h => by simp only [pumped, List.mem_cons] at h; tauto
   | k + 1, h => by
@@ -340,7 +340,7 @@ theorem mem_pumped (a : α) (l₂ l₃ : List α) (c : α) :
 /-- **Pumping**: with no zero divisors, a tuple of non-zero weight at a
 round of `M ≥ |S|` steps has non-zero weight at rounds as late as one
 likes. -/
-theorem exists_ge_ne_zero [NoZeroDivisors R] (hb : ∀ u, u ∉ S → b u = 0)
+private theorem exists_ge_ne_zero [NoZeroDivisors R] (hb : ∀ u, u ∉ S → b u = 0)
     (hg : ∀ u ∈ S, ∀ v, v ∉ S → g u v = 0) {M : ℕ} (hM : S.card ≤ M) {v : α}
     (h : y S b g M v ≠ 0) (L : ℕ) : ∃ L' ≥ L, y S b g L' v ≠ 0 := by
   rw [y_eq_sum_pathsTo S b g hb hg] at h
@@ -379,7 +379,7 @@ theorem exists_ge_ne_zero [NoZeroDivisors R] (hb : ∀ u, u ∉ S → b u = 0)
 
 omit [DecidableEq α] [PartialOrder R] [CanonicallyOrderedAdd R] in
 /-- A round of weight zero everywhere is followed only by such rounds. -/
-theorem y_eq_zero_of_le {N : ℕ} (hN : ∀ v, y S b g N v = 0) :
+private theorem y_eq_zero_of_le {N : ℕ} (hN : ∀ v, y S b g N v = 0) :
     ∀ L, N ≤ L → ∀ v, y S b g L v = 0 := by
   intro L hL
   induction L, hL using Nat.le_induction with
@@ -388,7 +388,7 @@ theorem y_eq_zero_of_le {N : ℕ} (hN : ∀ v, y S b g N v = 0) :
 
 /-- **With no zero divisors, a recursion whose rounds vanish does so within
 `|S|` rounds.** -/
-theorem y_eq_zero_of_eq_zero [NoZeroDivisors R] (hb : ∀ u, u ∉ S → b u = 0)
+private theorem y_eq_zero_of_eq_zero [NoZeroDivisors R] (hb : ∀ u, u ∉ S → b u = 0)
     (hg : ∀ u ∈ S, ∀ v, v ∉ S → g u v = 0) {N : ℕ} (hN : ∀ v, y S b g N v = 0)
     {M : ℕ} (hM : S.card ≤ M) (v : α) : y S b g M v = 0 := by
   by_contra h
@@ -403,7 +403,7 @@ def UnionLike (R : Type) [CommSemiring R] : Prop :=
   (∀ a : R, a + a = a) ∧ ∀ a b : R, a ≠ 0 → b ≠ 0 → a * b = a + b
 
 omit [PartialOrder R] in
-theorem UnionLike.mul_mul (hU : UnionLike R) (hc : ∀ a b : R, a + b = 0 → a = 0)
+private theorem UnionLike.mul_mul (hU : UnionLike R) (hc : ∀ a b : R, a + b = 0 → a = 0)
     {X Y Z : R} (hX : X ≠ 0) (hY : Y ≠ 0) (hZ : Z ≠ 0) :
     X * Y * Z = X * Y + X * Z := by
   have hXY : X + Y ≠ 0 := fun h => hX (hc _ _ h)
@@ -413,14 +413,14 @@ theorem UnionLike.mul_mul (hU : UnionLike R) (hc : ∀ a b : R, a + b = 0 → a 
 
 omit [PartialOrder R] [DecidableEq α] in
 /-- A summand of an idempotent sum is absorbed by it. -/
-theorem add_sum_of_mem (hid : ∀ a : R, a + a = a) {ι : Type} [DecidableEq ι] {s : Finset ι}
+private theorem add_sum_of_mem (hid : ∀ a : R, a + a = a) {ι : Type} [DecidableEq ι] {s : Finset ι}
     (f : ι → R) {i : ι} (hi : i ∈ s) : f i + ∑ j ∈ s, f j = ∑ j ∈ s, f j := by
   rw [← add_sum_erase _ _ hi, ← add_assoc, hid]
 
 /-- **Two cycles cut**: a path of `j ≥ 2|S| + 1` steps through `S` repeats a
 tuple among its first `|S| + 1` and among the rest, and is its two paths
 with one of the two cycles cut, each of fewer steps. -/
-theorem exists_two_cuts {j : ℕ} {v : α} {l : List α} (hj : 2 * S.card + 1 ≤ j)
+private theorem exists_two_cuts {j : ℕ} {v : α} {l : List α} (hj : 2 * S.card + 1 ≤ j)
     (hl : l ∈ pathsTo S j v) :
     ∃ p₁ a c₁ p₂ q₁ b c₂ q₃,
       l = p₁ ++ a :: (c₁ ++ a :: (p₂ ++ q₁ ++ b :: (c₂ ++ b :: q₃)))
@@ -468,7 +468,7 @@ theorem exists_two_cuts {j : ℕ} {v : α} {l : List α} (hj : 2 * S.card + 1 �
 /-- **A path of `2|S| + 1` steps or more adds nothing**, where `⊗` is `⊕` on
 non-zero values: its weight is the sum of the weights of the two paths with
 one of its cycles cut. -/
-theorem pw_absorbed (hU : UnionLike R) (hb : ∀ u, u ∉ S → b u = 0)
+private theorem pw_absorbed (hU : UnionLike R) (hb : ∀ u, u ∉ S → b u = 0)
     (hg : ∀ u ∈ S, ∀ v, v ∉ S → g u v = 0) {M : ℕ} (hM : 2 * S.card + 1 ≤ M) (v : α) :
     ∀ j (l : List α), l ∈ pathsTo S j v → pw b g l + x S b g M v = x S b g M v := by
   intro j
@@ -506,7 +506,7 @@ theorem pw_absorbed (hU : UnionLike R) (hb : ∀ u, u ∉ S → b u = 0)
 
 /-- **The rounds past `2|S|` add nothing**, where `⊗` is `⊕` on non-zero
 values. -/
-theorem x_add_y_of_unionLike (hU : UnionLike R) (hb : ∀ u, u ∉ S → b u = 0)
+private theorem x_add_y_of_unionLike (hU : UnionLike R) (hb : ∀ u, u ∉ S → b u = 0)
     (hg : ∀ u ∈ S, ∀ v, v ∉ S → g u v = 0) {M : ℕ} (hM : 2 * S.card + 1 ≤ M) (v : α) :
     x S b g M v + y S b g M v = x S b g M v := by
   rw [y_eq_sum_pathsTo S b g hb hg]
@@ -558,32 +558,32 @@ def stepK (B : Multiset (α × R)) (G : α → Multiset (α × R)) (X : Multiset
     Multiset (α × R) :=
   dedupK (B + lin G X)
 
-@[simp] theorem wt_zero (u : α) : wt (0 : Multiset (α × R)) u = 0 := by simp [wt]
+@[simp] private theorem wt_zero (u : α) : wt (0 : Multiset (α × R)) u = 0 := by simp [wt]
 
-theorem wt_cons (p : α × R) (X : Multiset (α × R)) (u : α) :
+private theorem wt_cons (p : α × R) (X : Multiset (α × R)) (u : α) :
     wt (p ::ₘ X) u = (if p.1 = u then p.2 else 0) + wt X u := by
   unfold wt
   by_cases h : p.1 = u <;> simp [h]
 
-theorem wt_add (X Y : Multiset (α × R)) (u : α) : wt (X + Y) u = wt X u + wt Y u := by
+private theorem wt_add (X Y : Multiset (α × R)) (u : α) : wt (X + Y) u = wt X u + wt Y u := by
   simp [wt, Multiset.filter_add]
 
 omit [CommSemiring R] in
-theorem mem_supp {r : Multiset (α × R)} {u : α} : u ∈ supp r ↔ ∃ p ∈ r, p.1 = u := by
+private theorem mem_supp {r : Multiset (α × R)} {u : α} : u ∈ supp r ↔ ∃ p ∈ r, p.1 = u := by
   simp [supp]
 
 omit [CommSemiring R] in
-theorem supp_add (X Y : Multiset (α × R)) : supp (X + Y) = supp X ∪ supp Y := by
+private theorem supp_add (X Y : Multiset (α × R)) : supp (X + Y) = supp X ∪ supp Y := by
   ext u; simp [supp]
 
-theorem wt_eq_zero_of_notMem {r : Multiset (α × R)} {u : α} (h : u ∉ supp r) : wt r u = 0 := by
+private theorem wt_eq_zero_of_notMem {r : Multiset (α × R)} {u : α} (h : u ∉ supp r) : wt r u = 0 := by
   unfold wt
   rw [Multiset.filter_eq_nil.2, Multiset.map_zero, Multiset.sum_zero]
   intro p hp hpu
   exact h (mem_supp.2 ⟨p, hp, hpu⟩)
 
 /-- **A weighted sum over a bag is a sum over its tuples**, by weight. -/
-theorem sum_map_mul_eq (f : α → R) (S : Finset α) :
+private theorem sum_map_mul_eq (f : α → R) (S : Finset α) :
     ∀ X : Multiset (α × R), supp X ⊆ S →
       (X.map (fun p => p.2 * f p.1)).sum = ∑ u ∈ S, wt X u * f u := by
   intro X
@@ -601,7 +601,7 @@ theorem sum_map_mul_eq (f : α → R) (S : Finset α) :
     simp [hp]
 
 omit [DecidableEq α] in
-theorem wt_lin {ω : Type} [DecidableEq ω] (G : α → Multiset (ω × R)) (X : Multiset (α × R))
+private theorem wt_lin {ω : Type} [DecidableEq ω] (G : α → Multiset (ω × R)) (X : Multiset (α × R))
     (v : ω) :
     wt (lin G X) v = (X.map (fun p => p.2 * wt (G p.1) v)).sum := by
   unfold wt lin
@@ -612,7 +612,7 @@ theorem wt_lin {ω : Type} [DecidableEq ω] (G : α → Multiset (ω × R)) (X :
   simp only [Function.comp_def]
   rw [← Multiset.sum_map_mul_left]
 
-theorem mem_supp_lin {ω : Type} [DecidableEq ω] {G : α → Multiset (ω × R)}
+private theorem mem_supp_lin {ω : Type} [DecidableEq ω] {G : α → Multiset (ω × R)}
     {X : Multiset (α × R)} {v : ω} :
     v ∈ supp (lin G X) ↔ ∃ u ∈ supp X, v ∈ supp (G u) := by
   simp only [mem_supp, lin, Multiset.mem_bind, Multiset.mem_map]
@@ -622,10 +622,10 @@ theorem mem_supp_lin {ω : Type} [DecidableEq ω] {G : α → Multiset (ω × R)
   · rintro ⟨_, ⟨p, hp, rfl⟩, q, hq, rfl⟩
     exact ⟨_, ⟨p, hp, q, hq, rfl⟩, rfl⟩
 
-theorem supp_dedupK (r : Multiset (α × R)) : supp (dedupK r) = supp r := by
+private theorem supp_dedupK (r : Multiset (α × R)) : supp (dedupK r) = supp r := by
   simp [supp, dedupK, Multiset.map_map]
 
-theorem wt_dedupK (r : Multiset (α × R)) (u : α) : wt (dedupK r) u = wt r u := by
+private theorem wt_dedupK (r : Multiset (α × R)) (u : α) : wt (dedupK r) u = wt r u := by
   unfold dedupK
   conv_lhs => unfold wt
   rw [Multiset.filter_map]
@@ -638,7 +638,7 @@ theorem wt_dedupK (r : Multiset (α × R)) (u : α) : wt (dedupK r) u = wt r u :
 
 /-- **Duplicate elimination reads only the tuples held and their
 weights.** -/
-theorem dedupK_congr {r r' : Multiset (α × R)} (hs : supp r = supp r')
+private theorem dedupK_congr {r r' : Multiset (α × R)} (hs : supp r = supp r')
     (hw : ∀ u, wt r u = wt r' u) : dedupK r = dedupK r' := by
   unfold dedupK
   have : (r.map Prod.fst).dedup = (r'.map Prod.fst).dedup := by
@@ -648,16 +648,16 @@ theorem dedupK_congr {r r' : Multiset (α × R)} (hs : supp r = supp r')
   exact Multiset.map_congr rfl fun u _ => by rw [hw]
 
 omit [DecidableEq α] in
-theorem lin_add {ω : Type} (G : α → Multiset (ω × R)) (X Y : Multiset (α × R)) :
+private theorem lin_add {ω : Type} (G : α → Multiset (ω × R)) (X Y : Multiset (α × R)) :
     lin G (X + Y) = lin G X + lin G Y := Multiset.add_bind _ _ _
 
 omit [DecidableEq α] in
-@[simp] theorem lin_zero {ω : Type} (G : α → Multiset (ω × R)) : lin G 0 = 0 :=
+@[simp] private theorem lin_zero {ω : Type} (G : α → Multiset (ω × R)) : lin G 0 = 0 :=
   Multiset.zero_bind _
 
 /-- A linear round reads its input only through its tuples and their
 weights. -/
-theorem dedupK_add_lin_dedupK (B : Multiset (α × R)) (G : α → Multiset (α × R))
+private theorem dedupK_add_lin_dedupK (B : Multiset (α × R)) (G : α → Multiset (α × R))
     (Y : Multiset (α × R)) : dedupK (B + lin G (dedupK Y)) = dedupK (B + lin G Y) := by
   refine dedupK_congr ?_ fun v => ?_
   · rw [supp_add, supp_add]
@@ -670,12 +670,12 @@ theorem dedupK_add_lin_dedupK (B : Multiset (α × R)) (G : α → Multiset (α 
     simp only [wt_dedupK]
 
 omit [DecidableEq α] in
-theorem trunc_succ (B : Multiset (α × R)) (G : α → Multiset (α × R)) (k : ℕ) :
+private theorem trunc_succ (B : Multiset (α × R)) (G : α → Multiset (α × R)) (k : ℕ) :
     trunc B G (k + 1) = trunc B G k + rounds B G k := sum_range_succ _ _
 
 /-- **The iterates of the set recursion are `ε` of the truncated sums of
 its rounds.** -/
-theorem iterate_stepK_eq (B : Multiset (α × R)) (G : α → Multiset (α × R)) :
+private theorem iterate_stepK_eq (B : Multiset (α × R)) (G : α → Multiset (α × R)) :
     ∀ k, (stepK B G)^[k] 0 = dedupK (trunc B G k)
   | 0 => by simp [trunc, dedupK]
   | k + 1 => by
@@ -701,7 +701,7 @@ structure Closed (S : Finset α) (B : Multiset (α × R)) (G : α → Multiset (
   base : supp B ⊆ S
   step : ∀ u ∈ S, supp (G u) ⊆ S
 
-theorem Closed.supp_rounds {S : Finset α} {B : Multiset (α × R)} {G : α → Multiset (α × R)}
+private theorem Closed.supp_rounds {S : Finset α} {B : Multiset (α × R)} {G : α → Multiset (α × R)}
     (h : Closed S B G) : ∀ j, supp (rounds B G j) ⊆ S
   | 0 => h.base
   | j + 1 => fun v hv => by
@@ -709,7 +709,7 @@ theorem Closed.supp_rounds {S : Finset α} {B : Multiset (α × R)} {G : α → 
     exact h.step u (h.supp_rounds j hu) hv
 
 /-- **The weights of the rounds are the path sums of `PathSum.y`.** -/
-theorem wt_rounds {S : Finset α} {B : Multiset (α × R)} {G : α → Multiset (α × R)}
+private theorem wt_rounds {S : Finset α} {B : Multiset (α × R)} {G : α → Multiset (α × R)}
     (h : Closed S B G) : ∀ j v, wt (rounds B G j) v
       = y S (wt B) (fun u v => wt (G u) v) j v
   | 0, v => rfl
@@ -718,13 +718,13 @@ theorem wt_rounds {S : Finset α} {B : Multiset (α × R)} {G : α → Multiset 
     rw [wt_lin, sum_map_mul_eq (fun u => wt (G u) v) S _ (h.supp_rounds j)]
     exact sum_congr rfl fun u _ => by rw [wt_rounds h j u]
 
-theorem wt_trunc (B : Multiset (α × R)) (G : α → Multiset (α × R)) (k : ℕ) (v : α) :
+private theorem wt_trunc (B : Multiset (α × R)) (G : α → Multiset (α × R)) (k : ℕ) (v : α) :
     wt (trunc B G k) v = ∑ j ∈ range k, wt (rounds B G j) v := by
   induction k with
   | zero => simp [trunc]
   | succ k ih => rw [trunc_succ, wt_add, ih, sum_range_succ]
 
-theorem mem_supp_trunc {B : Multiset (α × R)} {G : α → Multiset (α × R)} {k : ℕ} {v : α} :
+private theorem mem_supp_trunc {B : Multiset (α × R)} {G : α → Multiset (α × R)} {k : ℕ} {v : α} :
     v ∈ supp (trunc B G k) ↔ ∃ j < k, v ∈ supp (rounds B G j) := by
   induction k with
   | zero => simp [trunc, supp]
@@ -741,7 +741,7 @@ theorem mem_supp_trunc {B : Multiset (α × R)} {G : α → Multiset (α × R)} 
 
 /-- **The tuples of the rounds, over `ℕ`**: a tuple is held at round `j`
 exactly where the count of the paths reaching it is non-zero. -/
-theorem mem_supp_rounds_iff {S : Finset α} {B : Multiset (α × R)} {G : α → Multiset (α × R)}
+private theorem mem_supp_rounds_iff {S : Finset α} {B : Multiset (α × R)} {G : α → Multiset (α × R)}
     (h : Closed S B G) : ∀ j v, v ∈ supp (rounds B G j) ↔
       y S (fun u => if u ∈ supp B then 1 else 0)
         (fun u v => if v ∈ supp (G u) then 1 else 0) j v ≠ (0 : ℕ)
@@ -771,7 +771,7 @@ def SettlesEarly (R : Type) [CommSemiring R] : Prop :=
 /-- **A linear set recursion that settles does so within `|S|` rounds**, for
 a set `S` of tuples closed under its rounds, in the semirings of
 `SettlesEarly`. -/
-theorem iterate_succ_eq_of_settles {S : Finset α} {B : Multiset (α × R)}
+private theorem iterate_succ_eq_of_settles {S : Finset α} {B : Multiset (α × R)}
     {G : α → Multiset (α × R)} (h : Closed S B G) (hR : SettlesEarly R)
     (hset : ∃ N, (stepK B G)^[N + 1] 0 = (stepK B G)^[N] 0) {M : ℕ} (hM : S.card ≤ M) :
     (stepK B G)^[M + 1] 0 = (stepK B G)^[M] 0 := by
@@ -811,7 +811,7 @@ theorem iterate_succ_eq_of_settles {S : Finset α} {B : Multiset (α × R)}
 for a set `S'` the base's weights and the steps' weights from it do not
 leave, in the semirings of `SettlesEarly`: the derivations of non-zero
 weight live in `S'`. -/
-theorem wt_trunc_settle {S S' : Finset α} {B : Multiset (α × R)}
+private theorem wt_trunc_settle {S S' : Finset α} {B : Multiset (α × R)}
     {G : α → Multiset (α × R)} (h : Closed S B G) (hsub : S' ⊆ S)
     (hb' : ∀ u, u ∉ S' → wt B u = 0) (hg' : ∀ u ∈ S', ∀ v, v ∉ S' → wt (G u) v = 0)
     (hR : SettlesEarly R) (hset : ∃ N, (stepK B G)^[N + 1] 0 = (stepK B G)^[N] 0) {M : ℕ}
@@ -844,11 +844,11 @@ twice the size of its tuple set**: those of `SettlesEarly`, and those where
 def SettlesLinear (R : Type) [CommSemiring R] : Prop := SettlesEarly R ∨ UnionLike R
 
 omit [PartialOrder R] [CanonicallyOrderedAdd R] in
-theorem SettlesEarly.settlesLinear (h : SettlesEarly R) : SettlesLinear R := Or.inl h
+private theorem SettlesEarly.settlesLinear (h : SettlesEarly R) : SettlesLinear R := Or.inl h
 
 /-- **The weights of a linear set recursion settle within `2|S'| + 1`
 rounds**, in the semirings of `SettlesLinear`. -/
-theorem wt_trunc_settle_lin {S S' : Finset α} {B : Multiset (α × R)}
+private theorem wt_trunc_settle_lin {S S' : Finset α} {B : Multiset (α × R)}
     {G : α → Multiset (α × R)} (h : Closed S B G) (hsub : S' ⊆ S)
     (hb' : ∀ u, u ∉ S' → wt B u = 0) (hg' : ∀ u ∈ S', ∀ v, v ∉ S' → wt (G u) v = 0)
     (hR : SettlesLinear R) (hset : ∃ N, (stepK B G)^[N + 1] 0 = (stepK B G)^[N] 0) {M : ℕ}
@@ -933,7 +933,7 @@ variable {lt : β → β → Prop} {cs cw : List β} {B : Multiset (α × R)}
 /-! #### A strictly sorted list -/
 
 omit [CommSemiring R] [DecidableEq β] in
-theorem sorted_lt_iff (hs : cs.Pairwise lt) (hirr : ∀ c, ¬ lt c c)
+private theorem sorted_lt_iff (hs : cs.Pairwise lt) (hirr : ∀ c, ¬ lt c c)
     (htr : ∀ a b c, lt a b → lt b c → lt a c) {i i' : ℕ} (hi : i < cs.length)
     (hi' : i' < cs.length) : lt cs[i] cs[i'] ↔ i < i' := by
   constructor
@@ -945,12 +945,12 @@ theorem sorted_lt_iff (hs : cs.Pairwise lt) (hirr : ∀ c, ¬ lt c c)
   · intro hlt; exact List.pairwise_iff_getElem.1 hs _ _ _ _ hlt
 
 omit [CommSemiring R] [DecidableEq β] in
-theorem nodup_of_sorted (hs : cs.Pairwise lt) (hirr : ∀ c, ¬ lt c c) : cs.Nodup :=
+private theorem nodup_of_sorted (hs : cs.Pairwise lt) (hirr : ∀ c, ¬ lt c c) : cs.Nodup :=
   hs.imp fun {a b} hab he => by subst he; exact hirr a hab
 
 omit [CommSemiring R] [DecidableEq β] in
 /-- **The first element is the one with nothing below it.** -/
-theorem getElem_zero_eq_iff (hs : cs.Pairwise lt) (hirr : ∀ c, ¬ lt c c)
+private theorem getElem_zero_eq_iff (hs : cs.Pairwise lt) (hirr : ∀ c, ¬ lt c c)
     (htr : ∀ a b c, lt a b → lt b c → lt a c) {c : β} (hc : c ∈ cs) :
     cs[0]? = some c ↔ ¬ ∃ a ∈ cs, lt a c := by
   obtain ⟨i, hi, rfl⟩ := List.mem_iff_getElem.1 hc
@@ -967,7 +967,7 @@ theorem getElem_zero_eq_iff (hs : cs.Pairwise lt) (hirr : ∀ c, ¬ lt c c)
 
 omit [CommSemiring R] in
 /-- **The next element is the one with nothing between.** -/
-theorem getElem_idxOf_succ_eq_iff (hs : cs.Pairwise lt) (hirr : ∀ c, ¬ lt c c)
+private theorem getElem_idxOf_succ_eq_iff (hs : cs.Pairwise lt) (hirr : ∀ c, ¬ lt c c)
     (htr : ∀ a b c, lt a b → lt b c → lt a c) {c c' : β} (hc : c ∈ cs) (hc' : c' ∈ cs)
     (hlt : lt c c') :
     cs[cs.idxOf c + 1]? = some c' ↔ ¬ ∃ m ∈ cs, lt c m ∧ lt m c' := by
@@ -989,10 +989,10 @@ theorem getElem_idxOf_succ_eq_iff (hs : cs.Pairwise lt) (hirr : ∀ c, ¬ lt c c
       (sorted_lt_iff hs hirr htr hi (by omega)).2 (by omega),
       (sorted_lt_iff hs hirr htr (by omega) hj).2 (by omega)⟩
 
-theorem SimSpec.nodup (h : SimSpec lt cs cw B G B' G') : cs.Nodup :=
+private theorem SimSpec.nodup (h : SimSpec lt cs cw B G B' G') : cs.Nodup :=
   h.sorted.imp fun {a b} hab he => by subst he; exact h.irrefl a hab
 
-theorem SimSpec.lt_iff (h : SimSpec lt cs cw B G B' G') {i i' : ℕ} (hi : i < cs.length)
+private theorem SimSpec.lt_iff (h : SimSpec lt cs cw B G B' G') {i i' : ℕ} (hi : i < cs.length)
     (hi' : i' < cs.length) : lt cs[i] cs[i'] ↔ i < i' := by
   constructor
   · intro hl
@@ -1002,20 +1002,20 @@ theorem SimSpec.lt_iff (h : SimSpec lt cs cw B G B' G') {i i' : ℕ} (hi : i < c
     · subst heq; exact h.irrefl _ hl
   · intro hlt; exact List.pairwise_iff_getElem.1 h.sorted _ _ _ _ hlt
 
-theorem SimSpec.wnodup (h : SimSpec lt cs cw B G B' G') : cw.Nodup :=
+private theorem SimSpec.wnodup (h : SimSpec lt cs cw B G B' G') : cw.Nodup :=
   h.wsorted.imp fun {a b} hab he => by subst he; exact h.irrefl a hab
 
-theorem SimSpec.succInd_get (h : SimSpec lt cs cw B G B' G') {j : ℕ} (hj : j < cw.length)
+private theorem SimSpec.succInd_get (h : SimSpec lt cs cw B G B' G') {j : ℕ} (hj : j < cw.length)
     (c' : β) : succInd (R := R) cw cw[j] c' = if cw[j + 1]? = some c' then 1 else 0 := by
   unfold succInd
   rw [h.wnodup.idxOf_getElem]
   simp [List.getElem_mem]
 
-theorem SimSpec.length_le (h : SimSpec lt cs cw B G B' G') : cw.length ≤ cs.length := by
+private theorem SimSpec.length_le (h : SimSpec lt cs cw B G B' G') : cw.length ≤ cs.length := by
   rw [← List.toFinset_card_of_nodup h.wnodup, ← List.toFinset_card_of_nodup h.nodup]
   exact Finset.card_le_card fun c hc => List.mem_toFinset.2 (h.wsub c (List.mem_toFinset.1 hc))
 
-theorem SimSpec.supp_rounds (h : SimSpec lt cs cw B G B' G') :
+private theorem SimSpec.supp_rounds (h : SimSpec lt cs cw B G B' G') :
     ∀ j t c, (t, c) ∈ supp (rounds B' G' j)
       ↔ t ∈ supp (rounds B G j) ∧ ∃ i, j ≤ i ∧ ∃ hi : i < cs.length, cs[i] = c
   | 0, t, c => by
@@ -1038,7 +1038,7 @@ theorem SimSpec.supp_rounds (h : SimSpec lt cs cw B G B' G') :
       exact (h.step_supp t _ (List.getElem_mem hj) t' _).2
         ⟨ht', List.getElem_mem hi', (h.lt_iff hj hi').2 (by omega)⟩
 
-theorem SimSpec.supp_rounds_subset (h : SimSpec lt cs cw B G B' G') {S : Finset α}
+private theorem SimSpec.supp_rounds_subset (h : SimSpec lt cs cw B G B' G') {S : Finset α}
     (hS : Closed S B G) (j : ℕ) : supp (rounds B' G' j) ⊆ S ×ˢ cs.toFinset := by
   rintro ⟨t, c⟩ hm
   obtain ⟨ht, i, -, hi, rfl⟩ := (h.supp_rounds j t c).1 hm
@@ -1046,7 +1046,7 @@ theorem SimSpec.supp_rounds_subset (h : SimSpec lt cs cw B G B' G') {S : Finset 
 
 /-- **The simulation's round `j` carries round `j` of the recursion at the
 `j`-th counter of `cw`, and `𝟘` at the others.** -/
-theorem SimSpec.wt_rounds (h : SimSpec lt cs cw B G B' G') {S : Finset α} (hS : Closed S B G) :
+private theorem SimSpec.wt_rounds (h : SimSpec lt cs cw B G B' G') {S : Finset α} (hS : Closed S B G) :
     ∀ j t c, wt (rounds B' G' j) (t, c)
       = wt (rounds B G j) t * (if cw[j]? = some c then 1 else 0)
   | 0, t, c => by simp only [rounds, h.base_wt, firstInd]
@@ -1074,11 +1074,11 @@ theorem SimSpec.wt_rounds (h : SimSpec lt cs cw B G B' G') {S : Finset α} (hS :
         zero_mul]
 
 omit [CommSemiring R] in
-theorem supp_eq_empty_iff {r : Multiset (α × R)} : supp r = ∅ ↔ r = 0 := by
+private theorem supp_eq_empty_iff {r : Multiset (α × R)} : supp r = ∅ ↔ r = 0 := by
   simp [supp, Multiset.toFinset_eq_empty, Multiset.map_eq_zero]
 
 /-- **The simulation's rounds end at the number of counters.** -/
-theorem SimSpec.rounds_eq_zero (h : SimSpec lt cs cw B G B' G') {j : ℕ} (hj : cs.length ≤ j) :
+private theorem SimSpec.rounds_eq_zero (h : SimSpec lt cs cw B G B' G') {j : ℕ} (hj : cs.length ≤ j) :
     rounds B' G' j = 0 := by
   have : supp (rounds B' G' j) = ∅ := by
     ext ⟨t, c⟩
@@ -1091,7 +1091,7 @@ theorem SimSpec.rounds_eq_zero (h : SimSpec lt cs cw B G B' G') {j : ℕ} (hj : 
 /-- Forgetting the counter. -/
 def dropCtr (p : (α × β) × R) : α × R := (p.1.1, p.2)
 
-theorem wt_map_dropCtr (C : Finset β) :
+private theorem wt_map_dropCtr (C : Finset β) :
     ∀ X : Multiset ((α × β) × R), (∀ p ∈ X, p.1.2 ∈ C) →
       ∀ t, wt (X.map dropCtr) t = ∑ c ∈ C, wt X (t, c) := by
   intro X
@@ -1111,7 +1111,7 @@ theorem wt_map_dropCtr (C : Finset β) :
       exact (sum_eq_zero fun c _ => by simp [ht]).symm
 
 omit [CommSemiring R] in
-theorem mem_supp_map_dropCtr {X : Multiset ((α × β) × R)} {t : α} :
+private theorem mem_supp_map_dropCtr {X : Multiset ((α × β) × R)} {t : α} :
     t ∈ supp (X.map dropCtr) ↔ ∃ c, (t, c) ∈ supp X := by
   simp only [mem_supp, Multiset.mem_map, dropCtr]
   constructor
@@ -1122,7 +1122,7 @@ theorem mem_supp_map_dropCtr {X : Multiset ((α × β) × R)} {t : α} :
 number `L ≥ |cs|` of its rounds, with the counters forgotten, is `ε` of the
 sum of the first `N` rounds of the recursion, as soon as these have the
 tuples of the first `|cs|` rounds and the weights of the first `|cw|`. -/
-theorem SimSpec.dedupK_rounds (h : SimSpec lt cs cw B G B' G') {S : Finset α}
+private theorem SimSpec.dedupK_rounds (h : SimSpec lt cs cw B G B' G') {S : Finset α}
     (hS : Closed S B G) {L N : ℕ} (hL : cs.length ≤ L)
     (hsupp : ∀ t, (∃ j < cs.length, t ∈ supp (rounds B G j)) ↔ ∃ j < N, t ∈ supp (rounds B G j))
     (hwt : ∀ t, wt (trunc B G cw.length) t = wt (trunc B G N) t) :
@@ -1223,33 +1223,33 @@ variable {lt : β → β → Prop} {cs : List β} {bw : β → R} {sw : β → �
 /-! #### The order of an absorptive semiring -/
 
 omit [DecidableEq α] [IsOrderedAddMonoid R] in
-theorem le_one_of_abs (habs : ∀ a : R, 1 + a = 1) (a : R) : a ≤ 1 :=
+private theorem le_one_of_abs (habs : ∀ a : R, 1 + a = 1) (a : R) : a ≤ 1 :=
   le_iff_exists_add.2 ⟨1, by rw [add_comm a 1, habs a]⟩
 
 omit [DecidableEq α] [IsOrderedAddMonoid R] in
-theorem mul_le_mul_of_le_right' {a b : R} (h : a ≤ b) (c : R) : a * c ≤ b * c := by
+private theorem mul_le_mul_of_le_right' {a b : R} (h : a ≤ b) (c : R) : a * c ≤ b * c := by
   obtain ⟨d, rfl⟩ := exists_add_of_le h
   rw [add_mul]
   exact le_self_add
 
 omit [DecidableEq α] [IsOrderedAddMonoid R] in
-theorem mul_le_mul_of_le' {a b c d : R} (h₁ : a ≤ b) (h₂ : c ≤ d) : a * c ≤ b * d :=
+private theorem mul_le_mul_of_le' {a b c d : R} (h₁ : a ≤ b) (h₂ : c ≤ d) : a * c ≤ b * d :=
   le_trans (mul_le_mul_of_le_right' h₁ c) (by
     rw [mul_comm b c, mul_comm b d]; exact mul_le_mul_of_le_right' h₂ b)
 
 omit [DecidableEq α] [IsOrderedAddMonoid R] in
-theorem mul_le_left_of_abs (habs : ∀ a : R, 1 + a = 1) (a b : R) : a * b ≤ a := by
+private theorem mul_le_left_of_abs (habs : ∀ a : R, 1 + a = 1) (a b : R) : a * b ≤ a := by
   have := mul_le_mul_of_le' (le_refl a) (le_one_of_abs habs b)
   rwa [mul_one] at this
 
 omit [DecidableEq α] [PartialOrder R] [CanonicallyOrderedAdd R] [IsOrderedAddMonoid R] in
-theorem add_self_of_abs (habs : ∀ a : R, 1 + a = 1) (a : R) : a + a = a := by
+private theorem add_self_of_abs (habs : ∀ a : R, 1 + a = 1) (a : R) : a + a = a := by
   calc a + a = a * (1 + 1) := by rw [mul_add, mul_one]
     _ = a := by rw [habs, mul_one]
 
 omit [DecidableEq α] in
 /-- **A sum of terms below `x` is below `x`**, `⊕` being idempotent. -/
-theorem sum_le_of_abs (habs : ∀ a : R, 1 + a = 1) {ι : Type} (s : Finset ι) (f : ι → R) (x : R)
+private theorem sum_le_of_abs (habs : ∀ a : R, 1 + a = 1) {ι : Type} (s : Finset ι) (f : ι → R) (x : R)
     (h : ∀ i ∈ s, f i ≤ x) : ∑ i ∈ s, f i ≤ x := by
   classical
   induction s using Finset.induction_on with
@@ -1262,7 +1262,7 @@ theorem sum_le_of_abs (habs : ∀ a : R, 1 + a = 1) {ι : Type} (s : Finset ι) 
 /-! #### The supports -/
 
 omit [PartialOrder R] [CanonicallyOrderedAdd R] [IsOrderedAddMonoid R] in
-theorem ChainSpec.supp_rounds (h : ChainSpec lt cs bw sw B G B' G') :
+private theorem ChainSpec.supp_rounds (h : ChainSpec lt cs bw sw B G B' G') :
     ∀ j t c, (t, c) ∈ supp (rounds B' G' j)
       ↔ t ∈ supp (rounds B G j) ∧ ∃ i, j ≤ i ∧ ∃ hi : i < cs.length, cs[i] = c
   | 0, t, c => by
@@ -1286,7 +1286,7 @@ theorem ChainSpec.supp_rounds (h : ChainSpec lt cs bw sw B G B' G') :
         ⟨ht', List.getElem_mem hi', (sorted_lt_iff h.sorted h.irrefl h.trans hj hi').2 (by omega)⟩
 
 omit [PartialOrder R] [CanonicallyOrderedAdd R] [IsOrderedAddMonoid R] in
-theorem ChainSpec.supp_rounds_subset (h : ChainSpec lt cs bw sw B G B' G') {S : Finset α}
+private theorem ChainSpec.supp_rounds_subset (h : ChainSpec lt cs bw sw B G B' G') {S : Finset α}
     (hS : Closed S B G) (j : ℕ) : supp (rounds B' G' j) ⊆ S ×ˢ cs.toFinset := by
   rintro ⟨t, c⟩ hm
   obtain ⟨ht, i, -, hi, rfl⟩ := (h.supp_rounds j t c).1 hm
@@ -1294,7 +1294,7 @@ theorem ChainSpec.supp_rounds_subset (h : ChainSpec lt cs bw sw B G B' G') {S : 
 
 omit [PartialOrder R] [CanonicallyOrderedAdd R] [IsOrderedAddMonoid R] in
 /-- **The all-chains simulation's rounds end at the number of counters.** -/
-theorem ChainSpec.rounds_eq_zero (h : ChainSpec lt cs bw sw B G B' G') {j : ℕ}
+private theorem ChainSpec.rounds_eq_zero (h : ChainSpec lt cs bw sw B G B' G') {j : ℕ}
     (hj : cs.length ≤ j) : rounds B' G' j = 0 := by
   have : supp (rounds B' G' j) = ∅ := by
     ext ⟨t, c⟩
@@ -1308,7 +1308,7 @@ theorem ChainSpec.rounds_eq_zero (h : ChainSpec lt cs bw sw B G B' G') {j : ℕ}
 
 /-- **A round of the simulation weighs no more than the recursion's**, in
 an absorptive semiring. -/
-theorem ChainSpec.wt_rounds_le (h : ChainSpec lt cs bw sw B G B' G')
+private theorem ChainSpec.wt_rounds_le (h : ChainSpec lt cs bw sw B G B' G')
     (habs : ∀ a : R, 1 + a = 1) {S : Finset α} (hS : Closed S B G) :
     ∀ j t c, wt (rounds B' G' j) (t, c) ≤ wt (rounds B G j) t
   | 0, t, c => by
@@ -1329,7 +1329,7 @@ theorem ChainSpec.wt_rounds_le (h : ChainSpec lt cs bw sw B G B' G')
     · rw [wt_eq_zero_of_notMem hm, mul_zero]; exact zero_le
 
 omit [PartialOrder R] [CanonicallyOrderedAdd R] [IsOrderedAddMonoid R] in
-theorem ChainSpec.mem_cs_of_supp (h : ChainSpec lt cs bw sw B G B' G') {j : ℕ} {t : α} {c : β}
+private theorem ChainSpec.mem_cs_of_supp (h : ChainSpec lt cs bw sw B G B' G') {j : ℕ} {t : α} {c : β}
     (hm : (t, c) ∈ supp (rounds B' G' j)) : c ∈ cs := by
   obtain ⟨-, i, -, hi, rfl⟩ := (h.supp_rounds j t c).1 hm
   exact List.getElem_mem hi
@@ -1337,7 +1337,7 @@ theorem ChainSpec.mem_cs_of_supp (h : ChainSpec lt cs bw sw B G B' G') {j : ℕ}
 /-- **A round of the simulation weighs at least each path times each chain
 of counters of the same length**, the chain listed from its end, like the
 path. -/
-theorem ChainSpec.wt_rounds_ge (h : ChainSpec lt cs bw sw B G B' G') {S : Finset α}
+private theorem ChainSpec.wt_rounds_ge (h : ChainSpec lt cs bw sw B G B' G') {S : Finset α}
     (hS : Closed S B G) :
     ∀ j t (l : List α) (ch : List β) (c : β), l ∈ pathsTo S j t → ch.length = l.length →
       ch.Pairwise (fun a b => lt b a) → (∀ e ∈ ch, e ∈ cs) → ch.head? = some c →
@@ -1378,7 +1378,7 @@ theorem ChainSpec.wt_rounds_ge (h : ChainSpec lt cs bw sw B G B' G') {S : Finset
         _ ≤ _ := mul_le_mul_of_le_right' ih _
 
 /-- A path with its cycle cut is a path of fewer steps to the same tuple. -/
-theorem mem_pathsTo_cut {S : Finset α} {j : ℕ} {v : α} {l₁ : List α} {a : α} {l₂ l₃ : List α}
+private theorem mem_pathsTo_cut {S : Finset α} {j : ℕ} {v : α} {l₁ : List α} {a : α} {l₂ l₃ : List α}
     (hl : l₁ ++ a :: (l₂ ++ a :: l₃) ∈ pathsTo S j v) :
     l₁ ++ a :: l₃ ∈ pathsTo S (j - (l₂.length + 1)) v ∧ l₂.length + 1 ≤ j := by
   classical
@@ -1397,7 +1397,7 @@ theorem mem_pathsTo_cut {S : Finset α} {j : ℕ} {v : α} {l₁ : List α} {a :
 omit [PartialOrder R] [CanonicallyOrderedAdd R] [IsOrderedAddMonoid R] in
 /-- **A tuple of a round is in a round of fewer steps than the set it
 lives in.** -/
-theorem exists_short_round {S : Finset α} (hS : Closed S B G) :
+private theorem exists_short_round {S : Finset α} (hS : Closed S B G) :
     ∀ j t, t ∈ supp (rounds B G j) → ∃ j' < S.card, j' ≤ j ∧ t ∈ supp (rounds B G j') := by
   intro j
   induction j using Nat.strong_induction_on with
@@ -1418,7 +1418,7 @@ theorem exists_short_round {S : Finset α} (hS : Closed S B G) :
 
 omit [PartialOrder R] [CanonicallyOrderedAdd R] [IsOrderedAddMonoid R] in
 /-- **The tuples of the rounds settle within `|S|` rounds.** -/
-theorem exists_round_iff {S : Finset α} (hS : Closed S B G) {M N : ℕ} (hM : S.card ≤ M)
+private theorem exists_round_iff {S : Finset α} (hS : Closed S B G) {M N : ℕ} (hM : S.card ≤ M)
     (hMN : M ≤ N) (t : α) :
     (∃ j < M, t ∈ supp (rounds B G j)) ↔ ∃ j < N, t ∈ supp (rounds B G j) := by
   constructor
@@ -1429,7 +1429,7 @@ theorem exists_round_iff {S : Finset α} (hS : Closed S B G) {M N : ℕ} (hM : S
 
 omit [PartialOrder R] [CanonicallyOrderedAdd R] [IsOrderedAddMonoid R] in
 /-- **The rounds past `|S|` add nothing**, in an absorptive semiring. -/
-theorem x_stable (habs : ∀ a : R, 1 + a = 1) {S : Finset α} (hS : Closed S B G) {N : ℕ}
+private theorem x_stable (habs : ∀ a : R, 1 + a = 1) {S : Finset α} (hS : Closed S B G) {N : ℕ}
     (hN : S.card ≤ N) (v : α) :
     ∀ k, x S (wt B) (fun u v => wt (G u) v) (N + k) v = x S (wt B) (fun u v => wt (G u) v) N v
   | 0 => rfl
@@ -1447,7 +1447,7 @@ with the counters forgotten, is `ε` of the sum of the first `N ≥ |S|`
 rounds of the recursion, when there are at least `|S|` counters and the
 weight of every path through distinct tuples is `𝟘` or absorbed by that of
 a chain of as many counters. -/
-theorem ChainSpec.dedupK_rounds (h : ChainSpec lt cs bw sw B G B' G')
+private theorem ChainSpec.dedupK_rounds (h : ChainSpec lt cs bw sw B G B' G')
     (habs : ∀ a : R, 1 + a = 1) {S : Finset α} (hS : Closed S B G) {N L : ℕ}
     (hN : S.card ≤ N) (hcs : S.card ≤ cs.length) (hL : cs.length ≤ L)
     (hgen : ∀ j t l, l ∈ pathsTo S j t → l.Nodup →
@@ -1561,7 +1561,7 @@ section WeightAlgebra
 
 variable [CommSemiring R] {β : Type} [DecidableEq β]
 
-theorem wt_map_pair (x : α) (y : R) (B : Multiset (β × R)) (a : α) (b : β) :
+private theorem wt_map_pair (x : α) (y : R) (B : Multiset (β × R)) (a : α) (b : β) :
     wt (B.map (fun q => ((x, q.1), y * q.2))) (a, b) = if x = a then y * wt B b else 0 := by
   induction B using Multiset.induction_on with
   | empty => simp
@@ -1575,7 +1575,7 @@ theorem wt_map_pair (x : α) (y : R) (B : Multiset (β × R)) (a : α) (b : β) 
     · simp [hx]
 
 /-- **The weight of a pair in a product** is the product of the weights. -/
-theorem wt_product (A : Multiset (α × R)) (B : Multiset (β × R)) (a : α) (b : β) :
+private theorem wt_product (A : Multiset (α × R)) (B : Multiset (β × R)) (a : α) (b : β) :
     wt ((A.product B).map (fun p => ((p.1.1, p.2.1), p.1.2 * p.2.2))) (a, b)
       = wt A a * wt B b := by
   induction A using Multiset.induction_on with
@@ -1588,7 +1588,7 @@ theorem wt_product (A : Multiset (α × R)) (B : Multiset (β × R)) (a : α) (b
         = fun q => ((p.1, q.1), p.2 * q.2) from rfl, wt_map_pair]
     split_ifs <;> simp
 
-theorem mem_supp_product (A : Multiset (α × R)) (B : Multiset (β × R)) (a : α) (b : β) :
+private theorem mem_supp_product (A : Multiset (α × R)) (B : Multiset (β × R)) (a : α) (b : β) :
     (a, b) ∈ supp ((A.product B).map (fun p => ((p.1.1, p.2.1), p.1.2 * p.2.2)))
       ↔ a ∈ supp A ∧ b ∈ supp B := by
   rw [mem_supp, mem_supp, mem_supp]
@@ -1603,7 +1603,7 @@ theorem mem_supp_product (A : Multiset (α × R)) (B : Multiset (β × R)) (a : 
       by simp [h₁, h₂]⟩
 
 /-- A filter on the tuple keeps a weight or zeroes it. -/
-theorem wt_filter (X : Multiset (α × R)) (P : α → Prop) [DecidablePred P] (a : α) :
+private theorem wt_filter (X : Multiset (α × R)) (P : α → Prop) [DecidablePred P] (a : α) :
     wt (X.filter (fun p => P p.1)) a = if P a then wt X a else 0 := by
   unfold wt
   rw [Multiset.filter_filter]
@@ -1615,7 +1615,7 @@ theorem wt_filter (X : Multiset (α × R)) (P : α → Prop) [DecidablePred P] (
 
 /-- **A relation with one row per tuple** has the row's annotation as the
 tuple's weight. -/
-theorem wt_map_nodup {U : Multiset α} (hU : U.Nodup) (f : α → R) (a : α) :
+private theorem wt_map_nodup {U : Multiset α} (hU : U.Nodup) (f : α → R) (a : α) :
     wt (U.map (fun u => (u, f u))) a = if a ∈ U then f a else 0 := by
   unfold wt
   rw [Multiset.filter_map, Multiset.map_map]
@@ -1628,14 +1628,14 @@ theorem wt_map_nodup {U : Multiset α} (hU : U.Nodup) (f : α → R) (a : α) :
 omit [DecidableEq β] in
 /-- **Rows annotated `𝟙` mapped onto a tuple** weigh the number of rows
 mapped there. -/
-theorem wt_map_one (U : Multiset β) (g : β → α) (a : α) :
+private theorem wt_map_one (U : Multiset β) (g : β → α) (a : α) :
     wt (U.map (fun u => (g u, (1 : R)))) a = ((U.filter (fun u => g u = a)).card : R) := by
   unfold wt
   rw [Multiset.filter_map, Multiset.map_map]
   simp only [Function.comp, Multiset.map_const', Multiset.sum_replicate, nsmul_eq_mul, mul_one]
 
 omit [CommSemiring R] [DecidableEq β] in
-theorem supp_map (U : Multiset β) (g : β → α) (f : β → R) :
+private theorem supp_map (U : Multiset β) (g : β → α) (f : β → R) :
     supp (U.map (fun u => (g u, f u))) = (U.map g).toFinset := by
   ext a; simp [supp, Multiset.map_map]
 

@@ -3,6 +3,13 @@ module
 public import Provenance.Genericity
 public import Mathlib.Algebra.Polynomial.Eval.Defs
 import Mathlib.Analysis.Polynomial.Basic
+import all Provenance.AggQuery
+import all Provenance.Database
+import all Provenance.Decorrelate
+import all Provenance.Frame
+import all Provenance.Genericity
+import all Provenance.PlainBasis
+import all Provenance.RecursionBasis
 
 /-!
 # Windows are needed in every basis of the whole algebra
@@ -29,7 +36,7 @@ namespace WinRow
 def dRep (n : ℕ) : Database ℕ :=
   [("R", ⟨1, (Multiset.replicate n ![1] : Multiset (Tuple ℕ 1))⟩)]
 
-theorem find_dRep (n : ℕ) :
+private theorem find_dRep (n : ℕ) :
     (dRep n).find 1 "R" = some (Multiset.replicate n ![1] : Multiset (Tuple ℕ 1)) :=
   Database.find_assign "R" _ []
 
@@ -45,19 +52,19 @@ def winWitness : AggQuery ℕ (1 + 1) (Fin.snoc (ColKind.allReg 1) ColKind.agg) 
     wholeExcludeSelf (TermIn.index 0) SeqAggFunc.count (AggQueryIn.Rel 1 "R")
     (winReadsReg_allReg _ _ _)
 
-theorem usesOnly_winWitness : winWitness.usesOnly plainRecOps :=
+private theorem usesOnly_winWitness : winWitness.usesOnly plainRecOps :=
   ⟨by simp [plainRecOps, plainOps], trivial⟩
 
-theorem overSchema_winWitness : winWitness.overSchema schemaR := rfl
+private theorem overSchema_winWitness : winWitness.overSchema schemaR := rfl
 
-theorem inSig_winWitness : winWitness.inMinimalSig SeqAggFunc.count :=
+private theorem inSig_winWitness : winWitness.inMinimalSig SeqAggFunc.count :=
   ⟨rfl, Set.mem_singleton _, rfl, rfl, trivial⟩
 
-theorem settlesAt_winWitness (D : Database ℕ) (γ : Fin 0 → ℕ) : winWitness.SettlesAt D γ :=
+private theorem settlesAt_winWitness (D : Database ℕ) (γ : Fin 0 → ℕ) : winWitness.SettlesAt D γ :=
   trivial
 
 /-- The frame of a row of the instance: every other copy. -/
-theorem frameOf_dRep (n : ℕ) :
+private theorem frameOf_dRep (n : ℕ) :
     ValueFrame.frameOf (α := Tuple ℕ 1) id (fun i : Fin 0 => i.elim0) (fun i : Fin 0 => i.elim0)
         wholeExcludeSelf (Multiset.replicate n ![1]) ![1]
       = Multiset.replicate (n - 1) ![1] := by
@@ -79,7 +86,7 @@ theorem frameOf_dRep (n : ℕ) :
     rfl
 
 /-- **The witness writes `n − 1` on every row.** -/
-theorem evaluatePlain_winWitness (n : ℕ) :
+private theorem evaluatePlain_winWitness (n : ℕ) :
     (winWitness.evaluatePlain (dRep n) : Multiset (Tuple ℕ (1 + 1)))
       = Multiset.replicate n (Fin.snoc ![1] (n - 1) : Tuple ℕ (1 + 1)) := by
   simp only [winWitness, AggQueryIn.evaluatePlain, find_dRep, ColKind.map_readTuple_allReg]
@@ -109,7 +116,7 @@ open Polynomial
 abbrev Poly := Polynomial ℕ
 
 /-- Two such polynomials agreeing on all large `n` are equal. -/
-theorem Poly.eq_of_eventually_eq {p q : Poly} (h : ∃ N, ∀ n ≥ N, p.eval n = q.eval n) : p = q := by
+private theorem Poly.eq_of_eventually_eq {p q : Poly} (h : ∃ N, ∀ n ≥ N, p.eval n = q.eval n) : p = q := by
   obtain ⟨N, hN⟩ := h
   refine Polynomial.map_injective (Nat.castRingHom ℤ) Nat.cast_injective ?_
   refine Polynomial.eq_of_infinite_eval_eq _ _ ((Set.Ici_infinite N).image
@@ -124,7 +131,7 @@ inductive Poly.Cmp (p q : Poly) (N : ℕ) : Prop where
   | eq (h : ∀ n ≥ N, p.eval n = q.eval n)
   | gt (h : ∀ n ≥ N, q.eval n < p.eval n)
 
-theorem Poly.Cmp.mono {p q : Poly} {N N' : ℕ} (hN : N ≤ N') (h : Poly.Cmp p q N) :
+private theorem Poly.Cmp.mono {p q : Poly} {N N' : ℕ} (hN : N ≤ N') (h : Poly.Cmp p q N) :
     Poly.Cmp p q N' := by
   cases h with
   | lt h => exact .lt (fun n hn => h n (le_trans hN hn))
@@ -151,7 +158,7 @@ private theorem exists_ge_one_of_tendsto {P : Polynomial ℝ}
 /-- **Two polynomials with natural coefficients eventually compare one
 way**: they are eventually equal, which makes them equal, or one is
 eventually strictly below the other. -/
-theorem Poly.exists_cmp (p q : Poly) : ∃ N, Poly.Cmp p q N := by
+private theorem Poly.exists_cmp (p q : Poly) : ∃ N, Poly.Cmp p q N := by
   classical
   set D : Polynomial ℝ := toReal p - toReal q with hD
   have hval : ∀ n : ℕ, D.eval (n : ℝ) = ((p.eval n : ℕ) : ℝ) - ((q.eval n : ℕ) : ℝ) := by
@@ -191,7 +198,7 @@ theorem Poly.exists_cmp (p q : Poly) : ∃ N, Poly.Cmp p q N := by
       exact_mod_cast (show ((q.eval n : ℕ) : ℝ) < p.eval n by linarith)
 
 /-- A threshold good for finitely many things, each with its own. -/
-theorem exists_uniform {ι : Type} (s : Finset ι) (P : ℕ → ι → Prop)
+private theorem exists_uniform {ι : Type} (s : Finset ι) (P : ℕ → ι → Prop)
     (hmono : ∀ i N N', N ≤ N' → P N i → P N' i) (h : ∀ i ∈ s, ∃ N, P N i) :
     ∃ N, ∀ i ∈ s, P N i := by
   classical
@@ -208,13 +215,13 @@ theorem exists_uniform {ι : Type} (s : Finset ι) (P : ℕ → ι → Prop)
 /-- **Every pair of a finite set of polynomials is decided from `N` on.** -/
 def Decided (V : Set Poly) (N : ℕ) : Prop := ∀ p ∈ V, ∀ q ∈ V, Poly.Cmp p q N
 
-theorem Decided.mono {V : Set Poly} {N N' : ℕ} (hN : N ≤ N') (h : Decided V N) : Decided V N' :=
+private theorem Decided.mono {V : Set Poly} {N N' : ℕ} (hN : N ≤ N') (h : Decided V N) : Decided V N' :=
   fun p hp q hq => (h p hp q hq).mono hN
 
-theorem Decided.subset {V V' : Set Poly} {N : ℕ} (hV : V' ⊆ V) (h : Decided V N) : Decided V' N :=
+private theorem Decided.subset {V V' : Set Poly} {N : ℕ} (hV : V' ⊆ V) (h : Decided V N) : Decided V' N :=
   fun p hp q hq => h p (hV hp) q (hV hq)
 
-theorem exists_decided {V : Set Poly} (hV : V.Finite) : ∃ N, Decided V N := by
+private theorem exists_decided {V : Set Poly} (hV : V.Finite) : ∃ N, Decided V N := by
   classical
   obtain ⟨N, hN⟩ := exists_uniform (hV.toFinset ×ˢ hV.toFinset) (fun N pq => Poly.Cmp pq.1 pq.2 N)
     (fun _ _ _ hle h => h.mono hle) (fun pq _ => Poly.exists_cmp pq.1 pq.2)
@@ -223,7 +230,7 @@ theorem exists_decided {V : Set Poly} (hV : V.Finite) : ∃ N, Decided V N := by
 
 /-- Under `Decided`, two polynomials of the set that agree once past the
 threshold agree always, and are equal. -/
-theorem Decided.eq_of_eval_eq {V : Set Poly} {N : ℕ} (h : Decided V N) {p q : Poly} (hp : p ∈ V)
+private theorem Decided.eq_of_eval_eq {V : Set Poly} {N : ℕ} (h : Decided V N) {p q : Poly} (hp : p ∈ V)
     (hq : q ∈ V) {n : ℕ} (hn : N ≤ n) (he : p.eval n = q.eval n) : p = q := by
   rcases h p hp q hq with hc | hc | hc
   · exact absurd he (ne_of_lt (hc n hn))
@@ -231,7 +238,7 @@ theorem Decided.eq_of_eval_eq {V : Set Poly} {N : ℕ} (h : Decided V N) {p q : 
   · exact absurd he (ne_of_gt (hc n hn))
 
 /-- A comparison reads alike on two pairs that compare alike. -/
-theorem _root_.CompOp.eval_congr (op : CompOp) {a b a' b' : ℕ} (hlt : (a < b) ↔ (a' < b'))
+private theorem _root_.CompOp.eval_congr (op : CompOp) {a b a' b' : ℕ} (hlt : (a < b) ↔ (a' < b'))
     (heq : a = b ↔ a' = b') (hgt : (b < a) ↔ (b' < a')) : op.eval a b ↔ op.eval a' b' := by
   cases op <;> simp only [CompOp.eval]
   · exact heq
@@ -245,7 +252,7 @@ theorem _root_.CompOp.eval_congr (op : CompOp) {a b a' b' : ℕ} (hlt : (a < b) 
 
 /-- Under `Decided`, a comparison between two polynomials of the set reads
 alike at every `n` past the threshold. -/
-theorem Decided.compOp_eval {V : Set Poly} {N : ℕ} (h : Decided V N) (op : CompOp) {p q : Poly}
+private theorem Decided.compOp_eval {V : Set Poly} {N : ℕ} (h : Decided V N) (op : CompOp) {p q : Poly}
     (hp : p ∈ V) (hq : q ∈ V) {n n' : ℕ} (hn : N ≤ n) (hn' : N ≤ n') :
     op.eval (p.eval n) (q.eval n) ↔ op.eval (p.eval n') (q.eval n') := by
   rcases h p hp q hq with hc | hc | hc
@@ -300,7 +307,7 @@ def PolyBag.vals {k : ℕ} (L : PolyBag k) : Set Poly := {p | ∃ s ∈ L, ∃ j
 /-- The multiplicities of a bag. -/
 def PolyBag.mults {k : ℕ} (L : PolyBag k) : Set Poly := {p | ∃ s ∈ L, s.mult = p}
 
-theorem PolyBag.vals_finite {k : ℕ} (L : PolyBag k) : (PolyBag.vals L).Finite := by
+private theorem PolyBag.vals_finite {k : ℕ} (L : PolyBag k) : (PolyBag.vals L).Finite := by
   classical
   have : PolyBag.vals L = ⋃ s ∈ L.toFinset, Set.range s.row := by
     ext p
@@ -309,7 +316,7 @@ theorem PolyBag.vals_finite {k : ℕ} (L : PolyBag k) : (PolyBag.vals L).Finite 
   rw [this]
   exact Set.Finite.biUnion (L.toFinset.finite_toSet) (fun s _ => Set.finite_range _)
 
-theorem PolyBag.mults_finite {k : ℕ} (L : PolyBag k) : (PolyBag.mults L).Finite := by
+private theorem PolyBag.mults_finite {k : ℕ} (L : PolyBag k) : (PolyBag.mults L).Finite := by
   classical
   have : PolyBag.mults L = Shape.mult '' (↑L.toFinset : Set (Shape k)) := by
     ext p
@@ -317,20 +324,20 @@ theorem PolyBag.mults_finite {k : ℕ} (L : PolyBag k) : (PolyBag.mults L).Finit
   rw [this]
   exact L.toFinset.finite_toSet.image _
 
-theorem PolyBag.vals_subset_of_mem {k : ℕ} {L : PolyBag k} {s : Shape k} (hs : s ∈ L) (j : Fin k) :
+private theorem PolyBag.vals_subset_of_mem {k : ℕ} {L : PolyBag k} {s : Shape k} (hs : s ∈ L) (j : Fin k) :
     s.row j ∈ PolyBag.vals L := ⟨s, hs, j, rfl⟩
 
-@[simp] theorem PolyBag.inst_nil {k : ℕ} (n : ℕ) : PolyBag.inst ([] : PolyBag k) n = 0 := rfl
+@[simp] private theorem PolyBag.inst_nil {k : ℕ} (n : ℕ) : PolyBag.inst ([] : PolyBag k) n = 0 := rfl
 
-theorem PolyBag.inst_cons {k : ℕ} (s : Shape k) (L : PolyBag k) (n : ℕ) :
+private theorem PolyBag.inst_cons {k : ℕ} (s : Shape k) (L : PolyBag k) (n : ℕ) :
     PolyBag.inst (s :: L) n = s.inst n + PolyBag.inst L n := by
   simp [PolyBag.inst]
 
-theorem PolyBag.inst_append {k : ℕ} (L₁ L₂ : PolyBag k) (n : ℕ) :
+private theorem PolyBag.inst_append {k : ℕ} (L₁ L₂ : PolyBag k) (n : ℕ) :
     PolyBag.inst (L₁ ++ L₂) n = PolyBag.inst L₁ n + PolyBag.inst L₂ n := by
   simp [PolyBag.inst]
 
-theorem PolyBag.mem_inst {k : ℕ} {L : PolyBag k} {n : ℕ} {u : Tuple ℕ k} :
+private theorem PolyBag.mem_inst {k : ℕ} {L : PolyBag k} {n : ℕ} {u : Tuple ℕ k} :
     u ∈ PolyBag.inst L n ↔ ∃ s ∈ L, s.mult.eval n ≠ 0 ∧ u = s.rowAt n := by
   induction L with
   | nil => simp [PolyBag.inst]
@@ -347,13 +354,13 @@ theorem PolyBag.mem_inst {k : ℕ} {L : PolyBag k} {n : ℕ} {u : Tuple ℕ k} :
       · exact Or.inr ⟨t, ht, hm, rfl⟩
 
 /-- A function over a bag of copies. -/
-theorem _root_.Multiset.replicate_bind {α β : Type} (m : ℕ) (a : α) (g : α → Multiset β) :
+private theorem _root_.Multiset.replicate_bind {α β : Type} (m : ℕ) (a : α) (g : α → Multiset β) :
     (Multiset.replicate m a).bind g = m • g a := by
   induction m with
   | zero => simp
   | succ m ih => rw [Multiset.replicate_succ, Multiset.cons_bind, ih, succ_nsmul, add_comm]
 
-theorem _root_.Multiset.filter_replicate {α : Type} (p : α → Prop) [DecidablePred p] (m : ℕ)
+private theorem _root_.Multiset.filter_replicate {α : Type} (p : α → Prop) [DecidablePred p] (m : ℕ)
     (a : α) : (Multiset.replicate m a).filter p = if p a then Multiset.replicate m a else 0 := by
   induction m with
   | zero => simp
@@ -367,7 +374,7 @@ theorem _root_.Multiset.filter_replicate {α : Type} (p : α → Prop) [Decidabl
 def PolyBag.scale {k : ℕ} (m : Poly) (L : PolyBag k) : PolyBag k :=
   L.map (fun s => ⟨m * s.mult, s.row⟩)
 
-theorem PolyBag.inst_scale {k : ℕ} (m : Poly) (L : PolyBag k) (n : ℕ) :
+private theorem PolyBag.inst_scale {k : ℕ} (m : Poly) (L : PolyBag k) (n : ℕ) :
     (m.eval n) • PolyBag.inst L n = PolyBag.inst (PolyBag.scale m L) n := by
   induction L with
   | nil => simp [PolyBag.inst, PolyBag.scale]
@@ -384,7 +391,7 @@ theorem PolyBag.inst_scale {k : ℕ} (m : Poly) (L : PolyBag k) (n : ℕ) :
 def PolyBag.mapRows {k k' : ℕ} (f : (Fin k → Poly) → (Fin k' → Poly)) (L : PolyBag k) :
     PolyBag k' := L.map (fun s => ⟨s.mult, f s.row⟩)
 
-theorem PolyBag.inst_mapRows {k k' : ℕ} (f : (Fin k → Poly) → (Fin k' → Poly))
+private theorem PolyBag.inst_mapRows {k k' : ℕ} (f : (Fin k → Poly) → (Fin k' → Poly))
     (g : Tuple ℕ k → Tuple ℕ k') (L : PolyBag k) (n : ℕ)
     (hf : ∀ s ∈ L, g (s.rowAt n) = (⟨s.mult, f s.row⟩ : Shape k').rowAt n) :
     (PolyBag.inst L n).map g = PolyBag.inst (PolyBag.mapRows f L) n := by
@@ -399,7 +406,7 @@ theorem PolyBag.inst_mapRows {k k' : ℕ} (f : (Fin k → Poly) → (Fin k' → 
     rw [Multiset.map_replicate, hf s List.mem_cons_self]
 
 /-- Keeping the shapes a test keeps. -/
-theorem PolyBag.inst_filter {k : ℕ} (p : Tuple ℕ k → Prop) (dec : DecidablePred p)
+private theorem PolyBag.inst_filter {k : ℕ} (p : Tuple ℕ k → Prop) (dec : DecidablePred p)
     (P : Shape k → Bool) (L : PolyBag k) (n : ℕ) (hP : ∀ s ∈ L, (p (s.rowAt n) ↔ P s = true)) :
     @Multiset.filter _ p dec (PolyBag.inst L n) = PolyBag.inst (L.filter P) n := by
   induction L with
@@ -420,7 +427,7 @@ def PolyBag.bindShapes {k₁ k₂ : ℕ} (L₁ : PolyBag k₁) (F : Shape k₁ �
     PolyBag (k₁ + k₂) :=
   L₁.flatMap (fun s => (F s).map (fun t => ⟨s.mult * t.mult, Fin.append s.row t.row⟩))
 
-theorem Shape.rowAt_append {k₁ k₂ : ℕ} (m : Poly) (r₁ : Fin k₁ → Poly) (r₂ : Fin k₂ → Poly)
+private theorem Shape.rowAt_append {k₁ k₂ : ℕ} (m : Poly) (r₁ : Fin k₁ → Poly) (r₂ : Fin k₂ → Poly)
     (n : ℕ) : (⟨m, Fin.append r₁ r₂⟩ : Shape (k₁ + k₂)).rowAt n
       = Fin.append (fun j => (r₁ j).eval n) (fun j => (r₂ j).eval n) := by
   funext i
@@ -430,7 +437,7 @@ theorem Shape.rowAt_append {k₁ k₂ : ℕ} (m : Poly) (r₁ : Fin k₁ → Pol
   · show (Fin.append r₁ r₂ (Fin.natAdd k₁ j)).eval n = _
     rw [Fin.append_right, Fin.append_right]
 
-theorem PolyBag.inst_bindShapes {k₁ k₂ : ℕ} (L₁ : PolyBag k₁) (F : Shape k₁ → PolyBag k₂)
+private theorem PolyBag.inst_bindShapes {k₁ k₂ : ℕ} (L₁ : PolyBag k₁) (F : Shape k₁ → PolyBag k₂)
     (G : Tuple ℕ k₁ → Multiset (Tuple ℕ k₂)) (n : ℕ)
     (hG : ∀ s ∈ L₁, s.mult.eval n ≠ 0 → G (s.rowAt n) = PolyBag.inst (F s) n) :
     (PolyBag.inst L₁ n).bind (fun u => (G u).map (fun v => (Fin.append u v : Tuple ℕ (k₁ + k₂))))
@@ -488,12 +495,12 @@ def ctxAt {c : ℕ} (cγ : Fin c → Poly) (n : ℕ) : Fin c → ℕ := fun j =>
 /-- The constants of a query as polynomials. -/
 def Cset (A : Finset ℕ) : Set Poly := (fun a : ℕ => (Polynomial.C a : Poly)) '' ↑A
 
-theorem Cset_finite (A : Finset ℕ) : (Cset A).Finite := A.finite_toSet.image _
+private theorem Cset_finite (A : Finset ℕ) : (Cset A).Finite := A.finite_toSet.image _
 
-theorem mem_Cset {A : Finset ℕ} {a : ℕ} (ha : a ∈ A) : (Polynomial.C a : Poly) ∈ Cset A :=
+private theorem mem_Cset {A : Finset ℕ} {a : ℕ} (ha : a ∈ A) : (Polynomial.C a : Poly) ∈ Cset A :=
   ⟨a, ha, rfl⟩
 
-theorem Cset_mono {A A' : Finset ℕ} (h : A ⊆ A') : Cset A ⊆ Cset A' :=
+private theorem Cset_mono {A A' : Finset ℕ} (h : A ⊆ A') : Cset A ⊆ Cset A' :=
   Set.image_mono (Finset.coe_subset.mpr h)
 
 /-- The polynomial a function-free term reads as. -/
@@ -504,7 +511,7 @@ def TermIn.polyOf {c k : ℕ} (t : TermIn ℕ c k) (row : Fin k → Poly) (cγ :
   | .index j => row j
   | _ => 0
 
-theorem TermIn.eval_polyOf {c k : ℕ} (t : TermIn ℕ c k) (ht : t.noFun = true) (s : Shape k)
+private theorem TermIn.eval_polyOf {c k : ℕ} (t : TermIn ℕ c k) (ht : t.noFun = true) (s : Shape k)
     (cγ : Fin c → Poly) (n : ℕ) :
     t.eval (s.rowAt n) (ctxAt cγ n) = (TermIn.polyOf t s.row cγ).eval n := by
   cases t with
@@ -514,7 +521,7 @@ theorem TermIn.eval_polyOf {c k : ℕ} (t : TermIn ℕ c k) (ht : t.noFun = true
   | add _ _ | sub _ _ | mul _ _ | caseWhen _ _ _ _ _ | coalesce _ _ =>
     exact absurd ht (by simp [TermIn.noFun])
 
-theorem TermIn.polyOf_mem {c k : ℕ} (t : TermIn ℕ c k) (ht : t.noFun = true) (row : Fin k → Poly)
+private theorem TermIn.polyOf_mem {c k : ℕ} (t : TermIn ℕ c k) (ht : t.noFun = true) (row : Fin k → Poly)
     (cγ : Fin c → Poly) :
     TermIn.polyOf t row cγ ∈ Union.union (Union.union (Cset t.consts) (Set.range row))
         (Set.range cγ) := by
@@ -535,7 +542,7 @@ def TermGIn.polyOf {c k : ℕ} {κ : Fin k → ColKind} (t : TermGIn ℕ c κ) (
   | .provIndex j _ => row j
   | _ => 0
 
-theorem TermGIn.evalPlain_polyOf {c k : ℕ} {κ : Fin k → ColKind} (t : TermGIn ℕ c κ)
+private theorem TermGIn.evalPlain_polyOf {c k : ℕ} {κ : Fin k → ColKind} (t : TermGIn ℕ c κ)
     (ht : t.noFun = true) (s : Shape k) (cγ : Fin c → Poly) (n : ℕ) :
     t.evalPlain (s.rowAt n) (ctxAt cγ n) = (TermGIn.polyOf t s.row cγ).eval n := by
   cases t with
@@ -546,7 +553,7 @@ theorem TermGIn.evalPlain_polyOf {c k : ℕ} {κ : Fin k → ColKind} (t : TermG
   | cmpAgg _ _ _ _ | chiGate _ _ _ | add _ _ | sub _ _ | mul _ _ | caseWhen _ _ _ _ _
   | coalesce _ _ => exact absurd ht (by simp [TermGIn.noFun])
 
-theorem TermGIn.polyOf_mem {c k : ℕ} {κ : Fin k → ColKind} (t : TermGIn ℕ c κ)
+private theorem TermGIn.polyOf_mem {c k : ℕ} {κ : Fin k → ColKind} (t : TermGIn ℕ c κ)
     (ht : t.noFun = true) (row : Fin k → Poly) (cγ : Fin c → Poly) :
     TermGIn.polyOf t row cγ ∈ Union.union (Union.union (Cset t.consts) (Set.range row))
         (Set.range cγ) := by
@@ -568,7 +575,7 @@ def ProjColIn.polyOf {c k : ℕ} {κ : Fin k → ColKind} (p : ProjColIn ℕ c �
   | .aggTermOf j _ t => TermIn.polyOf t (fun i => i.elim0) (fun _ => row j)
   | .provTerm t => TermGIn.polyOf t row cγ
 
-theorem ProjColIn.evalPlain_polyOf {c k : ℕ} {κ : Fin k → ColKind} (p : ProjColIn ℕ c κ)
+private theorem ProjColIn.evalPlain_polyOf {c k : ℕ} {κ : Fin k → ColKind} (p : ProjColIn ℕ c κ)
     (hp : p.noFun = true) (s : Shape k) (cγ : Fin c → Poly) (n : ℕ) :
     p.evalPlain (s.rowAt n) (ctxAt cγ n) = (ProjColIn.polyOf p s.row cγ).eval n := by
   cases p with
@@ -584,7 +591,7 @@ theorem ProjColIn.evalPlain_polyOf {c k : ℕ} {κ : Fin k → ColKind} (p : Pro
     exact TermIn.eval_polyOf t hp ⟨0, fun i : Fin 0 => i.elim0⟩ (fun _ => s.row j) n
   | provTerm t => exact TermGIn.evalPlain_polyOf t hp s cγ n
 
-theorem ProjColIn.polyOf_mem {c k : ℕ} {κ : Fin k → ColKind} (p : ProjColIn ℕ c κ)
+private theorem ProjColIn.polyOf_mem {c k : ℕ} {κ : Fin k → ColKind} (p : ProjColIn ℕ c κ)
     (hp : p.noFun = true) (row : Fin k → Poly) (cγ : Fin c → Poly) :
     ProjColIn.polyOf p row cγ ∈ Union.union (Union.union (Cset p.consts) (Set.range row))
         (Set.range cγ) := by
@@ -602,7 +609,7 @@ theorem ProjColIn.polyOf_mem {c k : ℕ} {κ : Fin k → ColKind} (p : ProjColIn
 /-- **The shift from the threshold to `n`** on decided polynomials: the
 values at `n` are the image of the values at `N` under a faithful map
 that fixes what both evaluate alike. -/
-theorem exists_faithful_shift {V : Set Poly} {N : ℕ} (hV : Decided V N) {n : ℕ} (hn : N ≤ n) :
+private theorem exists_faithful_shift {V : Set Poly} {N : ℕ} (hV : Decided V N) {n : ℕ} (hn : N ≤ n) :
     ∃ τ : ℕ → ℕ, FaithfulOn τ {x | ∃ p ∈ V, p.eval N = x} ∧ ∀ p ∈ V, τ (p.eval N) = p.eval n := by
   classical
   let τ : ℕ → ℕ := fun x =>
@@ -621,7 +628,7 @@ theorem exists_faithful_shift {V : Set Poly} {N : ℕ} (hV : Decided V N) {n : �
   exact hV.compOp_eval CompOp.le hp hq hn (le_refl N)
 
 /-- A predicate over decided polynomials reads at `n` as at the threshold. -/
-theorem GenPredIn.holdsPlain_shift {c k : ℕ} {κ : Fin k → ColKind} (φ : GenPredIn ℕ c κ)
+private theorem GenPredIn.holdsPlain_shift {c k : ℕ} {κ : Fin k → ColKind} (φ : GenPredIn ℕ c κ)
     (hφ : φ.noFun = true) {V : Set Poly} {N : ℕ} (hV : Decided V N)
     (hc : Cset φ.consts ⊆ V) {s : Shape k} (hs : ∀ j, s.row j ∈ V) {cγ : Fin c → Poly}
     (hγ : ∀ j, cγ j ∈ V) {n : ℕ} (hn : N ≤ n) :
@@ -639,7 +646,7 @@ theorem GenPredIn.holdsPlain_shift {c k : ℕ} {κ : Fin k → ColKind} (φ : Ge
 
 /-- A clause over decided polynomials keeps at `n` what it keeps at the
 threshold. -/
-theorem Selection.keepsOpt_shift {k : ℕ} (keep : Option (Selection ℕ k))
+private theorem Selection.keepsOpt_shift {k : ℕ} (keep : Option (Selection ℕ k))
     (hk : Selection.noFunOpt keep = true) {V : Set Poly} {N : ℕ} (hV : Decided V N)
     (hc : Cset (Selection.constsOpt keep) ⊆ V) {s : Shape k} (hs : ∀ j, s.row j ∈ V) {n : ℕ}
     (hn : N ≤ n) : Selection.keepsOpt keep (s.rowAt n) = Selection.keepsOpt keep (s.rowAt N) := by
@@ -653,7 +660,7 @@ theorem Selection.keepsOpt_shift {k : ℕ} (keep : Option (Selection ℕ k))
   simpa using this
 
 /-- A row of decided polynomials equals another at `n` as at the threshold. -/
-theorem Shape.rowAt_eq_shift {k : ℕ} {V : Set Poly} {N : ℕ} (hV : Decided V N) {s t : Shape k}
+private theorem Shape.rowAt_eq_shift {k : ℕ} {V : Set Poly} {N : ℕ} (hV : Decided V N) {s t : Shape k}
     (hs : ∀ j, s.row j ∈ V) (ht : ∀ j, t.row j ∈ V) {n : ℕ} (hn : N ≤ n) :
     (s.rowAt n = t.rowAt n) ↔ (s.rowAt N = t.rowAt N) := by
   constructor
@@ -669,7 +676,7 @@ theorem Shape.rowAt_eq_shift {k : ℕ} {V : Set Poly} {N : ℕ} (hV : Decided V 
     rw [hV.eq_of_eval_eq (hs j) (ht j) (le_refl N) this]
 
 /-- A non-zero polynomial with natural coefficients is positive from `1` on. -/
-theorem Poly.eval_pos_of_ne_zero {p : Poly} (hp : p ≠ 0) {n : ℕ} (hn : 1 ≤ n) :
+private theorem Poly.eval_pos_of_ne_zero {p : Poly} (hp : p ≠ 0) {n : ℕ} (hn : 1 ≤ n) :
     0 < p.eval n := by
   obtain ⟨i, hi⟩ : ∃ i, p.coeff i ≠ 0 := by
     by_contra h
@@ -680,7 +687,7 @@ theorem Poly.eval_pos_of_ne_zero {p : Poly} (hp : p ≠ 0) {n : ℕ} (hn : 1 ≤
     (Polynomial.mem_support_iff.mpr hi))
   exact Nat.mul_pos (Nat.pos_of_ne_zero hi) (pow_pos hn i)
 
-theorem Poly.eval_eq_zero_iff {p : Poly} {n : ℕ} (hn : 1 ≤ n) : p.eval n = 0 ↔ p = 0 := by
+private theorem Poly.eval_eq_zero_iff {p : Poly} {n : ℕ} (hn : 1 ≤ n) : p.eval n = 0 ↔ p = 0 := by
   constructor
   · intro h
     by_contra hp
@@ -705,7 +712,7 @@ variable {T : Type} [ValueType T]
 
 /-- A query not mentioning a name computes the same counts on two
 instances agreeing away from it. -/
-theorem AggQueryIn.countValsAll_congr_of_noMention {s : String} :
+private theorem AggQueryIn.countValsAll_congr_of_noMention {s : String} :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l),
       q.noMention s → ∀ {D D' : Database T}, Database.AgreeOff s l D D' →
       q.countValsAll D = q.countValsAll D' := by
@@ -817,13 +824,13 @@ namespace WinRow
 
 open Polynomial
 
-theorem find_dRep_ne (n : ℕ) {k : ℕ} {t : String} (h : ¬ (k = 1 ∧ t = "R")) :
+private theorem find_dRep_ne (n : ℕ) {k : ℕ} {t : String} (h : ¬ (k = 1 ∧ t = "R")) :
     (dRep n).find k t = none :=
   Database.find_assign_of_ne "R" t _ [] h
 
 /-- The values of the instance with `n` copies, at any name the query may
 read, are `1`. -/
-theorem dRep_vals (n : ℕ) {k : ℕ} {t : String} {r : Relation ℕ k}
+private theorem dRep_vals (n : ℕ) {k : ℕ} {t : String} {r : Relation ℕ k}
     (hr : (dRep n).find k t = some r) : ∀ u, Multiset.Mem r u → ∀ j, u j = 1 := by
   by_cases h : k = 1 ∧ t = "R"
   · obtain ⟨rfl, rfl⟩ := h
@@ -851,7 +858,7 @@ def baseSet (A : Finset ℕ) : Finset ℕ := insert 0 (insert 1 A)
 
 /-- **Finitely many polynomials take, for `n` large, values in a family of
 sets of bounded size.** -/
-theorem finite_of_eventually_mem {K : ℕ} (S : ℕ → Set ℕ) (hS : ∀ n, ∃ F : Finset ℕ,
+private theorem finite_of_eventually_mem {K : ℕ} (S : ℕ → Set ℕ) (hS : ∀ n, ∃ F : Finset ℕ,
     S n ⊆ ↑F ∧ F.card ≤ K)
     : {p : Poly | ∃ N, ∀ n ≥ N, p.eval n ∈ S n}.Finite := by
   classical
@@ -869,7 +876,7 @@ theorem finite_of_eventually_mem {K : ℕ} (S : ℕ → Set ℕ) (hS : ∀ n, �
   omega
 
 /-- **A closed query has finitely many count polynomials.** -/
-theorem CountPolys_finite {c k : ℕ} {κ : Fin k → ColKind} (q : AggQueryIn ℕ c k κ)
+private theorem CountPolys_finite {c k : ℕ} {κ : Fin k → ColKind} (q : AggQueryIn ℕ c k κ)
     (hs : q.inSig {SeqAggFunc.count}) (hh : q.hygienic) : (CountPolys q).Finite := by
   obtain ⟨f, -, hb⟩ := AggQueryIn.exists_polyBound_countTypes
     SeqAggFunc.isCount_count_nat.readsCount q hs hh (fun p hp => absurd hp List.not_mem_nil)
@@ -892,7 +899,7 @@ theorem CountPolys_finite {c k : ℕ} {κ : Fin k → ColKind} (q : AggQueryIn �
 
 /-- **A term with a hole has finitely many count polynomials**, over every
 binding of its hole. -/
-theorem CountPolysHole_finite {c k m : ℕ} {κ : Fin k → ColKind} {s : String}
+private theorem CountPolysHole_finite {c k m : ℕ} {κ : Fin k → ColKind} {s : String}
     (q : AggQueryIn ℕ c k κ [(s, m)]) (hs : q.inSig {SeqAggFunc.count}) (hh : q.hygienic)
     (hn : q.noMention s) : (CountPolysHole q s m).Finite := by
   have hnm : ∀ p ∈ [(s, m)], q.noMention p.1 := fun p hp => by
@@ -946,24 +953,24 @@ def UnivHole {c k : ℕ} {κ : Fin k → ColKind} {l : List (String × ℕ)} (q 
   Union.union (Union.union (Union.union (Cset q.allConsts) {(1 : Poly)}) (Set.range cγ))
     (CountPolysHole q s m)
 
-theorem Univ_finite {c k : ℕ} {κ : Fin k → ColKind} (q : AggQueryIn ℕ c k κ)
+private theorem Univ_finite {c k : ℕ} {κ : Fin k → ColKind} (q : AggQueryIn ℕ c k κ)
     (hs : q.inSig {SeqAggFunc.count}) (hh : q.hygienic) (cγ : Fin c → Poly) :
     (Univ q cγ).Finite :=
   (((Cset_finite _).union (Set.finite_singleton _)).union (Set.finite_range _)).union
     (CountPolys_finite q hs hh)
 
-theorem UnivHole_finite {c k m : ℕ} {κ : Fin k → ColKind} {s : String}
+private theorem UnivHole_finite {c k m : ℕ} {κ : Fin k → ColKind} {s : String}
     (q : AggQueryIn ℕ c k κ [(s, m)]) (hs : q.inSig {SeqAggFunc.count}) (hh : q.hygienic)
     (hn : q.noMention s) (cγ : Fin c → Poly) : (UnivHole q s m cγ).Finite :=
   (((Cset_finite _).union (Set.finite_singleton _)).union (Set.finite_range _)).union
     (CountPolysHole_finite q hs hh hn)
 
-theorem CountPolys_mono {c k c' k' : ℕ} {κ : Fin k → ColKind} {κ' : Fin k' → ColKind}
+private theorem CountPolys_mono {c k c' k' : ℕ} {κ : Fin k → ColKind} {κ' : Fin k' → ColKind}
     {l l' : List (String × ℕ)} {q : AggQueryIn ℕ c k κ l} {q' : AggQueryIn ℕ c' k' κ' l'}
     (h : ∀ n, q.countValsAll (dRep n) ⊆ q'.countValsAll (dRep n)) : CountPolys q ⊆ CountPolys q' :=
   fun _ ⟨N, hN⟩ => ⟨N, fun n hn => h n (hN n hn)⟩
 
-theorem CountPolysHole_mono {c k c' k' m : ℕ} {κ : Fin k → ColKind} {κ' : Fin k' → ColKind}
+private theorem CountPolysHole_mono {c k c' k' m : ℕ} {κ : Fin k → ColKind} {κ' : Fin k' → ColKind}
     {l l' : List (String × ℕ)} {q : AggQueryIn ℕ c k κ l} {q' : AggQueryIn ℕ c' k' κ' l'}
     {s : String} (h : ∀ n (X : Relation ℕ m),
       q.countValsAll ((dRep n).assign s X) ⊆ q'.countValsAll ((dRep n).assign s X)) :
@@ -974,7 +981,7 @@ theorem CountPolysHole_mono {c k c' k' m : ℕ} {κ : Fin k → ColKind} {κ' : 
 
 /-- A closed query's counts are counts of a term that holds it, over any
 binding of the term's hole, when the query does not mention the name. -/
-theorem CountPolys_subset_hole {c k m : ℕ} {κ : Fin k → ColKind} (q : AggQueryIn ℕ c k κ)
+private theorem CountPolys_subset_hole {c k m : ℕ} {κ : Fin k → ColKind} (q : AggQueryIn ℕ c k κ)
     {s : String} (hq : q.noMention s) {c' k' : ℕ} {κ' : Fin k' → ColKind}
     {l' : List (String × ℕ)} {q' : AggQueryIn ℕ c' k' κ' l'}
     (h : ∀ n (X : Relation ℕ m), q.countValsAll ((dRep n).assign s X)
@@ -1009,31 +1016,31 @@ def BodySym {c k : ℕ} {κ : Fin k → ColKind} {l : List (String × ℕ)} (q :
 
 /-! ### Bag lemmas the cases need -/
 
-theorem PolyBag.vals_append {k : ℕ} (L₁ L₂ : PolyBag k) :
+private theorem PolyBag.vals_append {k : ℕ} (L₁ L₂ : PolyBag k) :
     PolyBag.vals (L₁ ++ L₂) ⊆ Union.union (PolyBag.vals L₁) (PolyBag.vals L₂) := by
   rintro p ⟨s, hs, j, rfl⟩
   rcases List.mem_append.mp hs with h | h
   · exact Or.inl ⟨s, h, j, rfl⟩
   · exact Or.inr ⟨s, h, j, rfl⟩
 
-theorem PolyBag.vals_filter {k : ℕ} (P : Shape k → Bool) (L : PolyBag k) :
+private theorem PolyBag.vals_filter {k : ℕ} (P : Shape k → Bool) (L : PolyBag k) :
     PolyBag.vals (L.filter P) ⊆ PolyBag.vals L := by
   rintro p ⟨s, hs, j, rfl⟩
   exact ⟨s, List.mem_of_mem_filter hs, j, rfl⟩
 
-theorem PolyBag.vals_scale {k : ℕ} (m : Poly) (L : PolyBag k) :
+private theorem PolyBag.vals_scale {k : ℕ} (m : Poly) (L : PolyBag k) :
     PolyBag.vals (PolyBag.scale m L) ⊆ PolyBag.vals L := by
   rintro p ⟨s, hs, j, rfl⟩
   obtain ⟨t, ht, rfl⟩ := List.mem_map.mp hs
   exact ⟨t, ht, j, rfl⟩
 
-theorem PolyBag.vals_mapRows {k k' : ℕ} (f : (Fin k → Poly) → (Fin k' → Poly)) (L : PolyBag k)
+private theorem PolyBag.vals_mapRows {k k' : ℕ} (f : (Fin k → Poly) → (Fin k' → Poly)) (L : PolyBag k)
     (V : Set Poly) (hf : ∀ s ∈ L, ∀ j, f s.row j ∈ V) : PolyBag.vals (PolyBag.mapRows f L) ⊆ V := by
   rintro p ⟨s, hs, j, rfl⟩
   obtain ⟨t, ht, rfl⟩ := List.mem_map.mp hs
   exact hf t ht j
 
-theorem PolyBag.vals_bindShapes {k₁ k₂ : ℕ} (L₁ : PolyBag k₁) (F : Shape k₁ → PolyBag k₂)
+private theorem PolyBag.vals_bindShapes {k₁ k₂ : ℕ} (L₁ : PolyBag k₁) (F : Shape k₁ → PolyBag k₂)
     (V : Set Poly) (h₁ : PolyBag.vals L₁ ⊆ V) (h₂ : ∀ s ∈ L₁, PolyBag.vals (F s) ⊆ V) :
     PolyBag.vals (PolyBag.bindShapes L₁ F) ⊆ V := by
   rintro p ⟨u, hu, j, rfl⟩
@@ -1047,7 +1054,7 @@ theorem PolyBag.vals_bindShapes {k₁ k₂ : ℕ} (L₁ : PolyBag k₁) (F : Sha
 /-- Every multiplicity is the zero polynomial: the bag is empty at every `n ≥ 1`. -/
 def PolyBag.allZero {k : ℕ} (L : PolyBag k) : Prop := ∀ s ∈ L, s.mult = 0
 
-theorem PolyBag.inst_eq_zero_iff {k : ℕ} (L : PolyBag k) {n : ℕ} (hn : 1 ≤ n) :
+private theorem PolyBag.inst_eq_zero_iff {k : ℕ} (L : PolyBag k) {n : ℕ} (hn : 1 ≤ n) :
     PolyBag.inst L n = 0 ↔ PolyBag.allZero L := by
   constructor
   · intro h s hs
@@ -1063,7 +1070,7 @@ theorem PolyBag.inst_eq_zero_iff {k : ℕ} (L : PolyBag k) {n : ℕ} (hn : 1 ≤
     exact hm ((Poly.eval_eq_zero_iff hn).mpr (h s hs))
 
 /-- A bag of single copies is the list of its rows. -/
-theorem PolyBag.inst_of_ones {k : ℕ} (L : PolyBag k) (h : ∀ s ∈ L, s.mult = 1) (n : ℕ) :
+private theorem PolyBag.inst_of_ones {k : ℕ} (L : PolyBag k) (h : ∀ s ∈ L, s.mult = 1) (n : ℕ) :
     PolyBag.inst L n = (L.map (fun s => s.rowAt n) : Multiset (Tuple ℕ k)) := by
   induction L with
   | nil => rfl
@@ -1075,7 +1082,7 @@ theorem PolyBag.inst_of_ones {k : ℕ} (L : PolyBag k) (h : ∀ s ∈ L, s.mult 
     rfl
 
 /-- Multiplicities after a filter: the shapes the row test keeps. -/
-theorem PolyBag.card_filter_inst {k : ℕ} (p : Tuple ℕ k → Prop) [DecidablePred p] (L : PolyBag k)
+private theorem PolyBag.card_filter_inst {k : ℕ} (p : Tuple ℕ k → Prop) [DecidablePred p] (L : PolyBag k)
     (n : ℕ) :
     Multiset.card ((PolyBag.inst L n).filter p)
       = (L.map (fun s => if p (s.rowAt n) then s.mult.eval n else 0)).sum := by
@@ -1088,7 +1095,7 @@ theorem PolyBag.card_filter_inst {k : ℕ} (p : Tuple ℕ k → Prop) [Decidable
     rw [Multiset.filter_replicate]
     split <;> simp
 
-theorem Poly.eval_list_sum (L : List Poly) (n : ℕ) : (L.sum).eval n = (L.map
+private theorem Poly.eval_list_sum (L : List Poly) (n : ℕ) : (L.sum).eval n = (L.map
     (fun p => p.eval n)).sum := by
   induction L with
   | nil => simp
@@ -1102,7 +1109,7 @@ def dedupAt {k : ℕ} (N : ℕ) : PolyBag k → PolyBag k
       if s.mult = 0 ∨ ∃ t ∈ L, t.mult ≠ 0 ∧ t.rowAt N = s.rowAt N then dedupAt N L
       else ⟨1, s.row⟩ :: dedupAt N L
 
-theorem dedupAt_mult {k : ℕ} (N : ℕ) (L : PolyBag k) : ∀ t ∈ dedupAt N L, t.mult = 1 := by
+private theorem dedupAt_mult {k : ℕ} (N : ℕ) (L : PolyBag k) : ∀ t ∈ dedupAt N L, t.mult = 1 := by
   induction L with
   | nil => exact fun t ht => absurd ht List.not_mem_nil
   | cons s L ih =>
@@ -1114,7 +1121,7 @@ theorem dedupAt_mult {k : ℕ} (N : ℕ) (L : PolyBag k) : ∀ t ∈ dedupAt N L
       · rfl
       · exact ih t ht
 
-theorem dedupAt_sub {k : ℕ} (N : ℕ) (L : PolyBag k) :
+private theorem dedupAt_sub {k : ℕ} (N : ℕ) (L : PolyBag k) :
     ∀ t ∈ dedupAt N L, ∃ s ∈ L, s.mult ≠ 0 ∧ t.row = s.row := by
   induction L with
   | nil => exact fun t ht => absurd ht List.not_mem_nil
@@ -1130,7 +1137,7 @@ theorem dedupAt_sub {k : ℕ} (N : ℕ) (L : PolyBag k) :
       · obtain ⟨s', hs', hm, hr⟩ := ih t ht
         exact ⟨s', List.mem_cons_of_mem _ hs', hm, hr⟩
 
-theorem dedupAt_cover {k : ℕ} (N : ℕ) (L : PolyBag k) :
+private theorem dedupAt_cover {k : ℕ} (N : ℕ) (L : PolyBag k) :
     ∀ s ∈ L, s.mult ≠ 0 → ∃ t ∈ dedupAt N L, t.rowAt N = s.rowAt N := by
   induction L with
   | nil => exact fun s hs => absurd hs List.not_mem_nil
@@ -1151,7 +1158,7 @@ theorem dedupAt_cover {k : ℕ} (N : ℕ) (L : PolyBag k) :
       · obtain ⟨t', ht', hr⟩ := ih s' hs' hm
         exact ⟨t', List.mem_cons_of_mem _ ht', hr⟩
 
-theorem dedupAt_nodup {k : ℕ} (N : ℕ) (L : PolyBag k) :
+private theorem dedupAt_nodup {k : ℕ} (N : ℕ) (L : PolyBag k) :
     ((dedupAt N L).map (fun t => t.rowAt N)).Nodup := by
   induction L with
   | nil => exact List.nodup_nil
@@ -1168,7 +1175,7 @@ theorem dedupAt_nodup {k : ℕ} (N : ℕ) (L : PolyBag k) :
       have e : s'.rowAt N = t.rowAt N := by unfold Shape.rowAt; rw [hr']
       exact e.trans hr
 
-theorem dedupAt_vals {k : ℕ} (N : ℕ) (L : PolyBag k) :
+private theorem dedupAt_vals {k : ℕ} (N : ℕ) (L : PolyBag k) :
     PolyBag.vals (dedupAt N L) ⊆ PolyBag.vals L := by
   rintro p ⟨t, ht, j, rfl⟩
   obtain ⟨s, hs, -, hr⟩ := dedupAt_sub N L t ht
@@ -1176,7 +1183,7 @@ theorem dedupAt_vals {k : ℕ} (N : ℕ) (L : PolyBag k) :
 
 /-- **Duplicate elimination commutes with instantiation** from the
 threshold on. -/
-theorem inst_dedupAt {k : ℕ} {V : Set Poly} {N : ℕ} (hV : Decided V N) (L : PolyBag k)
+private theorem inst_dedupAt {k : ℕ} {V : Set Poly} {N : ℕ} (hV : Decided V N) (L : PolyBag k)
     (hL : PolyBag.vals L ⊆ V) {n : ℕ} (hn : N ≤ n) (h1 : 1 ≤ n) :
     (PolyBag.inst L n).dedup = PolyBag.inst (dedupAt N L) n := by
   have hrows : ∀ s ∈ L, ∀ j, s.row j ∈ V := fun s hs j => hL ⟨s, hs, j, rfl⟩
@@ -1206,7 +1213,7 @@ theorem inst_dedupAt {k : ℕ} {V : Set Poly} {N : ℕ} (hV : Decided V N) (L : 
 /-- The rows of a bag of multiplicity one at `n` are its rows at `N`,
 carried by the shift, so that the nodup list of its rows at `N` gives
 the one at `n`. -/
-theorem nodup_rows_shift {k : ℕ} {V : Set Poly} {N : ℕ} (hV : Decided V N) (L : PolyBag k)
+private theorem nodup_rows_shift {k : ℕ} {V : Set Poly} {N : ℕ} (hV : Decided V N) (L : PolyBag k)
     (hL : PolyBag.vals L ⊆ V) (hnd : (L.map (fun t => t.rowAt N)).Nodup) {n : ℕ} (hn : N ≤ n) :
     (L.map (fun t => t.rowAt n)).Nodup := by
   rw [List.Nodup, List.pairwise_map] at hnd ⊢
@@ -1217,7 +1224,7 @@ theorem nodup_rows_shift {k : ℕ} {V : Set Poly} {N : ℕ} (hV : Decided V N) (
 /-- **Two duplicate-free bags agree at `n` iff they agree at the
 threshold**: both are sets of rows, and the shift carries a row of one
 to a row of the other. -/
-theorem inst_eq_iff_shift {k : ℕ} {V : Set Poly} {N : ℕ} (hV : Decided V N) (L L' : PolyBag k)
+private theorem inst_eq_iff_shift {k : ℕ} {V : Set Poly} {N : ℕ} (hV : Decided V N) (L L' : PolyBag k)
     (hL : PolyBag.vals L ⊆ V) (hL' : PolyBag.vals L' ⊆ V)
     (h1 : ∀ s ∈ L, s.mult = 1) (h1' : ∀ s ∈ L', s.mult = 1)
     (hnd : (L.map (fun t => t.rowAt N)).Nodup) (hnd' : (L'.map (fun t => t.rowAt N)).Nodup)
@@ -1264,14 +1271,14 @@ open Polynomial
 
 noncomputable section
 
-theorem range_append_subset {k₁ k₂ : ℕ} (r : Fin k₁ → Poly) (cγ : Fin k₂ → Poly) :
+private theorem range_append_subset {k₁ k₂ : ℕ} (r : Fin k₁ → Poly) (cγ : Fin k₂ → Poly) :
     Set.range (Fin.append r cγ) ⊆ Union.union (Set.range r) (Set.range cγ) := by
   rintro p ⟨j, rfl⟩
   refine Fin.addCases (fun i => ?_) (fun i => ?_) j
   · rw [Fin.append_left]; exact Or.inl ⟨i, rfl⟩
   · rw [Fin.append_right]; exact Or.inr ⟨i, rfl⟩
 
-theorem Univ_mono {c k k' : ℕ} {κ : Fin k → ColKind} {κ' : Fin k' → ColKind}
+private theorem Univ_mono {c k k' : ℕ} {κ : Fin k → ColKind} {κ' : Fin k' → ColKind}
     {l l' : List (String × ℕ)} {q : AggQueryIn ℕ c k κ l} {q' : AggQueryIn ℕ c k' κ' l'}
     (hc : q'.allConsts ⊆ q.allConsts)
     (hcv : ∀ n, q'.countValsAll (dRep n) ⊆ q.countValsAll (dRep n)) (cγ : Fin c → Poly) :
@@ -1282,7 +1289,7 @@ theorem Univ_mono {c k k' : ℕ} {κ : Fin k → ColKind} {κ' : Fin k' → ColK
   · exact Or.inl (Or.inr h)
   · exact Or.inr (CountPolys_mono hcv h)
 
-theorem UnivHole_mono {c k k' m : ℕ} {κ : Fin k → ColKind} {κ' : Fin k' → ColKind}
+private theorem UnivHole_mono {c k k' m : ℕ} {κ : Fin k → ColKind} {κ' : Fin k' → ColKind}
     {l l' : List (String × ℕ)} {q : AggQueryIn ℕ c k κ l} {q' : AggQueryIn ℕ c k' κ' l'}
     {s : String} (hc : q'.allConsts ⊆ q.allConsts)
     (hcv : ∀ n (X : Relation ℕ m), q'.countValsAll ((dRep n).assign s X)
@@ -1295,7 +1302,7 @@ theorem UnivHole_mono {c k k' m : ℕ} {κ : Fin k → ColKind} {κ' : Fin k' �
   · exact Or.inr (CountPolysHole_mono hcv h)
 
 /-- A closed query's universe lies in that of a term holding it. -/
-theorem Univ_subset_hole {c k k' m : ℕ} {κ : Fin k → ColKind} {κ' : Fin k' → ColKind}
+private theorem Univ_subset_hole {c k k' m : ℕ} {κ : Fin k → ColKind} {κ' : Fin k' → ColKind}
     {l : List (String × ℕ)} {q : AggQueryIn ℕ c k κ l} (q' : AggQueryIn ℕ c k' κ') {s : String}
     (hq' : q'.noMention s) (hc : q'.allConsts ⊆ q.allConsts)
     (hcv : ∀ n (X : Relation ℕ m), q'.countValsAll ((dRep n).assign s X)
@@ -1307,36 +1314,36 @@ theorem Univ_subset_hole {c k k' m : ℕ} {κ : Fin k → ColKind} {κ' : Fin k'
   · exact Or.inl (Or.inr h)
   · exact Or.inr (CountPolys_subset_hole q' hq' hcv h)
 
-theorem one_mem_Univ {c k : ℕ} {κ : Fin k → ColKind} {l : List (String × ℕ)}
+private theorem one_mem_Univ {c k : ℕ} {κ : Fin k → ColKind} {l : List (String × ℕ)}
     (q : AggQueryIn ℕ c k κ l) (cγ : Fin c → Poly) : (1 : Poly) ∈ Univ q cγ :=
   Or.inl (Or.inl (Or.inr rfl))
 
-theorem range_subset_Univ {c k : ℕ} {κ : Fin k → ColKind} {l : List (String × ℕ)}
+private theorem range_subset_Univ {c k : ℕ} {κ : Fin k → ColKind} {l : List (String × ℕ)}
     (q : AggQueryIn ℕ c k κ l) (cγ : Fin c → Poly) : Set.range cγ ⊆ Univ q cγ :=
   fun _ h => Or.inl (Or.inr h)
 
-theorem Cset_subset_Univ {c k : ℕ} {κ : Fin k → ColKind} {l : List (String × ℕ)}
+private theorem Cset_subset_Univ {c k : ℕ} {κ : Fin k → ColKind} {l : List (String × ℕ)}
     (q : AggQueryIn ℕ c k κ l) (cγ : Fin c → Poly) : Cset q.allConsts ⊆ Univ q cγ :=
   fun _ h => Or.inl (Or.inl (Or.inl h))
 
-theorem one_mem_UnivHole {c k m : ℕ} {κ : Fin k → ColKind} {l : List (String × ℕ)}
+private theorem one_mem_UnivHole {c k m : ℕ} {κ : Fin k → ColKind} {l : List (String × ℕ)}
     (q : AggQueryIn ℕ c k κ l) (s : String) (cγ : Fin c → Poly) :
     (1 : Poly) ∈ UnivHole q s m cγ :=
   Or.inl (Or.inl (Or.inr rfl))
 
-theorem range_subset_UnivHole {c k m : ℕ} {κ : Fin k → ColKind} {l : List (String × ℕ)}
+private theorem range_subset_UnivHole {c k m : ℕ} {κ : Fin k → ColKind} {l : List (String × ℕ)}
     (q : AggQueryIn ℕ c k κ l) (s : String) (cγ : Fin c → Poly) :
     Set.range cγ ⊆ UnivHole q s m cγ :=
   fun _ h => Or.inl (Or.inr h)
 
-theorem Cset_subset_UnivHole {c k m : ℕ} {κ : Fin k → ColKind} {l : List (String × ℕ)}
+private theorem Cset_subset_UnivHole {c k m : ℕ} {κ : Fin k → ColKind} {l : List (String × ℕ)}
     (q : AggQueryIn ℕ c k κ l) (s : String) (cγ : Fin c → Poly) :
     Cset q.allConsts ⊆ UnivHole q s m cγ :=
   fun _ h => Or.inl (Or.inl (Or.inl h))
 
 /-- A closed query not mentioning the name reads the bound instance as the
 instance. -/
-theorem settlesAt_assign_iff {c k : ℕ} {κ : Fin k → ColKind} (q : AggQueryIn ℕ c k κ)
+private theorem settlesAt_assign_iff {c k : ℕ} {κ : Fin k → ColKind} (q : AggQueryIn ℕ c k κ)
     {s : String} (hq : q.noMention s) {m : ℕ} (X : Relation ℕ m) (D : Database ℕ) (γ : Fin c → ℕ) :
     q.SettlesAt (D.assign s X) γ ↔ q.SettlesAt D γ :=
   ⟨AggQueryIn.settlesAt_assign_of_noMention X q hq D γ,
@@ -1344,7 +1351,7 @@ theorem settlesAt_assign_iff {c k : ℕ} {κ : Fin k → ColKind} (q : AggQueryI
       (fun h => (ht.resolve_right List.not_mem_nil) h.2)).symm) γ⟩
 
 /-- The context an apply's right side reads, at `n`. -/
-theorem ctxAt_append {c n₁ : ℕ} (r : Fin n₁ → Poly) (cγ : Fin c → Poly) (n : ℕ) :
+private theorem ctxAt_append {c n₁ : ℕ} (r : Fin n₁ → Poly) (cγ : Fin c → Poly) (n : ℕ) :
     (Fin.append (fun j => (r j).eval n) (ctxAt cγ n) : Fin (n₁ + c) → ℕ)
       = ctxAt (Fin.append r cγ) n := by
   funext j
@@ -1357,7 +1364,7 @@ theorem ctxAt_append {c n₁ : ℕ} (r : Fin n₁ → Poly) (cγ : Fin c → Pol
 
 /-! ### Counting the rows of a bag -/
 
-theorem PolyBag.card_inst {k : ℕ} (L : PolyBag k) (n : ℕ) :
+private theorem PolyBag.card_inst {k : ℕ} (L : PolyBag k) (n : ℕ) :
     Multiset.card (PolyBag.inst L n) = (L.map (fun s => s.mult.eval n)).sum := by
   induction L with
   | nil => simp [PolyBag.inst]
@@ -1368,7 +1375,7 @@ theorem PolyBag.card_inst {k : ℕ} (L : PolyBag k) (n : ℕ) :
 
 /-- A conditional sum of multiplicities is the multiplicity sum of the
 shapes the condition keeps. -/
-theorem sum_if_eq_filter {k : ℕ} (L : PolyBag k) (P : Shape k → Bool) (n : ℕ) :
+private theorem sum_if_eq_filter {k : ℕ} (L : PolyBag k) (P : Shape k → Bool) (n : ℕ) :
     (L.map (fun s => if P s = true then s.mult.eval n else 0)).sum
       = (((L.filter P).map Shape.mult).sum).eval n := by
   induction L with
@@ -1381,15 +1388,15 @@ theorem sum_if_eq_filter {k : ℕ} (L : PolyBag k) (P : Shape k → Bool) (n : �
     · rw [ite_eq_right hs, List.filter_cons_of_neg hs, zero_add]
 
 /-- A count over a bag is its number of rows. -/
-theorem count_onBag_eq_card (hsym : SeqAggFunc.count.Symmetric) (M : Multiset ℕ) :
+private theorem count_onBag_eq_card (hsym : SeqAggFunc.count.Symmetric) (M : Multiset ℕ) :
     SeqAggFunc.count.onBag hsym M = Multiset.card M := by
   induction M using Quot.inductionOn with
   | h L => rfl
 
-theorem Shape.rowAt_key {k n₁ : ℕ} (is : Tuple (Fin k) n₁) (s : Shape k) (n : ℕ) :
+private theorem Shape.rowAt_key {k n₁ : ℕ} (is : Tuple (Fin k) n₁) (s : Shape k) (n : ℕ) :
     Tuple.key is (s.rowAt n) = (⟨s.mult, Tuple.key is s.row⟩ : Shape n₁).rowAt n := rfl
 
-theorem PolyBag.vals_mapRows_key {k n₁ : ℕ} (is : Tuple (Fin k) n₁) (L : PolyBag k) :
+private theorem PolyBag.vals_mapRows_key {k n₁ : ℕ} (is : Tuple (Fin k) n₁) (L : PolyBag k) :
     PolyBag.vals (PolyBag.mapRows (Tuple.key is) L) ⊆ PolyBag.vals L :=
   PolyBag.vals_mapRows _ L _ (fun s hs j => ⟨s, hs, is j, rfl⟩)
 
@@ -1407,7 +1414,7 @@ open Polynomial
 instance with `n` copies, a bag of shapes for `n` large**, and settles or
 not independently of `n`: the closed statement, and the statement for a
 term with a hole, uniform in the bag the hole is bound to. -/
-theorem sym_aux {S : Set OpKind} (hwin : OpKind.win ∉ S) :
+private theorem sym_aux {S : Set OpKind} (hwin : OpKind.win ∉ S) :
     ∀ {c k : ℕ} {κ : Fin k → ColKind} {l : List (String × ℕ)} (q : AggQueryIn ℕ c k κ l),
       q.usesOnly S → q.inSig {SeqAggFunc.count} → q.hygienic →
       (l = [] → ∀ cγ : Fin c → Poly, ClosedSym q cγ)
@@ -2363,7 +2370,7 @@ theorem sym_aux {S : Set OpKind} (hwin : OpKind.win ∉ S) :
 
 /-- **`X − 1` is not a polynomial over `ℕ`**: no `p` has `p + 1 = X`, the
 constant coefficients being `p(0) + 1` and `0`. -/
-theorem Poly.add_one_ne_X (p : Poly) : p + 1 ≠ Polynomial.X := by
+private theorem Poly.add_one_ne_X (p : Poly) : p + 1 ≠ Polynomial.X := by
   intro h
   have := congrArg (fun q : Poly => q.coeff 0) h
   simp at this
@@ -2377,7 +2384,7 @@ counting aggregate. Without a window every query reads the instance of
 `n` copies of one row as a bag of polynomial shapes (`sym_aux`), and the
 witness – `count(*)` over the whole partition excluding the current row
 – writes `n − 1`, which no polynomial over `ℕ` is. -/
-theorem win_mem_of_generatesAt {S : Set OpKind}
+private theorem win_mem_of_generatesAt {S : Set OpKind}
     (hS : GeneratesAt ℕ schemaR SeqAggFunc.count S winWitness) : OpKind.win ∈ S := by
   classical
   by_contra hwin

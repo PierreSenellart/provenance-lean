@@ -8,6 +8,11 @@ public import Provenance.AllRegular
 public import Provenance.Decorrelate
 import Mathlib.Tactic.NormNum.Inv
 import Mathlib.Tactic.NormNum.Pow
+import all Provenance.AggQuery
+import all Provenance.Decorrelate
+import all Provenance.Frame
+import all Provenance.PlainBasis
+import all Provenance.Query
 
 /-!
 # The basis, assembled
@@ -507,7 +512,7 @@ theorem AggQueryIn.exists_basisOps_plainEquiv {sch : Schema} {n : ℕ}
 /-- **`COUNT(*)` over `ℕ` is a count.** Nothing there is null, so the
 length of a sequence is `0` exactly when the sequence has no value to
 count. -/
-theorem counts_count_nat : SeqAggFunc.Counts (SeqAggFunc.count) :=
+private theorem counts_count_nat : SeqAggFunc.Counts (SeqAggFunc.count) :=
   SeqAggFunc.counts_of_noNulls (fun _ => rfl)
     (fun _ => List.length_eq_zero_iff)
 
@@ -569,7 +574,7 @@ theorem AggQueryIn.exists_basisWinOps_plainEquiv {sch : Schema} {n : ℕ}
   exact ⟨q₃, hu₃, hs₃, fun D γ => (he₂ D γ).trans (he₃ D γ)⟩
 
 /-- Over `ℕ`, with `COUNT(*)` as the aggregate. -/
-theorem AggQueryIn.exists_basisWinOps_plainEquiv_nat {sch : Schema} {n : ℕ}
+private theorem AggQueryIn.exists_basisWinOps_plainEquiv_nat {sch : Schema} {n : ℕ}
     {κ : Fin n → ColKind} (q : AggQuery ℕ n κ) (hq : q.usesOnly plainOps)
     (hqs : q.overSchema sch) :
     ∃ q' : AggQuery ℕ n κ,
@@ -599,7 +604,7 @@ def GeneratesOn (T : Type) [ValueType T] (sch : Schema) (S : Set OpKind) :
 
 /-- **What a generating set produces is defined everywhere**, its
 classes holding no recursion. -/
-theorem GeneratesOn.settles {sch : Schema} {S : Set OpKind} (hS : GeneratesOn T sch S)
+private theorem GeneratesOn.settles {sch : Schema} {S : Set OpKind} (hS : GeneratesOn T sch S)
     {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} {q : AggQueryIn T c n κ l}
     (hq : q.usesOnly S) (D : Database T) (γ : Fin c → T) : q.SettlesAt D γ :=
   AggQueryIn.settlesAt_of_usesOnly hS.1 hS.2.1 q hq D γ
@@ -624,7 +629,7 @@ theorem basisOps_generatesOn (cnt : SeqAggFunc T)
     exact ⟨q', hs', hu', fun D γ => (he₃ D γ).trans (he' D γ)⟩⟩
 
 /-- Over `ℕ`, with `COUNT(*)` as the aggregate. -/
-theorem basisOps_generatesOn_nat (sch : Schema) :
+private theorem basisOps_generatesOn_nat (sch : Schema) :
     GeneratesOn ℕ sch basisOps :=
   basisOps_generatesOn SeqAggFunc.count counts_count_nat sch
 
@@ -637,7 +642,7 @@ witness by a query that cannot. -/
 
 /-- **A query with no window has every window derivable**, there being
 none: the condition is on the windows, so it is vacuous. -/
-theorem AggQueryIn.winsDerivable_of_usesOnly {S : Set OpKind}
+private theorem AggQueryIn.winsDerivable_of_usesOnly {S : Set OpKind}
     (hw : OpKind.win ∉ S) :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l),
       q.usesOnly S → q.WinsDerivable := by
@@ -667,7 +672,7 @@ theorem AggQueryIn.winsDerivable_of_usesOnly {S : Set OpKind}
   | WinExpr P' O o ws ts fs g q keeps ih => exact fun hq => absurd hq.1 hw
 
 /-- Transporting along an equality of kind vectors changes no window. -/
-@[simp] theorem AggQueryIn.winsDerivable_castKind {c n : ℕ}
+@[simp] private theorem AggQueryIn.winsDerivable_castKind {c n : ℕ}
     {κ κ' : Fin n → ColKind} {l : List (String × ℕ)} (h : κ = κ') (q : AggQueryIn T c n κ l) :
     (q.castKind h).WinsDerivable ↔ q.WinsDerivable := by
   cases h
@@ -675,7 +680,7 @@ theorem AggQueryIn.winsDerivable_of_usesOnly {S : Set OpKind}
 
 omit [ValueType T] in
 /-- The empty instance is thin: it binds no name at all. -/
-theorem Database.thin_nil : Database.Thin ([] : Database T) := by
+private theorem Database.thin_nil : Database.Thin ([] : Database T) := by
   intro k s r h
   have hnone : (none : Option (Relation T k)) = some r := h
   exact (Option.some_ne_none r hnone.symm).elim
@@ -1229,12 +1234,12 @@ theorem basisApplyOps_generatesOn (cnt : SeqAggFunc T)
     exact ⟨q', hs', hu', he'⟩⟩
 
 /-- Over `ℕ`, with `COUNT(*)` as the aggregate. -/
-theorem basisDiffOps_generatesOn_nat (sch : Schema) :
+private theorem basisDiffOps_generatesOn_nat (sch : Schema) :
     GeneratesOn ℕ sch basisDiffOps :=
   basisDiffOps_generatesOn SeqAggFunc.count counts_count_nat sch
 
 /-- Over `ℕ`, with `COUNT(*)` as the aggregate. -/
-theorem basisApplyOps_generatesOn_nat (sch : Schema) :
+private theorem basisApplyOps_generatesOn_nat (sch : Schema) :
     GeneratesOn ℕ sch basisApplyOps :=
   basisApplyOps_generatesOn SeqAggFunc.count counts_count_nat sch
 
@@ -1259,7 +1264,7 @@ theorem AggQueryIn.winsDerivable_win_whole {lab : ℕ} {c n m p : ℕ} {rd : Fin
 
 /-- **And one over `RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT
 ROW`.** -/
-theorem AggQueryIn.winsDerivable_win_rangeUpTo {lab : ℕ} {c n m p : ℕ} {rd : Fin c → Bool}
+private theorem AggQueryIn.winsDerivable_win_rangeUpTo {lab : ℕ} {c n m p : ℕ} {rd : Fin c → Bool}
     (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
     (t : TermIn T c n) (f : SeqAggFunc T)
     {q : AggQueryIn T c n (ColKind.allReg n)} (dist : Bool)
@@ -1272,7 +1277,7 @@ theorem AggQueryIn.winsDerivable_win_rangeUpTo {lab : ℕ} {c n m p : ℕ} {rd :
 /-- **And one over the same frame excluding the current row's peers**
 (`EXCLUDE GROUP`), which is what a running total that must not read its
 own row needs. -/
-theorem AggQueryIn.winsDerivable_win_rangeBefore {lab : ℕ} {c n m p : ℕ} {rd : Fin c → Bool}
+private theorem AggQueryIn.winsDerivable_win_rangeBefore {lab : ℕ} {c n m p : ℕ} {rd : Fin c → Bool}
     (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
     (t : TermIn T c n) (f : SeqAggFunc T)
     {q : AggQueryIn T c n (ColKind.allReg n)} (dist : Bool)
@@ -1346,7 +1351,7 @@ theorem basisApplyDiffOps_generatesOn (cnt : SeqAggFunc T)
     exact ⟨q', hs', hu', he'⟩⟩
 
 /-- Over `ℕ`, with `COUNT(*)` as the aggregate. -/
-theorem basisApplyDiffOps_generatesOn_nat (sch : Schema) :
+private theorem basisApplyDiffOps_generatesOn_nat (sch : Schema) :
     GeneratesOn ℕ sch basisApplyDiffOps :=
   basisApplyDiffOps_generatesOn SeqAggFunc.count counts_count_nat sch
 

@@ -40,7 +40,7 @@ variable {K : Type} [CommSemiringWithMonus K] [DecidableEq K]
 
 omit [ValueType T] [DecidableEq K] [HasAltLinearOrder K] in
 /-- A tuple with no token column has no token annotation lists. -/
-theorem tokenLists_eq_zero {n : ℕ} {u : Tuple (GenValue T K) n}
+private theorem tokenLists_eq_zero {n : ℕ} {u : Tuple (GenValue T K) n}
     (h : ∀ k, ∃ v, u k = Sum.inl v) : tokenLists u = 0 := by
   refine Multiset.eq_zero_of_forall_notMem (fun l hl => ?_)
   obtain ⟨k, -, hk⟩ := (Multiset.mem_filterMap _ _).mp hl
@@ -65,7 +65,7 @@ omit [HasAltLinearOrder K] in
 /-- A projection whose columns are all regular terms embeds each row:
 the token lists of the output are empty, so the pending guards are all
 cashed and the output annotation is the finalized input annotation. -/
-theorem projTerm_row_eq {n m : ℕ} {κ : Fin n → ColKind}
+private theorem projTerm_row_eq {n m : ℕ} {κ : Fin n → ColKind}
     (ps : Tuple (ProjCol T κ) m) (hps : ∀ j, ∃ t, ps j = ProjColIn.term t)
     (r : GenRow T K n) :
     ((fun j => (ps j).eval r.fst),
@@ -100,7 +100,7 @@ a `HAVING COUNT(*)` site produces exactly the rows of the embedded padded
 join query – as raw evaluator rows, not just after finalization, since
 the key projection empties the pending guards on one side and the
 embedding image carries none on the other. -/
-theorem genCountHavingSite_eval
+private theorem genCountHavingSite_eval
     (h_abs : absorptive K) (h_distrib : mul_sub_left_distributive K)
     (ts' : Tuple (Term ℕ 3) 1) (op : CompOp) (C : ℕ)
     (g : AggQuery ℕ 3 (ColKind.allReg 3)) (q' : Query ℕ 3)
@@ -201,7 +201,7 @@ theorem GenCountHavingRewrite.evaluateGen_eq
       hbridge' hnodup
 
 /-- The finalized form of the compositional correctness. -/
-theorem GenCountHavingRewrite.evaluateAnnotatedGen_eq
+private theorem GenCountHavingRewrite.evaluateAnnotatedGen_eq
     (h_abs : absorptive K) (h_distrib : mul_sub_left_distributive K)
     {d : AnnotatedDatabase ℕ K} {n : ℕ} {κ : Fin n → ColKind}
     {q q' : AggQuery ℕ n κ} (hrw : GenCountHavingRewrite d q q') :

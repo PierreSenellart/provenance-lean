@@ -104,13 +104,13 @@ def eval {X : Type} (φ : CNF X) (v : X → Bool) : Bool :=
 /-- The Boolean function denoted by a CNF formula. -/
 def toBoolFunc {X : Type} (φ : CNF X) : BoolFunc X := eval φ
 
-@[simp] lemma eval_nil {X : Type} (v : X → Bool) :
+@[simp] private lemma eval_nil {X : Type} (v : X → Bool) :
     CNF.eval ([] : CNF X) v = true := rfl
 
-@[simp] lemma eval_cons {X : Type} (c : Clause X) (φ : CNF X) (v : X → Bool) :
+@[simp] private lemma eval_cons {X : Type} (c : Clause X) (φ : CNF X) (v : X → Bool) :
     CNF.eval (c :: φ : CNF X) v = (Clause.eval c v && CNF.eval φ v) := rfl
 
-lemma eval_append {X : Type} (φ ψ : CNF X) (v : X → Bool) :
+private lemma eval_append {X : Type} (φ ψ : CNF X) (v : X → Bool) :
     CNF.eval (φ ++ ψ : CNF X) v = (CNF.eval φ v && CNF.eval ψ v) := by
   show List.all (φ ++ ψ) _ = _
   rw [List.all_append]
@@ -169,10 +169,10 @@ def tseitinValuation (v : X → Bool) : (X ⊕ Circuit X) → Bool
   | Sum.inl x => v x
   | Sum.inr c => c.eval v
 
-@[simp] lemma tseitinValuation_inl (v : X → Bool) (x : X) :
+@[simp] private lemma tseitinValuation_inl (v : X → Bool) (x : X) :
     tseitinValuation v (Sum.inl x) = v x := rfl
 
-@[simp] lemma tseitinValuation_inr (v : X → Bool) (c : Circuit X) :
+@[simp] private lemma tseitinValuation_inr (v : X → Bool) (c : Circuit X) :
     tseitinValuation v (Sum.inr c) = c.eval v := rfl
 
 /-! ### Forward direction: every model of the circuit lifts to a model of
@@ -181,7 +181,7 @@ the Tseitin CNF. -/
 /-- Every per-gate Tseitin clause is satisfied by the lifted valuation.
 The proof is structural induction on the circuit, with each case
 discharged by case analysis on the Boolean value of the children. -/
-lemma tseitinClauses_eval_tseitinValuation (c : Circuit X) (v : X → Bool) :
+private lemma tseitinClauses_eval_tseitinValuation (c : Circuit X) (v : X → Bool) :
     CNF.eval c.tseitinClauses (tseitinValuation v) = true := by
   induction c with
   | const b =>
@@ -236,7 +236,7 @@ a valuation `w`, then `w` correctly evaluates `c`'s root aux variable to
 `c.eval (w ∘ Sum.inl)`. Proved by induction on `c`: each gate's clauses
 encode the iff `aux(c) ↔ <gate on children's aux>`, and the IH supplies
 the children's correctness. -/
-lemma tseitinClauses_imp_root (c : Circuit X)
+private lemma tseitinClauses_imp_root (c : Circuit X)
     (w : (X ⊕ Circuit X) → Bool)
     (hw : CNF.eval c.tseitinClauses w = true) :
     w (Sum.inr c) = c.eval (fun x => w (Sum.inl x)) := by

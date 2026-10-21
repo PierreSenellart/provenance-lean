@@ -13,6 +13,9 @@ public import Mathlib.Data.Fintype.Defs
 import Mathlib.Algebra.BigOperators.Group.Finset.Basic
 import Mathlib.Data.Fintype.Pi
 import Mathlib.Order.CompleteLattice.Finset
+import all Provenance.SemiringWithMonus
+import all Provenance.Semirings.BoolFunc
+import all Provenance.Semirings.Interval
 
 /-!
 # Interval-union semiring
@@ -581,7 +584,7 @@ theorem ext_toSet [LinearOrder α] [DenselyOrdered α]
           | inr hK'tl =>
             exact Set.mem_iUnion₂.mpr ⟨K', hK'tl, hxK'⟩
 
-theorem ext [LinearOrder α] (U V : IntervalUnion α)
+private theorem ext [LinearOrder α] (U V : IntervalUnion α)
   (h : U.intervals = V.intervals) : U = V := by
   cases U
   cases V
@@ -722,11 +725,11 @@ def merge [LinearOrder α] (I J : Interval α) (h: ¬ (I.before J ∨ J.before I
                 . exact hIwf
   }
 
-lemma merge_commutative [LinearOrder α] {I J: Interval α} {h: ¬(I.before J ∨ J.before I)}:
+private lemma merge_commutative [LinearOrder α] {I J: Interval α} {h: ¬(I.before J ∨ J.before I)}:
   merge I J h = merge J I (by exact fun a ↦ h (id (Or.symm a))) := by
     simp[merge,Endpoint.minLo_commutative,Endpoint.maxHi_commutative]
 
-lemma mem_merge' [LinearOrder α] {I J: Interval α} (h: ¬(I.before J ∨ J.before I)):
+private lemma mem_merge' [LinearOrder α] {I J: Interval α} (h: ¬(I.before J ∨ J.before I)):
   ∀ x, x ∈ I.toSet → x ∈ (merge I J h).toSet := by
     intro x hI
     constructor
@@ -773,7 +776,7 @@ lemma mem_merge' [LinearOrder α] {I J: Interval α} (h: ¬(I.before J ∨ J.bef
         simp[merge,Endpoint.maxHi,not_lt_of_gt hIJ,hIJ]
         exact Endpoint.below_of_below_of_lt hIJ hI.2
 
-lemma mem_merge [LinearOrder α] {I J: Interval α} {h: ¬(I.before J ∨ J.before I)}:
+private lemma mem_merge [LinearOrder α] {I J: Interval α} {h: ¬(I.before J ∨ J.before I)}:
   ∀ x, x ∈ (merge I J h).toSet ↔ x ∈ I.toSet ∨ x ∈ J.toSet := by
     intro x
     apply Iff.intro
@@ -890,7 +893,7 @@ lemma mem_merge [LinearOrder α] {I J: Interval α} {h: ¬(I.before J ∨ J.befo
           exact mem_merge' h x hJ
 
 set_option maxHeartbeats 500000
-lemma merge_preserves_le [LinearOrder α] {I: Interval α} {J: Interval α} {K: Interval α}
+private lemma merge_preserves_le [LinearOrder α] {I: Interval α} {J: Interval α} {K: Interval α}
   (hKI: K ≤ I) (hKJ: K ≤ J) (h: ¬ (I.before J ∨ J.before I)) :
     K ≤ merge I J h := by
       simp[merge,(· ≤ ·)] at *
@@ -936,7 +939,7 @@ def insertMergeList [LinearOrder α] (I : Interval α) : List (Interval α) → 
   else
     insertMergeList (merge I J (by simp[hIJ, hJI])) tl
 
-lemma mem_insertMergeList [LinearOrder α] (I : Interval α) (L : List (Interval α)) :
+private lemma mem_insertMergeList [LinearOrder α] (I : Interval α) (L : List (Interval α)) :
   ∀ x, (∃ J ∈ insertMergeList I L, x ∈ J.toSet) ↔ (x ∈ I.toSet ∨ ∃ J ∈ L, x ∈ J.toSet) := by
     intro x
     induction L generalizing I with
@@ -1121,7 +1124,7 @@ def insertMerge [LinearOrder α]
     insertMergeList_preserves_pairwise_before I U.pairwise_before
   ⟩
 
-lemma mem_insertMerge [LinearOrder α] (I : Interval α) (U : IntervalUnion α) (x : α) :
+private lemma mem_insertMerge [LinearOrder α] (I : Interval α) (U : IntervalUnion α) (x : α) :
     x ∈ (insertMerge I U).toSet ↔ x ∈ I.toSet ∨ x ∈ U.toSet := by
   simp only [mem, insertMerge]
   exact mem_insertMergeList I U.intervals x
@@ -1391,7 +1394,7 @@ instance [DenselyOrdered α] [BoundedOrder α]: SemiringWithMonus (IntervalUnion
 
 /-- On interval unions the identity is an admissible `δ`, so it is the one used
 (ProvSQL's `IntervalUnion::delta`); `delta_absorb` is `A ∩ (A ∪ B) = A`. -/
-theorem IntervalUnion.isDelta_id [DenselyOrdered α] [BoundedOrder α] :
+private theorem IntervalUnion.isDelta_id [DenselyOrdered α] [BoundedOrder α] :
     IsDelta (id : IntervalUnion α → IntervalUnion α) := isDelta_delta
 
 instance [DenselyOrdered α] [BoundedOrder α] : CommSemiringWithMonus (IntervalUnion α) where
@@ -1421,7 +1424,7 @@ exclusivity, as in `Bool`; it is open to an absorptive semiring only because `�
 not join-irreducible here – a proper interval union and its complement join to the
 whole space – which is what separates this case from the absorptive chains
 (`MinMax.not_exclusive`). -/
-theorem IntervalUnion.exclusive [DenselyOrdered α] [BoundedOrder α] :
+private theorem IntervalUnion.exclusive [DenselyOrdered α] [BoundedOrder α] :
     exclusive (IntervalUnion α) := by
   intro a
   apply ext_toSet; ext x
@@ -1657,7 +1660,7 @@ open BoolFuncHom
 m-semiring homomorphism `BoolFunc Y →+* IntervalUnion β` sending each
 variable `BoolFunc.var i` to `ν i`. The homomorphism is the DNF evaluation
 `evalBF`: `f ↦ ∑_σ (if f σ then atomIU ν σ else 0)`. -/
-theorem IntervalUnion.homomorphism_from_BoolFunc
+private theorem IntervalUnion.homomorphism_from_BoolFunc
     (β : Type) [LinearOrder β] [DenselyOrdered β] [BoundedOrder β]
     (Y : Type) [Fintype Y] [DecidableEq Y] :
     ∀ ν : Y → IntervalUnion β,
@@ -1688,7 +1691,7 @@ every one of its elements has no choice about the property. `Bool` is forced
 by `BoolFunc` as well, but on the other route: it is a subalgebra of it
 (`Bool.exclusive_of_boolFunc`). Surjectivity is unavailable here, the
 homomorphism above having a finite domain. -/
-theorem IntervalUnion.exclusive_of_boolFunc [DenselyOrdered α] [BoundedOrder α] :
+private theorem IntervalUnion.exclusive_of_boolFunc [DenselyOrdered α] [BoundedOrder α] :
     _root_.exclusive (IntervalUnion α) := by
   intro u
   obtain ⟨h, hh⟩ := IntervalUnion.homomorphism_from_BoolFunc α Unit (fun _ => u)
@@ -1697,7 +1700,7 @@ theorem IntervalUnion.exclusive_of_boolFunc [DenselyOrdered α] [BoundedOrder α
 
 /-- Specialization of `IntervalUnion.homomorphism_from_BoolFunc` to the
 extended rationals. -/
-theorem IntervalUnion.homomorphism_from_BoolFunc_rat
+private theorem IntervalUnion.homomorphism_from_BoolFunc_rat
     (Y : Type) [Fintype Y] [DecidableEq Y] :
     ∀ ν : Y → IntervalUnion (WithBot (WithTop ℚ)),
       ∃ h : SemiringWithMonusHom (BoolFunc Y) (IntervalUnion (WithBot (WithTop ℚ))),
@@ -1707,7 +1710,7 @@ theorem IntervalUnion.homomorphism_from_BoolFunc_rat
 /-- **The temporal semiring is complemented**, for the first of the two
 reasons: `𝟙 ⊖ ·` is a genuine complement – `𝟙` is the whole timeline –
 and `⊕`/`⊗` are union and intersection, so the law is De Morgan's. -/
-theorem IntervalUnion.complemented {α : Type} [LinearOrder α]
+private theorem IntervalUnion.complemented {α : Type} [LinearOrder α]
     [DenselyOrdered α] [BoundedOrder α] :
     _root_.complemented (IntervalUnion α) := by
   intro a b

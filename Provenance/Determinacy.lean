@@ -6,6 +6,10 @@ module
 
 public import Provenance.AggQuery
 import Mathlib.Tactic.Bound.Init
+import all Provenance.AggQuery
+import all Provenance.Database
+import all Provenance.Frame
+import all Provenance.OrderSpec
 
 /-!
 # Determinacy: the listing an aggregate reads, and the query that is refused
@@ -113,7 +117,7 @@ theorem OrderSpec.peer_of_readLe {α β : Type} [LinearOrder β] {key : β → T
     exact absurd (by rw [OrderSpec.peer, Bool.and_eq_true]; exact ⟨h₁, h₂⟩) hp
 
 /-- Every row of a frame is a row of the relation. -/
-theorem ValueFrame.mem_of_mem_frameOf {α : Type} [LinearOrder α]
+private theorem ValueFrame.mem_of_mem_frameOf {α : Type} [LinearOrder α]
     (val : α → Tuple T n) (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
     (w : ValueFrame T p) (X : Multiset α) {x : α} (hx : x ∈ X) {y : α}
     (hy : y ∈ ValueFrame.frameOf val P O w X x) : y ∈ X := by
@@ -305,20 +309,20 @@ noncomputable def AggQueryIn.evaluateChecked {c n : ℕ} {κ : Fin n → ColKind
     Option (Relation T n) :=
   if q.DeterminateOn D γ then some (q.evaluatePlain D γ) else none
 
-theorem AggQueryIn.evaluateChecked_eq_some {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)}
+private theorem AggQueryIn.evaluateChecked_eq_some {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)}
     (q : AggQueryIn T c n κ l) (D : Database T) (γ : Fin c → T)
     (h : q.DeterminateOn D γ) :
     q.evaluateChecked D γ = some (q.evaluatePlain D γ) := by
   unfold AggQueryIn.evaluateChecked
   exact ite_eq_left h
 
-theorem AggQueryIn.evaluateChecked_eq_none {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)}
+private theorem AggQueryIn.evaluateChecked_eq_none {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)}
     (q : AggQueryIn T c n κ l) (D : Database T) (γ : Fin c → T)
     (h : ¬ q.DeterminateOn D γ) : q.evaluateChecked D γ = none := by
   unfold AggQueryIn.evaluateChecked
   exact ite_eq_right h
 
-theorem AggQueryIn.evaluateChecked_isSome_iff {c n : ℕ} {κ : Fin n → ColKind} {l : List
+private theorem AggQueryIn.evaluateChecked_isSome_iff {c n : ℕ} {κ : Fin n → ColKind} {l : List
     (String × ℕ)}
     (q : AggQueryIn T c n κ l) (D : Database T) (γ : Fin c → T) :
     (q.evaluateChecked D γ).isSome = true ↔ q.DeterminateOn D γ := by
@@ -355,7 +359,7 @@ theorem AggQueryIn.windowValue_eq_of_listing_of_determinateOn {lab : ℕ} {c n m
 
 /-- **And at a grouping**: the aggregate's value on any listing of the
 group in the clause's order is the one the evaluator computes. -/
-theorem AggQueryIn.gammaAgg_eq_of_listing_of_determinateOn {lab : ℕ} {c k n₁ n₂ : ℕ}
+private theorem AggQueryIn.gammaAgg_eq_of_listing_of_determinateOn {lab : ℕ} {c k n₁ n₂ : ℕ}
     {rd : Fin c → Bool}
     (is : Tuple (Fin k) n₁) (ts : Tuple (TermIn T c k) n₂)
     (fs : Tuple (SeqAggFunc T) n₂)
@@ -383,7 +387,7 @@ invariance needs. -/
 
 /-- The clause's reading puts an occurrence before another only where the
 clause itself does. -/
-theorem OrderSpec.le_of_readLe {α β : Type} [LinearOrder β]
+private theorem OrderSpec.le_of_readLe {α β : Type} [LinearOrder β]
     {key : β → Tuple T p} {val : α → β} {o : OrderSpec p} {x y : α}
     (h : OrderSpec.readLe key val o x y = true) :
     o.le (key (val x)) (key (val y)) = true := by

@@ -4,6 +4,8 @@ public import Provenance.QueryAnnotatedDatabase
 public import Provenance.Semirings.Nat
 import Mathlib.Tactic.Bound.Init
 import Provenance.QueryRewriting
+import all Provenance.QueryRewriting
+import all Provenance.Util.KeyAccValueList
 
 /-!
 # Data-part adequacy of the annotated semantics
@@ -102,7 +104,7 @@ def Query.noDiff (q: Query T n): Prop := match q with
 | Having _ _ _ _ _ _ q => q.noDiff
 
 /-- On `Diff`-free queries, `Query.stripDiff` is the identity. -/
-theorem Query.stripDiff_of_noDiff (q: Query T n) (hd: q.noDiff) :
+private theorem Query.stripDiff_of_noDiff (q: Query T n) (hd: q.noDiff) :
     q.stripDiff = q := by
   induction q with
   | Rel n s => rfl
@@ -143,11 +145,11 @@ def AnnotatedDatabase.toPlain [Zero K] (d: AnnotatedDatabase T K) : Database T :
   d.map (fun e => (e.fst, ⟨e.snd.fst, e.snd.snd.toPlain⟩))
 
 /-- Forgetting annotations passes under a relation binding. -/
-@[simp] lemma AnnotatedDatabase.toPlain_assign [Zero K] (s : String) {k : ℕ}
+@[simp] private lemma AnnotatedDatabase.toPlain_assign [Zero K] (s : String) {k : ℕ}
     (X : AnnotatedRelation T K k) (d : AnnotatedDatabase T K) :
     (d.assign s X).toPlain = d.toPlain.assign s X.toPlain := rfl
 
-lemma AnnotatedDatabase.find_toPlain [Zero K]
+private lemma AnnotatedDatabase.find_toPlain [Zero K]
     (n : ℕ) (s : String) (d : AnnotatedDatabase T K) :
     (d.toPlain).find n s = (d.find n s).map AnnotatedRelation.toPlain := by
   induction d with

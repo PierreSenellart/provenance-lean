@@ -53,7 +53,7 @@ namespace ValueType
 variable {T : Type} [ValueType T]
 
 /-- **A domain that names no null has none.** -/
-theorem isNull_eq_false_of_nullVal_none
+private theorem isNull_eq_false_of_nullVal_none
     (h : (ValueType.nullVal : Option T) = none) (a : T) :
     ValueType.isNull a = false := by
   rcases hb : ValueType.isNull a with _ | _
@@ -61,18 +61,18 @@ theorem isNull_eq_false_of_nullVal_none
   · exact absurd ((ValueType.isNull_iff_nullVal a).mp hb) (by rw [h]; simp)
 
 /-- A domain that names no null is a domain with no null. -/
-theorem noNulls_of_nullVal_none
+private theorem noNulls_of_nullVal_none
     (h : (ValueType.nullVal : Option T) = none) : NoNulls T :=
   ⟨isNull_eq_false_of_nullVal_none h⟩
 
 /-- **The named value is null.** -/
-theorem isNull_nullVal {ν : T} (h : (ValueType.nullVal : Option T) = some ν) :
+private theorem isNull_nullVal {ν : T} (h : (ValueType.nullVal : Option T) = some ν) :
     ValueType.isNull ν = true :=
   (ValueType.isNull_iff_nullVal ν).mpr h
 
 /-- **And it is the only one**, which is what lets a comparison against it
 read `IS NULL`. -/
-theorem eq_nullVal_of_isNull {ν a : T}
+private theorem eq_nullVal_of_isNull {ν a : T}
     (h : (ValueType.nullVal : Option T) = some ν)
     (ha : ValueType.isNull a = true) : a = ν :=
   Option.some.inj (((ValueType.isNull_iff_nullVal a).mp ha).symm.trans h)

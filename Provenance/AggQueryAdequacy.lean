@@ -10,6 +10,16 @@ public import Provenance.PlainBasis
 import Mathlib.Tactic.NormNum.Inv
 import Mathlib.Tactic.NormNum.Pow
 import Provenance.QueryRewriting
+import all Provenance.AggExpr
+import all Provenance.AggQuery
+import all Provenance.Database
+import all Provenance.Frame
+import all Provenance.HavingSemantics
+import all Provenance.Nested
+import all Provenance.Occurrence
+import all Provenance.QueryAdequacy
+import all Provenance.QueryRewriting
+import all Provenance.Util.KeyAccValueList
 
 /-!
 # Data-part adequacy of the general evaluator
@@ -102,7 +112,7 @@ omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 /-- A predicate evaluates on a lifted tuple as its plain reading does on
 the collapsed tuple – three-valuedly, so the statement covers the unknown
 case as well as the two definite ones. -/
-theorem GenPredIn.eval3_eq_evalPlain3 {c n : ℕ} {κ : Fin n → ColKind}
+private theorem GenPredIn.eval3_eq_evalPlain3 {c n : ℕ} {κ : Fin n → ColKind}
     (φ : GenPredIn T c κ) (u : Tuple (GenValue T K) n) {γ : Fin c → T} :
     φ.eval3 u γ = φ.evalPlain3 (GenRow.plainTuple u) γ := by
   induction φ with
@@ -131,13 +141,13 @@ theorem GenPredIn.holds_iff_holdsPlain {c n : ℕ} {κ : Fin n → ColKind}
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 /-- The collapsed tuple of an embedded annotated tuple is its data part. -/
-@[simp] theorem GenRow.plainTuple_ofAnnotated {n : ℕ}
+@[simp] private theorem GenRow.plainTuple_ofAnnotated {n : ℕ}
     (p : AnnotatedTuple T K n) :
     GenRow.plainTuple (GenRow.ofAnnotated p).fst = p.fst := rfl
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 /-- Collapsing distributes over appending a regular and a token part. -/
-theorem GenRow.plainTuple_append {n₁ n₂ : ℕ} (g : Tuple T n₁)
+private theorem GenRow.plainTuple_append {n₁ n₂ : ℕ} (g : Tuple T n₁)
     (h : Fin n₂ → AggTok T K) :
     GenRow.plainTuple
         (Fin.append (fun k => (Sum.inl (g k) : GenValue T K))
@@ -152,7 +162,7 @@ theorem GenRow.plainTuple_append {n₁ n₂ : ℕ} (g : Tuple T n₁)
 omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 /-- The collapse of a group token is the plain aggregate of the group's
 value sequence. -/
-theorem AggValue.collapse_ofGroup {c m : ℕ} (f : SeqAggFunc T)
+private theorem AggValue.collapse_ofGroup {c m : ℕ} (f : SeqAggFunc T)
     (t : TermIn T c m) (U : List (AnnotatedTuple T K m))
     {γ : Fin c → T} :
     (AggValue.ofGroup f t U γ).collapse
@@ -176,7 +186,7 @@ private lemma map_filter_iff {α β : Type} (f : α → β) (p : α → Prop)
     · rw [Multiset.filter_cons_of_neg _ hpa, Multiset.map_cons,
         Multiset.filter_cons_of_neg _ (fun hq => hpa ((h a).mpr hq)), ih]
 
-lemma product_map_map {α₁ α₂ β₁ β₂ : Type} (f : α₁ → β₁)
+private lemma product_map_map {α₁ α₂ β₁ β₂ : Type} (f : α₁ → β₁)
     (g : α₂ → β₂) (s : Multiset α₁) (t : Multiset α₂) :
     Multiset.product (s.map f) (t.map g)
       = (Multiset.product s t).map (fun x => (f x.fst, g x.snd)) := by
@@ -191,7 +201,7 @@ lemma product_map_map {α₁ α₂ β₁ β₂ : Type} (f : α₁ → β₁)
 omit [HasAltLinearOrder K] in
 /-- The keys of `groupByKey` are the deduplicated data parts (factored out
 of the `Dedup` case of `Query.evaluateAnnotated_toPlain`). -/
-lemma map_fst_groupByKey {n : ℕ} (r : AnnotatedRelation T K n) :
+private lemma map_fst_groupByKey {n : ℕ} (r : AnnotatedRelation T K n) :
     Multiset.map Prod.fst (Multiset.ofList (groupByKey r).val)
       = (Multiset.map Prod.fst r).dedup := by
   have hL : (Multiset.map Prod.fst
@@ -253,7 +263,7 @@ omit [DecidableEq K] in
 /-- **The ordered reading projects to the plain ordered one**: an
 aggregation's `ORDER BY` reads the data columns, so sorting the group and
 sorting its rows agree. -/
-theorem havingGroupOrd_map_fst {m n₁ : ℕ} (is : Tuple (Fin m) n₁)
+private theorem havingGroupOrd_map_fst {m n₁ : ℕ} (is : Tuple (Fin m) n₁)
     (ord : GroupOrder T m) (r : AnnotatedRelation T K m) (g : Tuple T n₁) :
     (Having.havingGroupOrd is ord r g).map Prod.fst
       = Relation.groupSeqOrd is ord (AnnotatedRelation.toPlain r) g := by
@@ -322,7 +332,7 @@ def AggQueryIn.AnnSettlesAt : {c n : ℕ} → {κ : Fin n → ColKind} → {l : 
   | _, _, _, _, .WinExpr _ _ _ _ _ _ _ q _, d, γ, E => q.AnnSettlesAt d γ E
 
 /-- Settling everywhere settles at every instance. -/
-theorem AggQueryIn.recSettles_annSettlesAt :
+private theorem AggQueryIn.recSettles_annSettlesAt :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l),
       q.recSettles (K := K) → ∀ (d : AnnotatedDatabase T K) (γ : Fin c → T) (E : EvalEnv T K),
         q.AnnSettlesAt d γ E := by
@@ -355,7 +365,7 @@ theorem AggQueryIn.recSettles_annSettlesAt :
   | WinExpr _ _ _ _ _ _ _ q _ ih => exact fun h d γ E => ih h d γ E
 
 /-- `muSumFix_map` with the step commutation asked at the rounds only. -/
-theorem muSumFix_map_rounds {α β : Type} {h : Multiset α → Multiset β} (h0 : h 0 = 0)
+private theorem muSumFix_map_rounds {α β : Type} {h : Multiset α → Multiset β} (h0 : h 0 = 0)
     (hadd : ∀ x y, h (x + y) = h x + h y)
     {step : Multiset α → Multiset α} {stepP : Multiset β → Multiset β} {M : Multiset α}
     (hstep : ∀ k, h (step (step^[k] M)) = stepP (h (step^[k] M))) (hz : step 0 = 0)
@@ -388,7 +398,7 @@ theorem muSumFix_map_rounds {α β : Type} {h : Multiset α → Multiset β} (h0
   exact hsum _ 0
 
 /-- `muFix_map` with the step commutation asked at the rounds only. -/
-theorem muFix_map_rounds {α β : Type} {h : Multiset α → Multiset β} (h0 : h 0 = 0)
+private theorem muFix_map_rounds {α β : Type} {h : Multiset α → Multiset β} (h0 : h 0 = 0)
     {step : Multiset α → Multiset α} {stepP : Multiset β → Multiset β}
     (hstep : ∀ k, h (step (muIter step k)) = stepP (h (muIter step k))) (hs : MuSetSettles step) :
     h (muFix step) = muFix stepP := by
@@ -404,7 +414,7 @@ theorem muFix_map_rounds {α β : Type} {h : Multiset α → Multiset β} (h0 : 
   rw [muFix, hiter, (muFix_eq_of_fix hfixP).symm]
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
-@[simp] theorem EvalEnv.assignHole_holes_self (E : EvalEnv T K) (s : String) {n : ℕ}
+@[simp] private theorem EvalEnv.assignHole_holes_self (E : EvalEnv T K) (s : String) {n : ℕ}
     (X : Multiset (GenRow T K n)) : (E.assignHole s X).holes s n = X := by
   show (if h : s = s ∧ n = n then _ else _) = X
   rw [dite_eq_left ⟨rfl, rfl⟩]
@@ -413,7 +423,7 @@ omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder 
 omit [ValueType T] [DecidableEq K] [HasAltLinearOrder K] in
 /-- The plain instance a recursion's body is read in agrees with the
 annotated one away from the bound names, the body's own included. -/
-theorem Database.agree_assign {d : AnnotatedDatabase T K} {D : Database T} {N : Set String}
+private theorem Database.agree_assign {d : AnnotatedDatabase T K} {D : Database T} {N : Set String}
     (hD : ∀ (n' : ℕ) (s' : String), s' ∉ N →
       D.find n' s' = (d.find n' s').map AnnotatedRelation.toPlain)
     (s : String) {m : ℕ} (X : Relation T m) :
@@ -434,7 +444,7 @@ world and no stripping recovers it. The readings that *are* world
 readings – the Boolean support and the random world – do cover it. The
 settling hypothesis is per instance (`AggQueryIn.AnnSettlesAt`): only the
 recursions the evaluation at `(d, γ)` runs need settle there. -/
-theorem AggQueryIn.evaluate_toPlain_env :
+private theorem AggQueryIn.evaluate_toPlain_env :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l),
       q.noExplode → q.hygienic → ∀ {ρc : Fin c → ColKind} {HK : HoleKinds},
       q.wellKinded ρc HK →

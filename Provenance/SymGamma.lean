@@ -4,6 +4,15 @@ public import Provenance.SymOps
 public import Provenance.WinKept
 import Mathlib.Tactic.NormNum.Inv
 import Mathlib.Tactic.NormNum.Pow
+import all Provenance.AggQuery
+import all Provenance.Genericity
+import all Provenance.Query
+import all Provenance.SymCells
+import all Provenance.SymCode
+import all Provenance.SymOps
+import all Provenance.SymRel
+import all Provenance.SymTerms
+import all Provenance.WinKept
 
 /-!
 # The symbolic grouping
@@ -41,7 +50,7 @@ noncomputable def gammaRows {c' m' : ℕ} (is : Tuple (Fin m') n₁) (ts : Tuple
       (fun v => (ts j).eval v γ))))
 
 /-- A counting aggregate reads the bag of a group. -/
-theorem readsCount_groupSeq {c' m' : ℕ} {f : SeqAggFunc T} (hf : f.ReadsCount)
+private theorem readsCount_groupSeq {c' m' : ℕ} {f : SeqAggFunc T} (hf : f.ReadsCount)
     (is : Tuple (Fin m') n₁) (t : TermIn T c' m') (ord : GroupOrder T m')
     (r : Multiset (Tuple T m')) (g : Tuple T n₁) (keep : Option (Selection T m'))
     (γ : Fin c' → T) :
@@ -73,7 +82,7 @@ def termV : TermIn T (k + c) m → TermIn T c ((k + m) * (7 + k))
 
 /-- The value column of a code is null exactly when the value it stands
 for is. -/
-theorem isNull_enc_V (C : Finset T) (par : Fin k → T) (b : T) :
+private theorem isNull_enc_V (C : Finset T) (par : Fin k → T) (b : T) :
     ValueType.isNull (enc C k (vcode C par b) (iV k)) = ValueType.isNull b := by
   by_cases h : ∃ i, IsFresh C (par i) ∧ par i = b
   · obtain ⟨i, hi, rfl⟩ := h
@@ -106,7 +115,7 @@ theorem isNull_termV (C : Finset T) (t : TermIn T (k + c) m) (ht : t.noFun = tru
 
 /-- The key of an encoded row: the descriptor and the encodings of the
 key values. -/
-theorem key_rowEnc (C : Finset T) (is : Tuple (Fin m) n₁) (par : Fin k → T) (v : Tuple T m) :
+private theorem key_rowEnc (C : Finset T) (is : Tuple (Fin m) n₁) (par : Fin k → T) (v : Tuple T m) :
     (fun x => rowEnc C par v (gKeyIdx is x))
       = Fin.append (descEnc C par)
           (ofCells (fun t => enc C k (vcode C par (v (is t))))) := by
@@ -125,7 +134,7 @@ theorem key_rowEnc (C : Finset T) (is : Tuple (Fin m) n₁) (par : Fin k → T) 
     rw [rowEnc, cellOf_ofCells, cellOf_ofCells, Fin.append_right]
 
 /-- An encoded row with no further columns is the encoded row. -/
-theorem rowEncP_elim0 (C : Finset T) (par : Fin k → T) (v : Tuple T m) :
+private theorem rowEncP_elim0 (C : Finset T) (par : Fin k → T) (v : Tuple T m) :
     (rowEncP C par v (Fin.elim0 : Tuple T 0) : Tuple T ((k + m) * (7 + k))) = rowEnc C par v := by
   funext i
   exact Fin.append_left (rowEnc C par v) (Fin.elim0 : Tuple T 0) i
@@ -136,12 +145,12 @@ noncomputable def encK (C : Finset T) (par : Fin k → T) (g : Tuple T n₁) :
   Fin.append (descEnc C par) (ofCells (fun t => enc C k (vcode C par (g t))))
 
 /-- The key of an encoded row is the encoding of its key. -/
-theorem key_rowEnc_encK (C : Finset T) (is : Tuple (Fin m) n₁) (par : Fin k → T)
+private theorem key_rowEnc_encK (C : Finset T) (is : Tuple (Fin m) n₁) (par : Fin k → T)
     (v : Tuple T m) :
     Tuple.key (gKeyIdx is) (rowEnc C par v) = encK C par (fun t => v (is t)) :=
   key_rowEnc C is par v
 
-theorem encK_injective (C : Finset T) (par : Fin k → T) :
+private theorem encK_injective (C : Finset T) (par : Fin k → T) :
     Function.Injective (encK (n₁ := n₁) C par) := fun g g' h => by
   funext t
   have h' : ofCells (fun t => enc C k (vcode C par (g t)))
@@ -157,26 +166,26 @@ def keyDesc {M : ℕ} (x : Tuple T (k * (7 + k) + M)) : Tuple T (k * (7 + k)) :=
   fun i => x (Fin.castAdd M i)
 
 omit [ValueType T] in
-theorem keyDesc_key (is : Tuple (Fin m) n₁) (r : Tuple T ((k + m) * (7 + k))) :
+private theorem keyDesc_key (is : Tuple (Fin m) n₁) (r : Tuple T ((k + m) * (7 + k))) :
     keyDesc (fun x => r (gKeyIdx is x)) = descP (P := 0) r := by
   funext y
   obtain ⟨⟨i, j⟩, rfl⟩ := finProdFinEquiv.surjective y
   simp only [keyDesc, gKeyIdx, Fin.append_left, descP, ofCells, Equiv.symm_apply_apply]
   rfl
 
-theorem keyDesc_encK (C : Finset T) (par : Fin k → T) (g : Tuple T n₁) :
+private theorem keyDesc_encK (C : Finset T) (par : Fin k → T) (g : Tuple T n₁) :
     keyDesc (encK C par g) = descEnc C par := by
   funext y
   simp [keyDesc, encK, Fin.append_left]
 
 omit [ValueType T] in
-theorem Multiset.dedup_filter_comm {α : Type} [DecidableEq α] (q : α → Prop) [DecidablePred q]
+private theorem Multiset.dedup_filter_comm {α : Type} [DecidableEq α] (q : α → Prop) [DecidablePred q]
     (M : Multiset α) : (M.dedup).filter q = (M.filter q).dedup :=
   (Multiset.Nodup.ext ((Multiset.nodup_dedup M).filter _) (Multiset.nodup_dedup _)).mpr
     (fun x => by simp [Multiset.mem_filter, Multiset.mem_dedup])
 
 /-- **A selection read on an encoded row keeps it as on the row.** -/
-theorem keepsOpt_transSel {C : Finset T} (par : Fin k → T) (keep : Option (Selection T m))
+private theorem keepsOpt_transSel {C : Finset T} (par : Fin k → T) (keep : Option (Selection T m))
     (hkeep : ∀ φ, keep = some φ → φ.noFun = true ∧ ∀ a ∈ φ.consts, CG C a) (v : Tuple T m)
     (hv : ∀ i, GoodVal (C := C) par (v i)) :
     Selection.keepsOpt (keep.map (fun φ => (transSel (k := k) 0 φ).toSel)) (rowEnc C par v)
@@ -193,7 +202,7 @@ theorem keepsOpt_transSel {C : Finset T} (par : Fin k → T) (keep : Option (Sel
 
 /-- The slice of a symbolic relation with no further columns, as encoded
 rows. -/
-theorem slice_eq_map_rowEnc {C : Finset T} {par : Fin k → T}
+private theorem slice_eq_map_rowEnc {C : Finset T} {par : Fin k → T}
     {Q : Multiset (Tuple T ((k + m) * (7 + k)))} {R : Multiset (Tuple T m)}
     (hQ : SliceIs (P := 0) C par Q (R.map fun v => (v, (Fin.elim0 : Tuple T 0)))) :
     Q.filter (fun r => descP (P := 0) r = descEnc C par) = R.map (rowEnc C par) := by
@@ -204,7 +213,7 @@ theorem slice_eq_map_rowEnc {C : Finset T} {par : Fin k → T}
 
 /-- **The keys a symbolic grouping forms under a descriptor** are the
 encodings of the keys the grouping forms at the parameter row. -/
-theorem keys_slice {C : Finset T} {par : Fin k → T} (is : Tuple (Fin m) n₁)
+private theorem keys_slice {C : Finset T} {par : Fin k → T} (is : Tuple (Fin m) n₁)
     {Q : Multiset (Tuple T ((k + m) * (7 + k)))} {R : Multiset (Tuple T m)}
     (hsl : Q.filter (fun r => descP (P := 0) r = descEnc C par) = R.map (rowEnc C par)) :
     ((Q.map (fun u => (fun x => u (gKeyIdx is x)
@@ -224,7 +233,7 @@ theorem keys_slice {C : Finset T} {par : Fin k → T} (is : Tuple (Fin m) n₁)
   exact key_rowEnc C is par v
 
 /-- **The group of an encoded key** is the encoding of the group. -/
-theorem group_slice {C : Finset T} {par : Fin k → T} (is : Tuple (Fin m) n₁)
+private theorem group_slice {C : Finset T} {par : Fin k → T} (is : Tuple (Fin m) n₁)
     {Q : Multiset (Tuple T ((k + m) * (7 + k)))} {R : Multiset (Tuple T m)}
     (hsl : Q.filter (fun r => descP (P := 0) r = descEnc C par) = R.map (rowEnc C par))
     (g : Tuple T n₁) :
@@ -316,7 +325,7 @@ def gOutSA (n₁ n₂ : ℕ) :
 
 /-- **A grouping's encoded row is a symbolic row**, its aggregate values
 being values of the cut. -/
-theorem gOutSA_eval (C : Finset T) (par : Fin k → T) (g : Tuple T n₁) (a : Tuple T n₂)
+private theorem gOutSA_eval (C : Finset T) (par : Fin k → T) (g : Tuple T n₁) (a : Tuple T n₂)
     (γ : Fin c → T) (ha : ∀ j, CG C (a j)) :
     (fun x => (gOutSA (k := k) n₁ n₂ x).eval (Fin.append (encK C par g) a) γ)
       = rowEncP C par (Fin.append g a) (Fin.elim0 : Tuple T 0) := by
@@ -342,7 +351,7 @@ theorem gOutSA_eval (C : Finset T) (par : Fin k → T) (g : Tuple T n₁) (a : T
       show enc C k (.conc (Fin.append (encK C par g) a (Fin.natAdd _ t₂))) j = _
       rw [Fin.append_right, vcode_of_mem par (ha t₂)]
 
-theorem descP_gOutSA (x : Tuple T ((k * (7 + k) + n₁ * (7 + k)) + n₂)) (γ : Fin c → T) :
+private theorem descP_gOutSA (x : Tuple T ((k * (7 + k) + n₁ * (7 + k)) + n₂)) (γ : Fin c → T) :
     descP (P := 0) (fun y => (gOutSA (k := k) n₁ n₂ y).eval x γ)
       = keyDesc (M := n₁ * (7 + k)) (fun i => x (Fin.castAdd n₂ i)) := by
   funext y
@@ -357,7 +366,7 @@ theorem descP_gOutSA (x : Tuple T ((k * (7 + k) + n₁ * (7 + k)) + n₂)) (γ :
 
 /-- **The symbolic grouping's slice**: the encodings of the grouping's
 rows, where its aggregate values are values of the cut. -/
-theorem sliceIs_symGamma {C : Finset T} (par : Fin k → T) (is : Tuple (Fin m) n₁)
+private theorem sliceIs_symGamma {C : Finset T} (par : Fin k → T) (is : Tuple (Fin m) n₁)
     (ts : Tuple (TermIn T (k + c) m) n₂) (fs : Tuple (SeqAggFunc T) n₂)
     (keep : Fin n₂ → Option (Selection T m)) (ord : GroupOrder T m)
     (hts : ∀ j, (ts j).noFun = true) (hfs : ∀ j, (fs j).ReadsCount)
@@ -399,7 +408,7 @@ noncomputable def nestRows {c' m' : ℕ} {κ' : Fin m' → ColKind} (is : Tuple 
 
 /-- A counting aggregate read on a bag reads how many of its values are
 not null. -/
-theorem onBag_readsCount {g : SeqAggFunc T} (hg : g.Symmetric) (hr : g.ReadsCount)
+private theorem onBag_readsCount {g : SeqAggFunc T} (hg : g.Symmetric) (hr : g.ReadsCount)
     (M : Multiset T) :
     SeqAggFunc.onBag g hg M = hr.choose (M.countP (fun x => ValueType.isNull x = false)) := by
   induction M using Quot.inductionOn with
@@ -416,7 +425,7 @@ def projV {κ : Fin m → ColKind} (p : ProjColIn T (k + c) κ) :
 
 /-- **A projection column read on an encoded row is null exactly when the
 column is.** -/
-theorem isNull_projV {C : Finset T} {κ : Fin m → ColKind} (p : ProjColIn T (k + c) κ)
+private theorem isNull_projV {C : Finset T} {κ : Fin m → ColKind} (p : ProjColIn T (k + c) κ)
     (hp : p.noFun = true) (hpc : ∀ a ∈ p.consts, CG C a) (par : Fin k → T) (v : Tuple T m)
     (γ : Fin c → T) (hamb : ∀ j, CG C (γ j)) :
     ValueType.isNull ((projV p).evalPlain (rowEnc C par v) γ)
@@ -430,7 +439,7 @@ theorem isNull_projV {C : Finset T} {κ : Fin m → ColKind} (p : ProjColIn T (k
 /-- **The symbolic second-level aggregation, under the descriptor of a
 parameter row**, emits the encodings of the keys with the values the
 aggregation computes there. -/
-theorem nestRows_slice {C : Finset T} (par : Fin k → T) (is : Tuple (Fin m) n₁)
+private theorem nestRows_slice {C : Finset T} (par : Fin k → T) (is : Tuple (Fin m) n₁)
     {κ : Fin m → ColKind} (p : ProjColIn T (k + c) κ) (hp : p.noFun = true)
     (hpc : ∀ a ∈ p.consts, CG C a) (g' : SeqAggFunc T) (hg : g'.Symmetric) (hr : g'.ReadsCount)
     (Q : Multiset (Tuple T ((k + m) * (7 + k)))) (R : Multiset (Tuple T m))
@@ -496,7 +505,7 @@ def sKeyIdx : Tuple (Fin ((k + m) * (7 + k) + 1)) (k * (7 + k)) :=
 def tagSel {N : ℕ} : Selection T (N + 1) :=
   .BT (.SYNEQ (.index (Fin.natAdd N 0)) (.const ValueType.nonzero))
 
-theorem keeps_tagSel {N : ℕ} (r : Tuple T N) (a : T) :
+private theorem keeps_tagSel {N : ℕ} (r : Tuple T N) (a : T) :
     (tagSel (N := N)).keeps (Fin.append r (fun _ : Fin 1 => a))
       = decide (a = ValueType.nonzero) := by
   unfold tagSel Selection.keeps
@@ -506,7 +515,7 @@ theorem keeps_tagSel {N : ℕ} (r : Tuple T N) (a : T) :
   rw [CompOp.syneq_eval3_eq_true_iff, Fin.append_right]
 
 omit [ValueType T] in
-theorem key_tagged (r : Tuple T ((k + m) * (7 + k))) (a : T) :
+private theorem key_tagged (r : Tuple T ((k + m) * (7 + k))) (a : T) :
     (fun y => (Fin.append r (fun _ : Fin 1 => a) : Tuple T _) (sKeyIdx (m := m) y))
       = descP (P := 0) r := by
   funext y
@@ -516,7 +525,7 @@ theorem key_tagged (r : Tuple T ((k + m) * (7 + k))) (a : T) :
 
 /-- **The symbolic scalar aggregation's rows under a descriptor**: one row,
 the descriptor with the aggregation's values at the parameter row. -/
-theorem gammaScalar_slice {C : Finset T} (par : Fin k → T) (ts : Tuple (TermIn T (k + c) m) n₂)
+private theorem gammaScalar_slice {C : Finset T} (par : Fin k → T) (ts : Tuple (TermIn T (k + c) m) n₂)
     (fs : Tuple (SeqAggFunc T) n₂) (ord : GroupOrder T m)
     (hts : ∀ j, (ts j).noFun = true) (hfs : ∀ j, (fs j).ReadsCount)
     (Q : Multiset (Tuple T ((k + m) * (7 + k)))) (R : Multiset (Tuple T m))
@@ -606,7 +615,7 @@ def sOutSA (n₂ : ℕ) : Fin ((k + n₂) * (7 + k) + 0) → SA T c (k * (7 + k)
     (fun t => concCols (.col (Fin.natAdd _ t)) (finProdFinEquiv.symm x).2)
     (finProdFinEquiv.symm x).1
 
-theorem sOutSA_eval (C : Finset T) (par : Fin k → T) (a : Tuple T n₂) (γ : Fin c → T)
+private theorem sOutSA_eval (C : Finset T) (par : Fin k → T) (a : Tuple T n₂) (γ : Fin c → T)
     (ha : ∀ j, CG C (a j)) :
     (fun x => (sOutSA (k := k) n₂ x).eval (Fin.append (descEnc C par) a) γ)
       = rowEncP C par a (Fin.elim0 : Tuple T 0) := by
@@ -625,7 +634,7 @@ theorem sOutSA_eval (C : Finset T) (par : Fin k → T) (a : Tuple T n₂) (γ : 
     show enc C k (.conc (Fin.append (descEnc C par) a (Fin.natAdd _ t))) j = _
     rw [Fin.append_right, vcode_of_mem par (ha t)]
 
-theorem descP_sOutSA (x : Tuple T (k * (7 + k) + n₂)) (γ : Fin c → T) :
+private theorem descP_sOutSA (x : Tuple T (k * (7 + k) + n₂)) (γ : Fin c → T) :
     descP (P := 0) (fun y => (sOutSA (k := k) n₂ y).eval x γ)
       = (fun i => x (Fin.castAdd n₂ i) : Tuple T (k * (7 + k))) := by
   funext y
@@ -640,7 +649,7 @@ theorem descP_sOutSA (x : Tuple T (k * (7 + k) + n₂)) (γ : Fin c → T) :
 
 /-- **The symbolic scalar aggregation's slice**: the encoding of the one
 row the aggregation emits, its values being values of the cut. -/
-theorem sliceIs_symGammaScalar {C : Finset T} (par : Fin k → T)
+private theorem sliceIs_symGammaScalar {C : Finset T} (par : Fin k → T)
     (ts : Tuple (TermIn T (k + c) m) n₂) (fs : Tuple (SeqAggFunc T) n₂) (ord : GroupOrder T m)
     (hts : ∀ j, (ts j).noFun = true) (hfs : ∀ j, (fs j).ReadsCount)
     (Q : Multiset (Tuple T ((k + m) * (7 + k)))) (R : Multiset (Tuple T m))
@@ -667,7 +676,7 @@ theorem sliceIs_symGammaScalar {C : Finset T} (par : Fin k → T)
 
 /-- **The symbolic second-level aggregation's slice**, its values being
 values of the cut. -/
-theorem sliceIs_symGammaNest {C : Finset T} (par : Fin k → T) (is : Tuple (Fin m) n₁)
+private theorem sliceIs_symGammaNest {C : Finset T} (par : Fin k → T) (is : Tuple (Fin m) n₁)
     {κ : Fin m → ColKind} (p : ProjColIn T (k + c) κ) (hp : p.noFun = true)
     (hpc : ∀ a ∈ p.consts, CG C a) (g' : SeqAggFunc T) (hg : g'.Symmetric) (hr : g'.ReadsCount)
     (Q : Multiset (Tuple T ((k + m) * (7 + k)))) (R : Multiset (Tuple T m))

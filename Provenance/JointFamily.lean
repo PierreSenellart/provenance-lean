@@ -8,6 +8,9 @@ public import Provenance.AggValue
 import Mathlib.Algebra.BigOperators.Ring.Finset
 import Mathlib.Data.Fintype.BigOperators
 import Mathlib.Tactic.Bound.Init
+import all Provenance.AggValue
+import all Provenance.HavingSemantics
+import all Provenance.Util.Kleene
 
 /-!
 # Two occurrence families as one
@@ -42,12 +45,12 @@ def catAnn {m n : ℕ} (α : Fin m → K) (β : Fin n → K) : Fin (m + n) → K
   Fin.append α β
 
 omit [CommSemiringWithMonus K] in
-@[simp] theorem catAnn_left {m n : ℕ} (α : Fin m → K) (β : Fin n → K)
+@[simp] private theorem catAnn_left {m n : ℕ} (α : Fin m → K) (β : Fin n → K)
     (i : Fin m) : catAnn α β (Fin.castAdd n i) = α i :=
   Fin.append_left α β i
 
 omit [CommSemiringWithMonus K] in
-@[simp] theorem catAnn_right {m n : ℕ} (α : Fin m → K) (β : Fin n → K)
+@[simp] private theorem catAnn_right {m n : ℕ} (α : Fin m → K) (β : Fin n → K)
     (j : Fin n) : catAnn α β (Fin.natAdd m j) = β j :=
   Fin.append_right α β j
 
@@ -61,15 +64,15 @@ def rightFam : Finset (Fin (m + n)) := Finset.univ.map (Fin.natAddEmb m)
 
 variable {m n}
 
-@[simp] theorem mem_leftFam_castAdd (i : Fin m) :
+@[simp] private theorem mem_leftFam_castAdd (i : Fin m) :
     Fin.castAdd n i ∈ leftFam m n :=
   Finset.mem_map_of_mem _ (Finset.mem_univ i)
 
-@[simp] theorem mem_rightFam_natAdd (j : Fin n) :
+@[simp] private theorem mem_rightFam_natAdd (j : Fin n) :
     Fin.natAdd m j ∈ rightFam m n :=
   Finset.mem_map_of_mem _ (Finset.mem_univ j)
 
-theorem notMem_leftFam_natAdd (j : Fin n) : Fin.natAdd m j ∉ leftFam m n := by
+private theorem notMem_leftFam_natAdd (j : Fin n) : Fin.natAdd m j ∉ leftFam m n := by
   intro h
   obtain ⟨i, -, hi⟩ := Finset.mem_map.mp h
   have hv := congrArg Fin.val hi
@@ -77,7 +80,7 @@ theorem notMem_leftFam_natAdd (j : Fin n) : Fin.natAdd m j ∉ leftFam m n := by
   simp [Fin.castAddEmb, Fin.val_natAdd] at hv
   omega
 
-theorem notMem_rightFam_castAdd (i : Fin m) :
+private theorem notMem_rightFam_castAdd (i : Fin m) :
     Fin.castAdd n i ∉ rightFam m n := by
   intro h
   obtain ⟨j, -, hj⟩ := Finset.mem_map.mp h
@@ -87,7 +90,7 @@ theorem notMem_rightFam_castAdd (i : Fin m) :
   omega
 
 /-- The two parts exhaust the concatenation. -/
-theorem rightFam_eq_compl : rightFam m n = (leftFam m n)ᶜ := by
+private theorem rightFam_eq_compl : rightFam m n = (leftFam m n)ᶜ := by
   ext k
   rw [Finset.mem_compl]
   refine Fin.addCases (fun i => ?_) (fun j => ?_) k
@@ -101,7 +104,7 @@ def catWorld {m n : ℕ} (W₁ : Finset (Fin m)) (W₂ : Finset (Fin n)) :
     Finset (Fin (m + n)) :=
   W₁.map (Fin.castAddEmb n) ∪ W₂.map (Fin.natAddEmb m)
 
-@[simp] theorem mem_catWorld_castAdd (W₁ : Finset (Fin m))
+@[simp] private theorem mem_catWorld_castAdd (W₁ : Finset (Fin m))
     (W₂ : Finset (Fin n)) (i : Fin m) :
     Fin.castAdd n i ∈ catWorld W₁ W₂ ↔ i ∈ W₁ := by
   rw [catWorld, Finset.mem_union]
@@ -116,7 +119,7 @@ def catWorld {m n : ℕ} (W₁ : Finset (Fin m)) (W₂ : Finset (Fin n)) :
         (notMem_rightFam_castAdd i)
   · exact fun h => Or.inl (Finset.mem_map_of_mem _ h)
 
-@[simp] theorem mem_catWorld_natAdd (W₁ : Finset (Fin m))
+@[simp] private theorem mem_catWorld_natAdd (W₁ : Finset (Fin m))
     (W₂ : Finset (Fin n)) (j : Fin n) :
     Fin.natAdd m j ∈ catWorld W₁ W₂ ↔ j ∈ W₂ := by
   rw [catWorld, Finset.mem_union]
@@ -131,7 +134,7 @@ def catWorld {m n : ℕ} (W₁ : Finset (Fin m)) (W₂ : Finset (Fin n)) :
       exact (Fin.ext hv : j' = j) ▸ hj'
   · exact fun h => Or.inr (Finset.mem_map_of_mem _ h)
 
-@[simp] theorem castAdd_ne_natAdd (i : Fin m) (j : Fin n) :
+@[simp] private theorem castAdd_ne_natAdd (i : Fin m) (j : Fin n) :
     Fin.castAdd n i ≠ Fin.natAdd m j := by
   intro h
   have hv := congrArg Fin.val h
@@ -139,10 +142,10 @@ def catWorld {m n : ℕ} (W₁ : Finset (Fin m)) (W₂ : Finset (Fin n)) :
   simp [Fin.val_castAdd, Fin.val_natAdd] at hv
   omega
 
-@[simp] theorem natAdd_ne_castAdd (i : Fin m) (j : Fin n) :
+@[simp] private theorem natAdd_ne_castAdd (i : Fin m) (j : Fin n) :
     Fin.natAdd m j ≠ Fin.castAdd n i := (castAdd_ne_natAdd i j).symm
 
-@[simp] theorem mem_map_castAddEmb (W₁ : Finset (Fin m)) (i : Fin m) :
+@[simp] private theorem mem_map_castAddEmb (W₁ : Finset (Fin m)) (i : Fin m) :
     Fin.castAdd n i ∈ W₁.map (Fin.castAddEmb n) ↔ i ∈ W₁ := by
   constructor
   · intro h
@@ -152,13 +155,13 @@ def catWorld {m n : ℕ} (W₁ : Finset (Fin m)) (W₂ : Finset (Fin n)) :
     exact (Fin.ext hv : i' = i) ▸ hi'
   · exact fun h => Finset.mem_map_of_mem _ h
 
-@[simp] theorem natAdd_notMem_map_castAddEmb (W₁ : Finset (Fin m))
+@[simp] private theorem natAdd_notMem_map_castAddEmb (W₁ : Finset (Fin m))
     (j : Fin n) : Fin.natAdd m j ∉ W₁.map (Fin.castAddEmb n) :=
   fun h => notMem_leftFam_natAdd (m := m) j
     (Finset.mem_of_subset
       (Finset.map_subset_map.mpr (Finset.subset_univ W₁)) h)
 
-@[simp] theorem mem_map_natAddEmb (W₂ : Finset (Fin n)) (j : Fin n) :
+@[simp] private theorem mem_map_natAddEmb (W₂ : Finset (Fin n)) (j : Fin n) :
     Fin.natAdd m j ∈ W₂.map (Fin.natAddEmb m) ↔ j ∈ W₂ := by
   constructor
   · intro h
@@ -168,35 +171,35 @@ def catWorld {m n : ℕ} (W₁ : Finset (Fin m)) (W₂ : Finset (Fin n)) :
     exact (Fin.ext hv : j' = j) ▸ hj'
   · exact fun h => Finset.mem_map_of_mem _ h
 
-@[simp] theorem castAdd_notMem_map_natAddEmb (W₂ : Finset (Fin n))
+@[simp] private theorem castAdd_notMem_map_natAddEmb (W₂ : Finset (Fin n))
     (i : Fin m) : Fin.castAdd n i ∉ W₂.map (Fin.natAddEmb m) :=
   fun h => notMem_rightFam_castAdd (n := n) i
     (Finset.mem_of_subset
       (Finset.map_subset_map.mpr (Finset.subset_univ W₂)) h)
 
 /-- The part of a world of the concatenation lying in the left family. -/
-theorem catWorld_inter_leftFam (W₁ : Finset (Fin m)) (W₂ : Finset (Fin n)) :
+private theorem catWorld_inter_leftFam (W₁ : Finset (Fin m)) (W₂ : Finset (Fin n)) :
     catWorld W₁ W₂ ∩ leftFam m n = W₁.map (Fin.castAddEmb n) := by
   ext k
   refine Fin.addCases (fun i => ?_) (fun j => ?_) k <;>
     simp [Finset.mem_inter, notMem_leftFam_natAdd]
 
 /-- What the left family misses of such a world. -/
-theorem leftFam_sdiff_catWorld (W₁ : Finset (Fin m)) (W₂ : Finset (Fin n)) :
+private theorem leftFam_sdiff_catWorld (W₁ : Finset (Fin m)) (W₂ : Finset (Fin n)) :
     leftFam m n \ catWorld W₁ W₂ = W₁ᶜ.map (Fin.castAddEmb n) := by
   ext k
   refine Fin.addCases (fun i => ?_) (fun j => ?_) k <;>
     simp [Finset.mem_sdiff, notMem_leftFam_natAdd]
 
 /-- The part lying in the right family. -/
-theorem catWorld_inter_rightFam (W₁ : Finset (Fin m)) (W₂ : Finset (Fin n)) :
+private theorem catWorld_inter_rightFam (W₁ : Finset (Fin m)) (W₂ : Finset (Fin n)) :
     catWorld W₁ W₂ ∩ rightFam m n = W₂.map (Fin.natAddEmb m) := by
   ext k
   refine Fin.addCases (fun i => ?_) (fun j => ?_) k <;>
     simp [Finset.mem_inter, notMem_rightFam_castAdd]
 
 /-- What the right family misses. -/
-theorem rightFam_sdiff_catWorld (W₁ : Finset (Fin m)) (W₂ : Finset (Fin n)) :
+private theorem rightFam_sdiff_catWorld (W₁ : Finset (Fin m)) (W₂ : Finset (Fin n)) :
     rightFam m n \ catWorld W₁ W₂ = W₂ᶜ.map (Fin.natAddEmb m) := by
   ext k
   refine Fin.addCases (fun i => ?_) (fun j => ?_) k <;>
@@ -206,7 +209,7 @@ theorem rightFam_sdiff_catWorld (W₁ : Finset (Fin m)) (W₂ : Finset (Fin n)) 
 it came from.** Nothing is asked of `K`: the relative annotation of the
 left family at a concatenated world is the world annotation the left
 family gives its own half. -/
-theorem relAnn_catWorld_left (α : Fin m → K) (β : Fin n → K)
+private theorem relAnn_catWorld_left (α : Fin m → K) (β : Fin n → K)
     (W₁ : Finset (Fin m)) (W₂ : Finset (Fin n)) :
     relAnn (catAnn α β) (leftFam m n) (catWorld W₁ W₂) = worldAnn α W₁ := by
   rw [relAnn, worldAnn, catWorld_inter_leftFam, leftFam_sdiff_catWorld,
@@ -214,7 +217,7 @@ theorem relAnn_catWorld_left (α : Fin m → K) (β : Fin n → K)
   simp [Fin.castAddEmb, catAnn]
 
 /-- The right-hand twin. -/
-theorem relAnn_catWorld_right (α : Fin m → K) (β : Fin n → K)
+private theorem relAnn_catWorld_right (α : Fin m → K) (β : Fin n → K)
     (W₁ : Finset (Fin m)) (W₂ : Finset (Fin n)) :
     relAnn (catAnn α β) (rightFam m n) (catWorld W₁ W₂) = worldAnn β W₂ := by
   rw [relAnn, worldAnn, catWorld_inter_rightFam, rightFam_sdiff_catWorld,
@@ -224,7 +227,7 @@ theorem relAnn_catWorld_right (α : Fin m → K) (β : Fin n → K)
 /-- **A world of the union carries the product of its two halves'
 annotations** – exactly where `K` is complemented, which is what the
 split form in which two-family readings are usually written assumes. -/
-theorem worldAnn_catWorld (hc : complemented K) (α : Fin m → K)
+private theorem worldAnn_catWorld (hc : complemented K) (α : Fin m → K)
     (β : Fin n → K) (W₁ : Finset (Fin m)) (W₂ : Finset (Fin n)) :
     worldAnn (catAnn α β) (catWorld W₁ W₂) = worldAnn α W₁ * worldAnn β W₂ := by
   rw [← relAnn_univ, relAnn_split hc _ Finset.univ (leftFam m n),
@@ -239,10 +242,10 @@ def leftPart (W : Finset (Fin (m + n))) : Finset (Fin m) :=
 def rightPart (W : Finset (Fin (m + n))) : Finset (Fin n) :=
   Finset.univ.filter (fun j => Fin.natAdd m j ∈ W)
 
-@[simp] theorem mem_leftPart {W : Finset (Fin (m + n))} {i : Fin m} :
+@[simp] private theorem mem_leftPart {W : Finset (Fin (m + n))} {i : Fin m} :
     i ∈ leftPart W ↔ Fin.castAdd n i ∈ W := by simp [leftPart]
 
-@[simp] theorem mem_rightPart {W : Finset (Fin (m + n))} {j : Fin n} :
+@[simp] private theorem mem_rightPart {W : Finset (Fin (m + n))} {j : Fin n} :
     j ∈ rightPart W ↔ Fin.natAdd m j ∈ W := by simp [rightPart]
 
 @[simp] theorem leftPart_catWorld (W₁ : Finset (Fin m))
@@ -267,7 +270,7 @@ def catWorldEquiv (m n : ℕ) :
   right_inv W := by simp
 
 /-- **A sum over the worlds of the union is the double sum over pairs.** -/
-theorem sum_catWorld {α : Type} [AddCommMonoid α]
+private theorem sum_catWorld {α : Type} [AddCommMonoid α]
     (f : Finset (Fin (m + n)) → α) :
     ∑ W : Finset (Fin (m + n)), f W
       = ∑ W₁ : Finset (Fin m), ∑ W₂ : Finset (Fin n), f (catWorld W₁ W₂) := by
@@ -303,7 +306,7 @@ omit [ValueType T] [DecidableEq K] in
 complemented**, which is how a two-family reading is usually written.
 Where it is not, the double sum is not the union reading and this is the
 one to use. -/
-theorem jointPair_eq_split (hc : complemented K) (a b : AggValue T K)
+private theorem jointPair_eq_split (hc : complemented K) (a b : AggValue T K)
     (P : T → T → Kleene) :
     jointPair a b P
       = ∑ W₁ ∈ Finset.univ.filter

@@ -8,6 +8,11 @@ public import Provenance.QueryAnnotatedDatabase
 public import Provenance.Util.ValueType
 import Mathlib.Algebra.Order.Group.Nat
 import Mathlib.Tactic.Bound.Init
+import all Provenance.AnnotatedDatabase
+import all Provenance.Database
+import all Provenance.Query
+import all Provenance.SemiringWithMonus
+import all Provenance.Util.KeyAccValueList
 
 /-!
 # Query evaluation by rewriting
@@ -91,9 +96,9 @@ def Query.rewriting [ValueType T] (q: Query T n) (hq: q.source) : Query (T⊕K) 
   Sum (Proj ts₁ prod₁) (Proj ts₂ prod₂)
 | ProvSum _ _ _ => by simp[source] at hq
 
-lemma Query.rewriting_valid_prod_heqn (hn: n₁+n₂=n): n₁+1 + (n₂+1) = n+2 := by omega
+private lemma Query.rewriting_valid_prod_heqn (hn: n₁+n₂=n): n₁+1 + (n₂+1) = n+2 := by omega
 
-lemma Query.rewriting_valid_prod0 [Mul K] {n₁ n₂ n: ℕ}
+private lemma Query.rewriting_valid_prod0 [Mul K] {n₁ n₂ n: ℕ}
   (hn: n₁+n₂=n)
   (heq : (Fin (n₁ + n₂) → T) = (Fin n → T)):
   ∀ (ar₁: AnnotatedRelation T K n₁) (ar₂: AnnotatedRelation T K n₂), AnnotatedRelation.toComposite
@@ -108,7 +113,7 @@ lemma Query.rewriting_valid_prod0 [Mul K] {n₁ n₂ n: ℕ}
         congr
         rfl
 
-lemma cast_apply
+private lemma cast_apply
   (f: Tuple T n → α)
   (t: Tuple T m)
   (hn: n=m) :
@@ -117,7 +122,7 @@ lemma cast_apply
     subst hn
     simp[Tuple.cast]
 
-lemma Query.rewriting_valid_prod1 {n₁ n:ℕ} [ValueType (T⊕K)]
+private lemma Query.rewriting_valid_prod1 {n₁ n:ℕ} [ValueType (T⊕K)]
   (hn: n₁+1+(n₂+1)=n+2)
   (f: (Tuple (T ⊕ K) (n + 2)) → (Tuple (T ⊕ K) (n + 1))):
   ∀ (r: Relation (T⊕K) (n₁+1+(n₂+1))),
@@ -141,7 +146,7 @@ lemma Query.rewriting_valid_prod1 {n₁ n:ℕ} [ValueType (T⊕K)]
       simp[hn]
   . exact eqRec_heq _ _
 
-lemma Query.rewriting_append_left
+private lemma Query.rewriting_append_left
   (t₁: Tuple T n₁)
   (t₂: Tuple T n₂)
   (hn: n₁+n₂=n)
@@ -151,7 +156,7 @@ lemma Query.rewriting_append_left
   subst hn
   simp[Fin.append,Fin.addCases,hk]
 
-lemma Query.rewriting_append_right
+private lemma Query.rewriting_append_right
   (t₁: Tuple T n₁)
   (t₂: Tuple T n₂)
   (hn: n₁+n₂=n)
@@ -167,7 +172,7 @@ lemma Query.rewriting_append_right
 /-- `Tuple.cast`-flavored variant of `rewriting_append_left`. Both `Tuple.cast`'s and `▸`'s
 `Eq.rec` motives must syntactically agree for `rw` to fire on Lean v4.29; this version
 matches the motive produced by `Tuple.cast`. -/
-lemma Query.tupleCast_append_left
+private lemma Query.tupleCast_append_left
   (t₁: Tuple T n₁)
   (t₂: Tuple T n₂)
   (hn: n₁+n₂=n)
@@ -179,7 +184,7 @@ lemma Query.tupleCast_append_left
   simp[Fin.append,Fin.addCases,hk]
 
 /-- `Tuple.cast`-flavored variant of `rewriting_append_right`. -/
-lemma Query.tupleCast_append_right
+private lemma Query.tupleCast_append_right
   (t₁: Tuple T n₁)
   (t₂: Tuple T n₂)
   (hn: n₁+n₂=n)
@@ -199,7 +204,7 @@ lemma Query.tupleCast_append_right
 
 /-- Folding `addFn` over a multiset of `Sum.inr k` values in `T⊕K` reduces to the
 `Multiset.sum` in `K`, wrapped in `Sum.inr`. -/
-lemma Multiset.fold_addFn_map_inr
+private lemma Multiset.fold_addFn_map_inr
     {T K: Type} [ValueType T] [SemiringWithMonus K] [HasAltLinearOrder K]
     (m: Multiset K):
   Multiset.fold (@addFn (T⊕K) _) (0: T⊕K) (m.map (fun k ↦ (Sum.inr k: T⊕K)))
@@ -215,7 +220,7 @@ lemma Multiset.fold_addFn_map_inr
 
 /-- Filtering `ar.toComposite` by “first-n columns match `Sum.inl ∘ v`” and projecting to the
 last column yields the `Sum.inr`-wrapped annotations of the matching entries of `ar`. -/
-lemma AnnotatedRelation.toComposite_filter_map_last
+private lemma AnnotatedRelation.toComposite_filter_map_last
   {T K: Type} [ValueType T] [DecidableEq K] {n: ℕ}
   (ar: AnnotatedRelation T K n) (v: Tuple T n):
   Multiset.map (fun u: Tuple (T⊕K) (n+1) ↦ u (Fin.last n))
@@ -262,7 +267,7 @@ lemma AnnotatedRelation.toComposite_filter_map_last
 
 /-- The dedup of the first-n projection of `ar.toComposite` is the `Sum.inl`-image of the dedup
 of the first-projection of `ar`. -/
-lemma AnnotatedRelation.dedup_toComposite_proj_first_n
+private lemma AnnotatedRelation.dedup_toComposite_proj_first_n
   {T K: Type} [ValueType T] [DecidableEq K] {n: ℕ}
   (ar: AnnotatedRelation T K n) (h: n ≤ n+1):
   Multiset.dedup
@@ -299,7 +304,7 @@ lemma AnnotatedRelation.dedup_toComposite_proj_first_n
         Multiset.dedup_map_of_injective h_inj _
 
 /-- Auxiliary: key set of `groupByKey ar` equals first-projection keys of `ar`. -/
-lemma groupByKey_key_iff
+private lemma groupByKey_key_iff
   {T K: Type} [ValueType T] [SemiringWithMonus K] [DecidableEq K] {n: ℕ}
   (ar: AnnotatedRelation T K n) (v: Tuple T n):
   (∃ w, (v, w) ∈ (groupByKey ar).val) ↔ v ∈ Multiset.map Prod.fst ar := by
@@ -344,7 +349,7 @@ lemma groupByKey_key_iff
 
 /-- Auxiliary: if `(v, w) ∈ (groupByKey ar).val`, then `w` is the semiring-sum of annotations
 of entries in `ar` with key `v`. -/
-lemma groupByKey_value
+private lemma groupByKey_value
   {T K: Type} [ValueType T] [SemiringWithMonus K] [DecidableEq K] {n: ℕ}
   (ar: AnnotatedRelation T K n) (v: Tuple T n) (w: K):
   (v, w) ∈ (groupByKey ar).val →
@@ -407,7 +412,7 @@ lemma groupByKey_value
 
 /-- `groupByKey ar`, as a multiset, equals the dedup of the first-projection of `ar`, with each
 key paired with the semiring-sum of annotations sharing that key. -/
-lemma groupByKey_multiset_eq
+private lemma groupByKey_multiset_eq
   {T K: Type} [ValueType T] [SemiringWithMonus K] [DecidableEq K] {n: ℕ}
   (ar: AnnotatedRelation T K n):
   (Multiset.ofList (groupByKey ar).val: Multiset (AnnotatedTuple T K n))
@@ -457,19 +462,19 @@ lemma groupByKey_multiset_eq
 -/
 
 /-- `Multiset.dedup` only depends on the `DecidableEq` instance up to subsingleton equality. -/
-lemma Multiset.dedup_eq_of_instances {α : Type*} (inst₁ inst₂ : DecidableEq α) (m : Multiset α) :
+private lemma Multiset.dedup_eq_of_instances {α : Type*} (inst₁ inst₂ : DecidableEq α) (m : Multiset α) :
   @Multiset.dedup α inst₁ m = @Multiset.dedup α inst₂ m := by
   congr
   apply Subsingleton.elim
 
 /-- `Multiset.filter` only depends on the `DecidablePred` instance up to subsingleton equality. -/
-lemma Multiset.filter_eq_of_instances {α : Type*} (p : α → Prop)
+private lemma Multiset.filter_eq_of_instances {α : Type*} (p : α → Prop)
   (inst₁ inst₂ : DecidablePred p) (m : Multiset α) :
   @Multiset.filter α p inst₁ m = @Multiset.filter α p inst₂ m := by
   congr
 
 /-- Folded `Selection.And` over a mapped list is equivalent to the universal conjunction. -/
-lemma Selection.eval_foldr_and_map {T: Type} [ValueType T] {N: ℕ} {α : Type*}
+private lemma Selection.eval_foldr_and_map {T: Type} [ValueType T] {N: ℕ} {α : Type*}
   (list: List α) (f: α → Selection T N) (t: Tuple T N):
   Selection.eval
     ((list.map f).foldr (λ t t' ↦ Selection.And t t') Selection.True) t
@@ -488,7 +493,7 @@ lemma Selection.eval_foldr_and_map {T: Type} [ValueType T] {N: ℕ} {α : Type*}
 
 /-- The folded join condition `(#k ≐ #(k+n+1))` for `k ∈ List.range n` evaluates true iff the
 tuple's values at indices `ofNat k` and `ofNat (k+n+1)` agree for every `k < n`. -/
-lemma Query.rewriting_valid_joinCond_eval
+private lemma Query.rewriting_valid_joinCond_eval
   {T K: Type} [ValueType T] [SemiringWithMonus K] [DecidableEq K]
   [HasAltLinearOrder K]
   {N n: ℕ} [NeZero N] (t: Tuple (T⊕K) N):
@@ -514,7 +519,7 @@ lemma Query.rewriting_valid_joinCond_eval
     exact (hatom _ _).mpr (h ⟨k, hk⟩)
 
 /-- Semiring-sum over the filter, via `groupByKey.find?`-based lookup. -/
-lemma Query.rewriting_valid_find_getD_eq_sum
+private lemma Query.rewriting_valid_find_getD_eq_sum
   {T K: Type} [ValueType T] [SemiringWithMonus K] [DecidableEq K] {n: ℕ}
   (ar: AnnotatedRelation T K n) (u: Tuple T n):
   (((groupByKey ar).val.find? (·.1 = u)).map Prod.snd).getD 0
@@ -554,14 +559,14 @@ lemma Query.rewriting_valid_find_getD_eq_sum
     exact groupByKey_value ar v w hmem
 
 /-- Subtraction distributes over `Sum.inr` in `T⊕K`. -/
-lemma Query.rewriting_valid_sub_inr
+private lemma Query.rewriting_valid_sub_inr
   {T K: Type} [ValueType T] [HasAltLinearOrder K] [SemiringWithMonus K] (a b: K):
   ((Sum.inr a: T⊕K) - Sum.inr b) = Sum.inr (a - b) := by
   rfl
 
 /-- Non-dedup form of `dedup_toComposite_proj_first_n`: the first-`n` projection of
 `ar.toComposite` is the `Sum.inl`-lift of the first-projection of `ar`. -/
-lemma AnnotatedRelation.toComposite_proj_first_n
+private lemma AnnotatedRelation.toComposite_proj_first_n
   {T K: Type} [ValueType T] {n: ℕ}
   (ar: AnnotatedRelation T K n) (h: n ≤ n+1):
   Multiset.map (fun (u: Tuple (T⊕K) (n+1)) ↦
@@ -581,14 +586,14 @@ lemma AnnotatedRelation.toComposite_proj_first_n
   rw[hcast, Fin.append_left]
 
 /-- `Sum.inl`-lift of tuples is injective. -/
-lemma Sum.inl_lift_injective {T K: Type} {n: ℕ}:
+private lemma Sum.inl_lift_injective {T K: Type} {n: ℕ}:
   Function.Injective (fun (v: Tuple T n) (k: Fin n) ↦ (Sum.inl (v k): T⊕K)) := by
   intro v₁ v₂ heq
   funext k
   exact Sum.inl.inj (congrFun heq k)
 
 /-- Filtering by “not a member of an injective image” pulls through the map. -/
-lemma Multiset.filter_notMem_map_of_injective
+private lemma Multiset.filter_notMem_map_of_injective
   {α β: Type*} [DecidableEq α] [DecidableEq β] {f: α → β} (hf: Function.Injective f)
   (m: Multiset α) (s: Multiset α):
   Multiset.filter (fun b ↦ b ∉ Multiset.map f s) (Multiset.map f m)
@@ -600,7 +605,7 @@ lemma Multiset.filter_notMem_map_of_injective
   simp [Function.comp, Multiset.mem_map, hf.eq_iff]
 
 /-- Helper: the data part `Tuple.fromComposite` and `AnnotatedTuple.toComposite` agree on data. -/
-lemma AnnotatedTuple.toComposite_castLE
+private lemma AnnotatedTuple.toComposite_castLE
   {T K: Type} [Zero K] {n: ℕ} (p: AnnotatedTuple T K n) (k: Fin n):
   p.toComposite (k.castLE (Nat.le_succ n)) = Sum.inl (p.1 k) := by
   unfold AnnotatedTuple.toComposite
@@ -608,7 +613,7 @@ lemma AnnotatedTuple.toComposite_castLE
   rw[hcast, Fin.append_left]
 
 /-- The annotation part of `p.toComposite` is `Sum.inr p.2`. -/
-lemma AnnotatedTuple.toComposite_last
+private lemma AnnotatedTuple.toComposite_last
   {T K: Type} [Zero K] {n: ℕ} (p: AnnotatedTuple T K n):
   p.toComposite (Fin.last n) = (Sum.inr p.2: T⊕K) := by
   unfold AnnotatedTuple.toComposite
@@ -620,7 +625,7 @@ lemma AnnotatedTuple.toComposite_last
 /-- Roundtrip: `Tuple.fromComposite ∘ AnnotatedTuple.toComposite = id`. The
 composite encoding loses no information: peeling the data columns and the
 annotation column back out reconstructs the original annotated tuple. -/
-lemma Tuple.fromComposite_toComposite
+private lemma Tuple.fromComposite_toComposite
   {T K: Type} [ValueType T] [Zero K] {n: ℕ} (p: AnnotatedTuple T K n):
   Tuple.fromComposite p.toComposite = p := by
   apply Prod.ext
@@ -635,7 +640,7 @@ lemma Tuple.fromComposite_toComposite
 /-- Pushforward version of `Tuple.fromComposite_toComposite`: mapping
 `Tuple.fromComposite` over a composite-encoded annotated relation recovers
 the original annotated relation. -/
-lemma AnnotatedRelation.map_fromComposite_toComposite
+private lemma AnnotatedRelation.map_fromComposite_toComposite
   {T K: Type} [ValueType T] [Zero K] {n: ℕ} (r: AnnotatedRelation T K n):
   Multiset.map Tuple.fromComposite r.toComposite = r := by
   unfold AnnotatedRelation.toComposite
@@ -651,7 +656,7 @@ lemma AnnotatedRelation.map_fromComposite_toComposite
     Stated using `Fin.castLE` (function form) and dot notation (`.dedup`) so the LHS
     pattern matches what `simp only [evaluate]` produces in the `Diff` case of
     `rewriting_valid`. -/
-lemma Query.rewriting_valid_diff_inner_dd
+private lemma Query.rewriting_valid_diff_inner_dd
   {T K: Type} [ValueType T] [SemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] {n: ℕ}
   (AR₁ AR₂: AnnotatedRelation T K n):
   (Multiset.filter
@@ -719,12 +724,12 @@ lemma Query.rewriting_valid_diff_inner_dd
       exact congrFun this k
 
 /-- `Relation.cast` rewrites to a `Multiset.map` of `Tuple.cast`. -/
-lemma Relation.cast_eq_map {T : Type} {n m : ℕ} (h : n = m) (r : Relation T n) :
+private lemma Relation.cast_eq_map {T : Type} {n m : ℕ} (h : n = m) (r : Relation T n) :
     r.cast h = r.map (Tuple.cast h) := (Relation.cast_eq r _ h).mp rfl
 
 /-- Projecting the first `n+1` columns of `Tuple.cast h (Fin.append p q)` (for
 `p : Tuple α (n+1)`, `q : Tuple α n`, `h : n+1+n = 2*n+1`) returns `p`. -/
-lemma proj_outer_cast_append_eq_fst {α : Type} {n : ℕ}
+private lemma proj_outer_cast_append_eq_fst {α : Type} {n : ℕ}
     (h : n+1+n = 2*n+1) (p : Tuple α (n+1)) (q : Tuple α n) :
     (fun (k : Fin (n+1)) ↦ Tuple.cast h (Fin.append p q) (k.castLE (by omega))) = p := by
   funext k
@@ -737,7 +742,7 @@ lemma proj_outer_cast_append_eq_fst {α : Type} {n : ℕ}
 
 /-- Reading `Tuple.cast h (Fin.append p q)` at index `Fin.ofNat _ k.val` (for `k : Fin n`)
 returns `p k.castSucc`. -/
-lemma cast_append_at_ofNat_left {α : Type} {n : ℕ}
+private lemma cast_append_at_ofNat_left {α : Type} {n : ℕ}
     (h : n+1+n = 2*n+1) (p : Tuple α (n+1)) (q : Tuple α n) (k : Fin n)
     [NeZero (2*n+1)] :
     Tuple.cast h (Fin.append p q) (Fin.ofNat _ k.val) = p (k.castLE (Nat.le_succ n)) := by
@@ -754,7 +759,7 @@ lemma cast_append_at_ofNat_left {α : Type} {n : ℕ}
 
 /-- Reading `Tuple.cast h (Fin.append p q)` at index `Fin.ofNat _ (k.val+n+1)` (for
 `k : Fin n`) returns `q k`. -/
-lemma cast_append_at_ofNat_right {α : Type} {n : ℕ}
+private lemma cast_append_at_ofNat_right {α : Type} {n : ℕ}
     (h : n+1+n = 2*n+1) (p : Tuple α (n+1)) (q : Tuple α n) (k : Fin n)
     [NeZero (2*n+1)] :
     Tuple.cast h (Fin.append p q) (Fin.ofNat _ (k.val + n + 1)) = q k := by
@@ -772,7 +777,7 @@ lemma cast_append_at_ofNat_right {α : Type} {n : ℕ}
 /-- The join condition of the difference rule, evaluated on
 `Tuple.cast h (Fin.append p q)`, characterizes the first-`n` projection
 equality between `p` and `q`. -/
-lemma selFilter_cast_append_iff {T K : Type} [ValueType T] [SemiringWithMonus K]
+private lemma selFilter_cast_append_iff {T K : Type} [ValueType T] [SemiringWithMonus K]
     [HasAltLinearOrder K] {n : ℕ}
     (h : n+1+n = 2*n+1) (p : Tuple (T⊕K) (n+1)) (q : Tuple (T⊕K) n)
     [NeZero (2*n+1)] :
@@ -797,7 +802,7 @@ lemma selFilter_cast_append_iff {T K : Type} [ValueType T] [SemiringWithMonus K]
 `Tuple.cast h (Fin.append p q)` at index `Fin.ofNat _ k.val` (for `k : Fin n`)
 returns `p (k.castLE (Nat.le_succ n))`. Here `q : Tuple α (n+1)` (rather than
 `Tuple α n`). -/
-lemma cast_append_2n2_at_ofNat_left {α : Type} {n : ℕ}
+private lemma cast_append_2n2_at_ofNat_left {α : Type} {n : ℕ}
     (h : (n+1)+(n+1) = 2*n+2) (p : Tuple α (n+1)) (q : Tuple α (n+1)) (k : Fin n)
     [NeZero (2*n+2)] :
     Tuple.cast h (Fin.append p q) (Fin.ofNat _ k.val) = p (k.castLE (Nat.le_succ n)) := by
@@ -815,7 +820,7 @@ lemma cast_append_2n2_at_ofNat_left {α : Type} {n : ℕ}
 /-- Arity-`(2n+2)` analogue of `cast_append_at_ofNat_right`: reading
 `Tuple.cast h (Fin.append p q)` at index `Fin.ofNat _ (k.val+n+1)` (for
 `k : Fin n`) returns `q (k.castLE (Nat.le_succ n))`. -/
-lemma cast_append_2n2_at_ofNat_right {α : Type} {n : ℕ}
+private lemma cast_append_2n2_at_ofNat_right {α : Type} {n : ℕ}
     (h : (n+1)+(n+1) = 2*n+2) (p : Tuple α (n+1)) (q : Tuple α (n+1)) (k : Fin n)
     [NeZero (2*n+2)] :
     Tuple.cast h (Fin.append p q) (Fin.ofNat _ (k.val + n + 1)) = q (k.castLE (Nat.le_succ n)) := by
@@ -833,7 +838,7 @@ lemma cast_append_2n2_at_ofNat_right {α : Type} {n : ℕ}
 
 /-- Arity-`(2n+2)` helper: reading `Tuple.cast h (Fin.append p q)` at index
 `Fin.ofNat _ n` returns `p (Fin.last n)`. -/
-lemma cast_append_2n2_at_ofNat_n {α : Type} {n : ℕ}
+private lemma cast_append_2n2_at_ofNat_n {α : Type} {n : ℕ}
     (h : (n+1)+(n+1) = 2*n+2) (p : Tuple α (n+1)) (q : Tuple α (n+1))
     [NeZero (2*n+2)] :
     Tuple.cast h (Fin.append p q) (Fin.ofNat _ n) = p (Fin.last n) := by
@@ -850,7 +855,7 @@ lemma cast_append_2n2_at_ofNat_n {α : Type} {n : ℕ}
 
 /-- Arity-`(2n+2)` helper: reading `Tuple.cast h (Fin.append p q)` at index
 `Fin.last (2*n+1)` (the last index of `Fin (2*n+2)`) returns `q (Fin.last n)`. -/
-lemma cast_append_2n2_at_last {α : Type} {n : ℕ}
+private lemma cast_append_2n2_at_last {α : Type} {n : ℕ}
     (h : (n+1)+(n+1) = 2*n+2) (p : Tuple α (n+1)) (q : Tuple α (n+1)) :
     Tuple.cast h (Fin.append p q) (Fin.last (2*n+1)) = q (Fin.last n) := by
   rw [Tuple.cast_get]
@@ -865,7 +870,7 @@ lemma cast_append_2n2_at_last {α : Type} {n : ℕ}
 /-- Arity-`(2n+2)` projection helper: reading `Tuple.cast h (Fin.append p q)` at index
 `k.castLE _` (for `k : Fin (n+1)`) returns `p k`. This is the analogue of
 `proj_outer_cast_append_eq_fst` for the `2n+2` case (i.e., `q : Tuple α (n+1)`). -/
-lemma proj_outer_2n2_cast_append_eq_fst {α : Type} {n : ℕ}
+private lemma proj_outer_2n2_cast_append_eq_fst {α : Type} {n : ℕ}
     (h : (n+1)+(n+1) = 2*n+2) (p : Tuple α (n+1)) (q : Tuple α (n+1)) (k : Fin (n+1)) :
     Tuple.cast h (Fin.append p q) (k.castLE (by omega : n+1 ≤ 2*n+2)) = p k := by
   rw [Tuple.cast_get]
@@ -878,7 +883,7 @@ lemma proj_outer_2n2_cast_append_eq_fst {α : Type} {n : ℕ}
 /-- Arity-`(2n+2)` analogue of `selFilter_cast_append_iff`: the join condition
 on `Tuple.cast h (Fin.append p q)` with `q : Tuple (T⊕K) (n+1)` characterizes
 equality of the first-`n` projections of `p` and `q`. -/
-lemma selFilter_cast_append_2n2_iff {T K : Type} [ValueType T] [SemiringWithMonus K]
+private lemma selFilter_cast_append_2n2_iff {T K : Type} [ValueType T] [SemiringWithMonus K]
     [HasAltLinearOrder K] {n : ℕ}
     (h : (n+1)+(n+1) = 2*n+2) (p : Tuple (T⊕K) (n+1)) (q : Tuple (T⊕K) (n+1))
     [NeZero (2*n+2)] :
@@ -904,7 +909,7 @@ lemma selFilter_cast_append_2n2_iff {T K : Type} [ValueType T] [SemiringWithMonu
 `Tuple.fromComposite ∘ AnnotatedTuple.toComposite = id` roundtrip:
 filtering before taking the composite encoding equals filtering the composite
 encoding by the same predicate composed with `Tuple.fromComposite`. -/
-lemma AnnotatedRelation.toComposite_filter
+private lemma AnnotatedRelation.toComposite_filter
     {T K : Type} [ValueType T] [Zero K] {n : ℕ}
     (ar : AnnotatedRelation T K n) (pred : AnnotatedTuple T K n → Prop)
     [DecidablePred pred] :

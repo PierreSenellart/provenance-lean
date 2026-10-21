@@ -11,6 +11,7 @@ import Mathlib.Data.Rat.Cast.Order
 import Mathlib.Tactic.NormNum.Abs
 import Mathlib.Tactic.NormNum.DivMod
 import Mathlib.Tactic.NormNum.OfScientific
+import all Provenance.Probability
 
 /-!
 # Boolean circuits, read-once and d-D correctness
@@ -202,7 +203,7 @@ variable (P : ProbAssignment X)
 equals the variable's own probability. Proved by reorganizing the sum
 `∑_v if v i then valProb v else 0` as a product `∏_y h_y(v y)` and applying
 `Fintype.prod_sum` (the same swap used in `sum_valProb_eq_one`). -/
-theorem funcProb_var (i : X) :
+private theorem funcProb_var (i : X) :
     P.funcProb (BoolFunc.var i) = P.prob i := by
   -- Local helper: factor at y, depending on v y.
   -- For y = i: contributes `b ↦ if b then Pr(i) else 0` (kills the `v i = false` case).
@@ -273,7 +274,7 @@ theorem funcProb_var (i : X) :
 `1 - f` is pointwise `f v && !(f v)`-style Boolean subtraction, which on the
 constant-true `1` reduces to `Bool.not ∘ f`. The proof splits each summand by
 `f v` and uses `sum_valProb_eq_one`. -/
-theorem funcProb_sub_self_const_one (f : BoolFunc X) :
+private theorem funcProb_sub_self_const_one (f : BoolFunc X) :
     P.funcProb (1 - f) = 1 - P.funcProb f := by
   unfold funcProb
   -- Rewrite each `(1 - f) v` to `!(f v)` and split the sum by cases on `f v`.
@@ -444,7 +445,7 @@ theorem funcProb_mul_disjoint {f g : BoolFunc X} {S T : Finset X}
 identity for the BoolFunc disjunction (`+`) and conjunction (`*`). No
 disjointness hypothesis is needed; the formula holds pointwise on each summand
 via the Bool identity `(b₁ || b₂).toℚ = b₁.toℚ + b₂.toℚ - (b₁ && b₂).toℚ`. -/
-theorem funcProb_add_eq (f g : BoolFunc X) :
+private theorem funcProb_add_eq (f g : BoolFunc X) :
     P.funcProb (f + g) = P.funcProb f + P.funcProb g - P.funcProb (f * g) := by
   unfold funcProb
   -- The Bool identity, lifted to the ℚ-weighted sum.

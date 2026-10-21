@@ -8,6 +8,18 @@ public import Provenance.AnnotatedApproxRows
 public import Provenance.AnnotatedChains
 import Mathlib.Analysis.SpecialFunctions.Pow.NNReal
 import Provenance.AnnotatedSum
+import all Provenance.AggQuery
+import all Provenance.AggQueryAdequacy
+import all Provenance.AnnotatedChains
+import all Provenance.AnnotatedDatabase
+import all Provenance.AnnotatedMuUnion
+import all Provenance.AnnotatedSum
+import all Provenance.Database
+import all Provenance.Frame
+import all Provenance.HavingSemantics
+import all Provenance.Nested
+import all Provenance.OrderSpec
+import all Provenance.Util.ValueTypeNull
 
 /-!
 # The apply row up to `≈` with occurrence identity
@@ -161,31 +173,31 @@ def GenValue.TokHit (y : K) (Z : Finset (OccId T)) (v : GenValue T K) : Prop :=
   ∀ a, v = Sum.inr (AggTok.tok a) → a.HitBy y Z
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] in
-theorem AggValue.HitBy.mono {y : K} {Z Z' : Finset (OccId T)} {a : AggValue T K}
+private theorem AggValue.HitBy.mono {y : K} {Z Z' : Finset (OccId T)} {a : AggValue T K}
     (h : a.HitBy y Z) (hZ : Z ⊆ Z') : a.HitBy y Z' := fun he => by
   obtain ⟨p, hp, hy, hz⟩ := h he
   exact ⟨p, hp, hy, hZ hz⟩
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] in
-theorem GenValue.TokHit.mono {y : K} {Z Z' : Finset (OccId T)} {v : GenValue T K}
+private theorem GenValue.TokHit.mono {y : K} {Z Z' : Finset (OccId T)} {v : GenValue T K}
     (h : GenValue.TokHit y Z v) (hZ : Z ⊆ Z') : GenValue.TokHit y Z' v :=
   fun a ha => (h a ha).mono hZ
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] in
 /-- A regular value holds no token. -/
-theorem GenValue.tokHit_inl (y : K) (Z : Finset (OccId T)) (v : T) :
+private theorem GenValue.tokHit_inl (y : K) (Z : Finset (OccId T)) (v : T) :
     GenValue.TokHit y Z (Sum.inl v : GenValue T K) :=
   fun _ h => by cases h
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] in
 /-- A token of another kind is no ordinary token. -/
-theorem GenValue.tokHit_of_not_tok (y : K) (Z : Finset (OccId T)) (x : AggTok T K)
+private theorem GenValue.tokHit_of_not_tok (y : K) (Z : Finset (OccId T)) (x : AggTok T K)
     (hx : ∀ a, x ≠ AggTok.tok a) : GenValue.TokHit y Z (Sum.inr x : GenValue T K) :=
   fun a h => absurd (Sum.inr.inj h) (hx a)
 
 omit [CommSemiringWithMonus K] [DecidableEq K] in
 /-- **A term applied to a token keeps its occurrences.** -/
-theorem GenValue.TokHit.postcompTerm {y : K} {Z : Finset (OccId T)} {x : AggTok T K}
+private theorem GenValue.TokHit.postcompTerm {y : K} {Z : Finset (OccId T)} {x : AggTok T K}
     (h : GenValue.TokHit y Z (Sum.inr x)) (t : TermIn T 1 0) :
     GenValue.TokHit y Z (Sum.inr (x.postcompTerm t)) := by
   intro a ha
@@ -202,7 +214,7 @@ theorem GenValue.TokHit.postcompTerm {y : K} {Z : Finset (OccId T)} {x : AggTok 
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] in
 /-- The occurrences of a listing paired with their positions. -/
-theorem mem_zip_listing {α : Type} (g : α → T × K) (l : List α) (lab : ℕ)
+private theorem mem_zip_listing {α : Type} (g : α → T × K) (l : List α) (lab : ℕ)
     (ps : List (T ⊕ FamId T)) (key : List T) (p : (T × K) × OccId T) :
     p ∈ (l.map g).zip (OccId.listing lab ps key l.length)
       ↔ ∃ (i : ℕ) (hi : i < l.length), p = (g l[i], ⟨lab, ps, key, i⟩) := by
@@ -218,7 +230,7 @@ theorem mem_zip_listing {α : Type} (g : α → T × K) (l : List α) (lab : ℕ
 omit [CommSemiringWithMonus K] in
 /-- **A token over a whole listing is hit by the identity of its first
 occurrence annotated `y`.** -/
-theorem AggValue.hitBy_listing (y : K) (Z : Finset (OccId T))
+private theorem AggValue.hitBy_listing (y : K) (Z : Finset (OccId T))
     {c m : ℕ} (f : SeqAggFunc T) (t : TermIn T c m) (U : List (AnnotatedTuple T K m))
     (γ : Fin c → T) (sc : Bool) (φ : FamId T) (lab : ℕ) (ps : List (T ⊕ FamId T))
     (key : List T)
@@ -248,14 +260,14 @@ theorem AggValue.hitBy_listing (y : K) (Z : Finset (OccId T))
   simpa [AggValue.ofGroup] using this
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] in
-theorem List.length_copyNums {α : Type} (e : α → α → Bool) :
+private theorem List.length_copyNums {α : Type} (e : α → α → Bool) :
     ∀ (seen l : List α), (List.copyNums e seen l).length = l.length
   | _, [] => rfl
   | seen, a :: l => by simp [List.copyNums, List.length_copyNums e (a :: seen) l]
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] in
 /-- The copy number of an element counts the equal ones before it. -/
-theorem List.getElem_copyNums {α : Type} (e : α → α → Bool) :
+private theorem List.getElem_copyNums {α : Type} (e : α → α → Bool) :
     ∀ (seen l : List α) (i : ℕ) (hi : i < l.length),
       (List.copyNums e seen l)[i]'(by rw [List.length_copyNums]; exact hi)
         = (seen ++ (l.take i).reverse).countP (e l[i])
@@ -271,7 +283,7 @@ omit [CommSemiringWithMonus K] in
 /-- **A window's token is hit by the identity of the first copy of its first
 occurrence annotated `y`**: no equal element comes before it, so its copy
 number is `0`. -/
-theorem AggValue.hitBy_frame (y : K) (Z : Finset (OccId T)) {c m : ℕ} (f : SeqAggFunc T)
+private theorem AggValue.hitBy_frame (y : K) (Z : Finset (OccId T)) {c m : ℕ} (f : SeqAggFunc T)
     (t : TermIn T c m) (F : List (AnnotatedTuple T K m)) (γ : Fin c → T) (sc : Bool)
     (φ : FamId T) (lab : ℕ) (ck : List (T ⊕ FamId T)) (key : List T)
     (part : List (AnnotatedTuple T K m)) (e : AnnotatedTuple T K m → AnnotatedTuple T K m → Bool)
@@ -313,7 +325,7 @@ theorem AggValue.hitBy_frame (y : K) (Z : Finset (OccId T)) {c m : ℕ} (f : Seq
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] in
 /-- **A function applied to a value keeps the occurrences of its token.** -/
-theorem GenValue.TokHit.map_postcomp {y : K} {Z : Finset (OccId T)} {v : GenValue T K}
+private theorem GenValue.TokHit.map_postcomp {y : K} {Z : Finset (OccId T)} {v : GenValue T K}
     (h : GenValue.TokHit y Z v) (gf : T → T) :
     GenValue.TokHit y Z (Sum.map gf (AggTok.postcomp gf) v) := by
   intro a ha
@@ -330,7 +342,7 @@ theorem GenValue.TokHit.map_postcomp {y : K} {Z : Finset (OccId T)} {v : GenValu
 
 omit [CommSemiringWithMonus K] [DecidableEq K] in
 /-- **A term applied to a value keeps the occurrences of its token.** -/
-theorem GenValue.TokHit.map_postcompTerm {y : K} {Z : Finset (OccId T)} {v : GenValue T K}
+private theorem GenValue.TokHit.map_postcompTerm {y : K} {Z : Finset (OccId T)} {v : GenValue T K}
     (h : GenValue.TokHit y Z v) (t : TermIn T 1 0) :
     GenValue.TokHit y Z (Sum.map t.unary (AggTok.postcompTerm t) v) := by
   cases v with
@@ -351,7 +363,7 @@ omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 /-- **A recursion that every round keeps keeps its sum**: if the base and
 every round built from rows with a property have it, so does the sum of
 the rounds. -/
-theorem muSum_forall {α : Type} (P : α → Prop) (step : Multiset α → Multiset α)
+private theorem muSum_forall {α : Type} (P : α → Prop) (step : Multiset α → Multiset α)
     (hstep : ∀ X : Multiset α, (∀ x ∈ X, P x) → ∀ x ∈ step X, P x) :
     ∀ (b : ℕ) (M : Multiset α), (∀ x ∈ M, P x) → ∀ x ∈ muSum step b M, P x
   | 0, M, hM => hM
@@ -365,7 +377,7 @@ theorem muSum_forall {α : Type} (P : α → Prop) (step : Multiset α → Multi
 values of `V`**, by the bound on the values each row holds
 (`rowBd_evaluate`). The zero is added for the window, which reads an
 aggregate column as it. -/
-theorem AggQueryIn.yrow_mem (y : K) {Θ : Set (SeqAggFunc T)} {Bd : T → K → Prop}
+private theorem AggQueryIn.yrow_mem (y : K) {Θ : Set (SeqAggFunc T)} {Bd : T → K → Prop}
     (hB : BdClosed Bd) (Fv V : Finset T) (hyV : ∀ v, v ∉ Fv → Bd v y → v ∈ V)
     {c m : ℕ} {κ : Fin m → ColKind} (q : AggQueryIn T c m κ []) (hsig : q.inSig Θ)
     (hex : q.noExplode) {ρc : Fin c → ColKind} {HK : HoleKinds} (hwk : q.wellKinded ρc HK)
@@ -390,7 +402,7 @@ theorem AggQueryIn.yrow_mem (y : K) {Θ : Set (SeqAggFunc T)} {Bd : T → K → 
 omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 /-- **An occurrence of a frame is the row's own, or a row of the relation in
 the row's partition.** -/
-theorem mem_frameListOf_key {α : Type} [LinearOrder α] {n m p : ℕ} (val : α → Tuple T n)
+private theorem mem_frameListOf_key {α : Type} [LinearOrder α] {n m p : ℕ} (val : α → Tuple T n)
     (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p) (w : ValueFrame T p)
     (X : Multiset α) (x y : α) (h : y ∈ ValueFrame.frameListOf val P O o w X x) :
     y = x ∨ (y ∈ X ∧ Tuple.key P (val y) = Tuple.key P (val x)) := by
@@ -409,7 +421,7 @@ theorem mem_frameListOf_key {α : Type} [LinearOrder α] {n m p : ℕ} (val : α
 /-- **What a window reads of a row annotated `y` lies in the bounded set**:
 its regular columns by `AggQueryIn.yrow_mem`, its aggregate ones read as
 `0`. -/
-theorem AggQueryIn.readAnnotated_yrow_mem (y : K) {Θ : Set (SeqAggFunc T)}
+private theorem AggQueryIn.readAnnotated_yrow_mem (y : K) {Θ : Set (SeqAggFunc T)}
     {Bd : T → K → Prop} (hB : BdClosed Bd) (Fv V : Finset T)
     (hyV : ∀ v, v ∉ Fv → Bd v y → v ∈ V)
     {c m : ℕ} {κ : Fin m → ColKind} (q : AggQueryIn T c m κ []) (hsig : q.inSig Θ)
@@ -859,12 +871,12 @@ def yv : BoolXY := BoolFunc.var true
 /-- The variable annotating every row of `R`. -/
 def xv : BoolXY := BoolFunc.var false
 
-theorem yv_not_le_xv : ¬ yv ≤ xv := fun h => by
+private theorem yv_not_le_xv : ¬ yv ≤ xv := fun h => by
   have := h (fun b => b)
   simp [yv, xv, BoolFunc.var] at this
   exact absurd this (by decide)
 
-theorem yv_ne_zero : yv ≠ 0 := fun h => by
+private theorem yv_ne_zero : yv ≠ 0 := fun h => by
   have := congrFun h (fun b => b)
   simp [yv, BoolFunc.var] at this
 
@@ -890,13 +902,13 @@ def applyWitness : AggQuery ℕ 2 (Fin.append (ColKind.allReg 1) (fun _ : Fin 1 
   AggQueryIn.Apply (c := 0) (n₁ := 1) (n₂ := 1) (AggQueryIn.Rel 1 "R")
     (applyRight : AggQueryIn ℕ (1 + 0) 1 (fun _ => ColKind.agg))
 
-theorem xv_ne_zero : xv ≠ 0 := fun h => by
+private theorem xv_ne_zero : xv ≠ 0 := fun h => by
   have := congrFun h (fun b => !b)
   simp [xv, BoolFunc.var] at this
 
 /-- **The selection keeps the row of `S`** where the parameter is at least
 `2`. -/
-theorem evaluate_applySel (n u : ℕ) (hu : 2 ≤ u) (E : EvalEnv ℕ BoolXY) (γ : Fin 1 → ℕ)
+private theorem evaluate_applySel (n u : ℕ) (hu : 2 ≤ u) (E : EvalEnv ℕ BoolXY) (γ : Fin 1 → ℕ)
     (hγ : γ 0 = u) :
     (AggQueryIn.Sel (GenPredIn.cmp CompOp.lt (TermGIn.index 0 rfl) (TermGIn.outer 0))
       (AggQueryIn.Rel 1 "S") : AggQueryIn ℕ 1 1 (ColKind.allReg 1)).evaluate (dApply n) γ E
@@ -917,7 +929,7 @@ theorem evaluate_applySel (n u : ℕ) (hu : 2 ≤ u) (E : EvalEnv ℕ BoolXY) (�
 
 /-- **The source's row for the parameter `i + 2`**: annotated `x`, its count
 holding the one occurrence `1 : y`, whose identity records the parameter. -/
-theorem applyWitness_row (n i : ℕ) (hi : i < n) :
+private theorem applyWitness_row (n i : ℕ) (hi : i < n) :
     ∃ r ∈ applyWitness.evaluate (dApply n) (fun k => k.elim0) {}, r.snd.finalize ≠ 0 ∧
       ∃ a : AggValue ℕ BoolXY, r.fst (Fin.natAdd 1 (0 : Fin 1)) = Sum.inr (AggTok.tok a)
         ∧ a.zeroOccs.oids = [⟨1, [Sum.inl (i + 2)], [], 0⟩]
@@ -975,27 +987,27 @@ theorem applyWitness_row (n i : ℕ) (hi : i < n) :
     · exact ⟨(TermIn.index 0 : TermIn ℕ (1 + 0) 1).eval (fun _ => 1) γ', by
         simp [AggValue.zeroOccs, AggValue.ofScalarGroup, AggValue.ofGroup, hUeq, yv_ne_zero]⟩
 
-theorem overSchema_applyWitness : applyWitness.overSchema schemaRS := by
+private theorem overSchema_applyWitness : applyWitness.overSchema schemaRS := by
   simp [applyWitness, applyRight, AggQueryIn.overSchema, schemaRS, Schema.ofFn_apply]
 
-theorem usesOnly_applyWitness : applyWitness.usesOnly plainRecOps := by
+private theorem usesOnly_applyWitness : applyWitness.usesOnly plainRecOps := by
   simp [applyWitness, applyRight, AggQueryIn.usesOnly, plainRecOps, plainOps, basisDD, basisOps]
 
-theorem inMinimalSig_applyWitness : applyWitness.inMinimalSig SeqAggFunc.count := by
+private theorem inMinimalSig_applyWitness : applyWitness.inMinimalSig SeqAggFunc.count := by
   simp [applyWitness, applyRight, AggQueryIn.inMinimalSig, AggQueryIn.inSig, GenPredIn.noFun,
     TermGIn.noFun, TermIn.noFun]
 
-theorem noExplode_applyWitness : applyWitness.noExplode := by
+private theorem noExplode_applyWitness : applyWitness.noExplode := by
   simp [applyWitness, applyRight, AggQueryIn.noExplode]
 
-theorem wellKinded_applyWitness :
+private theorem wellKinded_applyWitness :
     applyWitness.wellKinded (ColKind.allReg 0) HoleKinds.empty := by
   simp [applyWitness, applyRight, AggQueryIn.wellKinded, GenPredIn.outerOk, TermGIn.outerOk,
     TermIn.outerOk]
   show ¬ ColKind.reg.base = ColKind.agg
   decide
 
-theorem noRec_applyWitness : applyWitness.noRec := by
+private theorem noRec_applyWitness : applyWitness.noRec := by
   simp [applyWitness, applyRight, AggQueryIn.noRec]
 
 end Witness
@@ -1011,7 +1023,7 @@ omit [ValueType T] in
 token whose occurrences annotated otherwise than `𝟘` are one occurrence,
 annotated `y`, has the identity of that occurrence in every set hitting
 its occurrences annotated `y`. -/
-theorem AggValue.oid_mem_of_zeroOccs {a : AggValue T K} {o : OccId T} {v : T} {y : K}
+private theorem AggValue.oid_mem_of_zeroOccs {a : AggValue T K} {o : OccId T} {v : T} {y : K}
     {Z : Finset (OccId T)} (ho : a.zeroOccs.oids = [o]) (hv : a.zeroOccs.occs = [(v, y)])
     (hy : y ≠ 0) (hZ : a.HitBy y Z) : o ∈ Z := by
   simp only [AggValue.zeroOccs] at ho hv
@@ -1150,7 +1162,7 @@ section Basis
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] in
 /-- **An expression read in the world a valuation realizes**, as a filter
 of its occurrences. -/
-theorem AggExpr.specialize_eq_filter (e : AggExpr T K) (ν : K → Bool) :
+private theorem AggExpr.specialize_eq_filter (e : AggExpr T K) (ν : K → Bool) :
     e.specialize ν = e.g (fun j => e.aggs j
       (((e.occs.filter (fun o => ν o.2.1)).filter
         (fun z => z.2.2.1 j && z.2.2.2 j)).map (fun z => z.1 j))) := by
@@ -1163,7 +1175,7 @@ theorem AggExpr.specialize_eq_filter (e : AggExpr T K) (ν : K → Bool) :
 omit [ValueType T] in
 /-- An expression read up to `≈` reads as itself in the world of its
 occurrences annotated otherwise than `𝟘`. -/
-theorem AggExpr.specialize_zeqNorm (τ : OccId T → OccId T) (φ : FamId T → FamId T)
+private theorem AggExpr.specialize_zeqNorm (τ : OccId T → OccId T) (φ : FamId T → FamId T)
     (e : AggExpr T K) :
     (e.zeqNorm τ φ).specialize (fun x : K => decide (x ≠ 0))
       = e.specialize (fun x : K => decide (x ≠ 0)) := by
@@ -1182,7 +1194,7 @@ theorem AggExpr.specialize_zeqNorm (τ : OccId T → OccId T) (φ : FamId T → 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] in
 /-- A node read in the world a valuation realizes, occurrence by
 occurrence. -/
-theorem NestInner.specialize_node (ν : K → Bool) (j : ℕ)
+private theorem NestInner.specialize_node (ν : K → Bool) (j : ℕ)
     (N : NestNode T K (NestInner T K j)) :
     NestInner.specialize ν (j + 1) (Sum.inr N)
       = N.agg ((N.occs.filter (fun o => ν o.2 = true)).map
@@ -1195,7 +1207,7 @@ theorem NestInner.specialize_node (ν : K → Bool) (j : ℕ)
 omit [ValueType T] in
 /-- What an occurrence of a nested value reads, up to `≈`, reads as itself
 in the world of its occurrences annotated otherwise than `𝟘`. -/
-theorem NestInner.specialize_zeqNorm (τ : OccId T → OccId T)
+private theorem NestInner.specialize_zeqNorm (τ : OccId T → OccId T)
     (ϕ : ℕ × List T × List (T ⊕ FamId T) → ℕ × List T × List (T ⊕ FamId T)) :
     ∀ (j : ℕ) (x : NestInner T K j),
       NestInner.specialize (fun x : K => decide (x ≠ 0)) j (NestInner.zeqNorm τ ϕ j x)
@@ -1218,7 +1230,7 @@ theorem NestInner.specialize_zeqNorm (τ : OccId T → OccId T)
 
 /-- A nested value read up to `≈` reads as itself in the world of its
 occurrences annotated otherwise than `𝟘`. -/
-theorem NestedValue.specialize_zeqNorm (τ : OccId T → OccId T)
+private theorem NestedValue.specialize_zeqNorm (τ : OccId T → OccId T)
     (ϕ : ℕ × List T × List (T ⊕ FamId T) → ℕ × List T × List (T ⊕ FamId T))
     (a : NestedValue T K) :
     (a.zeqNorm τ ϕ).specialize (fun x : K => decide (x ≠ 0))
@@ -1236,7 +1248,7 @@ theorem NestedValue.specialize_zeqNorm (τ : OccId T → OccId T)
 column value read in the world of its occurrences annotated otherwise than
 `𝟘` is the same once its occurrences annotated `𝟘` are dropped and its
 identities renamed. -/
-theorem GenValue.zeroSpec_zeqNorm (τ : OccId T → OccId T)
+private theorem GenValue.zeroSpec_zeqNorm (τ : OccId T → OccId T)
     (ϕ : ℕ × List T × List (T ⊕ FamId T) → ℕ × List T × List (T ⊕ FamId T)) (v : GenValue T K) :
     _root_.Sum.elim id (fun a => a.specialize (fun x : K => decide (x ≠ 0)))
         (GenValue.zeqNorm τ ϕ v)
@@ -1257,7 +1269,7 @@ theorem GenValue.zeroSpec_zeqNorm (τ : OccId T → OccId T)
 
 /-- **A result's reading by value is a function of its reading up to `≈`
 with occurrence identity**, whatever the renaming. -/
-theorem GenRow.zeroNorm_eq_map_zeqNorm {n : ℕ} (τ : OccId T → OccId T)
+private theorem GenRow.zeroNorm_eq_map_zeqNorm {n : ℕ} (τ : OccId T → OccId T)
     (ϕ : ℕ × List T × List (T ⊕ FamId T) → ℕ × List T × List (T ⊕ FamId T))
     (R : Multiset (GenRow T K n)) :
     GenRow.zeroNorm R = (GenRow.zeqNorm τ ϕ R).map
@@ -1272,7 +1284,7 @@ theorem GenRow.zeroNorm_eq_map_zeqNorm {n : ℕ} (τ : OccId T → OccId T)
 
 /-- **Two results equivalent up to `≈` with occurrence identity are
 equivalent up to `≈` by value.** -/
-theorem GenRow.zeroNorm_eq_of_zeqRen {n : ℕ} {R R' : Multiset (GenRow T K n)}
+private theorem GenRow.zeroNorm_eq_of_zeqRen {n : ℕ} {R R' : Multiset (GenRow T K n)}
     (h : GenRow.zeqRen R R') : GenRow.zeroNorm R' = GenRow.zeroNorm R := by
   obtain ⟨τ, ϕ, -, -, hτ⟩ := h
   rw [GenRow.zeroNorm_eq_map_zeqNorm τ ϕ R', GenRow.zeroNorm_eq_map_zeqNorm id id R, hτ]
@@ -1281,7 +1293,7 @@ omit [ValueType T] in
 /-- **Two evaluations agreeing row by row up to finalization are equivalent
 up to `≈` with occurrence identity**, with no renaming: the occurrences and
 their identities are the rows' own. -/
-theorem GenRow.zeqRen_of_fin {n : ℕ} {A B : Multiset (GenRow T K n)}
+private theorem GenRow.zeqRen_of_fin {n : ℕ} {A B : Multiset (GenRow T K n)}
     (h : B.map GenRow.fin = A.map GenRow.fin) : GenRow.zeqRen A B := by
   refine ⟨id, id, Function.injective_id, Function.injective_id, ?_⟩
   have hz : ∀ R : Multiset (GenRow T K n), GenRow.zeqNorm id id R
@@ -1308,7 +1320,7 @@ theorem GeneratesAnnRen.toGeneratesAnnZ {sch : Schema} {cnt : SeqAggFunc T} {S :
 occurrence identity over every semiring of the class**: the constructions
 agree with their source row by row up to finalization
 (`exists_annEpsOps_match`), identities included. -/
-theorem generatesAnnRen_annEpsOps_of_class (hK : AnnBasisClass K) (sch : Schema)
+private theorem generatesAnnRen_annEpsOps_of_class (hK : AnnBasisClass K) (sch : Schema)
     (cnt : SeqAggFunc T) : GeneratesAnnRen T K sch cnt annEpsOps := by
   intro n κ q ho hu hi ha hp
   obtain ⟨ch, hnc⟩ :
@@ -1323,12 +1335,12 @@ theorem generatesAnnRen_annEpsOps_of_class (hK : AnnBasisClass K) (sch : Schema)
 
 end Basis
 
-theorem annBasisClass_boolXY : AnnBasisClass BoolXY := Or.inr fun _ => rfl
+private theorem annBasisClass_boolXY : AnnBasisClass BoolXY := Or.inr fun _ => rfl
 
 /-- **No proper subset of the nine classes generates the annotated algebra
 up to `≈` with occurrence identity over every semiring of the class**: the
 rows up to `≈` by value transfer (`GeneratesAnnRen.toGeneratesAnnZ`). -/
-theorem annEpsOps_minimal_in_class_ren {S : Set OpKind} (hS : S ⊆ annEpsOps)
+private theorem annEpsOps_minimal_in_class_ren {S : Set OpKind} (hS : S ⊆ annEpsOps)
     (h : ∀ (K : Type) [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K],
       AnnBasisClass K → ∀ sch : Schema, GeneratesAnnRen ℕ K sch SeqAggFunc.count S) :
     S = annEpsOps :=
@@ -1339,7 +1351,7 @@ theorem annEpsOps_minimal_in_class_ren {S : Set OpKind} (hS : S ⊆ annEpsOps)
 identity over the class holds the apply**, whatever else it holds: a
 product does not replace it (`apply_mem_of_generatesAnnRen`, over Boolean
 functions of two variables, a semiring of the class). -/
-theorem apply_mem_of_generatesAnnRen_in_class {S : Set OpKind}
+private theorem apply_mem_of_generatesAnnRen_in_class {S : Set OpKind}
     (h : ∀ (K : Type) [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K],
       AnnBasisClass K → ∀ sch : Schema, GeneratesAnnRen ℕ K sch SeqAggFunc.count S) :
     OpKind.apply ∈ S :=

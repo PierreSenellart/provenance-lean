@@ -4,6 +4,8 @@ public import Provenance.SymCells
 public import Mathlib.Logic.Equiv.Fin.Basic
 import Mathlib.Tactic.NormNum.Inv
 import Mathlib.Tactic.NormNum.Pow
+import all Provenance.SymCells
+import all Provenance.SymCode
 
 /-!
 # Symbolic rows
@@ -40,27 +42,27 @@ def ofCells {k N : ℕ} (cs : Fin N → Tuple T (7 + k)) : Tuple T (N * (7 + k))
   fun x => cs (finProdFinEquiv.symm x).1 (finProdFinEquiv.symm x).2
 
 omit [ValueType T] in
-@[simp] theorem cellOf_ofCells {k N : ℕ} (cs : Fin N → Tuple T (7 + k)) (i : Fin N) :
+@[simp] private theorem cellOf_ofCells {k N : ℕ} (cs : Fin N → Tuple T (7 + k)) (i : Fin N) :
     cellOf (ofCells cs) i = cs i := by
   funext j
   simp [cellOf, ofCells, ci]
 
 omit [ValueType T] in
-@[simp] theorem ofCells_cellOf {k N : ℕ} (r : Tuple T (N * (7 + k))) :
+@[simp] private theorem ofCells_cellOf {k N : ℕ} (r : Tuple T (N * (7 + k))) :
     ofCells (cellOf r) = r := by
   funext x
   simp only [ofCells, cellOf, ci]
   rw [Prod.mk.eta, Equiv.apply_symm_apply]
 
 omit [ValueType T] in
-theorem ofCells_injective {k N : ℕ} : Function.Injective (ofCells (T := T) (k := k) (N := N)) :=
+private theorem ofCells_injective {k N : ℕ} : Function.Injective (ofCells (T := T) (k := k) (N := N)) :=
   fun cs cs' h => by
     funext i
     have := congrArg (fun r => cellOf r i) h
     simpa using this
 
 omit [ValueType T] in
-theorem ofCells_eq_iff {k N : ℕ} (cs cs' : Fin N → Tuple T (7 + k)) :
+private theorem ofCells_eq_iff {k N : ℕ} (cs cs' : Fin N → Tuple T (7 + k)) :
     ofCells cs = ofCells cs' ↔ ∀ i, cs i = cs' i :=
   ⟨fun h i => congrFun (ofCells_injective h) i, fun h => congrArg ofCells (funext h)⟩
 
@@ -78,7 +80,7 @@ noncomputable def vcode (par : Fin k → T) (b : T) : Code T :=
 variable {C}
 
 /-- A component's value is coded as the component. -/
-theorem vcode_par (par : Fin k → T) (i : Fin k) : vcode C par (par i) = code C par i := by
+private theorem vcode_par (par : Fin k → T) (i : Fin k) : vcode C par (par i) = code C par i := by
   unfold vcode
   by_cases h : ∃ i', IsFresh C (par i') ∧ par i' = par i
   · rw [dite_eq_left h]
@@ -86,13 +88,13 @@ theorem vcode_par (par : Fin k → T) (i : Fin k) : vcode C par (par i) = code C
   · rw [dite_eq_right h, code_of_not_fresh (fun hi => h ⟨i, hi, rfl⟩)]
 
 /-- A value that is no fresh component stands for itself. -/
-theorem vcode_of_not (par : Fin k → T) {b : T} (hb : ∀ i, IsFresh C (par i) → par i ≠ b) :
+private theorem vcode_of_not (par : Fin k → T) {b : T} (hb : ∀ i, IsFresh C (par i) → par i ≠ b) :
     vcode C par b = .conc b := by
   unfold vcode
   rw [dite_eq_right (fun ⟨i, hi, he⟩ => hb i hi he)]
 
 /-- A value of the cut, or the null, stands for itself. -/
-theorem vcode_of_mem (par : Fin k → T) {b : T} (hb : b ∈ C ∨ ValueType.isNull b = true) :
+private theorem vcode_of_mem (par : Fin k → T) {b : T} (hb : b ∈ C ∨ ValueType.isNull b = true) :
     vcode C par b = .conc b :=
   vcode_of_not par (fun _ hi he => fresh_ne hi hb he.symm)
 
@@ -102,7 +104,7 @@ def GoodVal (par : Fin k → T) (b : T) : Prop :=
   (∃ i, par i = b) ∨ b ∈ C ∨ ValueType.isNull b = true
 
 /-- A good value's code is one a comparison reads faithfully. -/
-theorem codeOK_vcode {par : Fin k → T} {b : T} (hb : GoodVal (C := C) par b) :
+private theorem codeOK_vcode {par : Fin k → T} {b : T} (hb : GoodVal (C := C) par b) :
     CodeOK C par (vcode C par b) := by
   by_cases h : ∃ i, IsFresh C (par i) ∧ par i = b
   · obtain ⟨i, hi, rfl⟩ := h
@@ -118,13 +120,13 @@ theorem codeOK_vcode {par : Fin k → T} {b : T} (hb : GoodVal (C := C) par b) :
     · exact hb
 
 /-- **A value's code stands for the value.** -/
-theorem dec_vcode (par : Fin k → T) (b : T) : dec C par (vcode C par b) = b := by
+private theorem dec_vcode (par : Fin k → T) (b : T) : dec C par (vcode C par b) = b := by
   by_cases h : ∃ i, IsFresh C (par i) ∧ par i = b
   · obtain ⟨i, -, rfl⟩ := h
     rw [vcode_par, dec_code]
   · rw [vcode_of_not par (fun i hi he => h ⟨i, hi, he⟩)]; rfl
 
-theorem vcode_injective (par : Fin k → T) : Function.Injective (vcode C par) :=
+private theorem vcode_injective (par : Fin k → T) : Function.Injective (vcode C par) :=
   fun b b' h => by rw [← dec_vcode (C := C) par b, h, dec_vcode]
 
 /-! ## Encodings are injective -/
@@ -134,13 +136,13 @@ def RankOK (k : ℕ) : Code T → Prop
   | .conc _ => True
   | .fresh _ r => r < k
 
-theorem rankOK_code (par : Fin k → T) (i : Fin k) : RankOK k (code C par i) := by
+private theorem rankOK_code (par : Fin k → T) (i : Fin k) : RankOK k (code C par i) := by
   unfold code
   split
   · exact rank_code_lt i
   · trivial
 
-theorem rankOK_vcode (par : Fin k → T) (b : T) : RankOK k (vcode C par b) := by
+private theorem rankOK_vcode (par : Fin k → T) (b : T) : RankOK k (vcode C par b) := by
   unfold vcode
   split
   · exact rankOK_code par _
@@ -148,7 +150,7 @@ theorem rankOK_vcode (par : Fin k → T) (b : T) : RankOK k (vcode C par b) := b
 
 /-- **Two codes with ranks below `k` have the same columns only if they
 are equal.** -/
-theorem enc_inj {x y : Code T} (hx : RankOK k x) (hy : RankOK k y)
+private theorem enc_inj {x y : Code T} (hx : RankOK k x) (hy : RankOK k y)
     (h : enc C k x = enc C k y) : x = y := by
   have hF := congrFun h (iF k)
   have hV := congrFun h (iV k)
@@ -190,13 +192,13 @@ def descPart {n : ℕ} (r : Tuple T ((k + n) * (7 + k))) : Tuple T (k * (7 + k))
 def outPart {n : ℕ} (r : Tuple T ((k + n) * (7 + k))) : Tuple T (n * (7 + k)) :=
   ofCells (fun j => cellOf r (Fin.natAdd k j))
 
-@[simp] theorem descPart_rowEnc {n : ℕ} (par : Fin k → T) (v : Tuple T n) :
+@[simp] private theorem descPart_rowEnc {n : ℕ} (par : Fin k → T) (v : Tuple T n) :
     descPart (rowEnc C par v) = descEnc C par := by
   simp [descPart, rowEnc, descEnc, Fin.append_left]
 
 /-- **The symbolic row determines the output row**, its values being
 coded canonically. -/
-theorem rowEnc_injective {n : ℕ} (par : Fin k → T) :
+private theorem rowEnc_injective {n : ℕ} (par : Fin k → T) :
     Function.Injective (rowEnc (n := n) C par) := fun v v' h => by
   funext j
   have h' := (ofCells_eq_iff _ _).mp h (Fin.natAdd k j)

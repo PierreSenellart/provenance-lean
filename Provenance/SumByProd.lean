@@ -4,6 +4,11 @@ public import Provenance.SumByMu
 import Mathlib.Tactic.NormNum.Inv
 import Mathlib.Tactic.NormNum.Pow
 import Provenance.RecursionBasisPass
+import all Provenance.AggQuery
+import all Provenance.Database
+import all Provenance.PlainBasis
+import all Provenance.RecursionBasisPass
+import all Provenance.SumByMu
 
 /-!
 # `⊎` from `μ^⊎` with products
@@ -32,7 +37,7 @@ variable {c k : ℕ}
 /-! ## Bag recursions with equal bodies -/
 
 /-- **Two bodies reading alike give the same bag recursion.** -/
-theorem evaluatePlain_Mu_congr_body {n : ℕ} {κ : Fin n → ColKind} (s : String)
+private theorem evaluatePlain_Mu_congr_body {n : ℕ} {κ : Fin n → ColKind} (s : String)
     (q₀ : AggQueryIn T c n κ) (q₁ q₁' : AggQueryIn T c n κ [(s, n)])
     (h : ∀ (D : Database T) (γ : Fin c → T), q₁.evaluatePlain D γ = q₁'.evaluatePlain D γ)
     (D : Database T) (γ : Fin c → T) :
@@ -42,7 +47,7 @@ theorem evaluatePlain_Mu_congr_body {n : ℕ} {κ : Fin n → ColKind} (s : Stri
 
 /-- **A bag recursion settles with a body reading alike**, provided that
 body settles at every round. -/
-theorem settlesAt_Mu_congr_body {n : ℕ} {κ : Fin n → ColKind} (s : String)
+private theorem settlesAt_Mu_congr_body {n : ℕ} {κ : Fin n → ColKind} (s : String)
     (q₀ : AggQueryIn T c n κ) (q₁ q₁' : AggQueryIn T c n κ [(s, n)])
     (h : ∀ (D : Database T) (γ : Fin c → T), q₁.evaluatePlain D γ = q₁'.evaluatePlain D γ)
     (D : Database T) (γ : Fin c → T)
@@ -64,7 +69,7 @@ def phaseBodyX (s : String) (p₁ : T) (Z : AggQueryIn T c (k + 1) (ColKind.allR
     (AggQueryIn.Sel sameTag (AggQueryIn.Prod (AggQueryIn.Hole (k + 1) s) Z))).castKind
     (roundCols_kind p₁)
 
-theorem evaluatePlain_phaseBodyX (s : String) (p₁ : T)
+private theorem evaluatePlain_phaseBodyX (s : String) (p₁ : T)
     (Z : AggQueryIn T c (k + 1) (ColKind.allReg (k + 1))) (D : Database T) (γ : Fin c → T) :
     (phaseBodyX s p₁ Z).evaluatePlain D γ = (phaseBody s p₁ Z).evaluatePlain D γ := by
   rw [phaseBodyX, phaseBody, AggQueryIn.evaluatePlain_castKind,
@@ -79,7 +84,7 @@ theorem evaluatePlain_phaseBodyX (s : String) (p₁ : T)
             D γ))
   rw [AggQueryIn.apply_plainEquiv_prod (AggQueryIn.Hole (k + 1) s) Z D γ]
 
-theorem settlesAt_phaseBodyX (s : String) (p₁ : T)
+private theorem settlesAt_phaseBodyX (s : String) (p₁ : T)
     (Z : AggQueryIn T c (k + 1) (ColKind.allReg (k + 1))) (D : Database T) (γ : Fin c → T)
     (hZ : Z.SettlesAt D γ) : (phaseBodyX s p₁ Z).SettlesAt D γ := by
   rw [phaseBodyX, AggQueryIn.settlesAt_castKind]
@@ -96,7 +101,7 @@ def sumByMuX (s₁ s₂ : String) (q₁ q₂ : AggQueryIn T c k (ColKind.allReg 
         (phaseBodyX s₂ ValueType.nonzero (withTag 0 q₂))))).castKind (funext fun _ => rfl)
 
 /-- The inner recursion reads as `sumByMu`'s. -/
-theorem evaluatePlain_sumByMuX_inner (s₁ : String) (q₁ : AggQueryIn T c k (ColKind.allReg k))
+private theorem evaluatePlain_sumByMuX_inner (s₁ : String) (q₁ : AggQueryIn T c k (ColKind.allReg k))
     (D : Database T) (γ : Fin c → T) :
     (AggQueryIn.Mu s₁ (driver 0) (phaseBodyX s₁ ValueType.nonzero (withTag 0 q₁))).evaluatePlain
         D γ
@@ -105,7 +110,7 @@ theorem evaluatePlain_sumByMuX_inner (s₁ : String) (q₁ : AggQueryIn T c k (C
   evaluatePlain_Mu_congr_body s₁ _ _ _ (fun D γ => evaluatePlain_phaseBodyX _ _ _ D γ) D γ
 
 /-- **The construction reads as `sumByMu`.** -/
-theorem evaluatePlain_sumByMuX_eq (s₁ s₂ : String) (q₁ q₂ : AggQueryIn T c k (ColKind.allReg k))
+private theorem evaluatePlain_sumByMuX_eq (s₁ s₂ : String) (q₁ q₂ : AggQueryIn T c k (ColKind.allReg k))
     (D : Database T) (γ : Fin c → T) :
     (sumByMuX s₁ s₂ q₁ q₂).evaluatePlain D γ = (sumByMu s₁ s₂ q₁ q₂).evaluatePlain D γ := by
   rw [sumByMuX, sumByMu, AggQueryIn.evaluatePlain_castKind, AggQueryIn.evaluatePlain_castKind]
@@ -125,7 +130,7 @@ theorem evaluatePlain_sumByMuX_eq (s₁ s₂ : String) (q₁ q₂ : AggQueryIn T
   rw [hin]
 
 /-- **The construction is the union.** -/
-theorem evaluatePlain_sumByMuX (s₁ s₂ : String) (q₁ q₂ : AggQueryIn T c k (ColKind.allReg k))
+private theorem evaluatePlain_sumByMuX (s₁ s₂ : String) (q₁ q₂ : AggQueryIn T c k (ColKind.allReg k))
     (h₁ : q₁.noMention s₁) (h₂₂ : q₂.noMention s₂) (D : Database T) (γ : Fin c → T) :
     (sumByMuX s₁ s₂ q₁ q₂).evaluatePlain D γ
       = q₁.evaluatePlain D γ + q₂.evaluatePlain D γ := by
@@ -133,7 +138,7 @@ theorem evaluatePlain_sumByMuX (s₁ s₂ : String) (q₁ q₂ : AggQueryIn T c 
 
 /-- **A phase recursion with products settles**, on every instance where
 its operands do. -/
-theorem settlesAt_phaseMuX (s : String) {p₀ p₁ : T} (hp : p₁ ≠ p₀)
+private theorem settlesAt_phaseMuX (s : String) {p₀ p₁ : T} (hp : p₁ ≠ p₀)
     (base Z : AggQueryIn T c (k + 1) (ColKind.allReg (k + 1))) (hZ : Z.noMention s)
     (D : Database T) (γ : Fin c → T) (R : Multiset (Tuple T k))
     (hZv : Z.evaluatePlain D γ = R.map (tagRow p₀))
@@ -158,7 +163,7 @@ theorem settlesAt_phaseMuX (s : String) {p₀ p₁ : T} (hp : p₁ ≠ p₀)
         (fun hc => hs'.elim (fun h => h hc.2) (fun h => by simp at h))).symm) γ hZs)
 
 /-- **The construction settles wherever its operands do.** -/
-theorem settlesAt_sumByMuX (s₁ s₂ : String) (q₁ q₂ : AggQueryIn T c k (ColKind.allReg k))
+private theorem settlesAt_sumByMuX (s₁ s₂ : String) (q₁ q₂ : AggQueryIn T c k (ColKind.allReg k))
     (h₁ : q₁.noMention s₁) (h₂₂ : q₂.noMention s₂)
     (D : Database T) (γ : Fin c → T) (hs₁ : q₁.SettlesAt D γ) (hs₂ : q₂.SettlesAt D γ) :
     (sumByMuX s₁ s₂ q₁ q₂).SettlesAt D γ := by
@@ -183,26 +188,26 @@ def sumProdOps : Set OpKind :=
   {OpKind.empty, OpKind.proj, OpKind.sel, OpKind.prod, OpKind.gamma, OpKind.muBag}
 
 omit [ValueType T] in
-theorem usesOnly_unitCX {S : Set OpKind} (hS : sumProdOps ⊆ S) :
+private theorem usesOnly_unitCX {S : Set OpKind} (hS : sumProdOps ⊆ S) :
     (unitC : AggQueryIn T c 0 _).usesOnly S := by
   rw [unitC, AggQueryIn.usesOnly_castKind]
   exact ⟨hS (by simp [sumProdOps]), hS (by simp [sumProdOps])⟩
 
 omit [ValueType T] in
-theorem usesOnly_withTagX {S : Set OpKind} (hS : sumProdOps ⊆ S) (t : T)
+private theorem usesOnly_withTagX {S : Set OpKind} (hS : sumProdOps ⊆ S) (t : T)
     (q : AggQueryIn T c k (ColKind.allReg k)) (hq : q.usesOnly S) :
     (withTag t q).usesOnly S := by
   rw [withTag, AggQueryIn.usesOnly_castKind]
   refine ⟨⟨hS (by simp [sumProdOps]), fun j => ?_⟩, hq⟩
   refine Fin.cases ?_ (fun i => ?_) j <;> rfl
 
-theorem usesOnly_driverX {S : Set OpKind} (hS : sumProdOps ⊆ S) (p₀ : T) :
+private theorem usesOnly_driverX {S : Set OpKind} (hS : sumProdOps ⊆ S) (p₀ : T) :
     (driver (c := c) (k := k) p₀).usesOnly S := by
   rw [driver, AggQueryIn.usesOnly_castKind]
   exact ⟨⟨hS (by simp [sumProdOps]), fun _ => rfl⟩, usesOnly_unitCX hS⟩
 
 omit [ValueType T] in
-theorem usesOnly_phaseBodyX {S : Set OpKind} (hS : sumProdOps ⊆ S) (s : String) (p₁ : T)
+private theorem usesOnly_phaseBodyX {S : Set OpKind} (hS : sumProdOps ⊆ S) (s : String) (p₁ : T)
     (Z : AggQueryIn T c (k + 1) (ColKind.allReg (k + 1))) (hZ : Z.usesOnly S) :
     (phaseBodyX s p₁ Z).usesOnly S := by
   rw [phaseBodyX, AggQueryIn.usesOnly_castKind]
@@ -211,7 +216,7 @@ theorem usesOnly_phaseBodyX {S : Set OpKind} (hS : sumProdOps ⊆ S) (s : String
   refine Fin.cases ?_ (fun i => ?_) j <;> rfl
 
 /-- **The construction uses the classes of `sumProdOps`** and its operands'. -/
-theorem usesOnly_sumByMuX {S : Set OpKind} (hS : sumProdOps ⊆ S) (s₁ s₂ : String)
+private theorem usesOnly_sumByMuX {S : Set OpKind} (hS : sumProdOps ⊆ S) (s₁ s₂ : String)
     (q₁ q₂ : AggQueryIn T c k (ColKind.allReg k)) (h₁ : q₁.usesOnly S) (h₂ : q₂.usesOnly S) :
     (sumByMuX s₁ s₂ q₁ q₂).usesOnly S := by
   rw [sumByMuX, AggQueryIn.usesOnly_castKind]
@@ -222,21 +227,21 @@ theorem usesOnly_sumByMuX {S : Set OpKind} (hS : sumProdOps ⊆ S) (s₁ s₂ : 
     usesOnly_phaseBodyX hS _ _ _ (usesOnly_withTagX hS 0 q₂ h₂)⟩
 
 omit [ValueType T] in
-theorem hygienic_phaseBodyX (s : String) (p₁ : T)
+private theorem hygienic_phaseBodyX (s : String) (p₁ : T)
     (Z : AggQueryIn T c (k + 1) (ColKind.allReg (k + 1))) :
     (phaseBodyX s p₁ Z).hygienic ↔ Z.hygienic := by
   rw [phaseBodyX, AggQueryIn.hygienic_castKind]
   exact ⟨fun h => h.2, fun h => ⟨trivial, h⟩⟩
 
 omit [ValueType T] in
-theorem noMention_phaseBodyX (s' : String) (p₁ : T)
+private theorem noMention_phaseBodyX (s' : String) (p₁ : T)
     (Z : AggQueryIn T c (k + 1) (ColKind.allReg (k + 1))) {s : String}
     (hZ : Z.noMention s) : (phaseBodyX s' p₁ Z).noMention s := by
   rw [phaseBodyX, AggQueryIn.noMention_castKind]
   exact ⟨trivial, hZ⟩
 
 /-- **The construction's recursions are hygienic**, given fresh names. -/
-theorem hygienic_sumByMuX (s₁ s₂ : String) (q₁ q₂ : AggQueryIn T c k (ColKind.allReg k))
+private theorem hygienic_sumByMuX (s₁ s₂ : String) (q₁ q₂ : AggQueryIn T c k (ColKind.allReg k))
     (h₁ : q₁.noMention s₁) (h₂₁ : q₁.noMention s₂) (h₂₂ : q₂.noMention s₂)
     (hr₁ : q₁.hygienic) (hr₂ : q₂.hygienic) :
     (sumByMuX s₁ s₂ q₁ q₂).hygienic := by
@@ -249,7 +254,7 @@ theorem hygienic_sumByMuX (s₁ s₂ : String) (q₁ q₂ : AggQueryIn T c k (Co
         ((hygienic_withTag 0 q₁).mpr hr₁)⟩,
     (hygienic_phaseBodyX _ _ _).mpr ((hygienic_withTag 0 q₂).mpr hr₂)⟩
 
-theorem inSig_phaseBodyX (Θ : Set (SeqAggFunc T)) (s : String) (p₁ : T)
+private theorem inSig_phaseBodyX (Θ : Set (SeqAggFunc T)) (s : String) (p₁ : T)
     (Z : AggQueryIn T c (k + 1) (ColKind.allReg (k + 1))) (hZ : Z.inSig Θ) :
     (phaseBodyX s p₁ Z).inSig Θ := by
   rw [phaseBodyX, AggQueryIn.inSig_castKind]
@@ -257,7 +262,7 @@ theorem inSig_phaseBodyX (Θ : Set (SeqAggFunc T)) (s : String) (p₁ : T)
   refine Fin.cases ?_ (fun i => ?_) j <;> rfl
 
 /-- **The construction is in every signature its operands are in.** -/
-theorem inSig_sumByMuX (Θ : Set (SeqAggFunc T)) (s₁ s₂ : String)
+private theorem inSig_sumByMuX (Θ : Set (SeqAggFunc T)) (s₁ s₂ : String)
     (q₁ q₂ : AggQueryIn T c k (ColKind.allReg k)) (h₁ : q₁.inSig Θ) (h₂ : q₂.inSig Θ) :
     (sumByMuX s₁ s₂ q₁ q₂).inSig Θ := by
   rw [sumByMuX, AggQueryIn.inSig_castKind]
@@ -266,7 +271,7 @@ theorem inSig_sumByMuX (Θ : Set (SeqAggFunc T)) (s₁ s₂ : String)
     inSig_phaseBodyX Θ _ _ _ (inSig_withTag Θ 0 q₂ h₂)⟩
 
 omit [ValueType T] in
-theorem overSchema_phaseBodyX {sch : Schema} {s : String} (hs : sch s = some (k + 1)) (p₁ : T)
+private theorem overSchema_phaseBodyX {sch : Schema} {s : String} (hs : sch s = some (k + 1)) (p₁ : T)
     (Z : AggQueryIn T c (k + 1) (ColKind.allReg (k + 1))) (hZ : Z.overSchema sch) :
     (phaseBodyX s p₁ Z).overSchema sch := by
   rw [phaseBodyX, AggQueryIn.overSchema_castKind]
@@ -274,7 +279,7 @@ theorem overSchema_phaseBodyX {sch : Schema} {s : String} (hs : sch s = some (k 
 
 /-- **The construction is well-formed over a schema declaring neither
 bound name**, its operands being so and naming neither. -/
-theorem overSchema_sumByMuX (sch : Schema) (s₁ s₂ : String)
+private theorem overSchema_sumByMuX (sch : Schema) (s₁ s₂ : String)
     (q₁ q₂ : AggQueryIn T c k (ColKind.allReg k))
     (hs₁ : sch s₁ = none) (hs₂ : sch s₂ = none) (hn₁ : s₁ ∉ q₁.names) (hn₂ : s₂ ∉ q₂.names)
     (h₁ : q₁.overSchema sch) (h₂ : q₂.overSchema sch) :
@@ -293,7 +298,7 @@ theorem overSchema_sumByMuX (sch : Schema) (s₁ s₂ : String)
         (AggQueryIn.overSchema_update_of_not_mem_names q₂ h₂ hn₂))⟩
 
 /-- **The construction names its two bound names and its operands'.** -/
-theorem names_sumByMuX (s₁ s₂ : String) (q₁ q₂ : AggQueryIn T c k (ColKind.allReg k)) :
+private theorem names_sumByMuX (s₁ s₂ : String) (q₁ q₂ : AggQueryIn T c k (ColKind.allReg k)) :
     (sumByMuX s₁ s₂ q₁ q₂).names ⊆ insert s₁ (insert s₂ (Union.union q₁.names q₂.names)) := by
   intro x hx
   rw [sumByMuX, AggQueryIn.names_castKind] at hx
@@ -305,7 +310,7 @@ theorem names_sumByMuX (s₁ s₂ : String) (q₁ q₂ : AggQueryIn T c k (ColKi
 
 /-- The construction names nothing its operands do not, its two bound
 names aside. -/
-theorem noMention_sumByMuX (s₁ s₂ : String) (q₁ q₂ : AggQueryIn T c k (ColKind.allReg k))
+private theorem noMention_sumByMuX (s₁ s₂ : String) (q₁ q₂ : AggQueryIn T c k (ColKind.allReg k))
     {s : String} (h₁ : q₁.noMention s) (h₂ : q₂.noMention s) :
     (sumByMuX s₁ s₂ q₁ q₂).noMention s := by
   rw [sumByMuX, AggQueryIn.noMention_castKind]
@@ -341,7 +346,7 @@ def notInDiffX (s₁ s₂ : String) (cnt : SeqAggFunc T)
       .term (TermGIn.index (Fin.castAdd (k + 1) i) (notInKinds_left k i)))
     (.Sel AggQueryIn.notInCond (.Prod q₁ (tagAggX s₁ s₂ cnt q₁ q₂)))
 
-theorem evaluatePlain_tagUnionX (s₁ s₂ : String) (q₁ q₂ : AggQueryIn T c k (ColKind.allReg k))
+private theorem evaluatePlain_tagUnionX (s₁ s₂ : String) (q₁ q₂ : AggQueryIn T c k (ColKind.allReg k))
     (h₁ : q₁.noMention s₁) (h₂ : q₂.noMention s₂) (D : Database T) (γ : Fin c → T) :
     (tagUnionX s₁ s₂ q₁ q₂).evaluatePlain D γ
       = (AggQueryIn.tagUnion q₁ q₂).evaluatePlain D γ := by
@@ -352,7 +357,7 @@ theorem evaluatePlain_tagUnionX (s₁ s₂ : String) (q₁ q₂ : AggQueryIn T c
 
 /-- **The construction is the difference**, the two bound names being
 fresh for the operands they bind over and the aggregate counting. -/
-theorem evaluatePlain_notInDiffX (s₁ s₂ : String) (cnt : SeqAggFunc T)
+private theorem evaluatePlain_notInDiffX (s₁ s₂ : String) (cnt : SeqAggFunc T)
     (hc : SeqAggFunc.Counts cnt) (q₁ q₂ : AggQueryIn T c k (ColKind.allReg k))
     (h₁ : q₁.noMention s₁) (h₂ : q₂.noMention s₂) (D : Database T) (γ : Fin c → T) :
     (notInDiffX s₁ s₂ cnt q₁ q₂).evaluatePlain D γ
@@ -363,7 +368,7 @@ theorem evaluatePlain_notInDiffX (s₁ s₂ : String) (cnt : SeqAggFunc T)
     AggQueryIn.evaluatePlain]
   rw [htu]
 
-theorem settlesAt_notInDiffX (s₁ s₂ : String) (cnt : SeqAggFunc T)
+private theorem settlesAt_notInDiffX (s₁ s₂ : String) (cnt : SeqAggFunc T)
     (q₁ q₂ : AggQueryIn T c k (ColKind.allReg k))
     (h₁ : q₁.noMention s₁) (h₂ : q₂.noMention s₂) (D : Database T) (γ : Fin c → T)
     (hs₁ : q₁.SettlesAt D γ) (hs₂ : q₂.SettlesAt D γ) :
@@ -372,7 +377,7 @@ theorem settlesAt_notInDiffX (s₁ s₂ : String) (cnt : SeqAggFunc T)
     (.Proj (AggQueryIn.tagCols ValueType.nonzero) q₂) (by simpa [AggQueryIn.noMention] using h₁)
     (by simpa [AggQueryIn.noMention] using h₂) D γ hs₁ hs₂⟩
 
-theorem usesOnly_notInDiffX {S : Set OpKind} (hS : sumProdOps ⊆ S) (s₁ s₂ : String)
+private theorem usesOnly_notInDiffX {S : Set OpKind} (hS : sumProdOps ⊆ S) (s₁ s₂ : String)
     (cnt : SeqAggFunc T) {q₁ q₂ : AggQueryIn T c k (ColKind.allReg k)}
     (h₁ : q₁.usesOnly S) (h₂ : q₂.usesOnly S) :
     (notInDiffX s₁ s₂ cnt q₁ q₂).usesOnly S :=
@@ -381,14 +386,14 @@ theorem usesOnly_notInDiffX {S : Set OpKind} (hS : sumProdOps ⊆ S) (s₁ s₂ 
     usesOnly_sumByMuX hS s₁ s₂ _ _ ⟨⟨hS (by simp [sumProdOps]), fun _ => rfl⟩, h₁⟩
       ⟨⟨hS (by simp [sumProdOps]), fun _ => rfl⟩, h₂⟩⟩
 
-theorem hygienic_notInDiffX (s₁ s₂ : String) (cnt : SeqAggFunc T)
+private theorem hygienic_notInDiffX (s₁ s₂ : String) (cnt : SeqAggFunc T)
     {q₁ q₂ : AggQueryIn T c k (ColKind.allReg k)}
     (h₁ : q₁.noMention s₁) (h₂₁ : q₁.noMention s₂) (h₂₂ : q₂.noMention s₂)
     (hr₁ : q₁.hygienic) (hr₂ : q₂.hygienic) :
     (notInDiffX s₁ s₂ cnt q₁ q₂).hygienic :=
   ⟨hr₁, hygienic_sumByMuX s₁ s₂ _ _ h₁ h₂₁ h₂₂ hr₁ hr₂⟩
 
-theorem inSig_notInDiffX {Θ : Set (SeqAggFunc T)} (s₁ s₂ : String) {cnt : SeqAggFunc T}
+private theorem inSig_notInDiffX {Θ : Set (SeqAggFunc T)} (s₁ s₂ : String) {cnt : SeqAggFunc T}
     (hc : cnt ∈ Θ) {q₁ q₂ : AggQueryIn T c k (ColKind.allReg k)}
     (h₁ : q₁.inSig Θ) (h₂ : q₂.inSig Θ) : (notInDiffX s₁ s₂ cnt q₁ q₂).inSig Θ := by
   refine ⟨fun _ => rfl, AggQueryIn.noFun_notInCond, h₁, fun j => ?_, fun j => ?_, fun j => ?_,
@@ -398,14 +403,14 @@ theorem inSig_notInDiffX {Θ : Set (SeqAggFunc T)} (s₁ s₂ : String) {cnt : S
   · rw [Subsingleton.elim j 0]; exact hc
   · rw [Subsingleton.elim j 0]; rfl
 
-theorem overSchema_notInDiffX (sch : Schema) (s₁ s₂ : String) (cnt : SeqAggFunc T)
+private theorem overSchema_notInDiffX (sch : Schema) (s₁ s₂ : String) (cnt : SeqAggFunc T)
     {q₁ q₂ : AggQueryIn T c k (ColKind.allReg k)}
     (hs₁ : sch s₁ = none) (hs₂ : sch s₂ = none) (hn₁ : s₁ ∉ q₁.names) (hn₂ : s₂ ∉ q₂.names)
     (h₁ : q₁.overSchema sch) (h₂ : q₂.overSchema sch) :
     (notInDiffX s₁ s₂ cnt q₁ q₂).overSchema sch :=
   ⟨h₁, overSchema_sumByMuX sch s₁ s₂ _ _ hs₁ hs₂ hn₁ hn₂ h₁ h₂⟩
 
-theorem names_notInDiffX (s₁ s₂ : String) (cnt : SeqAggFunc T)
+private theorem names_notInDiffX (s₁ s₂ : String) (cnt : SeqAggFunc T)
     (q₁ q₂ : AggQueryIn T c k (ColKind.allReg k)) :
     (notInDiffX s₁ s₂ cnt q₁ q₂).names
       ⊆ insert s₁ (insert s₂ (Union.union q₁.names q₂.names)) := by
@@ -420,7 +425,7 @@ theorem names_notInDiffX (s₁ s₂ : String) (cnt : SeqAggFunc T)
     simp only [AggQueryIn.names, Finset.mem_insert, Finset.mem_union] at this ⊢
     tauto
 
-theorem noMention_notInDiffX (s₁ s₂ : String) (cnt : SeqAggFunc T)
+private theorem noMention_notInDiffX (s₁ s₂ : String) (cnt : SeqAggFunc T)
     {q₁ q₂ : AggQueryIn T c k (ColKind.allReg k)} {s : String}
     (h₁ : q₁.noMention s) (h₂ : q₂.noMention s) :
     (notInDiffX s₁ s₂ cnt q₁ q₂).noMention s :=

@@ -9,6 +9,13 @@ public import Provenance.AnnotatedBasis
 import Mathlib.Analysis.SpecialFunctions.Pow.NNReal
 import Provenance.AnnotatedProd
 import Provenance.HavingQueryCorrectness
+import all Provenance.AggQuery
+import all Provenance.AggQueryAdequacy
+import all Provenance.AnnotatedMuUnion
+import all Provenance.AnnotatedProd
+import all Provenance.MuUnion
+import all Provenance.PathSum
+import all Provenance.SemiringWithMonus
 
 /-!
 # The set recursion from the bag recursion and `ε`: the two counters
@@ -86,7 +93,7 @@ def relLeaves : {c n : ℕ} → {κ : Fin n → ColKind} → {l : List (String �
 omit [ValueType T] in
 /-- A relation a query reads off the instance does not carry a name it does
 not mention. -/
-theorem ne_of_mem_relLeaves {t : String} :
+private theorem ne_of_mem_relLeaves {t : String} :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l),
       q.noMention t → ∀ p ∈ q.relLeaves, p.2 ≠ t := by
   intro c n κ l q
@@ -132,7 +139,7 @@ theorem ne_of_mem_relLeaves {t : String} :
 omit [ValueType T] in
 /-- **A hygienic query's relations off the instance are among its
 leaves**: a body's `Rel` leaves do not carry its recursion's name. -/
-theorem mem_leaves_of_mem_relLeaves :
+private theorem mem_leaves_of_mem_relLeaves :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l),
       q.hygienic → ∀ p ∈ q.relLeaves, p ∈ q.leaves := by
   intro c n κ l q
@@ -213,7 +220,7 @@ annotation is `𝟘` where the value is one of `Z`. -/
 abbrev zeroBd (Z : T → Prop) (v : T) (a : K) : Prop := Z v → a = 0
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
-theorem ne_zero_of_mem' {α : Type} {s : Multiset α} {a : α} (h : a ∈ s) : s ≠ 0 :=
+private theorem ne_zero_of_mem' {α : Type} {s : Multiset α} {a : α} (h : a ∈ s) : s ≠ 0 :=
   fun h0 => by rw [h0] at h; exact Multiset.notMem_zero a h
 
 section Bounds
@@ -221,7 +228,7 @@ section Bounds
 variable {F : T → Prop} {Bd : T → K → Prop}
 
 omit [ValueType T] [DecidableEq K] [HasAltLinearOrder K] in
-theorem rowBd_of_tupBd {n : ℕ} {r : GenRow T K n}
+private theorem rowBd_of_tupBd {n : ℕ} {r : GenRow T K n}
     (h : TupBd F Bd (GenRow.plainTuple r.fst, r.snd.finalize)) : RowBd F Bd r := by
   intro k v hk
   have := h k
@@ -229,7 +236,7 @@ theorem rowBd_of_tupBd {n : ℕ} {r : GenRow T K n}
   exact this
 
 omit [ValueType T] [DecidableEq K] [HasAltLinearOrder K] in
-theorem tupBd_of_rowBd {n : ℕ} {r : GenRow T K n} (h : RowBd F Bd r)
+private theorem tupBd_of_rowBd {n : ℕ} {r : GenRow T K n} (h : RowBd F Bd r)
     (hr : ∀ k, GenValue.kindOf (r.fst k) = ColKind.reg) :
     TupBd F Bd (GenRow.plainTuple r.fst, r.snd.finalize) := by
   intro k
@@ -244,7 +251,7 @@ theorem tupBd_of_rowBd {n : ℕ} {r : GenRow T K n} (h : RowBd F Bd r)
   | inr a => intro hk; exact absurd hk (by simp [GenValue.kindOf])
 
 omit [ValueType T] [DecidableEq K] [HasAltLinearOrder K] in
-theorem rowBd_ofAnnotated {n : ℕ} {p : AnnotatedTuple T K n} (h : TupBd F Bd (p.1, p.2)) :
+private theorem rowBd_ofAnnotated {n : ℕ} {p : AnnotatedTuple T K n} (h : TupBd F Bd (p.1, p.2)) :
     RowBd F Bd (GenRow.ofAnnotated p) := by
   intro k v hk
   simp only [GenRow.ofAnnotated, Sum.inl.injEq] at hk
@@ -255,7 +262,7 @@ theorem rowBd_ofAnnotated {n : ℕ} {p : AnnotatedTuple T K n} (h : TupBd F Bd (
 
 omit [ValueType T] [DecidableEq K] [HasAltLinearOrder K] in
 /-- A sum of elements below `x` is below `x`, in an absorptive semiring. -/
-theorem msum_le (habs : ∀ a : K, 1 + a = 1) (x : K) :
+private theorem msum_le (habs : ∀ a : K, 1 + a = 1) (x : K) :
     ∀ s : Multiset K, (∀ a ∈ s, a ≤ x) → s.sum ≤ x := by
   intro s
   induction s using Multiset.induction_on with
@@ -268,7 +275,7 @@ theorem msum_le (habs : ∀ a : K, 1 + a = 1) (x : K) :
 
 omit [ValueType T] [DecidableEq K] [HasAltLinearOrder K] in
 /-- **A sum of a non-empty bag within the bound is.** -/
-theorem BdClosed.sum (hB : BdClosed Bd) (v : T) :
+private theorem BdClosed.sum (hB : BdClosed Bd) (v : T) :
     ∀ s : Multiset K, s ≠ 0 → (∀ a ∈ s, Bd v a) → Bd v s.sum := by
   intro s
   induction s using Multiset.induction_on with
@@ -286,7 +293,7 @@ theorem BdClosed.sum (hB : BdClosed Bd) (v : T) :
 omit [DecidableEq K] [HasAltLinearOrder K] in
 /-- **Duplicate elimination keeps the bound**: a tuple's weight sums
 annotations each within it. -/
-theorem tupBd_dedupK (hB : BdClosed Bd) {n : ℕ} {Y : Multiset (Tuple T n × K)}
+private theorem tupBd_dedupK (hB : BdClosed Bd) {n : ℕ} {Y : Multiset (Tuple T n × K)}
     (h : ∀ p ∈ Y, TupBd F Bd p) : ∀ p ∈ PathSum.dedupK Y, TupBd F Bd p := by
   intro p hp
   obtain ⟨u, hu, rfl⟩ := Multiset.mem_map.1 hp
@@ -304,7 +311,7 @@ theorem tupBd_dedupK (hB : BdClosed Bd) {n : ℕ} {Y : Multiset (Tuple T n × K)
 
 omit [ValueType T] [DecidableEq K] [HasAltLinearOrder K] in
 /-- **Where `δ` is the identity, an annotation below a weight is a bound.** -/
-theorem leBd_closed (hδ : ∀ a : K, SemiringWithMonus.delta a = a) (Vl : T → Prop)
+private theorem leBd_closed (hδ : ∀ a : K, SemiringWithMonus.delta a = a) (Vl : T → Prop)
     (e : T → K) : BdClosed (leBd Vl e) := by
   have hid : IsDelta (id : K → K) := by
     have h := isDelta_delta (α := K)
@@ -320,7 +327,7 @@ theorem leBd_closed (hδ : ∀ a : K, SemiringWithMonus.delta a = a) (Vl : T →
 omit [ValueType T] [DecidableEq K] [HasAltLinearOrder K] in
 /-- **In every m-semiring, `𝟘` is a bound**: a product with `𝟘`, a sum of
 `𝟘`s, `𝟘` minus anything and `δ 𝟘` are `𝟘`. -/
-theorem zeroBd_closed (Z : T → Prop) : BdClosed (K := K) (zeroBd Z) := by
+private theorem zeroBd_closed (Z : T → Prop) : BdClosed (K := K) (zeroBd Z) := by
   refine ⟨fun v a b h hz => ?_, fun v a b h hz => ?_, fun v a b ha hb hz => ?_,
     fun v a b h hz => ?_, fun v a h hz => ?_⟩
   · rw [h hz, zero_mul]
@@ -334,7 +341,7 @@ end Bounds
 omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 /-- **A column of the minimal signature reads a value it was given**: a
 value of the row, a constant, or an outer column the kinds let it read. -/
-theorem projCol_eval_inl_cases {c n : ℕ} {κ : Fin n → ColKind} (p : ProjColIn T c κ)
+private theorem projCol_eval_inl_cases {c n : ℕ} {κ : Fin n → ColKind} (p : ProjColIn T c κ)
     (hp : p.noFun = true) {ok : Fin c → Prop} (hok : p.outerOk ok)
     {u : Tuple (GenValue T K) n} (hu : ∀ k, GenValue.kindOf (u k) = (κ k).base)
     (γ : Fin c → T) {v : T} (h : p.eval u γ = Sum.inl v) :
@@ -396,7 +403,7 @@ def HolesBd (F : T → Prop) (Bd : T → K → Prop) (l : List (String × ℕ)) 
   ∀ p ∈ l, ∀ r ∈ E.holes p.1 p.2, RowBd F Bd r
 
 omit [ValueType T] [DecidableEq K] [HasAltLinearOrder K] in
-theorem holesBd_assignHole {F : T → Prop} {Bd : T → K → Prop} {E : EvalEnv T K} (s : String)
+private theorem holesBd_assignHole {F : T → Prop} {Bd : T → K → Prop} {E : EvalEnv T K} (s : String)
     {n : ℕ} {X : Multiset (GenRow T K n)} (hX : ∀ r ∈ X, RowBd F Bd r) :
     HolesBd F Bd [(s, n)] (E.assignHole s X) := by
   intro p hp r hr
@@ -757,7 +764,7 @@ variable {c : ℕ}
 
 /-- **The power of a relation with one row per value**: the tuples over its
 values, each annotated by the product of its values' annotations. -/
-theorem ann_pow (C : AggQueryIn T c 1 (ColKind.allReg 1)) (V : Multiset (Tuple T 1))
+private theorem ann_pow (C : AggQueryIn T c 1 (ColKind.allReg 1)) (V : Multiset (Tuple T 1))
     (f : Tuple T 1 → K) (d : AnnotatedDatabase T K) (γ : Fin c → T) (E : EvalEnv T K)
     (hC : C.ann d γ E = V.map (fun v => ((v, f v) : AnnotatedTuple T K 1))) :
     ∀ K', (pow C K').ann d γ E
@@ -779,7 +786,7 @@ theorem ann_pow (C : AggQueryIn T c 1 (ColKind.allReg 1)) (V : Multiset (Tuple T
       rw [Fin.fin_one_eq_zero i]
       exact (Fin.append_right p.1 p.2 0).symm
 
-theorem wt_ctrLt_wt (EQ : AggQueryIn T c 1 (ColKind.allReg 1)) (K' : ℕ)
+private theorem wt_ctrLt_wt (EQ : AggQueryIn T c 1 (ColKind.allReg 1)) (K' : ℕ)
     (d : AnnotatedDatabase T K) (γ : Fin c → T) (E : EvalEnv T K) (W : Multiset (Tuple T K'))
     (hWn : W.Nodup) (w : Tuple T K' → K)
     (hW : (ctr EQ K').ann d γ E = W.map (fun v => ((v, w v) : AnnotatedTuple T K K')))
@@ -791,7 +798,7 @@ theorem wt_ctrLt_wt (EQ : AggQueryIn T c 1 (ColKind.allReg 1)) (K' : ℕ)
   rw [ite_eq_left ((mem_ltPairs a b).2 ⟨ha, hb, hlt⟩)]
   simp only [Fin.append_left, Fin.append_right]
 
-theorem mem_supp_ctrLt_wt (EQ : AggQueryIn T c 1 (ColKind.allReg 1)) (K' : ℕ)
+private theorem mem_supp_ctrLt_wt (EQ : AggQueryIn T c 1 (ColKind.allReg 1)) (K' : ℕ)
     (d : AnnotatedDatabase T K) (γ : Fin c → T) (E : EvalEnv T K) (W : Multiset (Tuple T K'))
     (w : Tuple T K' → K)
     (hW : (ctr EQ K').ann d γ E = W.map (fun v => ((v, w v) : AnnotatedTuple T K K')))
@@ -804,7 +811,7 @@ theorem mem_supp_ctrLt_wt (EQ : AggQueryIn T c 1 (ColKind.allReg 1)) (K' : ℕ)
 
 /-- **The all-chains simulation's rounds are those of `PathSum.ChainSpec`**,
 for a sorted listing `l` of the counters, annotated by `w`. -/
-theorem chainSpec_of (s : String) (n K' : ℕ) (EQ : AggQueryIn T c 1 (ColKind.allReg 1))
+private theorem chainSpec_of (s : String) (n K' : ℕ) (EQ : AggQueryIn T c 1 (ColKind.allReg 1))
     (BQ : AggQueryIn T c n (ColKind.allReg n)) (L : AggQueryIn T c n (ColKind.allReg n) [(s, n)])
     (hL : L.recLinear s n) (d : AnnotatedDatabase T K) (γ : Fin c → T)
     (E : EvalEnv T K) (W : Multiset (Tuple T K')) (hWn : W.Nodup) (w : Tuple T K' → K)
@@ -887,7 +894,7 @@ counters as tuples in a set `S` closed under the recursion's rounds, and
 every derivation through distinct tuples of `S` weighs `𝟘` or is absorbed
 by the weight of a chain of as many counters, the simulation's value is the
 set recursion's wherever the latter settles. -/
-theorem evaluate_simResultA_chain (s s' : String) (n K' : ℕ)
+private theorem evaluate_simResultA_chain (s s' : String) (n K' : ℕ)
     (EQ : AggQueryIn T c 1 (ColKind.allReg 1))
     (BQ : AggQueryIn T c n (ColKind.allReg n)) (L : AggQueryIn T c n (ColKind.allReg n) [(s, n)])
     (hL : L.recLinear s n) (hLx : L.noExplode) (d : AnnotatedDatabase T K) (γ : Fin c → T)
@@ -970,7 +977,7 @@ section ChainNode
 variable {c : ℕ}
 
 /-- A leaf row's value is a row of the counter values, with its annotation. -/
-theorem mem_ann_valRel_of_leaf {ls : List (ℕ × String)} {cs : List T}
+private theorem mem_ann_valRel_of_leaf {ls : List (ℕ × String)} {cs : List T}
     (d : AnnotatedDatabase T K) (γ : Fin c → T) (E : EvalEnv T K) {q : ℕ × String} (hq : q ∈ ls)
     {r : AnnotatedRelation T K q.1} (hr : d.find q.1 q.2 = some r) {p : AnnotatedTuple T K q.1}
     (hp : p ∈ r) (i : Fin q.1) (hnn : ValueType.isNull (p.1 i) = false) :
@@ -984,7 +991,7 @@ theorem mem_ann_valRel_of_leaf {ls : List (ℕ × String)} {cs : List T}
   exact Multiset.mem_map.2 ⟨p, hp, rfl⟩
 
 /-- A non-null constant is a row of the counter values, annotated `𝟙`. -/
-theorem mem_ann_valRel_of_const {ls : List (ℕ × String)} {cs : List T}
+private theorem mem_ann_valRel_of_const {ls : List (ℕ × String)} {cs : List T}
     (d : AnnotatedDatabase T K) (γ : Fin c → T) (E : EvalEnv T K) {a : T} (ha : a ∈ cs)
     (hnn : ValueType.isNull a = false) :
     (((fun _ => a), 1) : AnnotatedTuple T K 1) ∈ (valRel ls cs).ann d γ E := by
@@ -997,7 +1004,7 @@ theorem mem_ann_valRel_of_const {ls : List (ℕ × String)} {cs : List T}
 
 omit [DecidableEq K] [HasAltLinearOrder K] in
 /-- An annotation is below the weight of its tuple. -/
-theorem le_wt_of_mem {n : ℕ} {X : Multiset (Tuple T n × K)} {p : Tuple T n × K} (hp : p ∈ X) :
+private theorem le_wt_of_mem {n : ℕ} {X : Multiset (Tuple T n × K)} {p : Tuple T n × K} (hp : p ∈ X) :
     p.2 ≤ PathSum.wt X p.1 := by
   unfold PathSum.wt
   refine Multiset.le_sum_of_mem (Multiset.mem_map.2 ⟨p, ?_, rfl⟩)
@@ -1005,7 +1012,7 @@ theorem le_wt_of_mem {n : ℕ} {X : Multiset (Tuple T n × K)} {p : Tuple T n ×
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 /-- **Tuples over a set of values**: at most its size to the arity. -/
-theorem card_le_of_vals {n : ℕ} (S : Finset (Tuple T n)) (A : Finset T)
+private theorem card_le_of_vals {n : ℕ} (S : Finset (Tuple T n)) (A : Finset T)
     (h : ∀ t ∈ S, ∀ k, t k ∈ A) : S.card ≤ A.card ^ n := by
   have hsub : S ⊆ Fintype.piFinset (fun _ : Fin n => A) := fun t ht =>
     Fintype.mem_piFinset.2 (h t ht)
@@ -1015,7 +1022,7 @@ theorem card_le_of_vals {n : ℕ} (S : Finset (Tuple T n)) (A : Finset T)
 
 /-- **A tuple's weight is below each of its values' weights**, where every row
 is. -/
-theorem wt_ann_le_of_rowBd (habs : ∀ a : K, 1 + a = 1) {F Vl : T → Prop} {e : T → K}
+private theorem wt_ann_le_of_rowBd (habs : ∀ a : K, 1 + a = 1) {F Vl : T → Prop} {e : T → K}
     {n : ℕ} {l : List (String × ℕ)} (q : AggQueryIn T c n (ColKind.allReg n) l)
     (d : AnnotatedDatabase T K) (γ : Fin c → T) (E : EvalEnv T K)
     (h : ∀ r ∈ q.evaluate d γ E, RowBd F (leBd Vl e) r) (u : Tuple T n) (k : Fin n)
@@ -1036,7 +1043,7 @@ theorem wt_ann_le_of_rowBd (habs : ∀ a : K, 1 + a = 1) {F Vl : T → Prop} {e 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 /-- **The width of the counter**: `(m + 2c + 1)^n` tuples are outrun by
 `m^((2c + 2) n)` counters. -/
-theorem card_arith_chain0 {m A n : ℕ} (hm : 2 ≤ m) (hA : A ≤ m + 2 * c + 1) :
+private theorem card_arith_chain0 {m A n : ℕ} (hm : 2 ≤ m) (hA : A ≤ m + 2 * c + 1) :
     A ^ n ≤ m ^ ((2 * c + 2) * n) := by
   have h1 := add_le_pow_of_two_le hm (2 * c)
   calc A ^ n ≤ (m ^ (2 * c + 2)) ^ n := Nat.pow_le_pow_left (by omega) n
@@ -1045,14 +1052,14 @@ theorem card_arith_chain0 {m A n : ℕ} (hm : 2 ≤ m) (hA : A ≤ m + 2 * c + 1
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 /-- **The width of the all-chains counter**: `(m + 2c + 1)^n` tuples are
 outrun by `m^((2c + 2) n + 2)` counters. -/
-theorem card_arith_chain {m A n : ℕ} (hm : 2 ≤ m) (hA : A ≤ m + 2 * c + 1) :
+private theorem card_arith_chain {m A n : ℕ} (hm : 2 ≤ m) (hA : A ≤ m + 2 * c + 1) :
     A ^ n ≤ m ^ ((2 * c + 2) * n + 2) :=
   le_trans (card_arith_chain0 hm hA) (Nat.pow_le_pow_right (by omega) (by omega))
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 /-- **The width of the successor counter**: twice `(m + 2c + 1)^n` tuples,
 and one more, are outrun by `m^((2c + 2) n + 2)` counters. -/
-theorem card_arith_succ {m A n : ℕ} (hm : 2 ≤ m) (hA : A ≤ m + 2 * c + 1) :
+private theorem card_arith_succ {m A n : ℕ} (hm : 2 ≤ m) (hA : A ≤ m + 2 * c + 1) :
     2 * A ^ n + 1 ≤ m ^ ((2 * c + 2) * n + 2) := by
   have h1 := card_arith_chain0 (c := c) (n := n) hm hA
   have h2 : 1 ≤ m ^ ((2 * c + 2) * n) := Nat.one_le_pow _ _ (by omega)
@@ -1062,7 +1069,7 @@ theorem card_arith_succ {m A n : ℕ} (hm : 2 ≤ m) (hA : A ≤ m + 2 * c + 1) 
 
 omit [ValueType T] [DecidableEq K] [HasAltLinearOrder K] in
 /-- A weight absorbing each counter of a chain absorbs the chain's. -/
-theorem pw_absorb {K' : ℕ} (w : Tuple T K' → K) (X : K) :
+private theorem pw_absorb {K' : ℕ} (w : Tuple T K' → K) (X : K) :
     ∀ ch : List (Tuple T K'), ch ≠ [] → (∀ x ∈ ch, X * w x = X) →
       X * PathSum.pw w (fun a b => w a * w b) ch = X
   | [], h, _ => absurd rfl h
@@ -1442,7 +1449,7 @@ theorem muSetSim_correct_chain (cnt : SeqAggFunc T)
 
 /-- **The all-chains counter is correct** at every instance, where `δ` is
 the identity. -/
-theorem nodeCorrect_chain (cnt : SeqAggFunc T) (hδ : ∀ a : K, SemiringWithMonus.delta a = a) :
+private theorem nodeCorrect_chain (cnt : SeqAggFunc T) (hδ : ∀ a : K, SemiringWithMonus.delta a = a) :
     NodeCorrect cnt true (fun _ : AnnotatedDatabase T K => True) :=
   fun s s' q₀ q₁ q₀' q₁' h₁ h₂ h₃ h₄ h₅ h₆ h₇ _ _ h₈ d _ γ E _ hs h₀ h₁' =>
     muSetSim_correct_chain cnt hδ s s' q₀ q₁ q₀' q₁' h₁ h₂ h₃ h₄ h₅ h₆ h₇ h₈ d γ E hs h₀ h₁'
@@ -1457,12 +1464,12 @@ variable {c : ℕ}
 
 omit [ValueType T] [DecidableEq K] [HasAltLinearOrder K] in
 /-- A property of the value alone is a bound. -/
-theorem valBd_closed (Vl : T → Prop) : BdClosed (K := K) (fun v _ => Vl v) :=
+private theorem valBd_closed (Vl : T → Prop) : BdClosed (K := K) (fun v _ => Vl v) :=
   ⟨fun _ _ _ h => h, fun _ _ _ h => h, fun _ _ _ h _ => h, fun _ _ _ h => h, fun _ _ h => h⟩
 
 omit [ValueType T] [DecidableEq K] [HasAltLinearOrder K] in
 /-- Two bounds together are one. -/
-theorem andBd_closed {B₁ B₂ : T → K → Prop} (h₁ : BdClosed B₁) (h₂ : BdClosed B₂) :
+private theorem andBd_closed {B₁ B₂ : T → K → Prop} (h₁ : BdClosed B₁) (h₂ : BdClosed B₂) :
     BdClosed (fun v a => B₁ v a ∧ B₂ v a) :=
   ⟨fun v a b h => ⟨h₁.mul_right v a b h.1, h₂.mul_right v a b h.2⟩,
     fun v a b h => ⟨h₁.mul_left v a b h.1, h₂.mul_left v a b h.2⟩,
@@ -1472,7 +1479,7 @@ theorem andBd_closed {B₁ B₂ : T → K → Prop} (h₁ : BdClosed B₁) (h₂
 
 /-- **A tuple holding a value of `Z` weighs `𝟘`**, where every row is `𝟘`
 on the values of `Z` it holds. -/
-theorem wt_ann_eq_zero_of_rowBd {F Z : T → Prop} {Bd : T → K → Prop}
+private theorem wt_ann_eq_zero_of_rowBd {F Z : T → Prop} {Bd : T → K → Prop}
     (hBd : ∀ v a, Bd v a → Z v → a = 0) {n : ℕ} {l : List (String × ℕ)}
     (q : AggQueryIn T c n (ColKind.allReg n) l) (d : AnnotatedDatabase T K) (γ : Fin c → T)
     (E : EvalEnv T K) (h : ∀ r ∈ q.evaluate d γ E, RowBd F Bd r) (u : Tuple T n) (k : Fin n)
@@ -1491,7 +1498,7 @@ theorem wt_ann_eq_zero_of_rowBd {F Z : T → Prop} {Bd : T → K → Prop}
   exact hBd _ _ ((h r hr k (u k) hk).resolve_left hF) hZ
 
 omit [ValueType T] [DecidableEq K] [HasAltLinearOrder K] in
-theorem prod_ind {m : ℕ} (Q : Fin m → Prop) [DecidablePred Q] [Decidable (∀ k, Q k)] :
+private theorem prod_ind {m : ℕ} (Q : Fin m → Prop) [DecidablePred Q] [Decidable (∀ k, Q k)] :
     (∏ k, (if Q k then (1 : K) else 0)) = if ∀ k, Q k then 1 else 0 := by
   by_cases h : ∀ k, Q k
   · rw [ite_eq_left h]
@@ -1861,7 +1868,7 @@ theorem muSetSim_correct_succ (cnt : SeqAggFunc T)
 /-- **The successor counter is correct** at every instance, where `δ` is the
 support map and the semiring settles its linear recursions within twice
 the size of their tuple set. -/
-theorem nodeCorrect_succ (cnt : SeqAggFunc T)
+private theorem nodeCorrect_succ (cnt : SeqAggFunc T)
     (hδ : ∀ a : K, a ≠ 0 → SemiringWithMonus.delta a = 1) (hK : PathSum.SettlesLinear K) :
     NodeCorrect cnt false (fun _ : AnnotatedDatabase T K => True) :=
   fun s s' q₀ q₁ q₀' q₁' h₁ h₂ h₃ h₄ h₅ h₆ h₇ _ _ h₈ d _ γ E _ hs h₀ h₁' =>

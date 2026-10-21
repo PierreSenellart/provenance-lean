@@ -8,6 +8,7 @@ public import Provenance.Having
 public import Mathlib.Data.Fintype.Basic
 import Mathlib.Tactic.Bound.Init
 import Mathlib.Tactic.DeriveFintype
+import all Provenance.SemiringWithMonus
 
 /-!
 # A five-element chain m-semiring where `⊗` does not distribute over `⊖`
@@ -146,7 +147,7 @@ instance : SemiringWithMonus ChainFive where
 semiring is absorptive (`ChainFive.absorptive`): what `delta_absorb` asks of
 `δ := id` is the lattice law `a ⊗ (a ⊕ b) = a`, and `mid ⊗ (mid ⊕ mid) =
 mid ⊗ mid = 𝟘 ≠ mid`. -/
-theorem not_isDelta_id : ¬ IsDelta (id : ChainFive → ChainFive) :=
+private theorem not_isDelta_id : ¬ IsDelta (id : ChainFive → ChainFive) :=
   not_isDelta_id_of_absorb_ne (a := .mid) (b := .mid) (by decide)
 
 instance : CommSemiringWithMonus ChainFive where
@@ -158,7 +159,7 @@ end ChainFive
 
 theorem ChainFive.absorptive : absorptive ChainFive := by decide
 
-theorem ChainFive.idempotent : idempotent ChainFive :=
+private theorem ChainFive.idempotent : idempotent ChainFive :=
   idempotent_of_absorptive ChainFive.absorptive
 
 /-- `ChainFive` does not satisfy left-distributivity of `⊗` over `⊖`:
@@ -170,7 +171,7 @@ theorem ChainFive.not_mul_sub_left_distributive :
 module docstring already performs for a different purpose. It is absorptive
 and not distributive, where `Viterbi` is absorptive and distributive and
 `Bool` is both and exclusive. -/
-theorem ChainFive.not_exclusive : ¬ exclusive ChainFive := by decide
+private theorem ChainFive.not_exclusive : ¬ exclusive ChainFive := by decide
 
 namespace ChainFive
 
