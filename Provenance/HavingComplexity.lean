@@ -831,31 +831,38 @@ theorem havingSumNonzeroBool_iff (i : HavingSumInstance) :
     HavingSumNonzeroBool i ↔ ConcreteNonemptySubsetSum i :=
   (havingSumProvBool_ne_zero_iff id Function.injective_id _ _ _).trans (subsetSum_univ_iff i)
 
-/-- **The problem, read along an indexing of the items.** A selection of items
-is a set of indices, and conversely, with the same total and the same
-emptiness – the two halves of `selection_toIndex`/`selection_ofIndex`. This
-serves both the encoding (indexing by `itemPt`) and the decoding (indexing by
-a listing of a presented structure's items). -/
+/-- `HasNonemptySubsetSum` as a selection problem: a condition on whether the
+selection is empty and on its total, the shape the selection bridges of
+`DescriptiveComplexity` take. -/
+private theorem hasNonemptySubsetSum_iff_selection {A : Type} [Language.binWeights.Structure A]
+    [Finite A] (hlin : IsLinOrd (BWLe (A := A))) :
+    HasNonemptySubsetSum A ↔ ∃ S : A → Prop, (∀ a, S a → BWItem a) ∧
+      ((∃ a, S a) ∧ (∑ᶠ a ∈ {a | S a}, BWWeight a) = BWTarget A) := by
+  rw [HasNonemptySubsetSum, and_iff_right ‹Finite A›, and_iff_right hlin]
+  exact exists_congr fun _ => and_left_comm
+
+/-- **The problem, read along an indexing of the items**, by
+`exists_selection_iff_index`: a selection of items is a set of indices, and
+conversely, with the same total and the same emptiness. This serves the
+decoding, indexing by a listing of a presented structure's items. -/
 theorem hasNonemptySubsetSum_iff_index {A : Type} [Language.binWeights.Structure A] [Finite A]
     {n : ℕ} (f : Fin n → A) (hf : Function.Injective f)
     (hrange : ∀ a, BWItem a ↔ ∃ j, f j = a) (hlin : IsLinOrd (BWLe (A := A))) :
     HasNonemptySubsetSum A
-      ↔ ∃ J : Finset (Fin n), J.Nonempty ∧ ∑ j ∈ J, BWWeight (f j) = BWTarget A := by
-  constructor
-  · rintro ⟨-, -, S, hSne, hSi, hsum⟩
-    obtain ⟨J, hJ, hne⟩ := selection_toIndex f hf hrange S hSi
-    exact ⟨J, hne.mp hSne, by rw [← hJ, hsum]⟩
-  · rintro ⟨J, hJne, hJ⟩
-    obtain ⟨S, hSi, hsum, hne⟩ := selection_ofIndex f hf (fun j => (hrange _).mpr ⟨j, rfl⟩) J
-    exact ⟨inferInstance, hlin, S, hne.mpr hJne, hSi, by rw [hsum, hJ]⟩
+      ↔ ∃ J : Finset (Fin n), J.Nonempty ∧ ∑ j ∈ J, BWWeight (f j) = BWTarget A :=
+  (hasNonemptySubsetSum_iff_selection hlin).trans
+    (exists_selection_iff_index f hf hrange fun ne s => ne ∧ s = BWTarget A)
 
+/-- The encoding side is the concrete-instance bridge
+`BinarySubsetSum.exists_selection_iff`, for the condition “non-empty, and
+summing to the target”. -/
 theorem concreteNonemptySubsetSum_iff (i : HavingSumInstance) :
     ConcreteNonemptySubsetSum i ↔ HasNonemptySubsetSum (binarySubsetSumEncoding.Univ i) := by
-  refine Iff.symm ((hasNonemptySubsetSum_iff_index (BinarySubsetSum.itemPt i)
-    BinarySubsetSum.itemPt_injective BinarySubsetSum.item_iff_range
-    BinarySubsetSum.isLinOrd).trans ?_)
-  simp only [BinarySubsetSum.weight_itemPt, BinarySubsetSum.target]
-  exact Iff.rfl
+  rw [hasNonemptySubsetSum_iff_selection BinarySubsetSum.isLinOrd,
+    BinarySubsetSum.exists_selection_iff i
+      fun ne s => ne ∧ s = BWTarget (binarySubsetSumEncoding.Univ i),
+    BinarySubsetSum.target]
+  rfl
 
 /-- **The encoding is faithful, over `ℕ[X]`**: on every encoded group,
 `HavingSumNonzero` computes exactly non-zero provenance of the concrete

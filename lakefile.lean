@@ -23,9 +23,9 @@ require "leanprover-community" / "mathlib" @ git "v4.35.0"
 
 -- descriptive-complexity versions are its own semver, independent of the Lean
 -- toolchain: the release pinned below is cut against the Mathlib pin above.
--- `v1.1.0` is the floor, since the complexity results import its
--- `Encoding.BinarySubsetSum`, added there; later releases stay compatible as
--- long as they keep that Mathlib pin.
+-- `v1.4.0` is the floor, since the complexity results use the selection bridges
+-- of its `Encoding.BinarySubsetSum`, added there; later releases stay compatible
+-- as long as they keep that Mathlib pin.
 require "descriptive-complexity" from git
   "https://github.com/PierreSenellart/descriptive-complexity" @ "v1.4.0"
 
