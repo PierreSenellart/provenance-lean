@@ -1464,7 +1464,7 @@ def setFam (φ : FamId T) (ids : Option (List (OccId T)) := none) :
     AggTok T K → AggTok T K
   | .tok a => .tok { a with fam := φ, oids := ids.getD a.oids }
   | .nest a => .nest { a with fam := φ }
-  | .expr a => .expr { a with fam := φ }
+  | .expr a => .expr { a with fam := φ, oids := ids.getD a.oids }
 
 @[simp] theorem fam_setFam (φ : FamId T) {ids : Option (List (OccId T))} (a : AggTok T K) :
     (a.setFam φ ids).fam = φ := by
@@ -1476,8 +1476,12 @@ theorem setFam_tok (φ : FamId T) (a : AggValue T K) :
 theorem setFam_nest (φ : FamId T) {ids : Option (List (OccId T))} (a : NestedValue T K) :
     (AggTok.nest a).setFam φ ids = .nest { a with fam := φ } := rfl
 
-theorem setFam_expr (φ : FamId T) {ids : Option (List (OccId T))} (a : AggExpr T K) :
-    (AggTok.expr a).setFam φ ids = .expr { a with fam := φ } := rfl
+theorem setFam_expr (φ : FamId T) (a : AggExpr T K) :
+    (AggTok.expr a).setFam φ = .expr { a with fam := φ } := rfl
+
+/-- An expression stamped with the identities of its occurrences. -/
+theorem setFam_expr_some (φ : FamId T) (ids : List (OccId T)) (a : AggExpr T K) :
+    (AggTok.expr a).setFam φ (some ids) = .expr { a with fam := φ, oids := ids } := rfl
 
 /-- An ordinary token stamped with the identities of its occurrences. -/
 theorem setFam_tok_some (φ : FamId T) (ids : List (OccId T)) (a : AggValue T K) :

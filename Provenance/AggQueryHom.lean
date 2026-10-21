@@ -970,15 +970,15 @@ theorem GenValue.Equiv.altProv_eq {x' x : AggTok T K}
 /-- **Two expression columns over tie-permuted families are
 equivalent**: the four readings `GenValue.Equiv` asks of them are
 exactly `AggExpr.readings_congr`'s bundle. -/
-theorem GenValue.Equiv.of_expr_tiePerm {q : ℕ} {φ₁ φ₂ : FamId T}
+theorem GenValue.Equiv.of_expr_tiePerm {q : ℕ} {φ₁ φ₂ : FamId T} {os₁ os₂ : List (OccId T)}
     {occs₁ occs₂ : List ((Fin q → T) × K × (Fin q → Bool) × (Fin q → Bool))}
     (aggs : Fin q → SeqAggFunc T) {sc₁ sc₂ : Fin q → Bool} (hsc : sc₁ = sc₂)
     (g : (Fin q → T) → T)
     (h : TiePerm (fun z z' => z.fst = z'.fst ∧ z.snd.snd = z'.snd.snd)
       occs₁ occs₂) :
     GenValue.Equiv
-      (Sum.inr (AggTok.expr (AggExpr.mk q occs₁ aggs sc₁ g φ₁)) : GenValue T K)
-      (Sum.inr (AggTok.expr (AggExpr.mk q occs₂ aggs sc₂ g φ₂))) := by
+      (Sum.inr (AggTok.expr (AggExpr.mk q occs₁ aggs sc₁ g φ₁ os₁)) : GenValue T K)
+      (Sum.inr (AggTok.expr (AggExpr.mk q occs₂ aggs sc₂ g φ₂ os₂))) := by
   subst hsc
   obtain ⟨hcol, hsc', hvals, hprov⟩ := AggExpr.readings_congr (φ₁ := φ₁) (φ₂ := φ₂) aggs sc₁ g h
   exact ⟨hcol, hsc', hvals, hprov, AggExpr.worldStats_congr (φ₁ := φ₁) (φ₂ := φ₂) aggs sc₁ g h⟩
@@ -2203,9 +2203,9 @@ theorem ListingRel.exists_of_exprTie (h : SemiringWithMonusHom K K') (e : AggExp
     {occs' : List ((Fin e.arity → T) × K' × (Fin e.arity → Bool) × (Fin e.arity → Bool))}
     (htie : TiePerm (fun z z' => z.1 = z'.1 ∧ z.2.2 = z'.2.2) occs'
       (e.occs.map (fun z => (z.1, h.toRingHom z.2.1, z.2.2))))
-    (φ φ' : FamId T) :
+    (φ φ' : FamId T) {os' : List (OccId T)} :
     ∃ D : ListingRel h.toRingHom T,
-      D.Member (AggTok.expr ⟨e.arity, occs', e.aggs, e.scalar, e.g, φ'⟩)
+      D.Member (AggTok.expr ⟨e.arity, occs', e.aggs, e.scalar, e.g, φ', os'⟩)
         ((AggTok.expr e).setFam φ) := by
   obtain ⟨D, hD⟩ := ListingRel.exists_of_tie h.toRingHom e.aggs e.scalar e.g htie
   exact ⟨D, hD _ _ φ φ' rfl rfl rfl rfl⟩
@@ -2371,7 +2371,8 @@ theorem ListingRel.exists_exprOfWhen (h : SemiringWithMonusHom K K')
     (ValueFrame.exprOfWhen P O o ws ts fs g keeps r i γ).scalar
     (ValueFrame.exprOfWhen P O o ws ts fs g keeps r i γ).g htie
   refine ⟨D, hD _ _ φ φ' rfl rfl rfl ?_⟩
-  show AggExpr.mk qq _ fs (ValueFrame.exprOfWhen P O o ws ts fs g keeps r' i' γ).scalar g φ' = _
+  show AggExpr.mk qq _ fs (ValueFrame.exprOfWhen P O o ws ts fs g keeps r' i' γ).scalar g φ' _
+    = _
   rw [hsc]
   rfl
 
@@ -2415,7 +2416,7 @@ value read as an expression on both sides. -/
 def LGU (𝒰₀ : AggTok T K → Prop) (𝒰₀' : AggTok T K' → Prop) (e' : AggExpr T K')
     (e : AggExpr T K) : Prop :=
   (∃ y' y, GPair 𝒰₀ 𝒰₀' (y', y) ∧ y.isNested = false ∧ y'.isNested = false
-      ∧ e = y.flatExpr ∧ e' = y'.flatExpr)
+      ∧ e = GenValue.innerValue (Sum.inr y) ∧ e' = GenValue.innerValue (Sum.inr y'))
     ∨ ∃ v, e = NestedValue.constInner v ∧ e' = NestedValue.constInner v
 
 /-- **The node pairs a nested value of the universes reads**: those of a
@@ -2480,8 +2481,10 @@ theorem LGU.key_eq {𝒰₀ : AggTok T K → Prop} {𝒰₀' : AggTok T K' → P
     (hf : (leafKey e₁).1 = (leafKey e₂).1) (hl : (leafKey e₁).2.length = (leafKey e₂).2.length) :
     leafKey e₁ = leafKey e₂ := by
   have hflat : ∀ y : AggTok T K, y.isNested = false →
-      leafKey y.flatExpr = (y.fam.family, y.annList) := by
+      leafKey (GenValue.innerValue (Sum.inr y)) = (y.fam.family, y.annList) := by
     intro y hy
+    rw [show leafKey (GenValue.innerValue (Sum.inr y)) = leafKey y.flatExpr by
+      cases y <;> first | rfl | exact absurd hy (by simp [AggTok.isNested])]
     unfold leafKey
     rw [AggTok.flatExpr_annList_of_not_nest _ hy]
     cases y with
@@ -2725,15 +2728,6 @@ theorem classPres_row {h : SemiringWithMonusHom K K'} {𝒰₀ : AggTok T K → 
     subst h1 h2
     rw [he]
     exact NestRelU.postcompTerms _ hr ⟨TermCl.base hx𝒰', TermCl.base hx𝒰, heq j _ _ hx' hx⟩
-
-omit [ValueType T] in
-theorem innerValue_tok {K₀ : Type} [CommSemiringWithMonus K₀] (y : AggTok T K₀)
-    (hy : y.isNested = false) : GenValue.innerValue (Sum.inr y) = y.flatExpr := by
-  cases y with
-  | tok a => rfl
-  | expr e => rfl
-  | nest b => exact absurd hy (by simp [AggTok.isNested])
-
 
 omit [DecidableEq K] [DecidableEq K'] [HasAltLinearOrder K] [HasAltLinearOrder K'] in
 /-- **A presented flat class presents every member of it.** -/
@@ -3094,28 +3088,23 @@ theorem ColPair.innerAt {h : SemiringWithMonusHom K K'} {𝒰₀ : AggTok T K �
         refine ⟨by rw [hlev _ hy, hlev _ hy'], fun D _ => rel_innerAt_flat
           (fun z hz => by cases hz; exact hy) (fun z hz => by cases hz; exact hy') ?_ D⟩
         obtain ⟨-, -, ok, val, hP, hP'⟩ := lpU_member hy hc hg
-        have hfi : ∀ {K₀ : Type} (x : AggTok T K₀), x.isNested = false →
-            GenValue.innerValue (Sum.inr x : GenValue T K₀) = x.flatExpr := by
-          intro K₀ x hx
-          cases x with
-          | nest b => exact absurd hx (by simp [AggTok.isNested])
-          | tok a => rfl
-          | expr e => rfl
-        rw [hfi _ hy, hfi _ hy']
-        refine ⟨Or.inl ⟨y', y, hg, hy, hy', rfl, rfl⟩, ?_, ok, val, hP, hP'⟩
         have hf : y'.fam = y.fam := hg.2.2
         cases y with
         | nest b => exact absurd hy (by simp [AggTok.isNested])
         | tok a =>
           cases y' with
           | nest b => exact absurd hy' (by simp [AggTok.isNested])
-          | tok a' => exact congrArg FamId.family hf
-          | expr e' => exact congrArg FamId.family hf
+          | tok a' =>
+            exact ⟨Or.inl ⟨_, _, hg, hy, hy', rfl, rfl⟩, congrArg FamId.family hf, ok, val, hP, hP'⟩
+          | expr e' =>
+            exact ⟨Or.inl ⟨_, _, hg, hy, hy', rfl, rfl⟩, congrArg FamId.family hf, ok, val, hP, hP'⟩
         | expr e =>
           cases y' with
           | nest b => exact absurd hy' (by simp [AggTok.isNested])
-          | tok a' => exact congrArg FamId.family hf
-          | expr e' => exact congrArg FamId.family hf
+          | tok a' =>
+            exact ⟨Or.inl ⟨_, _, hg, hy, hy', rfl, rfl⟩, congrArg FamId.family hf, ok, val, hP, hP'⟩
+          | expr e' =>
+            exact ⟨Or.inl ⟨_, _, hg, hy, hy', rfl, rfl⟩, congrArg FamId.family hf, ok, val, hP, hP'⟩
       | true =>
         obtain ⟨b, rfl⟩ : ∃ b, y = AggTok.nest b := by
           cases y <;> simp_all [AggTok.isNested]
@@ -4262,7 +4251,11 @@ theorem AggQueryIn.evaluate_hom_univ (h : SemiringWithMonusHom K K') {𝒰₀ : 
         refine Fin.lastCases ?_ (fun k' => ?_) k
         · rw [Fin.snoc_last, Fin.snoc_last]
           exact (exprOfWhen_mapAnn_equiv h P O o hw.1 ts fs g keeps γ
-            (congrArg Prod.fst (he i)) hmul').setFam _ _ (ids' := none) (ids := none)
+            (congrArg Prod.fst (he i)) hmul').setFam _ _
+            (ids' := some (ValueFrame.exprOids lab (E'.paramKey rd γ) P O o ws
+              (OccFam.ofSorted (Multiset.map gh X)) (e i)))
+            (ids := some (ValueFrame.exprOids lab (E.paramKey rd γ) P O o ws
+              (OccFam.ofSorted X) i))
         · rw [Fin.snoc_castSucc, Fin.snoc_castSucc]
           exact congrArg (fun y : AnnotatedTuple T K' nI => y.fst k') (he i)
       · dsimp only

@@ -48,7 +48,7 @@ read through its row `str` and annotated by `ann`. -/
 def build (sp : LeafSpec ρ T) (L : List β) (ann : β → K) (str : β → ρ) (φ : FamId T) :
     AggExpr T K :=
   ⟨sp.arity, L.map (fun b => (sp.V (str b), ann b, sp.Fr (str b), sp.Kp (str b))),
-    sp.aggs, sp.scalar, sp.g, φ⟩
+    sp.aggs, sp.scalar, sp.g, φ, []⟩
 
 /-- Whether a selected sequence of rows is a world of the value. -/
 def okL (sp : LeafSpec ρ T) (s : List ρ) : Prop :=
@@ -895,7 +895,8 @@ theorem ListingRel.exists_of_tie (f : K →+* K') {q : ℕ}
       (occs.map (fun z => (z.1, f z.2.1, z.2.2)))) :
     ∃ D : ListingRel f T, ∀ (x : AggTok T K) (x' : AggTok T K') (φ φ' : FamId T),
       x.isNested = false → x'.isNested = false →
-      x.flatExpr = ⟨q, occs, aggs, sc, g, φ⟩ → x'.flatExpr = ⟨q, occs', aggs, sc, g, φ'⟩ →
+      x.flatExpr = ⟨q, occs, aggs, sc, g, φ, []⟩
+        → x'.flatExpr = ⟨q, occs', aggs, sc, g, φ', []⟩ →
       D.Member x' x := by
   let sp : LeafSpec ((Fin q → T) × (Fin q → Bool) × (Fin q → Bool)) T :=
     ⟨q, fun r => r.1, fun r => r.2.1, fun r => r.2.2, aggs, sc, g⟩

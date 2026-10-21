@@ -117,14 +117,15 @@ def GenValue.collapse : GenValue T K → T :=
 /-- **How a lifted value is read as an aggregate expression**: an
 aggregate expression is itself – a term over several aggregate columns is
 one, and `sec:aggcols` reads it as such – an ordinary token is the
-expression of itself (`AggExpr.ofValue`), and a regular value reads no
+expression of itself (`AggExpr.ofValue`, keeping the identities of its
+occurrences), and a regular value reads no
 occurrence and returns itself (`NestedValue.constInner`), so that
 aggregating a regular column nests nothing. A *nested* value is no
 expression and is read here through its collapse; a second-level
 aggregation reads it as a node instead (`GenValue.innerAt`). -/
 def GenValue.innerValue : GenValue T K → AggExpr T K
   | Sum.inl v => NestedValue.constInner v
-  | Sum.inr (AggTok.tok a) => AggExpr.ofValue a
+  | Sum.inr (AggTok.tok a) => { AggExpr.ofValue a with oids := a.oids }
   | Sum.inr (AggTok.nest a) => NestedValue.constInner a.collapse
   | Sum.inr (AggTok.expr e) => e
 
@@ -162,7 +163,8 @@ and the pushforward moves the annotations through it. -/
   | inr y =>
     cases y with
     | tok a =>
-      show AggExpr.ofValue (a.mapAnn hm) = (AggExpr.ofValue a).mapAnn hm
+      show { AggExpr.ofValue (a.mapAnn hm) with oids := (a.mapAnn hm).oids }
+        = ({ AggExpr.ofValue a with oids := a.oids } : AggExpr T K).mapAnn hm
       unfold AggExpr.ofValue AggExpr.mapAnn AggValue.mapAnn
       simp only [AggExpr.mk.injEq, heq_eq_eq, true_and, and_true]
       rw [List.map_map, List.map_map]
@@ -359,7 +361,7 @@ an ordinary token is the one-leaf expression, an expression is itself.
 A nested value is read through its own worlds and never here. -/
 def flatExpr : AggTok T K → AggExpr T K
   | .tok a => AggExpr.ofValue a
-  | .expr e => e
+  | .expr e => { e with oids := [] }
   | .nest a => AggExpr.ofValue ⟨fun _ => a.collapse, [], true, a.fam, []⟩
 
 end AggTok
@@ -1695,6 +1697,17 @@ def ValueFrame.windowGenRow {c n m p : ℕ} (lab : ℕ) (ck : List (T ⊕ FamId 
           else some (ValueFrame.frameOids lab ck P O o w X (GenRow.readAnnotated κ x))))),
     x.snd⟩
 
+/-- **The identities of a multi-frame window's occurrences**: an
+occurrence the expression of the row `i` reads is numbered by its index in
+the sorted input, which is how the expression indexes it. So the
+expressions of every row give one occurrence one identity. -/
+def ValueFrame.exprOids {n m p q : ℕ} (lab : ℕ) (ck : List (T ⊕ FamId T))
+    (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
+    (ws : Fin q → ValueFrame T p) (r : OccFam (AnnotatedTuple T K n)) (i : Fin r.size) :
+    List (OccId T) :=
+  (ValueFrame.exprIdx (α := AnnotatedTuple T K n) Prod.fst P O o ws r i).map
+    (fun j => ⟨lab, ck, [], j.val⟩)
+
 /-- Embed an annotated tuple as a general row (all-regular, nothing
 pending). -/
 def GenRow.ofAnnotated {n : ℕ} (p : AnnotatedTuple T K n) : GenRow T K n :=
@@ -2741,7 +2754,8 @@ noncomputable def AggQueryIn.evaluate {c n : ℕ} {κ : Fin n → ColKind} {l : 
       (⟨Fin.snoc (fun k => (Sum.inl ((occ.row i).fst k) : GenValue T K))
           (Sum.inr ((AggTok.expr
             (ValueFrame.exprOfWhen P O o ws ts fs g keeps occ i γ)).setFam
-              (.mk lab (List.ofFn (occ.row i).fst) (E.paramKey rd γ) 0 []))),
+              (.mk lab (List.ofFn (occ.row i).fst) (E.paramKey rd γ) 0 [])
+              (some (ValueFrame.exprOids lab (E.paramKey rd γ) P O o ws occ i)))),
         ⟨(occ.row i).snd, 0⟩⟩ : GenRow T K (n + 1)))).toMultiset
 termination_by structural q
 
@@ -4698,7 +4712,7 @@ theorem AggQueryIn.evaluate_noNestedOn :
       | tok _ => rfl
       | expr _ => rfl
       | nest _ =>
-        exact absurd ha (by dsimp only; rw [Fin.snoc_last]; simp [AggTok.setFam_expr])
+        exact absurd ha (by dsimp only; rw [Fin.snoc_last]; simp [AggTok.setFam_expr_some])
     · exact absurd ha (by dsimp only; rw [Fin.snoc_castSucc]; simp)
 
 /-- The form for an environment holding no nested value at all. -/

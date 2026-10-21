@@ -1015,14 +1015,14 @@ semantically invisible, as `AggValue.predProvWith_congr` does for one
 token. The two halves of the equivalence are both needed: swapping
 occurrences that different leaves read would hand a leaf a value it does
 not read. -/
-theorem predProvWith_congr {φ₁ φ₂ : FamId T}
+theorem predProvWith_congr {φ₁ φ₂ : FamId T} {os₁ os₂ : List (OccId T)}
     {occs₁ occs₂ : List ((Fin q → T) × K × (Fin q → Bool) × (Fin q → Bool))}
     (aggs : Fin q → SeqAggFunc T) (sc : Fin q → Bool) (g : (Fin q → T) → T)
     (h : TiePerm (fun z z' => z.fst = z'.fst ∧ z.snd.snd = z'.snd.snd)
       occs₁ occs₂)
     (P : T → Kleene) :
-    (AggExpr.mk q occs₁ aggs sc g φ₁).predProvWith P
-      = (AggExpr.mk q occs₂ aggs sc g φ₂).predProvWith P := by
+    (AggExpr.mk q occs₁ aggs sc g φ₁ os₁).predProvWith P
+      = (AggExpr.mk q occs₂ aggs sc g φ₂ os₂).predProvWith P := by
   rw [predProvWith_eq_exprProvAux, predProvWith_eq_exprProvAux]
   exact exprProvAux_congr aggs sc g P h _ 0 _
 
@@ -1032,20 +1032,20 @@ expression alone.** The collapse and the values read the stripped family
 and the predicate provenance is `predProvWith_congr`. These four are what
 an aggregate column owes, so this is the bundle a simulation of two
 expression columns asks for. -/
-theorem readings_congr {φ₁ φ₂ : FamId T}
+theorem readings_congr {φ₁ φ₂ : FamId T} {os₁ os₂ : List (OccId T)}
     {occs₁ occs₂ : List ((Fin q → T) × K × (Fin q → Bool) × (Fin q → Bool))}
     (aggs : Fin q → SeqAggFunc T) (sc : Fin q → Bool) (g : (Fin q → T) → T)
     (h : TiePerm (fun z z' => z.fst = z'.fst ∧ z.snd.snd = z'.snd.snd)
       occs₁ occs₂) :
-    (AggExpr.mk q occs₁ aggs sc g φ₁).collapse
-        = (AggExpr.mk q occs₂ aggs sc g φ₂).collapse
-      ∧ (AggExpr.mk q occs₁ aggs sc g φ₁).isScalar
-        = (AggExpr.mk q occs₂ aggs sc g φ₂).isScalar
-      ∧ (AggExpr.mk q occs₁ aggs sc g φ₁).vals
-        = (AggExpr.mk q occs₂ aggs sc g φ₂).vals
+    (AggExpr.mk q occs₁ aggs sc g φ₁ os₁).collapse
+        = (AggExpr.mk q occs₂ aggs sc g φ₂ os₂).collapse
+      ∧ (AggExpr.mk q occs₁ aggs sc g φ₁ os₁).isScalar
+        = (AggExpr.mk q occs₂ aggs sc g φ₂ os₂).isScalar
+      ∧ (AggExpr.mk q occs₁ aggs sc g φ₁ os₁).vals
+        = (AggExpr.mk q occs₂ aggs sc g φ₂ os₂).vals
       ∧ ∀ P : T → Kleene,
-        (AggExpr.mk q occs₁ aggs sc g φ₁).predProvWith P
-          = (AggExpr.mk q occs₂ aggs sc g φ₂).predProvWith P := by
+        (AggExpr.mk q occs₁ aggs sc g φ₁ os₁).predProvWith P
+          = (AggExpr.mk q occs₂ aggs sc g φ₂ os₂).predProvWith P := by
   have hstrip : occs₁.map (fun z => (z.fst, z.snd.snd))
       = occs₂.map (fun z => (z.fst, z.snd.snd)) :=
     TiePerm.map_eq_of_eqv (fun hz => Prod.ext_iff.mpr ⟨hz.1, hz.2⟩) h
@@ -1238,13 +1238,13 @@ permutation of the family**: they are the recursion's
 (`AggExpr.worldStats_eq_subStats`), and the recursion is
 (`AggExpr.subStats_congr`). This is what an aggregate column owes a
 nested value that reads it, beside the four readings. -/
-theorem worldStats_congr {q : ℕ} {φ₁ φ₂ : FamId T}
+theorem worldStats_congr {q : ℕ} {φ₁ φ₂ : FamId T} {os₁ os₂ : List (OccId T)}
     {occs₁ occs₂ : List ((Fin q → T) × K × (Fin q → Bool) × (Fin q → Bool))}
     (aggs : Fin q → SeqAggFunc T) (sc : Fin q → Bool) (g : (Fin q → T) → T)
     (h : TiePerm (fun z z' => z.fst = z'.fst ∧ z.snd.snd = z'.snd.snd)
       occs₁ occs₂) :
-    (AggExpr.mk q occs₁ aggs sc g φ₁).worldStats
-      = (AggExpr.mk q occs₂ aggs sc g φ₂).worldStats := by
+    (AggExpr.mk q occs₁ aggs sc g φ₁ os₁).worldStats
+      = (AggExpr.mk q occs₂ aggs sc g φ₂ os₂).worldStats := by
   rw [AggExpr.worldStats_eq_subStats, AggExpr.worldStats_eq_subStats,
     subStats_congr h]
   rfl

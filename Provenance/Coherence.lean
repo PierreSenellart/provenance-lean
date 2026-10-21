@@ -919,6 +919,32 @@ theorem exprWhenOf_congr_fst {c n m p : ℕ} (P : Tuple (Fin n) m) (O : Tuple (F
   rw [hf, hxy]
 
 omit [CommSemiringWithMonus K] [DecidableEq K] in
+/-- **Two rows carrying one tuple read the same occurrences** of frames
+containing the current row. -/
+theorem exprIdx_congr_row {n m p q : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
+    (o : OrderSpec p) {ws : Fin q → ValueFrame T p} (hc : ∀ l, (ws l).ContainsSelf)
+    (r : OccFam (AnnotatedTuple T K n)) {i i' : Fin r.size}
+    (h : (r.row i).fst = (r.row i').fst) :
+    exprIdx (α := AnnotatedTuple T K n) Prod.fst P O o ws r i
+      = exprIdx (α := AnnotatedTuple T K n) Prod.fst P O o ws r i' := by
+  unfold exprIdx frameSeqOn frameSeq
+  rw [frame_eq_of_key_eq (val := fun j : Fin r.size => (r.row j).fst)
+    (containsSelf_unionFrame hc) (OccFam.mk r.size id)
+    (i := Fin.cast (by simp) i) (i' := Fin.cast (by simp) i')
+    (congrArg (Tuple.key P) h) (congrArg (Tuple.key O) h)]
+
+omit [CommSemiringWithMonus K] [DecidableEq K] in
+/-- **Two rows carrying one tuple give their occurrences one identity.** -/
+theorem exprOids_congr_row {n m p q : ℕ} (lab : ℕ) (ck : List (T ⊕ FamId T))
+    (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
+    (o : OrderSpec p) {ws : Fin q → ValueFrame T p} (hc : ∀ l, (ws l).ContainsSelf)
+    (r : OccFam (AnnotatedTuple T K n)) {i i' : Fin r.size}
+    (h : (r.row i).fst = (r.row i').fst) :
+    exprOids lab ck P O o ws r i = exprOids lab ck P O o ws r i' := by
+  unfold exprOids
+  rw [exprIdx_congr_row P O o hc r h]
+
+omit [CommSemiringWithMonus K] [DecidableEq K] in
 /-- **A multi-frame window's expression over frames containing their
 current row is the tuple's**: two occurrences carrying the same tuple get
 the same expression. -/
@@ -928,13 +954,7 @@ theorem exprOfWhen_congr_row {c n m p q : ℕ} (P : Tuple (Fin n) m) (O : Tuple 
     (keeps : Fin q → Option (Selection T n)) (r : OccFam (AnnotatedTuple T K n))
     {i i' : Fin r.size} (h : (r.row i).fst = (r.row i').fst) (γ : Fin c → T) :
     exprOfWhen P O o ws ts fs g keeps r i γ = exprOfWhen P O o ws ts fs g keeps r i' γ := by
-  have hidx : exprIdx (α := AnnotatedTuple T K n) Prod.fst P O o ws r i
-      = exprIdx (α := AnnotatedTuple T K n) Prod.fst P O o ws r i' := by
-    unfold exprIdx frameSeqOn frameSeq
-    rw [frame_eq_of_key_eq (val := fun j : Fin r.size => (r.row j).fst)
-      (containsSelf_unionFrame hc) (OccFam.mk r.size id)
-      (i := Fin.cast (by simp) i) (i' := Fin.cast (by simp) i')
-      (congrArg (Tuple.key P) h) (congrArg (Tuple.key O) h)]
+  have hidx := exprIdx_congr_row P O o hc r h
   have hmem : ∀ l j, mem (α := AnnotatedTuple T K n) Prod.fst P O (ws l) r i j
       = mem (α := AnnotatedTuple T K n) Prod.fst P O (ws l) r i' j := by
     intro l j
@@ -1098,7 +1118,8 @@ theorem AggQueryIn.newFun_WinExpr {c n m p q lab : ℕ} {rd : Fin c → Bool}
   subst hx hy
   simp only [AggTok.fam_setFam, FamId.family, Prod.mk.injEq] at hxy
   obtain ⟨-, hg, -⟩ := hxy
-  rw [ValueFrame.exprOfWhen_congr_row P O o hc ts fs g keeps _ (List.ofFn_injective hg) γ, hg]
+  rw [ValueFrame.exprOfWhen_congr_row P O o hc ts fs g keeps _ (List.ofFn_injective hg) γ,
+    ValueFrame.exprOids_congr_row lab _ P O o hc _ (List.ofFn_injective hg), hg]
 
 /-- **The columns a grouping builds for one group share a class.** -/
 theorem AggQueryIn.newKey_Gamma {c m n₁ n₂ lab : ℕ} {rd : Fin c → Bool}

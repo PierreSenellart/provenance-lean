@@ -841,7 +841,10 @@ theorem evaluate_gammaWhere (is : Tuple (Fin m) n₁) (φ : Selection T m)
               φ.keeps (Having.havingGroup is
                 ((q.evaluate d γ).map GenRow.toAnnotated) kv.fst) γ)).setFam
                   (.mk 0 (List.ofFn kv.fst) (({} : EvalEnv T K).paramKey (fun _ => false) γ)
-                    j []))),
+                    j [])
+                  (some (OccId.listing 0 (({} : EvalEnv T K).paramKey (fun _ => false) γ)
+                    (List.ofFn kv.fst) (Having.havingGroup is
+                      ((q.evaluate d γ).map GenRow.toAnnotated) kv.fst).length)))),
           ⟨1, {(Having.havingGroup is
               ((q.evaluate d γ).map GenRow.toAnnotated) kv.fst).map Prod.snd}⟩⟩
           : GenRow T K (n₁ + 1))) := by

@@ -12,14 +12,19 @@ The paper compares annotated results up to `≈` (`def:zeq`): rows annotated
 `𝟘` and occurrences annotated `𝟘` are dropped, and what is left is equal up
 to a one-to-one renaming of the occurrences, which keeps which aggregate
 values share which occurrences. `GeneratesAnnZ` reads an aggregate value
-only through its value; this module compares ordinary tokens through their
-occurrences, using the identities the evaluator stamps on them
-(`AggValue.oids`).
+only through its value; this module compares aggregate values through
+their occurrences, using the identities the evaluator stamps on them
+(`AggValue.oids`, `AggExpr.oids`).
 
-* `GenRow.zeqRen` is that comparison: an ordinary token is compared by its
-  aggregate, its convention, and its occurrences annotated otherwise than
-  `𝟘` with their identities, renamed by one injective map for the whole
-  result; a token of another kind is compared with its family forgotten.
+* `GenRow.zeqRen` is that comparison. An ordinary token and an aggregate
+  expression are compared by what they compute and by their occurrences
+  annotated otherwise than `𝟘` with their identities, renamed by one
+  injective map for the whole result. A nested value is compared the same
+  way at every storey of what its occurrences read, with its occurrences
+  annotated `𝟘` dropped at every storey; its own occurrences carry no
+  identity, and its family, renamed by a second injective map, says which
+  nested values share them. What it does not record is which occurrence of
+  one nested value is which occurrence of another of the same family.
 * `GeneratesAnnRen` is the generation predicate up to it.
 * `apply_mem_of_generatesAnnRen` is the apply row: over Boolean functions
   of two variables, a set generating up to it holds the apply.
@@ -44,27 +49,74 @@ def AggValue.zeroOccs (a : AggValue T K) : AggValue T K :=
 def AggValue.renameOids (τ : OccId T → OccId T) (a : AggValue T K) : AggValue T K :=
   { a with oids := a.oids.map τ }
 
-/-- A column value read up to `≈`, its occurrence identities renamed by `τ`:
-an ordinary token by its occurrences annotated otherwise than `𝟘`, any
-other token with its family forgotten. -/
-def GenValue.zeqNorm (τ : OccId T → OccId T) : GenValue T K → GenValue T K
+/-- **A family identifier with its family renamed** by `ϕ`: the column and
+the terms applied since are kept, so two identifiers of one family stay of
+one family. -/
+def FamId.renameFamily (ϕ : ℕ × List T × List (T ⊕ FamId T) → ℕ × List T × List (T ⊕ FamId T)) :
+    FamId T → FamId T
+  | .mk l k p c ts => .mk (ϕ (l, k, p)).1 (ϕ (l, k, p)).2.1 (ϕ (l, k, p)).2.2 c ts
+
+/-- An aggregate expression read up to `≈`: its occurrences annotated `𝟘`
+dropped together with their identities, the others' identities renamed by
+`τ`, and its family by `φ`. -/
+def AggExpr.zeqNorm (τ : OccId T → OccId T) (φ : FamId T → FamId T) (e : AggExpr T K) :
+    AggExpr T K :=
+  { e with
+    occs := e.occs.filter (fun o => o.2.1 ≠ 0)
+    fam := φ e.fam
+    oids := (((e.occs.zip e.oids).filter (fun p => p.1.2.1 ≠ 0)).map Prod.snd).map τ }
+
+/-- What an occurrence of a nested value reads, up to `≈`: at every storey
+the occurrences annotated `𝟘` dropped, the identities of the expressions'
+occurrences renamed by `τ`, and the families renamed by `ϕ`. -/
+def NestInner.zeqNorm (τ : OccId T → OccId T)
+    (ϕ : ℕ × List T × List (T ⊕ FamId T) → ℕ × List T × List (T ⊕ FamId T)) :
+    (j : ℕ) → NestInner T K j → NestInner T K j
+  | 0, e => AggExpr.zeqNorm (T := T) (K := K) τ (FamId.renameFamily ϕ) e
+  | j + 1, Sum.inl x => Sum.inl (NestInner.zeqNorm τ ϕ j x)
+  | j + 1, Sum.inr N => Sum.inr ⟨N.agg, (N.occs.filter (fun o => o.2 ≠ 0)).map
+      (fun o => (NestInner.zeqNorm τ ϕ j o.1, o.2)), N.scalar, FamId.renameFamily ϕ N.fam⟩
+
+/-- A nested value read up to `≈`: its occurrences annotated `𝟘` dropped,
+what the others read normalized at every storey, and its family renamed. -/
+def NestedValue.zeqNorm (τ : OccId T → OccId T)
+    (ϕ : ℕ × List T × List (T ⊕ FamId T) → ℕ × List T × List (T ⊕ FamId T))
+    (a : NestedValue T K) : NestedValue T K :=
+  ⟨a.lev, a.agg, (a.occs.filter (fun o => o.2 ≠ 0)).map
+    (fun o => (NestInner.zeqNorm τ ϕ a.lev o.1, o.2)), a.scalar, FamId.renameFamily ϕ a.fam⟩
+
+/-- A column value read up to `≈`, its occurrence identities renamed by `τ`
+and its families by `ϕ`. An ordinary token and an expression are read by
+their occurrences annotated otherwise than `𝟘`, their identities saying
+which occurrences they share with other values, and their families
+forgotten. A nested value is read the same way at every storey of what its
+occurrences read; its own occurrences carry no identity, and which ones two
+nested values share is said by their families, which are renamed rather
+than forgotten. -/
+def GenValue.zeqNorm (τ : OccId T → OccId T)
+    (ϕ : ℕ × List T × List (T ⊕ FamId T) → ℕ × List T × List (T ⊕ FamId T)) :
+    GenValue T K → GenValue T K
   | .inl v => .inl v
   | .inr (.tok a) => .inr (.tok (a.zeroOccs.renameOids τ))
-  | .inr x => .inr (x.setFam FamId.none)
+  | .inr (.expr e) => .inr (.expr (e.zeqNorm τ (fun _ => FamId.none)))
+  | .inr (.nest a) => .inr (.nest (a.zeqNorm τ ϕ))
 
 /-- A result read up to `≈`: its rows annotated otherwise than `𝟘`, each
-column read by `GenValue.zeqNorm τ`, with its annotation. -/
-def GenRow.zeqNorm {n : ℕ} (τ : OccId T → OccId T) (R : Multiset (GenRow T K n)) :
-    Multiset (Tuple (GenValue T K) n × K) :=
+column read by `GenValue.zeqNorm τ ϕ`, with its annotation. -/
+def GenRow.zeqNorm {n : ℕ} (τ : OccId T → OccId T)
+    (ϕ : ℕ × List T × List (T ⊕ FamId T) → ℕ × List T × List (T ⊕ FamId T))
+    (R : Multiset (GenRow T K n)) : Multiset (Tuple (GenValue T K) n × K) :=
   (R.filter (fun r => r.snd.finalize ≠ 0)).map
-    (fun r => (fun k => GenValue.zeqNorm τ (r.fst k), r.snd.finalize))
+    (fun r => (fun k => GenValue.zeqNorm τ ϕ (r.fst k), r.snd.finalize))
 
 /-- **Two results equivalent up to `≈`** (`def:zeq`): equal once the rows
 and occurrences annotated `𝟘` are dropped, up to a one-to-one renaming of
-the occurrences. -/
+the occurrences and one of the families. -/
 def GenRow.zeqRen {n : ℕ} (R R' : Multiset (GenRow T K n)) : Prop :=
-  ∃ τ : OccId T → OccId T, Function.Injective τ ∧
-    GenRow.zeqNorm τ R' = GenRow.zeqNorm id R
+  ∃ (τ : OccId T → OccId T)
+    (ϕ : ℕ × List T × List (T ⊕ FamId T) → ℕ × List T × List (T ⊕ FamId T)),
+    Function.Injective τ ∧ Function.Injective ϕ ∧
+      GenRow.zeqNorm τ ϕ R' = GenRow.zeqNorm id id R
 
 end Equivalence
 
@@ -827,7 +879,7 @@ def applyRight : AggQueryIn ℕ 1 1 (fun _ => ColKind.agg) :=
     (AggQueryIn.Sel (GenPredIn.cmp CompOp.lt (TermGIn.index 0 rfl) (TermGIn.outer 0))
       (AggQueryIn.Rel 1 "S"))
 
-/-- **`R ⊳ γ_∅[count](σ_{#1 < u}(S))`.** -/
+/-- **`R ⊳ γ_∅[count](ϕ_{#1 < u}(S))`.** -/
 def applyWitness : AggQuery ℕ 2 (Fin.append (ColKind.allReg 1) (fun _ : Fin 1 => ColKind.agg)) :=
   AggQueryIn.Apply (c := 0) (n₁ := 1) (n₂ := 1) (AggQueryIn.Rel 1 "R")
     (applyRight : AggQueryIn ℕ (1 + 0) 1 (fun _ => ColKind.agg))
@@ -973,7 +1025,7 @@ theorem AggValue.oid_mem_of_zeroOccs {a : AggValue T K} {o : OccId T} {v : T} {y
 
 /-- **The apply row, up to `≈` with occurrence identity**: a set of classes
 generating the annotated algebra up to `≈`, over Boolean functions of two
-variables, holds the apply. The source `R ⊳ γ_∅[count](σ_{#1 < u}(S))` gives
+variables, holds the apply. The source `R ⊳ γ_∅[count](ϕ_{#1 < u}(S))` gives
 each parameter its own occurrence of the row of `S`, annotated `y`; a query
 without an apply hits all its occurrences annotated `y` with a set of
 identities bounded by the query (`AggQueryIn.exists_hit`), so it cannot keep
@@ -1031,14 +1083,14 @@ theorem apply_mem_of_generatesAnnRen {S : Set OpKind}
   have hhit : ∀ r ∈ q'.evaluate (dApply (B + 1)) (fun k => k.elim0), ∀ k,
       GenValue.TokHit yv (Union.union ∅ Z) (r.fst k) :=
     hZ' ∅ {} (funext fun k => k.elim0) (fun k => k.elim0) (fun p hp => absurd hp List.not_mem_nil)
-  obtain ⟨-, τ, hτ, heq⟩ := hm (dApply (B + 1)) (fun k => k.elim0)
+  obtain ⟨-, τ, ϕ, hτ, -, heq⟩ := hm (dApply (B + 1)) (fun k => k.elim0)
     (AggQueryIn.annSettlesAt_of_noRec applyWitness noRec_applyWitness _ _ _)
   -- each parameter gives an identity of `Z`
   have hkey : ∀ i, LT.lt i (B + 1) → ∃ o ∈ Z, τ o = ⟨1, [Sum.inl (i + 2)], [], 0⟩ := by
     intro i hi
     obtain ⟨r, hr, hr0, a, ha, hao, v, hav⟩ := applyWitness_row (B + 1) i hi
-    have hmem : ((fun k => GenValue.zeqNorm id (r.fst k)), r.snd.finalize)
-        ∈ GenRow.zeqNorm τ (q'.evaluate (dApply (B + 1)) (fun k => k.elim0)) := by
+    have hmem : ((fun k => GenValue.zeqNorm id id (r.fst k)), r.snd.finalize)
+        ∈ GenRow.zeqNorm τ ϕ (q'.evaluate (dApply (B + 1)) (fun k => k.elim0)) := by
       rw [heq]
       exact Multiset.mem_map_of_mem _ (Multiset.mem_filter.2 ⟨hr, hr0⟩)
     obtain ⟨r', hr', hrr⟩ := Multiset.mem_map.1 hmem
@@ -1048,8 +1100,8 @@ theorem apply_mem_of_generatesAnnRen {S : Set OpKind}
     | inl w => rw [hc] at hcol; simp at hcol
     | inr x =>
       cases x with
-      | nest b => rw [hc] at hcol; simp [AggTok.setFam] at hcol
-      | expr b => rw [hc] at hcol; simp [AggTok.setFam] at hcol
+      | nest b => rw [hc] at hcol; simp at hcol
+      | expr b => rw [hc] at hcol; simp at hcol
       | tok a' =>
         rw [hc] at hcol
         simp only [Sum.inr.injEq, AggTok.tok.injEq] at hcol
@@ -1090,13 +1142,99 @@ apply row says that no set of classes does without the apply. -/
 
 section Basis
 
+omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] in
+/-- **An expression read in the world a valuation realizes**, as a filter
+of its occurrences. -/
+theorem AggExpr.specialize_eq_filter (e : AggExpr T K) (ν : K → Bool) :
+    e.specialize ν = e.g (fun j => e.aggs j
+      (((e.occs.filter (fun o => ν o.2.1)).filter
+        (fun z => z.2.2.1 j && z.2.2.2 j)).map (fun z => z.1 j))) := by
+  unfold AggExpr.specialize AggExpr.valOn AggExpr.leafVal
+  refine congrArg e.g (funext fun j => congrArg (e.aggs j) ?_)
+  rw [AggExpr.leafSeq_eq_filter]
+  congr 2
+  exact Having.seqOf_filter_positions (fun o => ν o.2.1) e.occs
+
+omit [ValueType T] in
+/-- An expression read up to `≈` reads as itself in the world of its
+occurrences annotated otherwise than `𝟘`. -/
+theorem AggExpr.specialize_zeqNorm (τ : OccId T → OccId T) (φ : FamId T → FamId T)
+    (e : AggExpr T K) :
+    (e.zeqNorm τ φ).specialize (fun x : K => decide (x ≠ 0))
+      = e.specialize (fun x : K => decide (x ≠ 0)) := by
+  rw [AggExpr.specialize_eq_filter, AggExpr.specialize_eq_filter]
+  refine congrArg e.g (funext fun j => congrArg (e.aggs j) ?_)
+  have hz : (e.occs.filter (fun o => o.2.1 ≠ 0)).filter (fun o => decide (o.2.1 ≠ 0))
+      = e.occs.filter (fun o => decide (o.2.1 ≠ 0)) := by
+    rw [List.filter_filter]
+    congr 1
+    funext o
+    simp
+  show (((e.occs.filter (fun o => o.2.1 ≠ 0)).filter _).filter _).map _ = _
+  erw [hz]
+  rfl
+
+omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] in
+/-- A node read in the world a valuation realizes, occurrence by
+occurrence. -/
+theorem NestInner.specialize_node (ν : K → Bool) (j : ℕ)
+    (N : NestNode T K (NestInner T K j)) :
+    NestInner.specialize ν (j + 1) (Sum.inr N)
+      = N.agg ((N.occs.filter (fun o => ν o.2 = true)).map
+          (fun o => NestInner.specialize ν j o.1)) := by
+  show N.agg (((N.occs.map (fun o => (o.1, o.2, ν o.2))).filter
+      (fun m => m.2.2 = true)).map _) = _
+  rw [Multiset.filter_map, Multiset.map_map]
+  rfl
+
+omit [ValueType T] in
+/-- What an occurrence of a nested value reads, up to `≈`, reads as itself
+in the world of its occurrences annotated otherwise than `𝟘`. -/
+theorem NestInner.specialize_zeqNorm (τ : OccId T → OccId T)
+    (ϕ : ℕ × List T × List (T ⊕ FamId T) → ℕ × List T × List (T ⊕ FamId T)) :
+    ∀ (j : ℕ) (x : NestInner T K j),
+      NestInner.specialize (fun x : K => decide (x ≠ 0)) j (NestInner.zeqNorm τ ϕ j x)
+        = NestInner.specialize (fun x : K => decide (x ≠ 0)) j x
+  | 0, e => by
+    have h := AggExpr.specialize_zeqNorm (K := K) τ (FamId.renameFamily ϕ) e
+    unfold AggExpr.specialize at h
+    rw [← NestInner.trS_realDec, ← NestInner.trS_realDec] at h
+    exact h
+  | j + 1, Sum.inl x => NestInner.specialize_zeqNorm τ ϕ j x
+  | j + 1, Sum.inr N => by
+    show NestInner.specialize _ (j + 1) (Sum.inr _) = _
+    rw [NestInner.specialize_node, NestInner.specialize_node]
+    show N.agg _ = N.agg _
+    refine congrArg N.agg ?_
+    rw [Multiset.filter_map, Multiset.map_map, Multiset.filter_filter]
+    refine Multiset.map_congr (Multiset.filter_congr fun o _ => ?_) fun o _ => ?_
+    · simp
+    · exact NestInner.specialize_zeqNorm τ ϕ j o.1
+
+/-- A nested value read up to `≈` reads as itself in the world of its
+occurrences annotated otherwise than `𝟘`. -/
+theorem NestedValue.specialize_zeqNorm (τ : OccId T → OccId T)
+    (ϕ : ℕ × List T × List (T ⊕ FamId T) → ℕ × List T × List (T ⊕ FamId T))
+    (a : NestedValue T K) :
+    (a.zeqNorm τ ϕ).specialize (fun x : K => decide (x ≠ 0))
+      = a.specialize (fun x : K => decide (x ≠ 0)) := by
+  rw [NestedValue.specialize_eq, NestedValue.specialize_eq]
+  show a.agg _ = a.agg _
+  refine congrArg a.agg ?_
+  show (((a.occs.filter (fun o => o.2 ≠ 0)).map _).filter _).map _ = _
+  rw [Multiset.filter_map, Multiset.map_map, Multiset.filter_filter]
+  refine Multiset.map_congr (Multiset.filter_congr fun o _ => ?_) fun o _ => ?_
+  · simp
+  · exact NestInner.specialize_zeqNorm τ ϕ a.lev o.1
+
 /-- **`≈` with occurrence identity reads no less than `≈` by value**: a
 column value read in the world of its occurrences annotated otherwise than
 `𝟘` is the same once its occurrences annotated `𝟘` are dropped and its
 identities renamed. -/
-theorem GenValue.zeroSpec_zeqNorm (τ : OccId T → OccId T) (v : GenValue T K) :
+theorem GenValue.zeroSpec_zeqNorm (τ : OccId T → OccId T)
+    (ϕ : ℕ × List T × List (T ⊕ FamId T) → ℕ × List T × List (T ⊕ FamId T)) (v : GenValue T K) :
     _root_.Sum.elim id (fun a => a.specialize (fun x : K => decide (x ≠ 0)))
-        (GenValue.zeqNorm τ v)
+        (GenValue.zeqNorm τ ϕ v)
       = _root_.Sum.elim id (fun a => a.specialize (fun x : K => decide (x ≠ 0))) v := by
   rcases v with v | x
   · rfl
@@ -1109,14 +1247,15 @@ theorem GenValue.zeroSpec_zeqNorm (τ : OccId T → OccId T) (v : GenValue T K) 
       congr 3
       funext o
       simp
-    | nest a => simp only [GenValue.zeqNorm, _root_.Sum.elim_inr, AggTok.specialize_setFam]
-    | expr a => simp only [GenValue.zeqNorm, _root_.Sum.elim_inr, AggTok.specialize_setFam]
+    | nest a => exact NestedValue.specialize_zeqNorm τ ϕ a
+    | expr a => exact AggExpr.specialize_zeqNorm τ _ a
 
 /-- **A result's reading by value is a function of its reading up to `≈`
 with occurrence identity**, whatever the renaming. -/
 theorem GenRow.zeroNorm_eq_map_zeqNorm {n : ℕ} (τ : OccId T → OccId T)
+    (ϕ : ℕ × List T × List (T ⊕ FamId T) → ℕ × List T × List (T ⊕ FamId T))
     (R : Multiset (GenRow T K n)) :
-    GenRow.zeroNorm R = (GenRow.zeqNorm τ R).map
+    GenRow.zeroNorm R = (GenRow.zeqNorm τ ϕ R).map
       (fun x => ((GenRow.zeroTuple x.1, x.2) : AnnotatedTuple T K n)) := by
   unfold GenRow.zeroNorm GenRow.zeqNorm
   rw [Multiset.map_map]
@@ -1124,14 +1263,14 @@ theorem GenRow.zeroNorm_eq_map_zeqNorm {n : ℕ} (τ : OccId T → OccId T)
   simp only [Function.comp_apply]
   congr 1
   funext k
-  exact (GenValue.zeroSpec_zeqNorm τ (r.fst k)).symm
+  exact (GenValue.zeroSpec_zeqNorm τ ϕ (r.fst k)).symm
 
 /-- **Two results equivalent up to `≈` with occurrence identity are
 equivalent up to `≈` by value.** -/
 theorem GenRow.zeroNorm_eq_of_zeqRen {n : ℕ} {R R' : Multiset (GenRow T K n)}
     (h : GenRow.zeqRen R R') : GenRow.zeroNorm R' = GenRow.zeroNorm R := by
-  obtain ⟨τ, -, hτ⟩ := h
-  rw [GenRow.zeroNorm_eq_map_zeqNorm τ R', GenRow.zeroNorm_eq_map_zeqNorm id R, hτ]
+  obtain ⟨τ, ϕ, -, -, hτ⟩ := h
+  rw [GenRow.zeroNorm_eq_map_zeqNorm τ ϕ R', GenRow.zeroNorm_eq_map_zeqNorm id id R, hτ]
 
 omit [ValueType T] in
 /-- **Two evaluations agreeing row by row up to finalization are equivalent
@@ -1139,10 +1278,10 @@ up to `≈` with occurrence identity**, with no renaming: the occurrences and
 their identities are the rows' own. -/
 theorem GenRow.zeqRen_of_fin {n : ℕ} {A B : Multiset (GenRow T K n)}
     (h : B.map GenRow.fin = A.map GenRow.fin) : GenRow.zeqRen A B := by
-  refine ⟨id, Function.injective_id, ?_⟩
-  have hz : ∀ R : Multiset (GenRow T K n), GenRow.zeqNorm id R
+  refine ⟨id, id, Function.injective_id, Function.injective_id, ?_⟩
+  have hz : ∀ R : Multiset (GenRow T K n), GenRow.zeqNorm id id R
       = ((R.map GenRow.fin).filter (fun x => x.2 ≠ 0)).map
-          (fun x => ((fun k => GenValue.zeqNorm id (x.1 k)), x.2)) := by
+          (fun x => ((fun k => GenValue.zeqNorm id id (x.1 k)), x.2)) := by
     intro R
     unfold GenRow.zeqNorm
     rw [Multiset.filter_map, Multiset.map_map]

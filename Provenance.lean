@@ -1394,7 +1394,10 @@ proven engine several general results reuse internally.
   identity**. Ordinary tokens carry the identities of their occurrences
   (`AggValue.oids`, stamped by the grouping and the window), and
   `GenRow.zeqRen` compares results up to `≈` with a one-to-one renaming of
-  them, which keeps which aggregate values share which occurrences;
+  them, which keeps which aggregate values share which occurrences; aggregate
+  expressions carry identities too (`AggExpr.oids`), and so do the
+  expressions a nested value reads at every storey, the nested values
+  themselves being compared through their families, renamed;
   `GeneratesAnnRen` is the generation predicate up to it. Over Boolean
   functions of two variables a set generating up to it holds the apply
   (`apply_mem_of_generatesAnnRen`): `R ⊳ γ_∅[count](σ_{#1 < u}(S))` gives

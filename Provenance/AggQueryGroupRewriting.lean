@@ -199,7 +199,7 @@ theorem AggExpr.ofGroupWhen_toComposite {m : ℕ} (f : SeqAggFunc T)
   unfold AggExpr.toComposite AggExpr.ofGroupWhenRew AggExpr.ofGroupWhen
     AggExpr.ofSeqWhen
   refine congrArg (fun l => (AggExpr.mk 1 l (fun _ => f.liftComposite)
-    (fun _ => false) (AggExprFun.liftComposite (fun v => v 0)) FamId.none
+    (fun _ => false) (AggExprFun.liftComposite (fun v => v 0)) FamId.none []
       : AggExpr (T ⊕ K) K)) ?_
   rw [List.map_map, List.map_map]
   refine List.map_congr_left (fun p _ => ?_)
