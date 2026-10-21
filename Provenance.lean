@@ -1400,7 +1400,12 @@ proven engine several general results reuse internally.
   (`apply_mem_of_generatesAnnRen`): `R ⊳ γ_∅[count](σ_{#1 < u}(S))` gives
   each parameter its own occurrence annotated `y`, while without an apply
   the ordinary tokens holding an occurrence annotated `y` are hit by a set
-  of identities bounded by the query (`AggQueryIn.exists_hit`)
+  of identities bounded by the query (`AggQueryIn.exists_hit`). With it, the
+  annotated basis theorem holds up to `≈` with occurrence identity over the
+  class (`annEpsOps_isBasis_in_class_ren`): the constructions agree with
+  their source row by row, identities included, the rows up to `≈` by value
+  transfer (`GeneratesAnnRen.toGeneratesAnnZ`), and no set of classes
+  generates without the apply, a product included
 - `Provenance.AnnotatedWhyRow` – **the annotated basis theorem: set
   recursion is required**. `{∅, Π, σ, apply, γ, win, μ^⊎, −, μ^∪}`
   generates the annotated algebra over every commutative m-semiring, and no

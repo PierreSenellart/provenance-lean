@@ -21,6 +21,11 @@ occurrences, using the identities the evaluator stamps on them
   `𝟘` with their identities, renamed by one injective map for the whole
   result; a token of another kind is compared with its family forgotten.
 * `GeneratesAnnRen` is the generation predicate up to it.
+* `apply_mem_of_generatesAnnRen` is the apply row: over Boolean functions
+  of two variables, a set generating up to it holds the apply.
+* `annEpsOps_isBasis_in_class_ren` is the annotated basis theorem up to it,
+  over `AnnBasisClass`: the nine classes generate, no proper subset of them
+  does, and no set of classes does without the apply.
 -/
 
 variable {T K : Type} [ValueType T] [CommSemiringWithMonus K] [DecidableEq K]
@@ -1075,3 +1080,143 @@ theorem apply_mem_of_generatesAnnRen {S : Set OpKind}
   omega
 
 end Row
+
+/-! ## The basis theorem up to `≈` with occurrence identity
+
+`≈` with occurrence identity is finer than `≈` by value, so the rows up to
+`≈` transfer; the constructions agree with their source row by row,
+identities included, so the positive half holds with no renaming; and the
+apply row says that no set of classes does without the apply. -/
+
+section Basis
+
+/-- **`≈` with occurrence identity reads no less than `≈` by value**: a
+column value read in the world of its occurrences annotated otherwise than
+`𝟘` is the same once its occurrences annotated `𝟘` are dropped and its
+identities renamed. -/
+theorem GenValue.zeroSpec_zeqNorm (τ : OccId T → OccId T) (v : GenValue T K) :
+    _root_.Sum.elim id (fun a => a.specialize (fun x : K => decide (x ≠ 0)))
+        (GenValue.zeqNorm τ v)
+      = _root_.Sum.elim id (fun a => a.specialize (fun x : K => decide (x ≠ 0))) v := by
+  rcases v with v | x
+  · rfl
+  · cases x with
+    | tok a =>
+      show a.agg (((a.occs.filter (fun o => o.2 ≠ 0)).filter
+          (fun o => decide (o.2 ≠ 0))).map Prod.fst)
+        = a.agg ((a.occs.filter (fun o => decide (o.2 ≠ 0))).map Prod.fst)
+      rw [List.filter_filter]
+      congr 3
+      funext o
+      simp
+    | nest a => simp only [GenValue.zeqNorm, _root_.Sum.elim_inr, AggTok.specialize_setFam]
+    | expr a => simp only [GenValue.zeqNorm, _root_.Sum.elim_inr, AggTok.specialize_setFam]
+
+/-- **A result's reading by value is a function of its reading up to `≈`
+with occurrence identity**, whatever the renaming. -/
+theorem GenRow.zeroNorm_eq_map_zeqNorm {n : ℕ} (τ : OccId T → OccId T)
+    (R : Multiset (GenRow T K n)) :
+    GenRow.zeroNorm R = (GenRow.zeqNorm τ R).map
+      (fun x => ((GenRow.zeroTuple x.1, x.2) : AnnotatedTuple T K n)) := by
+  unfold GenRow.zeroNorm GenRow.zeqNorm
+  rw [Multiset.map_map]
+  refine Multiset.map_congr rfl fun r _ => ?_
+  simp only [Function.comp_apply]
+  congr 1
+  funext k
+  exact (GenValue.zeroSpec_zeqNorm τ (r.fst k)).symm
+
+/-- **Two results equivalent up to `≈` with occurrence identity are
+equivalent up to `≈` by value.** -/
+theorem GenRow.zeroNorm_eq_of_zeqRen {n : ℕ} {R R' : Multiset (GenRow T K n)}
+    (h : GenRow.zeqRen R R') : GenRow.zeroNorm R' = GenRow.zeroNorm R := by
+  obtain ⟨τ, -, hτ⟩ := h
+  rw [GenRow.zeroNorm_eq_map_zeqNorm τ R', GenRow.zeroNorm_eq_map_zeqNorm id R, hτ]
+
+omit [ValueType T] in
+/-- **Two evaluations agreeing row by row up to finalization are equivalent
+up to `≈` with occurrence identity**, with no renaming: the occurrences and
+their identities are the rows' own. -/
+theorem GenRow.zeqRen_of_fin {n : ℕ} {A B : Multiset (GenRow T K n)}
+    (h : B.map GenRow.fin = A.map GenRow.fin) : GenRow.zeqRen A B := by
+  refine ⟨id, Function.injective_id, ?_⟩
+  have hz : ∀ R : Multiset (GenRow T K n), GenRow.zeqNorm id R
+      = ((R.map GenRow.fin).filter (fun x => x.2 ≠ 0)).map
+          (fun x => ((fun k => GenValue.zeqNorm id (x.1 k)), x.2)) := by
+    intro R
+    unfold GenRow.zeqNorm
+    rw [Multiset.filter_map, Multiset.map_map]
+    rfl
+  rw [hz, hz, h]
+
+variable [HasAltLinearOrder K]
+
+/-- **Generation up to `≈` with occurrence identity is generation up to `≈`
+by value.** -/
+theorem GeneratesAnnRen.toGeneratesAnnZ {sch : Schema} {cnt : SeqAggFunc T} {S : Set OpKind}
+    (h : GeneratesAnnRen T K sch cnt S) : GeneratesAnnZ T K sch cnt S := by
+  intro n κ q ho hu hi ha hp
+  obtain ⟨q', ho', hu', hi', ha', hp', hm⟩ := h q ho hu hi ha hp
+  exact ⟨q', ho', hu', hi', ha', hp', fun d γ hs =>
+    ⟨(hm d γ hs).1, GenRow.zeroNorm_eq_of_zeqRen (hm d γ hs).2⟩⟩
+
+/-- **The nine classes generate the annotated algebra up to `≈` with
+occurrence identity over every semiring of the class**: the constructions
+agree with their source row by row up to finalization
+(`exists_annEpsOps_match`), identities included. -/
+theorem generatesAnnRen_annEpsOps_of_class (hK : AnnBasisClass K) (sch : Schema)
+    (cnt : SeqAggFunc T) : GeneratesAnnRen T K sch cnt annEpsOps := by
+  intro n κ q ho hu hi ha hp
+  obtain ⟨ch, hnc⟩ :
+      ∃ ch, AggQueryIn.NodeCorrect cnt ch (fun _ : AnnotatedDatabase T K => True) := by
+    rcases hK with ⟨hδ, hR⟩ | hδ
+    · exact ⟨false, AggQueryIn.nodeCorrect_succ cnt hδ hR⟩
+    · exact ⟨true, AggQueryIn.nodeCorrect_chain cnt hδ⟩
+  obtain ⟨q', ho', hu', hi', ha', hp', hm⟩ :=
+    exists_annEpsOps_match sch cnt ch hnc q ho hu hi ha hp
+  exact ⟨q', ho', hu', hi', ha', hp', fun d γ hs =>
+    ⟨(hm d γ trivial hs).1, GenRow.zeqRen_of_fin (hm d γ trivial hs).2⟩⟩
+
+end Basis
+
+theorem annBasisClass_boolXY : AnnBasisClass BoolXY := Or.inr fun _ => rfl
+
+/-- **No proper subset of the nine classes generates the annotated algebra
+up to `≈` with occurrence identity over every semiring of the class**: the
+rows up to `≈` by value transfer (`GeneratesAnnRen.toGeneratesAnnZ`). -/
+theorem annEpsOps_minimal_in_class_ren {S : Set OpKind} (hS : S ⊆ annEpsOps)
+    (h : ∀ (K : Type) [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K],
+      AnnBasisClass K → ∀ sch : Schema, GeneratesAnnRen ℕ K sch SeqAggFunc.count S) :
+    S = annEpsOps :=
+  annEpsOps_minimal_in_class_approx hS fun K _ _ _ hK sch =>
+    GeneratesAnnRen.toGeneratesAnnZ (h K hK sch)
+
+/-- **Every set generating the annotated algebra up to `≈` with occurrence
+identity over the class holds the apply**, whatever else it holds: a
+product does not replace it (`apply_mem_of_generatesAnnRen`, over Boolean
+functions of two variables, a semiring of the class). -/
+theorem apply_mem_of_generatesAnnRen_in_class {S : Set OpKind}
+    (h : ∀ (K : Type) [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K],
+      AnnBasisClass K → ∀ sch : Schema, GeneratesAnnRen ℕ K sch SeqAggFunc.count S) :
+    OpKind.apply ∈ S :=
+  apply_mem_of_generatesAnnRen (h BoolXY annBasisClass_boolXY schemaRS)
+
+/-- **The annotated basis theorem up to `≈` with occurrence identity, over
+the class**: the nine classes generate the annotated algebra up to `≈` with
+occurrence identity over every semiring of `AnnBasisClass`, no proper subset
+of them does over all of those semirings, and no set of classes does
+without the apply. -/
+theorem annEpsOps_isBasis_in_class_ren :
+    (∀ (K : Type) [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K],
+      AnnBasisClass K → ∀ sch : Schema, GeneratesAnnRen ℕ K sch SeqAggFunc.count annEpsOps)
+    ∧ (∀ S ⊆ annEpsOps,
+      (∀ (K : Type) [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K],
+        AnnBasisClass K → ∀ sch : Schema, GeneratesAnnRen ℕ K sch SeqAggFunc.count S) →
+      S = annEpsOps)
+    ∧ ∀ S : Set OpKind,
+      (∀ (K : Type) [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K],
+        AnnBasisClass K → ∀ sch : Schema, GeneratesAnnRen ℕ K sch SeqAggFunc.count S) →
+      OpKind.apply ∈ S :=
+  ⟨fun _ _ _ _ hK sch => generatesAnnRen_annEpsOps_of_class hK sch _,
+    fun _ hS h => annEpsOps_minimal_in_class_ren hS h,
+    fun _ h => apply_mem_of_generatesAnnRen_in_class h⟩
