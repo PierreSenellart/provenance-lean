@@ -138,6 +138,17 @@ build times down. Besides Mathlib, the library depends on
 used to state the complexity results; Lake resolves one Mathlib per workspace,
 so both must sit on the same pin.
 
+The library is written for Lean's module system. Importing a module gives its
+public interface: every definition (the carriers, the semirings, the query
+languages and their semantics), every instance, the theorems that the
+documentation names or a paper links to, and whatever their statements
+mention. Definitions are exposed, so a client can unfold them, and a `decide`
+over a concrete query evaluation reduces in a client module as it does here.
+The other lemmas are private to their files and cannot be named from outside the
+library; its own modules reach them with `import all`, which Lake permits within
+one package only. A module re-exports (with `public import`) only what its
+statements and definitions need.
+
 One caveat: this package sets `backward.isDefEq.respectTransparency false`,
 because its carriers (`Tuple`, `Relation`, `Database`, …) are deliberately
 opaque `def`s that instance search must nevertheless see through. Package
