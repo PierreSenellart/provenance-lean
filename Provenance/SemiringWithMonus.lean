@@ -206,6 +206,16 @@ The following properties do not always hold in an arbitrary m-semiring.
 /-- A `Semiring` is idempotent if `a + a = a`. -/
 abbrev idempotent (α) [Semiring α] := ∀ a : α, a + a = a
 
+/-- A `Semiring` is *multiplicatively idempotent* when `a ⊗ a = a`. It is
+the lattice-like condition: with `⊕`-idempotence it makes the semiring a
+bounded distributive lattice, and it is what a world annotation needs in
+order to survive being multiplied by itself – which is what happens when
+two atoms of one predicate read the same occurrence family
+(`AggValue.predProvOf_mul_predProvOf`). `𝔹`, `𝔹[X]`, lineage and
+interval union have it; `ℕ` and the absorptive numeric domains do
+not. -/
+abbrev mulIdempotent (α) [Semiring α] := ∀ a : α, a * a = a
+
 /-- A `Semiring` is absorptive (also called 0-closed or 0-bounded) if `1 + a = 1`. -/
 abbrev absorptive (α) [Semiring α] := ∀ a : α, 1 + a = 1
 
@@ -265,6 +275,47 @@ Independence is not absence of interaction: absorptivity and exclusivity
 constrain each other jointly without either implying the other, by
 `eq_zero_or_one_of_exclusive_of_absorptive`. -/
 abbrev exclusive (α) [SemiringWithMonus α] := ∀ a : α, a * (1 - a) = 0
+
+/-- A `SemiringWithMonus` is *complemented* when `𝟙 ⊖ ·` turns `⊕` into
+`⊗`: the De Morgan law of a complement.
+
+It is what makes the annotation of a world of a family split along a
+partition of that family into the annotations of the two halves
+(`Having.worldAnn_split`), and so what lets a predicate whose atoms read
+disjoint families be evaluated atom by atom rather than over the union.
+It is not an m-semiring identity – the non-negative reals with truncated
+subtraction fail it at `a = b = ½`, which
+`nnreal_not_complemented` records against the
+m-semiring instance there – but it is proved for
+**every semiring of the catalog**, for one of two reasons. Either
+`𝟙 ⊖ ·` is a genuine complement, which is De Morgan's law: `𝔹`
+(`Bool.complemented`), `𝔹[X]` (`BoolFunc.complemented`) and the temporal
+semiring (`IntervalUnion.complemented`). Or `𝟙 ⊖ ·` takes only the two
+values `𝟘` and `𝟙`, is `𝟘` exactly on a property that a sum has iff one
+of its summands has, and `⊗` is `𝟘`-absorbing with `𝟙 ⊗ 𝟙 = 𝟙`: `ℕ`
+(`Nat.complemented`), `ℕ[X]` (`How.complemented`, the constant
+coefficient), `Lin[X]` (`Which.complemented`), `Why[X]`
+(`Why.complemented`, the empty witness), the tropical semirings
+(`MinTropical.complemented`), Viterbi (`Viterbi.complemented`), the
+bounded linear order (`MinMax.complemented`) and Łukasiewicz
+(`Lukasiewicz.complemented`). The second reason is a fact about each
+semiring and not a consequence of the two-valuedness alone, which is why
+each is proved rather than argued once. -/
+abbrev complemented (α) [SemiringWithMonus α] :=
+  ∀ a b : α, 1 - (a + b) = (1 - a) * (1 - b)
+
+/-- Being complemented is a statement about `𝟙 ⊖ ·` alone: subtracting
+the second summand from the complement of the first is multiplying by
+its complement. -/
+theorem complemented_iff (α) [SemiringWithMonus α] :
+    complemented α ↔ ∀ a b : α, (1 - a) - b = (1 - a) * (1 - b) := by
+  constructor
+  · intro h a b
+    rw [← monus_add]
+    exact h a b
+  · intro h a b
+    rw [monus_add]
+    exact h a b
 
 /-- Absorptivity implies idempotence -/
 theorem idempotent_of_absorptive [K: Semiring α] :
@@ -530,6 +581,33 @@ theorem delta_natCast_pos_id {K : Type} [Semiring K] (h : idempotent K)
     {n : ℕ} (hn : 0 < n) : (id ((n : K)) : K) = 1 :=
   natCast_pos_eq_one_of_idempotent h hn
 
+/-- **What the `δ` axioms ask of a candidate**, as a predicate, so that
+the choices open to a given semiring can be compared. -/
+structure IsLegalDelta {K : Type} [Semiring K] (δ : K → K) : Prop where
+  /-- `δ` sends `𝟘` to `𝟘`. -/
+  zero : δ 0 = 0
+  /-- `δ` sends every positive natural cast to `𝟙`. -/
+  natCast_pos : ∀ {n : ℕ}, 0 < n → δ ((n : K)) = 1
+  /-- A `δ`-guard is absorbed by any multiple of one of its summands. -/
+  absorb : ∀ a b : K, a * δ (a + b) = a
+
+/-- **The identity is a legal `δ` exactly where the semiring absorbs and
+its `𝟙` is additively idempotent.** The absorption clause is the one a
+reader expects – `a ⊓ (a ⊔ b) = a` in a lattice-like semiring – but it
+is not the whole condition: `δ` must send every positive cast of `𝟙`
+to `𝟙`, which for the identity says `n · 𝟙 = 𝟙`, that is, that `⊕`
+does not accumulate copies of `𝟙`. Min-max satisfies both; `ℕ` fails
+the second, which is why the identity is not available there even
+though the first is what one thinks to check. -/
+theorem isLegalDelta_id_iff {K : Type} [Semiring K] :
+    IsLegalDelta (id : K → K)
+      ↔ (∀ a b : K, a * (a + b) = a) ∧ ∀ n : ℕ, 0 < n → ((n : K)) = 1 := by
+  constructor
+  · intro h
+    exact ⟨fun a b => h.absorb a b, fun n hn => h.natCast_pos hn⟩
+  · intro ⟨habs, hcast⟩
+    exact ⟨rfl, fun {n} hn => hcast n hn, habs⟩
+
 /-- The “indicator-of-nonzero” recipe: `δ a = 0` when `a = 0` and
 `δ a = 1` otherwise. Captured abstractly so a single set of axioms can
 serve all the concrete instances that use it (`ℕ`, `ℕ[X]`, Tropical,
@@ -562,6 +640,16 @@ theorem delta_absorb_indicator
   · rw [h.nonzero _ hab, mul_one]
 
 /-! ## Admissibility of a candidate `δ`
+
+/-- **The support map is a legal `δ` wherever the casts are non-zero.**
+It is the greatest legal choice, the identity the least where it is
+available. -/
+theorem isLegalDelta_indicator {K : Type} [Semiring K] [PartialOrder K]
+    [IsOrderedAddMonoid K] [CanonicallyOrderedAdd K] [CharZero K]
+    [Nontrivial K] {δ : K → K} (h : IsDeltaIndicator δ) :
+    IsLegalDelta δ :=
+  ⟨h.zero, fun hn => delta_natCast_pos_indicator h hn,
+    delta_absorb_indicator h⟩
 
 `δ` is not determined by the axioms, and the two operators used in practice
 are the identity and the support indicator. `IsDelta` states the axioms as a
@@ -734,6 +822,90 @@ multiplicative structure with the underlying `SemiringWithMonus`. This makes
 that would cause a `Mul` diamond. -/
 instance (priority := 100) {K : Type} [h : CommSemiringWithMonus K] : CommMonoid K where
   mul_comm := h.mul_comm
+
+/-! ### An exclusive lattice m-semiring is a Boolean algebra
+
+In an absorptive m-semiring `⊕` is the join of a lattice whose top is
+`𝟙` (`le_one_of_absorptive`) and, where `⊗` is idempotent too, `⊗` is its
+meet: the two lattice absorption laws are *derived* from `𝟙 ⊕ a = 𝟙` and
+distributivity (`add_mul_self`, `mul_add_self`) rather than assumed. The
+lattice is distributive, `⊗` distributing over `⊕` by the semiring
+axioms, and one distributive law in a lattice gives the other.
+
+In such a semiring `𝟙 ⊖ a` always joins `a` to `𝟙`
+(`add_one_monus_eq_one_of_absorptive`, by residuation), and
+**exclusivity is exactly what makes it a complement** – `exclusive` says
+it meets `a` at `𝟘` – after which the complement is unique
+(`monus_one_unique_compl`). So an exclusive lattice m-semiring is a
+distributive lattice in which every element has a complement, i.e., a
+Boolean algebra; conversely, in a Boolean algebra residuation forces
+`a ⊖ b = a ⊓ bᶜ`, whose exclusivity is `a ⊓ aᶜ = ⊥`. What follows is the
+elementwise content of that characterization, stated without building the
+lattice structure. -/
+
+/-- A product is below each factor, in an absorptive semiring. -/
+theorem mul_le_right {α : Type} [CommSemiringWithMonus α]
+    (hab : absorptive α) (a b : α) : a * b ≤ b :=
+  le_iff_exists_add.mpr ⟨b, by
+    calc b = b * (a + 1) := by rw [add_comm a 1, hab a, mul_one]
+      _ = b * a + b * 1 := mul_add b a 1
+      _ = a * b + b := by rw [mul_comm b a, mul_one]⟩
+
+/-- The first lattice absorption law, derived: `a ⊕ a ⊗ b = a`. -/
+theorem add_mul_self {α : Type} [CommSemiringWithMonus α]
+    (hab : absorptive α) (a b : α) : a + a * b = a := by
+  calc a + a * b = a * 1 + a * b := by rw [mul_one]
+    _ = a * (1 + b) := (mul_add a 1 b).symm
+    _ = a := by rw [hab b, mul_one]
+
+/-- The second, where `⊗` is idempotent: `a ⊗ (a ⊕ b) = a`. -/
+theorem mul_add_self {α : Type} [CommSemiringWithMonus α]
+    (hab : absorptive α) (hm : ∀ x : α, x * x = x) (a b : α) :
+    a * (a + b) = a := by
+  rw [mul_add, hm a]
+  exact add_mul_self hab a b
+
+/-- **Exclusivity makes `𝟙 ⊖ a` a complement**: it joins `a` to `𝟙` and
+meets it at `𝟘`. -/
+theorem monus_one_isCompl {α : Type} [CommSemiringWithMonus α]
+    (hab : absorptive α) (hex : exclusive α) (a : α) :
+    a + (1 - a) = 1 ∧ a * (1 - a) = 0 :=
+  ⟨add_one_monus_eq_one_of_absorptive hab a, hex a⟩
+
+/-- **And the complement is unique**, by the distributive-lattice
+argument: any `b` joining `a` to `𝟙` and meeting it at `𝟘` is `𝟙 ⊖ a`.
+With `monus_one_isCompl` this is what identifies `𝟙 ⊖ ·` with Boolean
+complementation. -/
+theorem monus_one_unique_compl {α : Type} [CommSemiringWithMonus α]
+    (hab : absorptive α) (hex : exclusive α) {a b : α}
+    (hjoin : a + b = 1) (hmeet : a * b = 0) : b = 1 - a := by
+  refine le_antisymm ?_ ?_
+  · calc b = b * 1 := (mul_one b).symm
+      _ = b * (a + (1 - a)) := by
+          rw [add_one_monus_eq_one_of_absorptive hab]
+      _ = b * a + b * (1 - a) := mul_add b a (1 - a)
+      _ = b * (1 - a) := by rw [mul_comm b a, hmeet, zero_add]
+      _ ≤ 1 - a := mul_le_right hab b (1 - a)
+  · calc 1 - a = (1 - a) * 1 := (mul_one _).symm
+      _ = (1 - a) * (a + b) := by rw [hjoin]
+      _ = (1 - a) * a + (1 - a) * b := mul_add _ a b
+      _ = (1 - a) * b := by rw [mul_comm (1 - a) a, hex a, zero_add]
+      _ ≤ b := mul_le_right hab _ b
+
+/-- **The complement of a sum is the product of the complements**, over a
+whole family at once: what one monus over everything a world leaves out
+becomes when the family is split into as many parts as there are
+occurrences. This is the form a *nested* world's annotation needs, where
+the absences come from two levels at once. -/
+theorem monus_multiset_sum {α : Type} [CommSemiringWithMonus α]
+    (hc : complemented α) :
+    ∀ s : Multiset α, 1 - s.sum = (s.map (fun a => 1 - a)).prod := by
+  intro s
+  induction s using Multiset.induction_on with
+  | empty =>
+    rw [Multiset.sum_zero, monus_zero, Multiset.map_zero, Multiset.prod_zero]
+  | cons a t ih =>
+    rw [Multiset.sum_cons, hc, ih, Multiset.map_cons, Multiset.prod_cons]
 
 /-! ## Homomorphisms of `SemiringWithMonus`s
 -/

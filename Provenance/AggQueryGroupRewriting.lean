@@ -19,10 +19,10 @@ syntax took a whole new value domain – data, annotation and `K`-tensor
 monomials, quotiented – together with its own evaluator. In the general
 framework no new value domain is needed: the rewritten
 world's evaluator already has aggregate tokens as ordinary column
-values, and `AggQuery.GammaTok` – ProvSQL's `provsql_agg` – already
+values, and `AggQueryIn.GammaTok` – ProvSQL's `provsql_agg` – already
 materializes exactly the token that the general evaluator's `Gamma`
-produces. What was missing is the *correspondence at token level*: the
-statement of `AggQuery.havingRewrites_valid` folds an annotated relation
+produces. What is needed is the *correspondence at token level*: the
+statement of `AggQueryIn.rewriting_valid` folds an annotated relation
 into composite rows through `AnnotatedRelation.toComposite`, which reads
 tokens through their deterministic collapse and therefore cannot express
 a token-bearing output.
@@ -31,12 +31,12 @@ a token-bearing output.
 `Sum.inl`, token columns are transported by `AggValue.toComposite` (values
 embedded in the composite domain, occurrence annotations unchanged), and
 the row's finalized annotation is appended as the provenance column. On
-token-free rows it agrees with the old embedding
+token-free rows it agrees with `AnnotatedRelation.toComposite`
 (`GenRow.toCompositeRow_of_reg`), so the statement below genuinely
 extends the compositional rewriting correctness rather than sitting
 beside it.
 
-`AggQuery.gammaRew_valid` is then the (R5) analogue: for a classical
+`AggQueryIn.gammaRew_valid` is then the (R5) analogue: for a classical
 subquery, the general evaluator's grouping – tokens and pending
 group-existence factor included – is computed by the rewritten
 token-building grouping over the classically rewritten subquery, with the
@@ -48,16 +48,38 @@ variable {T : Type} [ValueType T] {K : Type} [CommSemiringWithMonus K]
 
 /-! ## Tokens in the composite domain -/
 
+mutual
+/-- Transport the identity of an aggregate value to the composite value
+domain: the key's and the parameters' values are embedded by `Sum.inl`.
+The terms applied to the value are dropped: the rewritten world's columns
+apply functions to the data arm (`ProjColIn.aggTerm`), not terms, so its
+values record none, and the rewriting is an equality of rows. -/
+def FamId.toComposite : FamId T → FamId (T ⊕ K)
+  | .mk l k p c _ => .mk l (k.map Sum.inl) (FamId.paramsToComposite p) c []
+
+/-- The parameters of a family, transported. -/
+def FamId.paramsToComposite : List (T ⊕ FamId T) → List ((T ⊕ K) ⊕ FamId (T ⊕ K))
+  | [] => []
+  | .inl v :: ps => .inl (.inl v) :: FamId.paramsToComposite ps
+  | .inr φ :: ps => .inr (FamId.toComposite φ) :: FamId.paramsToComposite ps
+end
+
+omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
+@[simp] theorem FamId.toComposite_addTerm (t : TermIn T 1 0) (φ : FamId T) :
+    (φ.addTerm t).toComposite (K := K) = φ.toComposite := by
+  cases φ; rfl
+
 /-- Transport a symbolic aggregate token to the composite value domain:
 the aggregated values are embedded by `Sum.inl`, the aggregate function is
 lifted, and the occurrence annotations are unchanged. -/
 def AggValue.toComposite (a : AggValue T K) : AggValue (T ⊕ K) K :=
-  ⟨a.agg.liftComposite, a.occs.map (fun o => (Sum.inl o.fst, o.snd))⟩
+  ⟨a.agg.liftComposite, a.occs.map (fun o => (Sum.inl o.fst, o.snd)), a.scalar,
+    FamId.toComposite a.fam, []⟩
 
 omit [DecidableEq K] in
 /-- The token of a group transports to the token of the composite
 embedding of that group – the token the rewritten world's
-`AggQuery.GammaTok` builds. -/
+`AggQueryIn.GammaTok` builds. -/
 theorem AggValue.ofGroup_toComposite {m : ℕ} (f : SeqAggFunc T)
     (t : Term T m) (U : List (AnnotatedTuple T K m)) :
     (AggValue.ofGroup f t U).toComposite
@@ -65,11 +87,202 @@ theorem AggValue.ofGroup_toComposite {m : ℕ} (f : SeqAggFunc T)
           (U.map (fun p => ((p.toComposite, p.snd)
             : AnnotatedTuple (T ⊕ K) K (m + 1)))) := by
   unfold AggValue.toComposite AggValue.ofGroup
-  refine congrArg (AggValue.mk _) ?_
+  refine congrArg (fun l => (AggValue.mk _ l false FamId.none [] : AggValue (T ⊕ K) K)) ?_
   rw [List.map_map, List.map_map]
   refine List.map_congr_left (fun p _ => ?_)
   exact congrArg (fun v => (v, p.snd))
-    (Term.castToAnnotatedTuple_eval t p.fst p.snd).symm
+    (TermIn.castToAnnotatedTuple_eval t p.fst p.snd).symm
+
+omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
+/-- **The deterministic reading of a transported token** is the transport
+of its reading: the lifted aggregate function agrees with the original on
+embedded values. -/
+theorem AggValue.collapse_toComposite (a : AggValue T K) :
+    a.toComposite.collapse = Sum.inl a.collapse := by
+  unfold AggValue.toComposite AggValue.collapse
+  rw [List.map_map,
+    show ((Prod.fst : (T ⊕ K) × K → T ⊕ K)
+        ∘ fun o : T × K => ((Sum.inl o.fst, o.snd) : (T ⊕ K) × K))
+      = ((Sum.inl : T → T ⊕ K) ∘ Prod.fst) from rfl,
+    ← List.map_map]
+  exact SeqAggFunc.liftComposite_map_inl a.agg (a.occs.map Prod.fst)
+
+/-- Lift the function of an aggregate expression to the composite domain,
+as `SeqAggFunc.liftComposite` lifts an aggregate: junk on the annotation
+arm, faithful on `inl`-embedded values. -/
+def AggExprFun.liftComposite {p : ℕ} (g : (Fin p → T) → T) :
+    (Fin p → T ⊕ K) → T ⊕ K :=
+  fun v => Sum.inl (g (fun j => Sum.elim id (fun _ => 0) (v j)))
+
+omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
+/-- The lifted function on `inl`-embedded arguments. -/
+theorem AggExprFun.liftComposite_inl {p : ℕ} (g : (Fin p → T) → T)
+    (v : Fin p → T) :
+    AggExprFun.liftComposite (K := K) g (fun j => Sum.inl (v j))
+      = Sum.inl (g v) := rfl
+
+omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K]
+  [HasAltLinearOrder K] in
+/-- Embedding the occurrence values leaves the family's length, hence the
+index type of a world, where it was. -/
+theorem AggExpr.length_inl_occs (a : AggExpr T K) :
+    a.occs.length
+      = (a.occs.map (fun o => (((fun j => Sum.inl (o.fst j))
+          : Fin a.arity → T ⊕ K), o.snd))).length := by
+  rw [List.length_map]
+
+/-- **Transport an aggregate expression to the composite domain**: the
+occurrence values are embedded by `Sum.inl`, the leaf aggregates and the
+expression's own function are lifted, and the occurrence annotations and
+the leaf readings are unchanged. -/
+def AggExpr.toComposite (a : AggExpr T K) : AggExpr (T ⊕ K) K where
+  arity := a.arity
+  occs := a.occs.map
+    (fun o => ((fun j => Sum.inl (o.fst j)), o.snd.fst, o.snd.snd))
+  aggs := fun j => (a.aggs j).liftComposite
+  scalar := a.scalar
+  g := AggExprFun.liftComposite a.g
+  fam := FamId.toComposite a.fam
+
+omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
+/-- Each leaf reads the embedding of the sequence it read. -/
+theorem AggExpr.leafSeq_toComposite (a : AggExpr T K) (j : Fin a.arity)
+    (W : Finset (Fin a.occs.length)) :
+    a.toComposite.leafSeq j (W.map (finCongr a.length_inl_occs).toEmbedding)
+      = (a.leafSeq j W).map Sum.inl := by
+  rw [AggExpr.leafSeq_eq_filter, AggExpr.leafSeq_eq_filter,
+    show Having.seqOf a.toComposite.occs
+          (W.map (finCongr a.length_inl_occs).toEmbedding)
+        = (Having.seqOf a.occs W).map
+          (fun o => ((fun j => Sum.inl (o.fst j)), o.snd.fst, o.snd.snd)) from
+      AggValue.seqOf_map _ a.occs a.length_inl_occs W,
+    List.filter_map, List.map_map, List.map_map]
+  rfl
+
+omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
+/-- Hence the value in a world is the embedding of the value there. -/
+theorem AggExpr.valOn_toComposite (a : AggExpr T K)
+    (W : Finset (Fin a.occs.length)) :
+    a.toComposite.valOn (W.map (finCongr a.length_inl_occs).toEmbedding)
+      = Sum.inl (a.valOn W) := by
+  have hleaf : ∀ j, a.toComposite.leafVal j
+      (W.map (finCongr a.length_inl_occs).toEmbedding)
+      = Sum.inl (a.leafVal j W) := by
+    intro j
+    show (a.aggs j).liftComposite _ = _
+    rw [a.leafSeq_toComposite j W]
+    exact SeqAggFunc.liftComposite_map_inl (a.aggs j) (a.leafSeq j W)
+  show AggExprFun.liftComposite a.g _ = _
+  rw [funext hleaf]
+  exact AggExprFun.liftComposite_inl a.g _
+
+omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
+/-- And the deterministic reading with it. -/
+@[simp] theorem AggExpr.collapse_toComposite (a : AggExpr T K) :
+    a.toComposite.collapse = Sum.inl a.collapse := by
+  unfold AggExpr.collapse
+  rw [← a.valOn_toComposite Finset.univ]
+  exact congrArg a.toComposite.valOn (Finset.map_univ_equiv _).symm
+
+omit [DecidableEq K] in
+/-- **The expression a filtered aggregate of a group builds transports
+too**: the clause of the rewritten world is the source's read on the
+embedded row, which `Selection.castToAnnotatedTuple` keeps, so the
+occurrences, their annotations and their clause flags all agree. -/
+theorem AggExpr.ofGroupWhen_toComposite {m : ℕ} (f : SeqAggFunc T)
+    (t : Term T m) (φ : Selection T m) (U : List (AnnotatedTuple T K m)) :
+    (AggExpr.ofGroupWhen f t φ.keeps U).toComposite
+      = AggExpr.ofGroupWhenRew (T := T) f.liftComposite
+          t.castToAnnotatedTuple (φ.castToAnnotatedTuple (K := K)).keeps
+          (U.map (fun p => ((p.toComposite, p.snd)
+            : AnnotatedTuple (T ⊕ K) K (m + 1)))) := by
+  unfold AggExpr.toComposite AggExpr.ofGroupWhenRew AggExpr.ofGroupWhen
+    AggExpr.ofSeqWhen
+  refine congrArg (fun l => (AggExpr.mk 1 l (fun _ => f.liftComposite)
+    (fun _ => false) (AggExprFun.liftComposite (fun v => v 0)) FamId.none []
+      : AggExpr (T ⊕ K) K)) ?_
+  rw [List.map_map, List.map_map]
+  refine List.map_congr_left (fun p _ => ?_)
+  refine Prod.ext (funext (fun _ => ?_)) (Prod.ext rfl (Prod.ext rfl ?_))
+  · exact (TermIn.castToAnnotatedTuple_eval t p.fst p.snd).symm
+  · refine funext (fun _ => ?_)
+    show φ.keeps p.fst
+      = (φ.castToAnnotatedTuple (K := K)).keeps (AnnotatedTuple.toComposite p)
+    unfold Selection.keeps AnnotatedTuple.toComposite
+    rw [Selection.castToAnnotatedTuple_eval3 φ p.fst p.snd]
+
+omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
+@[simp] theorem AggExpr.annList_toComposite (a : AggExpr T K) :
+    a.toComposite.annList = a.annList := by
+  simp [AggExpr.annList, AggExpr.toComposite, List.map_map]
+
+/-- Transport an inner value to the composite value domain, storey by
+storey: an expression as `AggExpr.toComposite` does, a node with its
+outer aggregate lifted and its occurrences transported. -/
+def NestInner.toComposite : (j : ℕ) → NestInner T K j → NestInner (T ⊕ K) K j
+  | 0, e => AggExpr.toComposite (T := T) (K := K) e
+  | j + 1, Sum.inl x => Sum.inl (NestInner.toComposite j x)
+  | j + 1, Sum.inr N => Sum.inr ⟨NestedValue.liftComposite N.agg,
+      N.occs.map (fun o => (NestInner.toComposite j o.1, o.2)), N.scalar, FamId.toComposite N.fam⟩
+
+/-- Transport a nested value to the composite value domain: its inner
+values the same way, each family keeping its occurrences. -/
+def NestedValue.toComposite (a : NestedValue T K) : NestedValue (T ⊕ K) K :=
+  ⟨a.lev, NestedValue.liftComposite a.agg,
+    a.occs.map (fun o => (NestInner.toComposite a.lev o.1, o.2)), a.scalar,
+    FamId.toComposite a.fam⟩
+
+omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
+@[simp] theorem NestedValue.occs_toComposite (a : NestedValue T K) :
+    a.toComposite.occs = a.occs.map (fun o => (NestInner.toComposite a.lev o.1, o.2)) := rfl
+
+omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
+/-- The deterministic reading of an inner value commutes with the
+transport. -/
+theorem NestInner.collapse_toComposite : ∀ (j : ℕ) (x : NestInner T K j),
+    NestInner.collapse j (NestInner.toComposite j x) = Sum.inl (NestInner.collapse j x)
+  | 0, e => AggExpr.collapse_toComposite (K := K) e
+  | j + 1, Sum.inl x => NestInner.collapse_toComposite j x
+  | j + 1, Sum.inr N => by
+    show NestedValue.liftComposite N.agg _ = Sum.inl (N.agg _)
+    rw [Multiset.map_map]
+    rw [show ((fun o : NestInner (T ⊕ K) K j × K => NestInner.collapse j o.1)
+        ∘ fun o : NestInner T K j × K => (NestInner.toComposite j o.1, o.2))
+      = ((Sum.inl : T → T ⊕ K) ∘ fun o : NestInner T K j × K => NestInner.collapse j o.1)
+      from funext (fun o => NestInner.collapse_toComposite j o.1), ← Multiset.map_map]
+    exact NestedValue.liftComposite_map_inl N.agg _
+
+omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
+/-- The deterministic reading of a nested value commutes with the
+transport. -/
+theorem NestedValue.collapse_toComposite (a : NestedValue T K) :
+    a.toComposite.collapse = Sum.inl a.collapse := by
+  obtain ⟨lev, agg, occs, sc, φ⟩ := a
+  show NestedValue.liftComposite agg
+      ((occs.map (fun o => (NestInner.toComposite lev o.1, o.2))).map
+        (fun o => NestInner.collapse lev o.1))
+    = Sum.inl (agg (occs.map (fun o => NestInner.collapse lev o.1)))
+  rw [Multiset.map_map,
+    show ((fun o : NestInner (T ⊕ K) K lev × K => NestInner.collapse lev o.1)
+        ∘ fun o : NestInner T K lev × K => (NestInner.toComposite lev o.1, o.2))
+      = ((Sum.inl : T → T ⊕ K) ∘ fun o : NestInner T K lev × K => NestInner.collapse lev o.1)
+      from funext (fun o => NestInner.collapse_toComposite lev o.1), ← Multiset.map_map]
+  exact NestedValue.liftComposite_map_inl agg _
+
+/-- Transport a token to the composite value domain. A nested token
+transports its inner values the same way, and an expression its shared
+occurrences, its leaf aggregates and its own function. -/
+def AggTok.toComposite : AggTok T K → AggTok (T ⊕ K) K
+  | .tok a => .tok a.toComposite
+  | .nest a => .nest a.toComposite
+  | .expr a => .expr a.toComposite
+
+omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
+/-- The transport carries a stamped family to the transported family. -/
+@[simp] theorem AggTok.toComposite_setFam (φ : FamId T)
+    {ids : Option (List (OccId T))} (x : AggTok T K) :
+    (x.setFam φ ids).toComposite = x.toComposite.setFam (FamId.toComposite φ) := by
+  cases x <;> rfl
 
 /-- Transport a lifted column value to the composite domain. -/
 def GenValue.toComposite : GenValue T K → GenValue (T ⊕ K) K
@@ -131,15 +344,11 @@ omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
       = Sum.inl (AggValue.collapseSum x) := by
   cases x with
   | inl v => rfl
-  | inr a =>
-    show (AggValue.toComposite a).collapse = Sum.inl a.collapse
-    unfold AggValue.toComposite AggValue.collapse
-    rw [List.map_map,
-      show ((Prod.fst : (T ⊕ K) × K → T ⊕ K)
-          ∘ fun o : T × K => ((Sum.inl o.fst, o.snd) : (T ⊕ K) × K))
-        = ((Sum.inl : T → T ⊕ K) ∘ Prod.fst) from rfl,
-      ← List.map_map]
-    exact SeqAggFunc.liftComposite_map_inl a.agg (a.occs.map Prod.fst)
+  | inr x =>
+    cases x with
+    | tok a => exact AggValue.collapse_toComposite a
+    | expr a => exact AggExpr.collapse_toComposite a
+    | nest a => exact NestedValue.collapse_toComposite a
 
 omit [DecidableEq K] [HasAltLinearOrder K] in
 /-- Coordinates of the token-aware embedding, in `dite` form. -/
@@ -159,7 +368,7 @@ theorem GenRow.toCompositeRow_coord {n : ℕ} (r : GenRow T K n)
 omit [DecidableEq K] [HasAltLinearOrder K] in
 /-- A key column of the embedding of a grouping row. -/
 theorem GenRow.toCompositeRow_gammaRow_left {n₁ n₂ : ℕ} (g : Tuple T n₁)
-    (h : Fin n₂ → AggValue T K) (a : GenAnn K) (i : Fin n₁) :
+    (h : Fin n₂ → AggTok T K) (a : GenAnn K) (i : Fin n₁) :
     GenRow.toCompositeRow
         ((Fin.append (fun k => (Sum.inl (g k) : GenValue T K))
           (fun i' => Sum.inr (h i')), a) : GenRow T K (n₁ + n₂))
@@ -173,7 +382,7 @@ theorem GenRow.toCompositeRow_gammaRow_left {n₁ n₂ : ℕ} (g : Tuple T n₁)
 omit [DecidableEq K] [HasAltLinearOrder K] in
 /-- A token column of the embedding of a grouping row. -/
 theorem GenRow.toCompositeRow_gammaRow_right {n₁ n₂ : ℕ} (g : Tuple T n₁)
-    (h : Fin n₂ → AggValue T K) (a : GenAnn K) (i : Fin n₂) :
+    (h : Fin n₂ → AggTok T K) (a : GenAnn K) (i : Fin n₂) :
     GenRow.toCompositeRow
         ((Fin.append (fun k => (Sum.inl (g k) : GenValue T K))
           (fun i' => Sum.inr (h i')), a) : GenRow T K (n₁ + n₂))
@@ -194,12 +403,16 @@ abbrev ColKind.gammaRewKinds (n₁ n₂ : ℕ) : Fin (n₁ + n₂ + 1) → ColKi
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K]
   [HasAltLinearOrder K] in
 /-- The kind vector produced by the token-building grouping over a
-rewritten subquery is the rewritten `Gamma` kind vector: the key columns
-of a rewritten schema are regular. -/
-theorem ColKind.gammaTok_rew_kinds {m n₁ n₂ : ℕ} (is : Tuple (Fin m) n₁) :
+rewritten subquery is the rewritten `Gamma` kind vector, whatever
+rewritten schema the subquery carries: all that is asked of it is that
+the key columns be regular, which they are in a rewriting of an
+all-regular query. -/
+theorem ColKind.gammaTok_rew_kinds_of {m n₁ n₂ : ℕ}
+    {κ' : Fin (m + 1) → ColKind} (is : Tuple (Fin m) n₁)
+    (hkey : ∀ k, κ' ((is k).castLE (Nat.le_succ m)) = ColKind.reg) :
     Fin.append
         (Fin.append
-          (fun k => ColKind.rewKinds m ((is k).castLE (Nat.le_succ m)))
+          (fun k => κ' ((is k).castLE (Nat.le_succ m)))
           (fun _ : Fin n₂ => ColKind.agg))
         (fun _ : Fin 1 => ColKind.prov)
       = ColKind.gammaRewKinds n₁ n₂ := by
@@ -212,7 +425,7 @@ theorem ColKind.gammaTok_rew_kinds {m n₁ n₂ : ℕ} (is : Tuple (Fin m) n₁)
     · rw [Fin.append_left]
       show _ = ColKind.gammaKinds n₁ n₂ (Fin.castAdd n₂ i')
       rw [ColKind.gammaKinds, Fin.append_left]
-      exact ColKind.rewKinds_lt (is i').isLt
+      exact hkey i'
     · rw [Fin.append_right]
       show _ = ColKind.gammaKinds n₁ n₂ (Fin.natAdd n₁ j')
       rw [ColKind.gammaKinds, Fin.append_right]
@@ -220,52 +433,103 @@ theorem ColKind.gammaTok_rew_kinds {m n₁ n₂ : ℕ} (is : Tuple (Fin m) n₁)
     show _ = Fin.append (ColKind.gammaKinds n₁ n₂) _ (Fin.natAdd (n₁ + n₂) i)
     rw [Fin.append_right]
 
+/-- The classical rewriting's own schema is one such. -/
+theorem ColKind.gammaTok_rew_kinds {m n₁ n₂ : ℕ} (is : Tuple (Fin m) n₁) :
+    Fin.append
+        (Fin.append
+          (fun k => ColKind.rewKinds m ((is k).castLE (Nat.le_succ m)))
+          (fun _ : Fin n₂ => ColKind.agg))
+        (fun _ : Fin 1 => ColKind.prov)
+      = ColKind.gammaRewKinds n₁ n₂ :=
+  ColKind.gammaTok_rew_kinds_of (n₂ := n₂) is
+    (fun k => ColKind.rewKinds_lt (is k).isLt)
+
+/-- **The rewritten grouping over an arbitrary rewritten subquery**: the
+same `provsql_agg` grouping as `AggQueryIn.gammaRew`, reading the
+occurrence annotations off the subquery's provenance column, but over
+*any* query of the rewritten world that computes the subquery's rows –
+not only the classical rewriting of a classical one. This is what makes
+the rule compositional: a `GROUP BY` whose input is itself a grouping
+(its aggregate column cashed by a projection, which is what the kind
+discipline asks) is rewritten by composing the two. -/
+def AggQueryIn.gammaRewOf {m n₁ n₂ : ℕ} {κ' : Fin (m + 1) → ColKind}
+    (is : Tuple (Fin m) n₁) (ts : Tuple (Term T m) n₂)
+    (fs : Tuple (SeqAggFunc T) n₂)
+    (hkey : ∀ k, κ' ((is k).castLE (Nat.le_succ m)) = ColKind.reg)
+    (hprov : κ' (Fin.last m) = ColKind.prov)
+    (q' : AggQuery (T ⊕ K) (m + 1) κ')
+    (keep : Fin n₂ → Option (Selection T m) := fun _ => none) (lab : ℕ := 0)
+    (rd : Fin 0 → Bool := fun _ => false) :
+    AggQuery (T ⊕ K) (n₁ + n₂ + 1) (ColKind.gammaRewKinds n₁ n₂) :=
+  AggQueryIn.Retag
+    (fun k => congrArg ColKind.base
+      (congrFun (ColKind.gammaTok_rew_kinds_of (n₂ := n₂) is hkey) k))
+    (AggQueryIn.GammaTok (lab := lab) (rd := rd)
+      (fun k => (is k).castLE (Nat.le_succ m))
+      (fun k => by
+        rw [hkey k]
+        exact fun hc => ColKind.noConfusion hc)
+      (fun j => (ts j).castToAnnotatedTuple)
+      (fun j => (fs j).liftComposite)
+      (TermGIn.provIndex (Fin.last m) hprov)
+      q'
+      -- the source's clause, read on the embedded row: it tests the data
+      -- columns, which the embedding keeps
+      (fun j => (keep j).map Selection.castToAnnotatedTuple))
+
 /-- **The rewritten bare grouping**: ProvSQL's `provsql_agg` grouping over
 the classically rewritten subquery, reading the occurrence annotations
 off the subquery's provenance column. The output carries the group keys,
 one aggregate token per `(term, aggregate)` pair, and the group-existence
-guard `δ(⊕ U)` in the provenance column. -/
-def AggQuery.gammaRew {m n₁ n₂ : ℕ} (is : Tuple (Fin m) n₁)
+guard `δ(⊕ U)` in the provenance column.
+
+It is `AggQueryIn.gammaRewOf` over the classical rewriting of the
+subquery; the general form takes any query of the rewritten world that
+computes the subquery's rows. -/
+def AggQueryIn.gammaRew {m n₁ n₂ : ℕ} (is : Tuple (Fin m) n₁)
     (ts : Tuple (Term T m) n₂) (fs : Tuple (SeqAggFunc T) n₂)
-    (qg : AggQuery T m (ColKind.allReg m)) (hq : qg.classical) :
+    (qg : AggQuery T m (ColKind.allReg m)) (hq : qg.classical) (lab : ℕ := 0)
+    (rd : Fin 0 → Bool := fun _ => false) :
     AggQuery (T ⊕ K) (n₁ + n₂ + 1) (ColKind.gammaRewKinds n₁ n₂) :=
-  AggQuery.Retag
-    (fun k => congrArg ColKind.base
-      (congrFun (ColKind.gammaTok_rew_kinds (n₂ := n₂) is) k))
-    (AggQuery.GammaTok
-      (fun k => (is k).castLE (Nat.le_succ m))
-      (fun k => by
-        rw [ColKind.rewKinds_lt (is k).isLt]
-        exact fun hc => ColKind.noConfusion hc)
-      (fun j => (ts j).castToAnnotatedTuple)
-      (fun j => (fs j).liftComposite)
-      (TermG.provIndex (Fin.last m)
-        (ColKind.rewKinds_of_not_lt (lt_irrefl m)))
-      (qg.rewriting hq))
+  AggQueryIn.gammaRewOf is ts fs
+    (fun k => ColKind.rewKinds_lt (is k).isLt)
+    (ColKind.rewKinds_of_not_lt (lt_irrefl m))
+    (qg.rewriting hq) (lab := lab) (rd := rd)
 
 /-! ## Correctness -/
 
-/-- **Correctness of the bare-grouping rewriting** – the general
-framework's rule (R5): for a classical subquery, the general evaluator's
-grouping, embedded row-wise into the composite domain (tokens included,
-finalized annotation appended), is computed by the rewritten world's
-token-building grouping over the classically rewritten subquery. -/
-theorem AggQuery.gammaRew_valid {m n₁ n₂ : ℕ}
+/-- **Correctness of the bare-grouping rewriting, compositionally** –
+the general framework's rule (R5) over any rewritten subquery: what is
+asked of the subquery is only that the rewritten world's query compute
+its rows, as the pairs of a plain tuple and the annotation its
+provenance column carries. The grouping itself is the same. -/
+theorem AggQueryIn.gammaRewOf_valid {lab : ℕ} {rd} {m n₁ n₂ : ℕ}
+    {κ' : Fin (m + 1) → ColKind}
     (is : Tuple (Fin m) n₁) (ts : Tuple (Term T m) n₂)
     (fs : Tuple (SeqAggFunc T) n₂) (qg : AggQuery T m (ColKind.allReg m))
-    (hq : qg.classical) (d : AnnotatedDatabase T K) :
-    ((AggQuery.Gamma is ts fs qg).evaluate d).map GenRow.toCompositeRow
-      = (AggQuery.gammaRew is ts fs qg hq).evaluateRew d.toComposite := by
-  have hA : Multiset.map GenRow.toAnnotated (qg.evaluate d)
-      = (qg.strip hq).evaluateAnnotated (qg.strip_source hq) d :=
-    AggQuery.strip_bridge qg hq d
-  simp only [AggQuery.evaluate]
-  rw [hA]
+    (hkey : ∀ k, κ' ((is k).castLE (Nat.le_succ m)) = ColKind.reg)
+    (hprov : κ' (Fin.last m) = ColKind.prov)
+    (q' : AggQuery (T ⊕ K) (m + 1) κ')
+    (keep : Fin n₂ → Option (Selection T m)) (d : AnnotatedDatabase T K)
+    (R : AnnotatedRelation T K m)
+    (hR : Multiset.map GenRow.toAnnotated (qg.evaluate d) = R)
+    (har : Multiset.map (fun u => ((GenRow.plainTuple u,
+          ((TermGIn.provIndex (c := 0) (Fin.last m) hprov).evalRew u).annPart)
+            : AnnotatedTuple (T ⊕ K) K (m + 1)))
+        (q'.evaluateRew d.toComposite)
+      = R.map (fun p => ((p.toComposite, p.snd)
+            : AnnotatedTuple (T ⊕ K) K (m + 1)))) :
+    ((AggQueryIn.Gamma (lab := lab) (rd := rd) is ts fs qg keep).evaluate
+        d).map GenRow.toCompositeRow
+      = (AggQueryIn.gammaRewOf is ts fs hkey hprov q' keep lab rd).evaluateRew
+          d.toComposite := by
+  simp only [AggQueryIn.evaluate]
+  rw [hR]
   conv_lhs => rw [Multiset.map_map]
-  unfold AggQuery.gammaRew
-  show _ = AggQuery.evaluateRew (AggQuery.Retag _ _) d.toComposite
-  simp only [AggQuery.evaluateRew]
-  rw [AggQuery.rewriting_provRel qg hq d, map_comp_fst_groupByKey]
+  unfold AggQueryIn.gammaRewOf
+  show _ = AggQueryIn.evaluateRew (AggQueryIn.Retag _ _) d.toComposite
+  simp only [AggQueryIn.evaluateRew]
+  rw [har, map_comp_fst_groupByKey]
   -- the rewritten side's key multiset is the `inl`-embedding of the
   -- annotated side's, so both sides map over the same groups
   simp only [Multiset.map_map]
@@ -301,19 +565,18 @@ theorem AggQuery.gammaRew_valid {m n₁ n₂ : ℕ}
   -- and back from the deduplicated keys to the grouping
   rw [show (Multiset.map (fun p : AnnotatedTuple T K m =>
         ((fun k => p.fst (is k)) : Tuple T n₁))
-        ((qg.strip hq).evaluateAnnotated (qg.strip_source hq) d)).dedup
+        R).dedup
       = (Multiset.map Prod.fst (Multiset.map
           (fun p : AnnotatedTuple T K m =>
             ((fun k => p.fst (is k), p.snd) : AnnotatedTuple T K n₁))
-          ((qg.strip hq).evaluateAnnotated (qg.strip_source hq)
-            d))).dedup from by
+          R)).dedup from by
     rw [Multiset.map_map]
     rfl,
     ← map_fst_groupByKey, Multiset.map_map]
   refine Multiset.map_congr rfl (fun kv _ => ?_)
   simp only [Function.comp_apply]
   rw [Having.havingGroup_toComposite is
-    ((qg.strip hq).evaluateAnnotated (qg.strip_source hq) d) kv.fst]
+    R kv.fst]
   unfold GenRow.toCompositeRow
   funext j
   refine Fin.addCases (fun i => ?_) (fun i => ?_) j
@@ -323,13 +586,79 @@ theorem AggQuery.gammaRew_valid {m n₁ n₂ : ℕ}
     · rw [Fin.append_left, Fin.append_left]
       rfl
     · rw [Fin.append_right, Fin.append_right]
-      exact congrArg Sum.inr (AggValue.ofGroup_toComposite _ _ _)
+      cases hkj : keep j' with
+      | none =>
+        refine congrArg Sum.inr ?_
+        rw [AggTok.toComposite_setFam]
+        refine congrArg₂ AggTok.setFam ?_
+          (congrArg AggTok.tok (AggValue.ofGroup_toComposite _ _ _))
+        simp [FamId.toComposite, List.map_ofFn, EvalEnv.paramKey, FamId.paramsToComposite]; rfl
+      | some φ =>
+        -- a filtered aggregate's column is an expression on both sides,
+        -- and the clause is the source's read on the embedded row
+        refine congrArg Sum.inr ?_
+        rw [AggTok.toComposite_setFam]
+        refine congrArg₂ AggTok.setFam ?_
+          (congrArg AggTok.expr (AggExpr.ofGroupWhen_toComposite _ _ _ _))
+        simp [FamId.toComposite, List.map_ofFn, EvalEnv.paramKey, FamId.paramsToComposite]; rfl
   · rw [Fin.append_right, Fin.append_right]
     dsimp only
     rw [GenAnn.finalize_gamma, List.map_map]
     rfl
 
+/-- **Correctness of the bare-grouping rewriting** – the general
+framework's rule (R5): for a classical subquery, the general evaluator's
+grouping, embedded row-wise into the composite domain (tokens included,
+finalized annotation appended), is computed by the rewritten world's
+token-building grouping over the classically rewritten subquery. -/
+theorem AggQueryIn.gammaRew_valid {lab : ℕ} {rd} {m n₁ n₂ : ℕ}
+    (is : Tuple (Fin m) n₁) (ts : Tuple (Term T m) n₂)
+    (fs : Tuple (SeqAggFunc T) n₂) (qg : AggQuery T m (ColKind.allReg m))
+    (hq : qg.classical) (d : AnnotatedDatabase T K) :
+    ((AggQueryIn.Gamma (lab := lab) (rd := rd) is ts fs qg).evaluate d).map GenRow.toCompositeRow
+      = (AggQueryIn.gammaRew is ts fs qg hq lab rd).evaluateRew d.toComposite :=
+  AggQueryIn.gammaRewOf_valid (lab := lab) (rd := rd) is ts fs qg
+    (fun k => ColKind.rewKinds_lt (is k).isLt)
+    (ColKind.rewKinds_of_not_lt (lt_irrefl m)) (qg.rewriting hq)
+    (fun _ => none) d
+    ((qg.strip hq).evaluateAnnotated (qg.strip_source hq) d)
+    (AggQueryIn.strip_bridge qg hq d)
+    (AggQueryIn.rewriting_provRel qg hq d)
+
+
 /-! ## The gate reads a transported token unchanged -/
+
+/-- The composite transport preserves the scalar reading too: it moves the
+values, not the worlds. -/
+theorem AggValue.predProvScalar_toComposite (a : AggValue T K) (op : CompOp)
+    (c : T) :
+    a.toComposite.predProvScalar op (Sum.inl c) = a.predProvScalar op c := by
+  have hlen : a.occs.length = a.toComposite.occs.length := by
+    simp [AggValue.toComposite]
+  unfold AggValue.predProvScalar
+  refine (Fintype.sum_equiv (finCongr hlen).finsetCongr
+    (fun W => Having.worldAnn a.anns W * Having.chi op (a.valOn W) c)
+    _ (fun W => ?_)).symm
+  rw [Equiv.finsetCongr_apply]
+  refine congrArg₂ (· * ·) ?_ ?_
+  · rw [AggValue.worldAnn_map_finCongr hlen]
+    refine congrArg (fun α : Fin a.occs.length → K =>
+      Having.worldAnn α W) (funext (fun i => ?_))
+    simp [AggValue.anns, AggValue.toComposite, List.getElem_map]
+  · rw [show a.toComposite.valOn (W.map (finCongr hlen).toEmbedding)
+        = Sum.inl (a.valOn W) from ?_]
+    · exact (Having.chi_inl op _ c).symm
+    · show a.agg.liftComposite
+          ((Having.seqOf (a.occs.map (fun o : T × K =>
+            ((Sum.inl o.fst, o.snd) : (T ⊕ K) × K)))
+            (W.map (finCongr hlen).toEmbedding)).map Prod.fst)
+        = Sum.inl (a.agg ((Having.seqOf a.occs W).map Prod.fst))
+      rw [AggValue.seqOf_map _ a.occs hlen W, List.map_map,
+        show ((Prod.fst : (T ⊕ K) × K → T ⊕ K)
+            ∘ fun o : T × K => ((Sum.inl o.fst, o.snd) : (T ⊕ K) × K))
+          = ((Sum.inl : T → T ⊕ K) ∘ Prod.fst) from rfl,
+        ← List.map_map]
+      exact SeqAggFunc.liftComposite_map_inl a.agg _
 
 /-- **The predicate provenance under the token transport**: comparing a
 transported token against an embedded value is the original comparison.
@@ -370,3 +699,104 @@ theorem AggValue.predProv_toComposite (a : AggValue T K) (op : CompOp)
           ← List.map_map]
         exact SeqAggFunc.liftComposite_map_inl a.agg _
   · rw [ite_eq_right hne, ite_eq_right (by rwa [Finset.map_nonempty])]
+
+theorem AggValue.predProvOf_toComposite (a : AggValue T K) (op : CompOp)
+    (c : T) :
+    a.toComposite.predProvOf op (Sum.inl c) = a.predProvOf op c := by
+  unfold AggValue.predProvOf
+  rw [show a.toComposite.scalar = a.scalar from rfl]
+  cases a.scalar
+  · simpa using AggValue.predProv_toComposite a op c
+  · simpa using AggValue.predProvScalar_toComposite a op c
+
+omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
+/-- The same length, named by the transported expression's own family. -/
+theorem AggExpr.length_toComposite (a : AggExpr T K) :
+    a.occs.length = a.toComposite.occs.length := a.length_inl_occs
+
+omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
+/-- The transport leaves an occurrence's annotation where it was. -/
+theorem AggExpr.anns_toComposite (a : AggExpr T K)
+    (i : Fin a.occs.length) :
+    a.toComposite.anns (finCongr a.length_toComposite i) = a.anns i := by
+  show (a.toComposite.occs.get _).snd.fst = (a.occs.get i).snd.fst
+  simp [AggExpr.toComposite, List.get_eq_getElem, List.getElem_map]
+
+omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
+/-- And an occurrence's membership of a leaf's group, the flags being
+carried along with it. -/
+theorem AggExpr.mem_inFrame_toComposite (a : AggExpr T K) (j : Fin a.arity)
+    (i : Fin a.occs.length) :
+    finCongr a.length_toComposite i ∈ a.toComposite.inFrame j
+      ↔ i ∈ a.inFrame j := by
+  rw [AggExpr.mem_inFrame, AggExpr.mem_inFrame]
+  show (a.toComposite.occs.get _).snd.snd.fst j = true ↔ _
+  simp [AggExpr.toComposite, List.get_eq_getElem, List.getElem_map]
+
+omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
+/-- Hence a transported world is a world exactly when it was one. -/
+theorem AggExpr.isWorld_toComposite (a : AggExpr T K)
+    (W : Finset (Fin a.occs.length)) :
+    a.toComposite.IsWorld (W.map (finCongr a.length_toComposite).toEmbedding)
+      ↔ a.IsWorld W := by
+  unfold AggExpr.IsWorld
+  refine forall_congr' (fun j => imp_congr (Iff.of_eq rfl) ?_)
+  constructor
+  · rintro ⟨i', hi'⟩
+    obtain ⟨hiW, hif⟩ := Finset.mem_inter.mp hi'
+    refine ⟨(finCongr a.length_toComposite).symm i', Finset.mem_inter.mpr
+      ⟨Finset.mem_map_equiv.mp hiW, ?_⟩⟩
+    refine (a.mem_inFrame_toComposite j _).mp ?_
+    rwa [Equiv.apply_symm_apply]
+  · rintro ⟨i, hi⟩
+    obtain ⟨hiW, hif⟩ := Finset.mem_inter.mp hi
+    exact ⟨finCongr a.length_toComposite i, Finset.mem_inter.mpr
+      ⟨Finset.mem_map_equiv.mpr (by rwa [Equiv.symm_apply_apply]),
+        (a.mem_inFrame_toComposite j i).mpr hif⟩⟩
+
+/-- **The reading of a transported expression**: a world of the transport
+is a world of the original, carrying the same annotation and reading the
+embedding of the value read there, so a test that restricts along `inl`
+sees the same thing. -/
+theorem AggExpr.predProvWith_toComposite (a : AggExpr T K) (P : T → Kleene)
+    (Q : T ⊕ K → Kleene) (hQ : ∀ v, Q (Sum.inl v) = P v) :
+    a.toComposite.predProvWith Q = a.predProvWith P := by
+  unfold AggExpr.predProvWith
+  rw [Finset.sum_filter, Finset.sum_filter]
+  refine (Fintype.sum_equiv (finCongr a.length_toComposite).finsetCongr
+    (fun W => if a.IsWorld W
+      then Having.worldAnn a.anns W * Having.chiOf P (a.valOn W) else 0)
+    _ (fun W => ?_)).symm
+  rw [Equiv.finsetCongr_apply]
+  by_cases hw : a.IsWorld W
+  · rw [ite_eq_left hw, ite_eq_left ((a.isWorld_toComposite W).mpr hw)]
+    refine congrArg₂ (· * ·) ?_ ?_
+    · rw [AggValue.worldAnn_map_finCongr a.length_toComposite]
+      exact (congrArg (fun α : Fin a.occs.length → K => Having.worldAnn α W)
+        (funext (fun i => a.anns_toComposite i))).symm
+    · rw [show a.toComposite.valOn
+            (W.map (finCongr a.length_toComposite).toEmbedding)
+          = Sum.inl (a.valOn W) from a.valOn_toComposite W]
+      unfold Having.chiOf
+      rw [hQ]
+  · rw [ite_eq_right hw,
+      ite_eq_right (fun h => hw ((a.isWorld_toComposite W).mp h))]
+
+/-- Hence a comparison against an embedded constant. -/
+theorem AggExpr.predProv_toComposite (a : AggExpr T K) (op : CompOp)
+    (c : T) :
+    a.toComposite.predProv op (Sum.inl c) = a.predProv op c := by
+  rw [AggExpr.predProv_eq_predProvWith, AggExpr.predProv_eq_predProvWith]
+  exact a.predProvWith_toComposite _ _ (fun v => CompOp.eval3_inl op v c)
+
+/-- **The gate reads a transported token unchanged**, nested tokens
+apart: an ordinary token by `AggValue.predProvOf_toComposite`, an
+expression by `AggExpr.predProv_toComposite`. -/
+theorem AggTok.predProvOf_toComposite (x : AggTok T K) (hx : x.isNested = false)
+    (op : CompOp) (c : T) :
+    x.toComposite.predProvOf op (Sum.inl c) = x.predProvOf op c := by
+  cases x with
+  | tok a => exact AggValue.predProvOf_toComposite a op c
+  | nest a => exact absurd hx (by simp [AggTok.isNested])
+  | expr a => exact AggExpr.predProv_toComposite a op c
+

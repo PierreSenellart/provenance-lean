@@ -48,7 +48,7 @@ recorded here rather than papered over:
   `Query`, the declaration the paper's grammar links to, is the *classical*
   syntax: it carries the operators of RA⁺(∖) plus `ProvSum`, the ⊕-aggregation
   that rules (R1)–(R4) emit. General aggregation, and the rewriting rule for it,
-  live on the kind-indexed syntax (`AggQuery.Gamma`, and the bare-grouping
+  live on the kind-indexed syntax (`AggQueryIn.Gamma`, and the bare-grouping
   rewriting of `Provenance.AggQueryGroupRewriting`), which did not exist when
   the paper was written. This module deliberately does not import those: a
   frozen file should depend on as little as possible, and what it must pin is
@@ -338,7 +338,7 @@ theorem rule_projection (ts : Tuple (Term T k) n) (q : Query T k)
       = Proj
           (fun l : Fin (n + 1) =>
             if h : (l : ℕ) < n then (ts ⟨l, h⟩).castToAnnotatedTuple
-            else Term.index (Fin.last q.arity))
+            else TermIn.index (Fin.last q.arity))
           (q.rewriting (Query.sourceProj hq rfl)) :=
   rfl
 
@@ -353,7 +353,7 @@ theorem rule_product {hn : n₁ + n₂ = n} (q₁ : Query T n₁) (q₂ : Query 
           (fun l : Fin (n + 1) =>
             if (l : ℕ) < n₁ then #(l.castLE (by simp))
             else if ((l : ℕ) < n : Prop) then #(Fin.ofNat _ ((l : ℕ) + 1))
-            else Term.mul #(Fin.ofNat _ n₁) #(Fin.ofNat _ (n + 1)))
+            else TermIn.mul #(Fin.ofNat _ n₁) #(Fin.ofNat _ (n + 1)))
           (@Query.Prod (T ⊕ K) (n₁ + 1) (n₂ + 1) (n + 2) (by omega)
             (q₁.rewriting (Query.sourceProd hq rfl).left)
             (q₂.rewriting (Query.sourceProd hq rfl).right)) :=
@@ -383,17 +383,17 @@ theorem rule_difference (q₁ q₂ : Query T n) (hq : (Query.Diff q₁ q₂).sou
          let joinCond₁ :=
            ((List.range n).map
              (fun j => @Selection.BT (T ⊕ K) (2 * n + 1)
-               (#(Fin.ofNat _ j) == #(Fin.ofNat _ (j + n + 1))))).foldr
+               (#(Fin.ofNat _ j) ≐ #(Fin.ofNat _ (j + n + 1))))).foldr
              (fun t t' => Selection.And t t') Selection.True
          let prod₁t := fun r => Sel joinCond₁ (@Query.Prod _ (n + 1) n (2 * n + 1) (by omega) q'₁ r)
          let prod₁r :=
-           Dedup (Diff (Proj (fun j : Fin n => Term.index (j.castLE (Nat.le_succ _))) q'₁)
-                       (Proj (fun j : Fin n => Term.index (j.castLE (Nat.le_succ _))) q'₂))
+           Dedup (Diff (Proj (fun j : Fin n => TermIn.index (j.castLE (Nat.le_succ _))) q'₁)
+                       (Proj (fun j : Fin n => TermIn.index (j.castLE (Nat.le_succ _))) q'₂))
          let prod₁ := prod₁t prod₁r
          let joinCond₂ :=
            ((List.range n).map
              (fun j => @Selection.BT (T ⊕ K) (2 * n + 2)
-               (#(Fin.ofNat _ j) == #(Fin.ofNat _ (j + n + 1))))).foldr
+               (#(Fin.ofNat _ j) ≐ #(Fin.ofNat _ (j + n + 1))))).foldr
              (fun t t' => Selection.And t t') Selection.True
          let prod₂t := fun r => Sel joinCond₂ (@Query.Prod _ (n + 1) (n + 1) (2 * n + 2) (by omega) q'₁ r)
          let prod₂r := ProvSum (fun j : Fin n => j.castLE (by simp)) #(Fin.last n) q'₂
@@ -401,7 +401,7 @@ theorem rule_difference (q₁ q₂ : Query T n) (hq : (Query.Diff q₁ q₂).sou
          let ts₁ := fun j : Fin (n + 1) => #(j.castLE (by omega))
          let ts₂ := fun j : Fin (n + 1) =>
            if (j : ℕ) < n then #(j.castLE (by omega))
-           else Term.sub #(Fin.ofNat _ n) #(Fin.last (2 * n + 1))
+           else TermIn.sub #(Fin.ofNat _ n) #(Fin.last (2 * n + 1))
          Sum (Proj ts₁ prod₁) (Proj ts₂ prod₂)) :=
   rfl
 
@@ -421,7 +421,8 @@ Anchor: Provenance/QueryRewriting.html#Query.rewriting_valid
 -/
 
 /-- `⟪q⟫_Î = ⟦q̂⟧_Î`, for `q` in the fragment the rules (R1)–(R4) cover. -/
-theorem rewriting_valid [SemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K]
+theorem rewriting_valid [SemiringWithMonus K] [DecidableEq K]
+    [HasAltLinearOrder K]
     (q : Query T n) (hq : q.source) (d : AnnotatedDatabase T K) :
     (q.evaluateAnnotated hq d).toComposite = (q.rewriting hq).evaluate d.toComposite :=
   Query.rewriting_valid q hq d

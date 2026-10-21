@@ -1,4 +1,4 @@
-import Provenance.AggValue
+import Provenance.AggExpr
 
 /-!
 # Congruence of predicate provenance under tie-block permutations
@@ -23,8 +23,8 @@ for an order-sensitive aggregate, exchanging two occurrences of equal value
 * `AggValue.predProvAux` – a recursion form of the predicate provenance, with
   accumulators for the values kept so far, the annotations discarded so far,
   and whether the world is already non-empty;
-* `AggValue.predProv_eq_predProvAux` – the world-sum of `AggValue.predProv`
-  equals the recursion form;
+* `AggValue.predProvWith_eq_predProvAux` – the world-sum of the predicate
+  provenance equals the recursion form;
 * `AggValue.predProv_congr` – the congruence: tokens with the same aggregate
   and `TiePerm`-related payloads have the same predicate provenance.
 -/
@@ -62,6 +62,66 @@ theorem symm (hsymm : ∀ {a b : α}, eqv a b → eqv b a) :
   | swap h _ ih => exact .swap (hsymm h) ih
   | trans _ _ ih₁ ih₂ => exact .trans ih₂ ih₁
 
+/-- **A reading that cannot tell two tied entries apart is unchanged by a
+tie-block permutation.** `map_fst_eq` is the case of the first
+component. -/
+theorem map_eq_of_eqv {γ : Type} {φ : α → γ}
+    (hφ : ∀ {a b : α}, eqv a b → φ a = φ b) :
+    ∀ {l₁ l₂ : List α}, TiePerm eqv l₁ l₂ → l₁.map φ = l₂.map φ := by
+  intro l₁ l₂ h
+  induction h with
+  | nil => rfl
+  | cons a _ ih => rw [List.map_cons, List.map_cons, ih]
+  | swap hab _ ih =>
+      rw [List.map_cons, List.map_cons, List.map_cons, List.map_cons, ih,
+        hφ hab]
+  | trans _ _ ih₁ ih₂ => exact ih₁.trans ih₂
+
+/-- **Selecting by a test that cannot tell two tied entries apart** leaves
+a tie-block permutation one: a swap either keeps both entries or drops
+both. -/
+theorem filter {p : α → Bool} (hp : ∀ {a b : α}, eqv a b → p a = p b) :
+    ∀ {l₁ l₂ : List α}, TiePerm eqv l₁ l₂ →
+      TiePerm eqv (l₁.filter p) (l₂.filter p) := by
+  intro l₁ l₂ h
+  induction h with
+  | nil => exact .nil
+  | cons a _ ih =>
+      rw [List.filter_cons, List.filter_cons]
+      cases hpa : p a
+      · simpa using ih
+      · simpa using TiePerm.cons a ih
+  | @swap a b hab _ _ _ ih =>
+      rw [List.filter_cons, List.filter_cons, List.filter_cons,
+        List.filter_cons, hp hab]
+      cases hpb : p b
+      · simpa using ih
+      · simpa using TiePerm.swap hab ih
+  | trans _ _ ih₁ ih₂ => exact ih₁.trans ih₂
+
+/-- Appending a fixed tail. -/
+theorem append_right {l₁ l₂ : List α} (h : TiePerm eqv l₁ l₂) (r : List α) :
+    TiePerm eqv (l₁ ++ r) (l₂ ++ r) := by
+  induction h with
+  | nil => exact refl eqv r
+  | cons a _ ih => exact .cons a ih
+  | swap hab _ ih => exact .swap hab ih
+  | trans _ _ ih₁ ih₂ => exact .trans ih₁ ih₂
+
+/-- Prefixing a fixed head. -/
+theorem append_left (l : List α) {r₁ r₂ : List α} (h : TiePerm eqv r₁ r₂) :
+    TiePerm eqv (l ++ r₁) (l ++ r₂) := by
+  induction l with
+  | nil => exact h
+  | cons a t ih => exact .cons a ih
+
+/-- **Two tie-block permutations append**: a family built in two segments
+– the merged occurrences a clause keeps and the rejected ones it leaves –
+is carried segment by segment. -/
+theorem append {l₁ l₂ r₁ r₂ : List α} (h : TiePerm eqv l₁ l₂)
+    (hr : TiePerm eqv r₁ r₂) : TiePerm eqv (l₁ ++ r₁) (l₂ ++ r₂) :=
+  .trans (append_right h r₁) (append_left l₂ hr)
+
 /-- A tie-block permutation is in particular a permutation. -/
 theorem perm {l₁ l₂ : List α} (h : TiePerm eqv l₁ l₂) : l₁.Perm l₂ := by
   induction h with
@@ -82,6 +142,19 @@ theorem map {eqv' : β → β → Prop} (g : α → β)
   | swap h _ ih => exact .swap (hg h) ih
   | trans _ _ ih₁ ih₂ => exact .trans ih₁ ih₂
 
+/-- **A tie-block permutation leaves unchanged the sequence of anything the
+guard determines** (whereas an unrestricted permutation would only preserve
+it as a multiset). -/
+theorem map_eq {γ : Type} {g : α → γ} (hg : ∀ {a b : α}, eqv a b → g a = g b) :
+    ∀ {l₁ l₂ : List α}, TiePerm eqv l₁ l₂ → l₁.map g = l₂.map g := by
+  intro l₁ l₂ h
+  induction h with
+  | nil => rfl
+  | cons a _ ih => rw [List.map_cons, List.map_cons, ih]
+  | swap h _ ih =>
+      rw [List.map_cons, List.map_cons, List.map_cons, List.map_cons, ih, hg h]
+  | trans _ _ ih₁ ih₂ => exact ih₁.trans ih₂
+
 /-- On lists of pairs with equal first components as guard, a tie-block
 permutation leaves the sequence of first components unchanged (whereas an
 unrestricted permutation would only preserve it as a multiset). -/
@@ -101,14 +174,23 @@ end TiePerm
 
 section Sorted
 
-variable {α κ : Type} [DecidableEq α] [LinearOrder κ]
+variable {α κ : Type} [DecidableEq α]
 
-/-- Bubbling a minimal element of a sorted list to the front only ever
+/-! A sort determines a list up to a tie-block permutation as soon as the
+relation it sorts by is total and transitive and its ties are exactly
+equality of some key. The canonical case is `key x ≤ key y` for a key into a
+linear order, but a window's frame is sorted by its `ORDER BY`, which is not
+of that shape: it reads the order columns in the clause's direction and null
+placement, and breaks the clause's ties by the canonical order. -/
+
+variable {R : α → α → Prop} {key : α → κ}
+
+/-- Bubbling a least element of a sorted list to the front only ever
 transposes adjacent elements of equal key. -/
-theorem tiePerm_cons_erase (key : α → κ) :
+theorem tiePerm_cons_erase_by (R : α → α → Prop) (key : α → κ)
+    (hanti : ∀ {x y : α}, R x y → R y x → key x = key y) :
     ∀ {l : List α} {p : α}, p ∈ l →
-      l.Pairwise (fun x y => key x ≤ key y) →
-      (∀ q ∈ l, key p ≤ key q) →
+      l.Pairwise R → (∀ q ∈ l, R p q) →
       TiePerm (fun x y => key x = key y) l (p :: l.erase p)
   | a :: t, p, hp, hsort, hmin => by
     by_cases hap : a = p
@@ -120,21 +202,22 @@ theorem tiePerm_cons_erase (key : α → κ) :
         · exact absurd h.symm hap
         · exact h
       have hsort' := List.pairwise_cons.mp hsort
-      have ih := tiePerm_cons_erase key hpt hsort.of_cons
+      have ih := tiePerm_cons_erase_by R key hanti hpt hsort.of_cons
         (fun q hq => hmin q (List.mem_cons_of_mem a hq))
       have hkey : key a = key p :=
-        le_antisymm (hsort'.1 p hpt) (hmin a List.mem_cons_self)
+        hanti (hsort'.1 p hpt) (hmin a List.mem_cons_self)
       rw [List.erase_cons_tail (by simpa using hap)]
       refine .trans (.cons a ih) (.swap ?_ (TiePerm.refl _ _))
       exact hkey
 
-/-- Two lists that are permutations of each other and both sorted by the key
-`key` differ only by a tie-block permutation on key equality: the sort order
-determines everything except the arrangement inside blocks of equal keys. -/
-theorem tiePerm_of_perm_of_sorted (key : α → κ) :
+/-- **Two lists that are permutations of each other and both sorted by `R`
+differ only by a tie-block permutation on key equality**: the sort order
+determines everything except the arrangement inside blocks of equal key. -/
+theorem tiePerm_of_perm_of_sorted_by (R : α → α → Prop) (key : α → κ)
+    (hanti : ∀ {x y : α}, R x y → R y x → key x = key y)
+    (hkey : ∀ {x y : α}, key x = key y → R x y) :
     ∀ {l₁ l₂ : List α}, l₁.Perm l₂ →
-      l₁.Pairwise (fun x y => key x ≤ key y) →
-      l₂.Pairwise (fun x y => key x ≤ key y) →
+      l₁.Pairwise R → l₂.Pairwise R →
       TiePerm (fun x y => key x = key y) l₁ l₂
   | [], l₂, hperm, _, _ => by
     rw [hperm.symm.eq_nil]
@@ -142,15 +225,36 @@ theorem tiePerm_of_perm_of_sorted (key : α → κ) :
   | p :: t₁, l₂, hperm, hs₁, hs₂ => by
     have hp₂ : p ∈ l₂ := hperm.mem_iff.mp List.mem_cons_self
     have ht : t₁.Perm (l₂.erase p) := (List.cons_perm_iff_perm_erase.mp hperm).2
-    have hmin : ∀ q ∈ l₂, key p ≤ key q := by
+    have hmin : ∀ q ∈ l₂, R p q := by
       intro q hq
       rcases List.mem_cons.mp (hperm.symm.subset hq) with h | h
-      · exact le_of_eq (congrArg key h.symm)
+      · exact hkey (congrArg key h.symm)
       · exact (List.pairwise_cons.mp hs₁).1 q h
-    have hbubble := tiePerm_cons_erase key hp₂ hs₂ hmin
-    have ih := tiePerm_of_perm_of_sorted key ht hs₁.of_cons
+    have hbubble := tiePerm_cons_erase_by R key hanti hp₂ hs₂ hmin
+    have ih := tiePerm_of_perm_of_sorted_by R key hanti hkey ht hs₁.of_cons
       (hs₂.sublist (List.erase_sublist))
     exact .trans (.cons p ih) (TiePerm.symm (fun h => h.symm) hbubble)
+
+variable [LinearOrder κ]
+
+/-- Bubbling a minimal element of a sorted list to the front only ever
+transposes adjacent elements of equal key. -/
+theorem tiePerm_cons_erase (key : α → κ) {l : List α} {p : α} (hp : p ∈ l)
+    (hsort : l.Pairwise (fun x y => key x ≤ key y))
+    (hmin : ∀ q ∈ l, key p ≤ key q) :
+    TiePerm (fun x y => key x = key y) l (p :: l.erase p) :=
+  tiePerm_cons_erase_by _ key (fun h h' => le_antisymm h h') hp hsort hmin
+
+/-- Two lists that are permutations of each other and both sorted by the key
+`key` differ only by a tie-block permutation on key equality: the sort order
+determines everything except the arrangement inside blocks of equal keys. -/
+theorem tiePerm_of_perm_of_sorted (key : α → κ) {l₁ l₂ : List α}
+    (hperm : l₁.Perm l₂)
+    (hs₁ : l₁.Pairwise (fun x y => key x ≤ key y))
+    (hs₂ : l₂.Pairwise (fun x y => key x ≤ key y)) :
+    TiePerm (fun x y => key x = key y) l₁ l₂ :=
+  tiePerm_of_perm_of_sorted_by _ key (fun h h' => le_antisymm h h')
+    (fun h => le_of_eq h) hperm hs₁ hs₂
 
 end Sorted
 
@@ -233,25 +337,25 @@ the occurrences discarded so far, and `started` records whether an occurrence
 has been kept (worlds must end up non-empty). Keeping an occurrence
 contributes its annotation as a factor; discarding it moves its annotation
 into the pending `𝟙 ⊖ Σ` factor materialized at the end of the list. -/
-def predProvAux (f : SeqAggFunc T) (op : CompOp) (c : T) :
+def predProvAux (f : SeqAggFunc T) (P : T → Kleene) :
     List T → K → Bool → List (T × K) → K
   | acc, ex, started, [] =>
-      if started then (1 - ex) * Having.chi op (f acc) c else 0
+      if started then (1 - ex) * Having.chiOf P (f acc) else 0
   | acc, ex, started, (v, a) :: t =>
-      a * predProvAux f op c (acc ++ [v]) ex true t
-        + predProvAux f op c acc (ex + a) started t
+      a * predProvAux f P (acc ++ [v]) ex true t
+        + predProvAux f P acc (ex + a) started t
 
-omit [DecidableEq K] in
+omit [ValueType T] [DecidableEq K] in
 /-- The world-sum defining the predicate provenance, generalized by the three
 accumulators, equals the recursion form. -/
-theorem sum_worlds_eq_predProvAux (f : SeqAggFunc T) (op : CompOp) (c : T) :
+theorem sum_worlds_eq_predProvAux (f : SeqAggFunc T) (P : T → Kleene) :
     ∀ (l : List (T × K)) (acc : List T) (ex : K) (started : Bool),
       ∑ W ∈ Finset.univ.filter
           (fun W : Finset (Fin l.length) => started = true ∨ W.Nonempty),
         (∏ i ∈ W, (l.get i).snd)
           * ((1 - (ex + ∑ i ∈ Wᶜ, (l.get i).snd))
-            * Having.chi op (f (acc ++ (Having.seqOf l W).map Prod.fst)) c)
-        = predProvAux f op c acc ex started l
+            * Having.chiOf P (f (acc ++ (Having.seqOf l W).map Prod.fst)))
+        = predProvAux f P acc ex started l
   | [], acc, ex, started => by
     have hW : ∀ W : Finset (Fin ([] : List (T × K)).length), W = ∅ := fun W =>
       Finset.eq_empty_of_forall_notMem (fun i => absurd i.isLt (Nat.not_lt_zero _))
@@ -270,11 +374,11 @@ theorem sum_worlds_eq_predProvAux (f : SeqAggFunc T) (op : CompOp) (c : T) :
         rw [Finset.sum_singleton, Finset.prod_empty, one_mul,
           Finset.sum_eq_zero (fun i _ => absurd i.isLt (Nat.not_lt_zero _)),
           add_zero]
-        show (1 - ex) * Having.chi op (f (acc ++ [])) c = _
+        show (1 - ex) * Having.chiOf P (f (acc ++ [])) = _
         rw [List.append_nil]
         rfl
   | (v, ann) :: t, acc, ex, started => by
-    have ih := sum_worlds_eq_predProvAux f op c t
+    have ih := sum_worlds_eq_predProvAux f P t
     dsimp only [List.length_cons]
     -- Branch A: worlds keeping the head occurrence.
     have hA : (∑ W ∈ (Finset.univ.filter
@@ -282,9 +386,9 @@ theorem sum_worlds_eq_predProvAux (f : SeqAggFunc T) (op : CompOp) (c : T) :
             (fun W => (0 : Fin (t.length + 1)) ∈ W),
           (∏ i ∈ W, (((v, ann) :: t).get i).snd)
             * ((1 - (ex + ∑ i ∈ Wᶜ, (((v, ann) :: t).get i).snd))
-              * Having.chi op
-                  (f (acc ++ (Having.seqOf ((v, ann) :: t) W).map Prod.fst)) c))
-        = ann * predProvAux f op c (acc ++ [v]) ex true t := by
+              * Having.chiOf P
+                  (f (acc ++ (Having.seqOf ((v, ann) :: t) W).map Prod.fst))))
+        = ann * predProvAux f P (acc ++ [v]) ex true t := by
       rw [Finset.filter_filter]
       rw [show Finset.univ.filter
             (fun W : Finset (Fin (t.length + 1)) =>
@@ -333,9 +437,9 @@ theorem sum_worlds_eq_predProvAux (f : SeqAggFunc T) (op : CompOp) (c : T) :
             (fun W => ¬ (0 : Fin (t.length + 1)) ∈ W),
           (∏ i ∈ W, (((v, ann) :: t).get i).snd)
             * ((1 - (ex + ∑ i ∈ Wᶜ, (((v, ann) :: t).get i).snd))
-              * Having.chi op
-                  (f (acc ++ (Having.seqOf ((v, ann) :: t) W).map Prod.fst)) c))
-        = predProvAux f op c acc (ex + ann) started t := by
+              * Having.chiOf P
+                  (f (acc ++ (Having.seqOf ((v, ann) :: t) W).map Prod.fst))))
+        = predProvAux f P acc (ex + ann) started t := by
       rw [Finset.filter_filter]
       rw [show Finset.univ.filter
             (fun W : Finset (Fin (t.length + 1)) =>
@@ -391,23 +495,23 @@ theorem sum_worlds_eq_predProvAux (f : SeqAggFunc T) (op : CompOp) (c : T) :
     simp only [predProvAux]
 
 /-- The predicate provenance of a token is its recursion form. -/
-theorem predProv_eq_predProvAux (a : AggValue T K) (op : CompOp) (c : T) :
-    a.predProv op c = predProvAux a.agg op c [] 0 false a.occs := by
+theorem predProvWith_eq_predProvAux (a : AggValue T K) (P : T → Kleene) :
+    a.predProvWith P = predProvAux a.agg P [] 0 false a.occs := by
   rw [← sum_worlds_eq_predProvAux]
-  simp only [AggValue.predProv]
+  simp only [AggValue.predProvWith]
   refine Finset.sum_congr (Finset.filter_congr fun W _ => by simp) fun W _ => ?_
   simp only [Having.worldAnn, AggValue.anns, AggValue.valOn]
   rw [zero_add, List.nil_append, mul_assoc]
 
-omit [DecidableEq K] in
+omit [ValueType T] [DecidableEq K] in
 /-- The recursion form is invariant under tie-block permutations of the
 payload: exchanging two adjacent occurrences with equal values redistributes
 the same annotations over the same world readings. -/
-theorem predProvAux_congr (f : SeqAggFunc T) (op : CompOp) (c : T)
+theorem predProvAux_congr (f : SeqAggFunc T) (P : T → Kleene)
     {l₁ l₂ : List (T × K)} (h : TiePerm (fun p q => p.1 = q.1) l₁ l₂) :
     ∀ (acc : List T) (ex : K) (started : Bool),
-      predProvAux f op c acc ex started l₁
-        = predProvAux f op c acc ex started l₂ := by
+      predProvAux f P acc ex started l₁
+        = predProvAux f P acc ex started l₂ := by
   induction h with
   | nil => intro acc ex started; rfl
   | @cons p l₁ l₂ _ ih =>
@@ -434,12 +538,40 @@ theorem predProvAux_congr (f : SeqAggFunc T) (op : CompOp) (c : T)
 whose payloads differ by a tie-block permutation on equal values have the
 same predicate provenance, for every comparison. This is what makes the
 annotation tie-break of the group sort semantically invisible. -/
+theorem predProvWith_congr {a b : AggValue T K} (hagg : a.agg = b.agg)
+    (h : TiePerm (fun p q => p.1 = q.1) a.occs b.occs) (P : T → Kleene) :
+    a.predProvWith P = b.predProvWith P := by
+  rw [predProvWith_eq_predProvAux, predProvWith_eq_predProvAux, hagg,
+    predProvAux_congr b.agg _ h]
+
+/-- The comparison case. -/
 theorem predProv_congr {a b : AggValue T K} (hagg : a.agg = b.agg)
     (h : TiePerm (fun p q => p.1 = q.1) a.occs b.occs)
     (op : CompOp) (c : T) :
-    a.predProv op c = b.predProv op c := by
-  rw [predProv_eq_predProvAux, predProv_eq_predProvAux, hagg,
-    predProvAux_congr b.agg op c h]
+    a.predProv op c = b.predProv op c :=
+  predProvWith_congr hagg h (fun v => op.eval3 v c)
+
+omit [DecidableEq K] in
+/-- **The merge is blind to a tie-block permutation of the payload**: it
+reads the classes and their sums, and exchanging two adjacent
+occurrences of equal value changes neither. This is what lets the merged
+token inherit every congruence the unmerged one has. -/
+theorem mergeOccs_congr {l l' : List (T × K)}
+    (h : TiePerm (fun p q : T × K => p.1 = q.1) l l') :
+    mergeOccs l = mergeOccs l' := by
+  unfold mergeOccs
+  rw [h.map_fst_eq]
+  exact List.map_congr_left (fun v _ => Prod.ext rfl (classSum_perm h.perm v))
+
+omit [DecidableEq K] in
+/-- The same on a token, whose aggregate and convention are its own. -/
+theorem mergeByValue_congr {a b : AggValue T K} (hagg : a.agg = b.agg)
+    (hsc : a.scalar = b.scalar) (hfam : a.fam = b.fam)
+    (h : TiePerm (fun p q : T × K => p.1 = q.1) a.occs b.occs) :
+    mergeByValue a = mergeByValue b := by
+  unfold mergeByValue
+  simp only [AggValue.mk.injEq]
+  exact ⟨hagg, mergeOccs_congr h, hsc, hfam, trivial⟩
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] in
 /-- The deterministic reading of a token only depends on the value sequence,
@@ -457,4 +589,794 @@ theorem annSum_congr {a b : AggValue T K}
     (a.occs.map Prod.snd).sum = (b.occs.map Prod.snd).sum :=
   (h.perm.map Prod.snd).sum_eq
 
+omit [ValueType T] [DecidableEq K] in
+/-- The empty world's annotation depends only on the sum of the occurrence
+annotations, which a tie-block permutation preserves. -/
+theorem worldAnn_empty_congr {a b : AggValue T K}
+    (h : TiePerm (fun p q : T × K => p.1 = q.1) a.occs b.occs) :
+    Having.worldAnn a.anns ∅ = Having.worldAnn b.anns ∅ := by
+  unfold Having.worldAnn
+  simp only [Finset.prod_empty, Finset.compl_empty]
+  -- the sum over all positions is the sum of the annotation list
+  have hsum : ∀ x : AggValue T K, ∑ i, x.anns i = (x.occs.map Prod.snd).sum := by
+    intro x
+    rw [← List.sum_ofFn]
+    congr 1
+    show List.ofFn (fun i => (x.occs.get i).snd) = x.occs.map Prod.snd
+    rw [← List.ofFn_getElem (xs := x.occs.map Prod.snd)]
+    simp
+  rw [hsum a, hsum b, annSum_congr h]
+
+/-- `predProvScalar` is invariant under a tie-block permutation, as
+`predProv` is: the empty world it adds reads the aggregate of the empty
+sequence and the sum of all the annotations, neither of which the
+permutation moves. -/
+theorem predProvScalarWith_congr {a b : AggValue T K} (hagg : a.agg = b.agg)
+    (h : TiePerm (fun p q => p.1 = q.1) a.occs b.occs) (P : T → Kleene) :
+    a.predProvScalarWith P = b.predProvScalarWith P := by
+  rw [AggValue.predProvScalarWith_eq_predProvWith_add,
+    AggValue.predProvScalarWith_eq_predProvWith_add, predProvWith_congr hagg h,
+    worldAnn_empty_congr h, hagg]
+
+/-- The comparison case. -/
+theorem predProvScalar_congr {a b : AggValue T K} (hagg : a.agg = b.agg)
+    (h : TiePerm (fun p q => p.1 = q.1) a.occs b.occs)
+    (op : CompOp) (c : T) :
+    a.predProvScalar op c = b.predProvScalar op c :=
+  predProvScalarWith_congr hagg h (fun v => op.eval3 v c)
+
+/-- A token is read in its own convention, invariantly under a tie-block
+permutation of its payload. -/
+theorem predProvOfWith_congr {a b : AggValue T K} (hagg : a.agg = b.agg)
+    (hsc : a.scalar = b.scalar)
+    (h : TiePerm (fun p q => p.1 = q.1) a.occs b.occs) (P : T → Kleene) :
+    a.predProvOfWith P = b.predProvOfWith P := by
+  unfold AggValue.predProvOfWith
+  rw [hsc]
+  cases b.scalar
+  · simpa using predProvWith_congr hagg h P
+  · simpa using predProvScalarWith_congr hagg h P
+
+omit [CommSemiringWithMonus K] [DecidableEq K] in
+/-- **Tie-block permutation changes no value the token takes**: its
+swaps exchange occurrences of equal value, so the list of values is
+untouched and `AggValue.vals` reads only that. -/
+theorem vals_congr {a b : AggValue T K} (hagg : a.agg = b.agg)
+    (hsc : a.scalar = b.scalar)
+    (h : TiePerm (fun p q : T × K => p.1 = q.1) a.occs b.occs) :
+    a.vals = b.vals := by
+  rw [AggValue.vals_eq_valsOf, AggValue.vals_eq_valsOf, hagg, hsc,
+    h.map_fst_eq]
+
+/-- The comparison case. -/
+theorem predProvOf_congr {a b : AggValue T K} (hagg : a.agg = b.agg)
+    (hsc : a.scalar = b.scalar)
+    (h : TiePerm (fun p q => p.1 = q.1) a.occs b.occs)
+    (op : CompOp) (c : T) :
+    a.predProvOf op c = b.predProvOf op c :=
+  predProvOfWith_congr hagg hsc h (fun v => op.eval3 v c)
+
 end AggValue
+
+/-! ## The several-leaf recursion
+
+`predProvAux` walks the occurrence family of one token, carrying the
+values kept so far. An aggregate expression reads *several* leaves over
+one shared family, each on its own part of a world, so the walk carries
+one accumulator per leaf and keeps an occurrence only for the leaves
+that read it. The world condition becomes per leaf as well: a world must
+meet the part of the family each *grouped* leaf reads.
+
+The occurrence list carries, per occurrence, the value each leaf reads
+there, the annotation, and which leaves read it – which is `AggExpr`'s
+`occs` together with `reads`, in the form a recursion over the list can
+use. Since an `AggExpr`'s occurrences carry their leaf flags,
+`AggExpr.leafSeq_eq_filter` is the shape the walk reads, and
+`predProvWith_eq_exprProvAux` specializes the walk to
+`AggExpr.predProvWith`. -/
+
+namespace AggExpr
+
+variable {T K : Type} [ValueType T] [CommSemiringWithMonus K] [DecidableEq K]
+variable {q : ℕ}
+
+/-- The several-leaf counterpart of `AggValue.predProvAux`: `acc l` the
+values leaf `l` has kept, `ex` the annotations discarded so far, and
+`started l` whether leaf `l` has kept an occurrence. -/
+def exprProvAux (aggs : Fin q → SeqAggFunc T) (sc : Fin q → Bool)
+    (g : (Fin q → T) → T) (P : T → Kleene) :
+    (Fin q → List T) → K → (Fin q → Bool) →
+    List ((Fin q → T) × K × (Fin q → Bool) × (Fin q → Bool)) → K
+  | acc, ex, started, [] =>
+      if (List.finRange q).all (fun l => sc l || started l)
+      then (1 - ex) * Having.chiOf P (g (fun l => aggs l (acc l))) else 0
+  | acc, ex, started, (v, a, fr, kp) :: t =>
+      a * exprProvAux aggs sc g P
+          (fun l => if fr l && kp l then acc l ++ [v l] else acc l) ex
+          (fun l => started l || fr l) t
+        + exprProvAux aggs sc g P acc (ex + a) started t
+
+omit [ValueType T] [DecidableEq K] in
+/-- **The world sum is the recursion**, several leaves at a time. The
+world condition asks each grouped leaf to have kept an occurrence of the
+part it reads, which is what `AggExpr.IsWorld` asks of `W ∩ reads l`. -/
+theorem sum_worlds_eq_exprProvAux (aggs : Fin q → SeqAggFunc T)
+    (sc : Fin q → Bool) (g : (Fin q → T) → T) (P : T → Kleene) :
+    ∀ (L : List ((Fin q → T) × K × (Fin q → Bool) × (Fin q → Bool))) (acc : Fin q → List T)
+      (ex : K) (started : Fin q → Bool),
+      ∑ W ∈ Finset.univ.filter (fun W : Finset (Fin L.length) =>
+          ∀ l, sc l = true ∨ started l = true
+            ∨ (W.filter (fun i => (L.get i).snd.snd.fst l = true)).Nonempty),
+        (∏ i ∈ W, (L.get i).snd.fst)
+          * (((1 : K) - (ex + ∑ i ∈ Wᶜ, (L.get i).snd.fst))
+            * Having.chiOf P (g (fun l => aggs l (acc l ++
+                ((Having.seqOf L W).filter
+                  (fun z => z.snd.snd.fst l && z.snd.snd.snd l)).map (fun z => z.fst l)))))
+        = exprProvAux aggs sc g P acc ex started L
+  | [], acc, ex, started => by
+    have hW : ∀ W : Finset (Fin ([] : List ((Fin q → T) × K × (Fin q → Bool) × (Fin q → Bool))).length),
+        W = ∅ := fun W =>
+      Finset.eq_empty_of_forall_notMem (fun i => absurd i.isLt (Nat.not_lt_zero _))
+    by_cases hall : (List.finRange q).all (fun l => sc l || started l) = true
+    · rw [Finset.filter_true_of_mem (fun W _ l =>
+        (Bool.or_eq_true _ _ |>.mp (List.all_eq_true.mp hall l
+          (List.mem_finRange l))).imp id Or.inl)]
+      rw [show (Finset.univ
+            : Finset (Finset (Fin ([] : List ((Fin q → T) × K × (Fin q → Bool) × (Fin q → Bool))).length)))
+          = {∅} from Finset.eq_singleton_iff_unique_mem.mpr
+            ⟨Finset.mem_univ _, fun W _ => hW W⟩,
+        Finset.sum_singleton, Finset.prod_empty, one_mul,
+        Finset.sum_eq_zero (fun i _ => absurd i.isLt (Nat.not_lt_zero _)),
+        add_zero]
+      show ((1 : K) - ex) * Having.chiOf P (g (fun l => aggs l (acc l ++ []))) = _
+      rw [show (fun l => aggs l (acc l ++ [])) = (fun l => aggs l (acc l)) from
+        funext (fun l => congrArg (aggs l) (List.append_nil _))]
+      unfold exprProvAux
+      rw [hall]
+      rfl
+    · rw [Finset.filter_false_of_mem, Finset.sum_empty]
+      · unfold exprProvAux
+        rw [ite_eq_right (by simpa using hall)]
+      · intro W _ hcon
+        refine hall (List.all_eq_true.mpr (fun l _ => ?_))
+        rcases hcon l with h | h | ⟨i, -⟩
+        · rw [h]; rfl
+        · rw [h]; exact Bool.or_true _
+        · exact absurd i.isLt (Nat.not_lt_zero _)
+  | (v, ann, fr, kp) :: t, acc, ex, started => by
+    have ih := sum_worlds_eq_exprProvAux aggs sc g P t
+    dsimp only [List.length_cons]
+    -- Branch A: worlds keeping the head occurrence.
+    have hA : (∑ W ∈ (Finset.univ.filter
+          (fun W : Finset (Fin (t.length + 1)) => ∀ l, sc l = true
+            ∨ started l = true
+            ∨ (W.filter (fun i => (((v, ann, fr, kp) :: t).get i).snd.snd.fst l = true)).Nonempty)).filter
+            (fun W => (0 : Fin (t.length + 1)) ∈ W),
+          (∏ i ∈ W, (((v, ann, fr, kp) :: t).get i).snd.fst)
+            * (((1 : K) - (ex + ∑ i ∈ Wᶜ, (((v, ann, fr, kp) :: t).get i).snd.fst))
+              * Having.chiOf P (g (fun l => aggs l (acc l ++
+                  ((Having.seqOf ((v, ann, fr, kp) :: t) W).filter
+                    (fun z => z.snd.snd.fst l && z.snd.snd.snd l)).map (fun z => z.fst l))))))
+        = ann * exprProvAux aggs sc g P
+            (fun l => if fr l && kp l then acc l ++ [v l] else acc l) ex
+            (fun l => started l || fr l) t := by
+      rw [Finset.filter_filter]
+      rw [show Finset.univ.filter
+            (fun W : Finset (Fin (t.length + 1)) =>
+              (∀ l, sc l = true ∨ started l = true
+                ∨ (W.filter (fun i =>
+                    (((v, ann, fr, kp) :: t).get i).snd.snd.fst l = true)).Nonempty)
+              ∧ (0 : Fin (t.length + 1)) ∈ W)
+          = (Finset.univ.filter (fun W' : Finset (Fin t.length) =>
+              ∀ l, sc l = true ∨ (started l || fr l) = true
+                ∨ (W'.filter (fun i => (t.get i).snd.snd.fst l = true)).Nonempty)).map
+              (insertEmb t.length)
+          from ?_, Finset.sum_map, ← ih
+            (fun l => if fr l && kp l then acc l ++ [v l] else acc l) ex
+            (fun l => started l || fr l), Finset.mul_sum]
+      · refine Finset.sum_congr rfl fun W' _ => ?_
+        have hprod : ∏ i ∈ insertEmb t.length W',
+              (((v, ann, fr, kp) :: t).get i).snd.fst
+            = ann * ∏ i ∈ W', (t.get i).snd.fst := by
+          show ∏ i ∈ insert (0 : Fin (t.length + 1)) (W'.map (succEmb t.length)),
+              (((v, ann, fr, kp) :: t).get i).snd.fst = _
+          rw [Finset.prod_insert (notMem_map_succ _), Finset.prod_map]
+          exact congrArg₂ (· * ·) rfl (Finset.prod_congr rfl fun i _ => rfl)
+        have hsum : ∑ i ∈ (insertEmb t.length W')ᶜ,
+              (((v, ann, fr, kp) :: t).get i).snd.fst
+            = ∑ i ∈ W'ᶜ, (t.get i).snd.fst := by
+          show ∑ i ∈ (insert (0 : Fin (t.length + 1))
+              (W'.map (succEmb t.length)))ᶜ,
+              (((v, ann, fr, kp) :: t).get i).snd.fst = _
+          rw [compl_insert_map, Finset.sum_map]
+          exact Finset.sum_congr rfl fun i _ => rfl
+        have hseq : Having.seqOf ((v, ann, fr, kp) :: t) (insertEmb t.length W')
+            = (v, ann, fr, kp) :: Having.seqOf t W' := by
+          show Having.seqOf ((v, ann, fr, kp) :: t)
+              (insert (0 : Fin (t.length + 1)) (W'.map (succEmb t.length))) = _
+          simp only [Having.seqOf]
+          rw [ite_eq_left (Finset.mem_insert_self _ _), filter_succ_insert]
+          rfl
+        rw [hprod, hsum, hseq, mul_assoc]
+        refine congrArg (fun x => ann * ((∏ i ∈ W', (t.get i).snd.fst)
+            * (((1 : K) - (ex + ∑ i ∈ W'ᶜ, (t.get i).snd.fst))
+              * Having.chiOf P (g x)))) (funext (fun l => ?_))
+        refine congrArg (aggs l) ?_
+        by_cases hrd : (fr l && kp l) = true
+        · rw [ite_eq_left (by simpa using hrd),
+            List.filter_cons_of_pos (by simpa using hrd),
+            List.map_cons, List.append_assoc, List.singleton_append]
+        · rw [ite_eq_right (by simpa using hrd),
+            List.filter_cons_of_neg (by simpa using hrd)]
+      · ext W
+        constructor
+        · intro hW
+          obtain ⟨-, hP, h0⟩ := Finset.mem_filter.mp hW
+          refine Finset.mem_map.mpr ⟨Finset.univ.filter (fun i => i.succ ∈ W),
+            Finset.mem_filter.mpr ⟨Finset.mem_univ _, fun l => ?_⟩,
+            insert_filter h0⟩
+          rcases hP l with hs | hst | ⟨i, hi⟩
+          · exact Or.inl hs
+          · exact Or.inr (Or.inl (by rw [hst]; rfl))
+          · obtain ⟨hiW, hird⟩ := Finset.mem_filter.mp hi
+            cases i using Fin.cases with
+            | zero =>
+                exact Or.inr (Or.inl (by
+                  rw [show fr l = true from hird]; exact Bool.or_true _))
+            | succ j =>
+                refine Or.inr (Or.inr ⟨j, Finset.mem_filter.mpr
+                  ⟨Finset.mem_filter.mpr ⟨Finset.mem_univ _, hiW⟩, hird⟩⟩)
+        · intro hW
+          obtain ⟨W', hW', rfl⟩ := Finset.mem_map.mp hW
+          refine Finset.mem_filter.mpr ⟨Finset.mem_univ _, fun l => ?_,
+            Finset.mem_insert_self _ _⟩
+          rcases (Finset.mem_filter.mp hW').2 l with hs | hst | ⟨j, hj⟩
+          · exact Or.inl hs
+          · rcases Bool.or_eq_true _ _ |>.mp hst with h | h
+            · exact Or.inr (Or.inl h)
+            · exact Or.inr (Or.inr ⟨0, Finset.mem_filter.mpr
+                ⟨Finset.mem_insert_self _ _, h⟩⟩)
+          · obtain ⟨hjW, hjrd⟩ := Finset.mem_filter.mp hj
+            exact Or.inr (Or.inr ⟨succEmb t.length j, Finset.mem_filter.mpr
+              ⟨Finset.mem_insert_of_mem (Finset.mem_map_of_mem _ hjW), hjrd⟩⟩)
+    -- Branch B: worlds discarding the head occurrence.
+    have hB : (∑ W ∈ (Finset.univ.filter
+          (fun W : Finset (Fin (t.length + 1)) => ∀ l, sc l = true
+            ∨ started l = true
+            ∨ (W.filter (fun i =>
+                (((v, ann, fr, kp) :: t).get i).snd.snd.fst l = true)).Nonempty)).filter
+            (fun W => ¬ (0 : Fin (t.length + 1)) ∈ W),
+          (∏ i ∈ W, (((v, ann, fr, kp) :: t).get i).snd.fst)
+            * (((1 : K) - (ex + ∑ i ∈ Wᶜ, (((v, ann, fr, kp) :: t).get i).snd.fst))
+              * Having.chiOf P (g (fun l => aggs l (acc l ++
+                  ((Having.seqOf ((v, ann, fr, kp) :: t) W).filter
+                    (fun z => z.snd.snd.fst l && z.snd.snd.snd l)).map (fun z => z.fst l))))))
+        = exprProvAux aggs sc g P acc (ex + ann) started t := by
+      rw [Finset.filter_filter]
+      rw [show Finset.univ.filter
+            (fun W : Finset (Fin (t.length + 1)) =>
+              (∀ l, sc l = true ∨ started l = true
+                ∨ (W.filter (fun i =>
+                    (((v, ann, fr, kp) :: t).get i).snd.snd.fst l = true)).Nonempty)
+              ∧ ¬ (0 : Fin (t.length + 1)) ∈ W)
+          = (Finset.univ.filter (fun W' : Finset (Fin t.length) =>
+              ∀ l, sc l = true ∨ started l = true
+                ∨ (W'.filter (fun i => (t.get i).snd.snd.fst l = true)).Nonempty)).map
+              (mapEmb t.length)
+          from ?_, Finset.sum_map, ← ih acc (ex + ann) started]
+      · refine Finset.sum_congr rfl fun W' _ => ?_
+        have hprod : ∏ i ∈ mapEmb t.length W',
+              (((v, ann, fr, kp) :: t).get i).snd.fst
+            = ∏ i ∈ W', (t.get i).snd.fst := by
+          show ∏ i ∈ W'.map (succEmb t.length),
+              (((v, ann, fr, kp) :: t).get i).snd.fst = _
+          rw [Finset.prod_map]
+          exact Finset.prod_congr rfl fun i _ => rfl
+        have hsum : ∑ i ∈ (mapEmb t.length W')ᶜ,
+              (((v, ann, fr, kp) :: t).get i).snd.fst
+            = ann + ∑ i ∈ W'ᶜ, (t.get i).snd.fst := by
+          show ∑ i ∈ (W'.map (succEmb t.length))ᶜ,
+              (((v, ann, fr, kp) :: t).get i).snd.fst = _
+          rw [compl_map, Finset.sum_insert (notMem_map_succ _), Finset.sum_map]
+          exact congrArg₂ (· + ·) rfl (Finset.sum_congr rfl fun i _ => rfl)
+        have hseq : Having.seqOf ((v, ann, fr, kp) :: t) (mapEmb t.length W')
+            = Having.seqOf t W' := by
+          show Having.seqOf ((v, ann, fr, kp) :: t)
+              (W'.map (succEmb t.length)) = _
+          simp only [Having.seqOf]
+          rw [ite_eq_right (notMem_map_succ _), filter_succ_map]
+          rfl
+        rw [hprod, hsum, hseq, ← add_assoc]
+      · ext W
+        constructor
+        · intro hW
+          obtain ⟨-, hP, h0⟩ := Finset.mem_filter.mp hW
+          refine Finset.mem_map.mpr ⟨Finset.univ.filter (fun i => i.succ ∈ W),
+            Finset.mem_filter.mpr ⟨Finset.mem_univ _, fun l => ?_⟩, map_filter h0⟩
+          rcases hP l with hs | hst | ⟨i, hi⟩
+          · exact Or.inl hs
+          · exact Or.inr (Or.inl hst)
+          · obtain ⟨hiW, hird⟩ := Finset.mem_filter.mp hi
+            cases i using Fin.cases with
+            | zero => exact absurd hiW h0
+            | succ j =>
+                exact Or.inr (Or.inr ⟨j, Finset.mem_filter.mpr
+                  ⟨Finset.mem_filter.mpr ⟨Finset.mem_univ _, hiW⟩, hird⟩⟩)
+        · intro hW
+          obtain ⟨W', hW', rfl⟩ := Finset.mem_map.mp hW
+          refine Finset.mem_filter.mpr ⟨Finset.mem_univ _, fun l => ?_,
+            notMem_map_succ W'⟩
+          rcases (Finset.mem_filter.mp hW').2 l with hs | hst | ⟨j, hj⟩
+          · exact Or.inl hs
+          · exact Or.inr (Or.inl hst)
+          · obtain ⟨hjW, hjrd⟩ := Finset.mem_filter.mp hj
+            exact Or.inr (Or.inr ⟨succEmb t.length j, Finset.mem_filter.mpr
+              ⟨Finset.mem_map_of_mem _ hjW, hjrd⟩⟩)
+    refine Eq.trans (Eq.symm (Finset.sum_filter_add_sum_filter_not
+      (Finset.univ.filter (fun W : Finset (Fin (t.length + 1)) =>
+        ∀ l, sc l = true ∨ started l = true
+          ∨ (W.filter (fun i =>
+              (((v, ann, fr, kp) :: t).get i).snd.snd.fst l = true)).Nonempty))
+      (fun W => (0 : Fin (t.length + 1)) ∈ W) _)) ?_
+    rw [hA, hB]
+    rfl
+
+omit [ValueType T] [DecidableEq K] in
+/-- **The recursion is blind to a tie-block permutation** of the shared
+family: two occurrences that carry the same value vector *and* are read
+by the same leaves may be swapped. Both halves are needed – swapping
+occurrences that different leaves read would hand a leaf a value it does
+not read. -/
+theorem exprProvAux_congr (aggs : Fin q → SeqAggFunc T) (sc : Fin q → Bool)
+    (g : (Fin q → T) → T) (P : T → Kleene)
+    {L₁ L₂ : List ((Fin q → T) × K × (Fin q → Bool) × (Fin q → Bool))}
+    (h : TiePerm (fun z z' => z.fst = z'.fst ∧ z.snd.snd = z'.snd.snd) L₁ L₂) :
+    ∀ (acc : Fin q → List T) (ex : K) (started : Fin q → Bool),
+      exprProvAux aggs sc g P acc ex started L₁
+        = exprProvAux aggs sc g P acc ex started L₂ := by
+  induction h with
+  | nil => intro acc ex started; rfl
+  | @cons z L₁ L₂ _ ih =>
+      intro acc ex started
+      obtain ⟨v, a, fr, kp⟩ := z
+      simp only [exprProvAux]
+      rw [ih, ih]
+  | @swap z z' hzz' L₁ L₂ _ ih =>
+      intro acc ex started
+      obtain ⟨v, a, fr, kp⟩ := z
+      obtain ⟨w, b, fr', kp'⟩ := z'
+      obtain ⟨hv, hrd⟩ := hzz'
+      dsimp only at hv hrd
+      have hfr : fr = fr' := congrArg Prod.fst hrd
+      have hkp : kp = kp' := congrArg Prod.snd hrd
+      subst hv
+      subst hfr
+      subst hkp
+      simp only [exprProvAux]
+      simp only [ih]
+      simp only [mul_add]
+      rw [mul_left_comm a b, add_right_comm ex a b]
+      exact add_add_add_comm _ _ _ _
+  | trans _ _ ih₁ ih₂ =>
+      intro acc ex started
+      rw [ih₁, ih₂]
+
+/-- **Predicate provenance as the recursion**, at the empty
+accumulators: the world sum over the shared family is the walk over it.
+This is `AggValue.predProvWith_eq_predProvAux` for several leaves, and
+it is immediate because the leaf flags travel in the occurrences –
+`AggExpr.leafSeq_eq_filter` is exactly the shape the walk reads. -/
+theorem predProvWith_eq_exprProvAux (e : AggExpr T K) (P : T → Kleene) :
+    e.predProvWith P
+      = exprProvAux e.aggs e.scalar e.g P (fun _ => []) 0 (fun _ => false)
+          e.occs := by
+  rw [← sum_worlds_eq_exprProvAux e.aggs e.scalar e.g P e.occs
+    (fun _ => []) 0 (fun _ => false)]
+  unfold predProvWith
+  refine Finset.sum_congr (Finset.filter_congr (fun W _ => ?_)) (fun W _ => ?_)
+  · constructor
+    · intro h l
+      by_cases hsc : e.scalar l = true
+      · exact Or.inl hsc
+      · obtain ⟨i, hi⟩ := h l (by simpa using hsc)
+        obtain ⟨hiW, hir⟩ := Finset.mem_inter.mp hi
+        exact Or.inr (Or.inr ⟨i, Finset.mem_filter.mpr
+          ⟨hiW, (mem_inFrame e l i).mp hir⟩⟩)
+    · intro h l hsc
+      rcases h l with hs | hf | ⟨i, hi⟩
+      · exact absurd hs (by rw [hsc]; exact Bool.false_ne_true)
+      · exact absurd hf Bool.false_ne_true
+      · obtain ⟨hiW, hird⟩ := Finset.mem_filter.mp hi
+        exact ⟨i, Finset.mem_inter.mpr ⟨hiW, (mem_inFrame e l i).mpr hird⟩⟩
+  · rw [Having.worldAnn, zero_add, mul_assoc]
+    refine congrArg _ (congrArg _ (congrArg (Having.chiOf P) ?_))
+    unfold valOn
+    refine congrArg e.g (funext (fun l => ?_))
+    refine congrArg (e.aggs l) ?_
+    rw [List.nil_append, leafSeq_eq_filter]
+
+/-- **Congruence of predicate provenance for an aggregate expression**:
+two expressions that differ only in their shared family, by a tie-block
+permutation of it – occurrences carrying the same value vector and read
+by the same leaves – have the same predicate provenance, for every
+three-valued test.
+
+This is what makes the order a window's clause imposes on its family
+semantically invisible, as `AggValue.predProvWith_congr` does for one
+token. The two halves of the equivalence are both needed: swapping
+occurrences that different leaves read would hand a leaf a value it does
+not read. -/
+theorem predProvWith_congr {φ₁ φ₂ : FamId T} {os₁ os₂ : List (OccId T)}
+    {occs₁ occs₂ : List ((Fin q → T) × K × (Fin q → Bool) × (Fin q → Bool))}
+    (aggs : Fin q → SeqAggFunc T) (sc : Fin q → Bool) (g : (Fin q → T) → T)
+    (h : TiePerm (fun z z' => z.fst = z'.fst ∧ z.snd.snd = z'.snd.snd)
+      occs₁ occs₂)
+    (P : T → Kleene) :
+    (AggExpr.mk q occs₁ aggs sc g φ₁ os₁).predProvWith P
+      = (AggExpr.mk q occs₂ aggs sc g φ₂ os₂).predProvWith P := by
+  rw [predProvWith_eq_exprProvAux, predProvWith_eq_exprProvAux]
+  exact exprProvAux_congr aggs sc g P h _ 0 _
+
+/-- **A tie-block permutation of the family leaves every reading of the
+expression alone.** The collapse and the values read the stripped family
+(`collapse_of_strip`, `vals_congr`), the convention is the leaves' own,
+and the predicate provenance is `predProvWith_congr`. These four are what
+an aggregate column owes, so this is the bundle a simulation of two
+expression columns asks for. -/
+theorem readings_congr {φ₁ φ₂ : FamId T} {os₁ os₂ : List (OccId T)}
+    {occs₁ occs₂ : List ((Fin q → T) × K × (Fin q → Bool) × (Fin q → Bool))}
+    (aggs : Fin q → SeqAggFunc T) (sc : Fin q → Bool) (g : (Fin q → T) → T)
+    (h : TiePerm (fun z z' => z.fst = z'.fst ∧ z.snd.snd = z'.snd.snd)
+      occs₁ occs₂) :
+    (AggExpr.mk q occs₁ aggs sc g φ₁ os₁).collapse
+        = (AggExpr.mk q occs₂ aggs sc g φ₂ os₂).collapse
+      ∧ (AggExpr.mk q occs₁ aggs sc g φ₁ os₁).isScalar
+        = (AggExpr.mk q occs₂ aggs sc g φ₂ os₂).isScalar
+      ∧ (AggExpr.mk q occs₁ aggs sc g φ₁ os₁).vals
+        = (AggExpr.mk q occs₂ aggs sc g φ₂ os₂).vals
+      ∧ ∀ P : T → Kleene,
+        (AggExpr.mk q occs₁ aggs sc g φ₁ os₁).predProvWith P
+          = (AggExpr.mk q occs₂ aggs sc g φ₂ os₂).predProvWith P := by
+  have hstrip : occs₁.map (fun z => (z.fst, z.snd.snd))
+      = occs₂.map (fun z => (z.fst, z.snd.snd)) :=
+    TiePerm.map_eq_of_eqv (fun hz => Prod.ext_iff.mpr ⟨hz.1, hz.2⟩) h
+  exact ⟨collapse_of_strip aggs sc g hstrip, rfl,
+    vals_congr aggs sc g hstrip,
+    fun P => predProvWith_congr aggs sc g h P⟩
+
+omit [ValueType T] [DecidableEq K] in
+/-- **The recursion enumerates the subfamilies.** What the statistics read
+off the family step by step is one entry per subfamily – the product of
+the annotations it keeps, the sum of those it leaves out, and the
+occurrences it selects, stripped – because a subfamily either keeps the
+first occurrence or leaves it out, which is the recursion's two halves. -/
+theorem subStats_eq_univ {q : ℕ} :
+    ∀ L : List ((Fin q → T) × K × (Fin q → Bool) × (Fin q → Bool)),
+      AggExpr.subStats L
+        = (Finset.univ : Finset (Finset (Fin L.length))).val.map
+          (fun S => ((∏ j ∈ S, (L.get j).snd.fst),
+            (∑ j ∈ Sᶜ, (L.get j).snd.fst),
+            (Having.seqOf L S).map AggExpr.strip))
+  | [] => by
+    rw [AggExpr.subStats_nil,
+      show (Finset.univ : Finset (Finset (Fin 0))) = {∅} from
+        Finset.eq_singleton_iff_unique_mem.mpr ⟨Finset.mem_univ _,
+          fun W _ => Finset.eq_empty_of_forall_notMem
+            (fun i => absurd i.isLt (Nat.not_lt_zero _))⟩]
+    rfl
+  | o :: L => by
+    have h0 : (Finset.univ : Finset (Finset (Fin (L.length + 1)))).filter
+          (fun W => (0 : Fin (L.length + 1)) ∈ W)
+        = (Finset.univ : Finset (Finset (Fin L.length))).map
+          (insertEmb L.length) := by
+      ext W
+      constructor
+      · intro hW
+        obtain ⟨-, h0W⟩ := Finset.mem_filter.mp hW
+        exact Finset.mem_map.mpr
+          ⟨Finset.univ.filter (fun i => i.succ ∈ W), Finset.mem_univ _,
+            insert_filter h0W⟩
+      · intro hW
+        obtain ⟨W', -, rfl⟩ := Finset.mem_map.mp hW
+        exact Finset.mem_filter.mpr ⟨Finset.mem_univ _,
+          Finset.mem_insert_self _ _⟩
+    have h1 : (Finset.univ : Finset (Finset (Fin (L.length + 1)))).filter
+          (fun W => ¬ (0 : Fin (L.length + 1)) ∈ W)
+        = (Finset.univ : Finset (Finset (Fin L.length))).map
+          (mapEmb L.length) := by
+      ext W
+      constructor
+      · intro hW
+        obtain ⟨-, h0W⟩ := Finset.mem_filter.mp hW
+        exact Finset.mem_map.mpr
+          ⟨Finset.univ.filter (fun i => i.succ ∈ W), Finset.mem_univ _,
+            map_filter h0W⟩
+      · intro hW
+        obtain ⟨W', -, rfl⟩ := Finset.mem_map.mp hW
+        exact Finset.mem_filter.mpr ⟨Finset.mem_univ _, notMem_map_succ _⟩
+    have hval : (Finset.univ : Finset (Finset (Fin (L.length + 1)))).val
+        = ((Finset.univ : Finset (Finset (Fin L.length))).val.map
+            (insertEmb L.length))
+          + ((Finset.univ : Finset (Finset (Fin L.length))).val.map
+            (mapEmb L.length)) := by
+      conv_lhs => rw [← Multiset.filter_add_not
+        (fun W : Finset (Fin (L.length + 1)) => (0 : Fin (L.length + 1)) ∈ W)
+        (Finset.univ : Finset (Finset (Fin (L.length + 1)))).val]
+      rw [show Multiset.filter
+            (fun W : Finset (Fin (L.length + 1)) => (0 : Fin (L.length + 1)) ∈ W)
+            (Finset.univ : Finset (Finset (Fin (L.length + 1)))).val
+          = ((Finset.univ : Finset (Finset (Fin (L.length + 1)))).filter
+              (fun W => (0 : Fin (L.length + 1)) ∈ W)).val from rfl,
+        show Multiset.filter
+            (fun W : Finset (Fin (L.length + 1)) =>
+              ¬ (0 : Fin (L.length + 1)) ∈ W)
+            (Finset.univ : Finset (Finset (Fin (L.length + 1)))).val
+          = ((Finset.univ : Finset (Finset (Fin (L.length + 1)))).filter
+              (fun W => ¬ (0 : Fin (L.length + 1)) ∈ W)).val from rfl,
+        h0, h1]
+      rfl
+    rw [AggExpr.subStats_cons, subStats_eq_univ L]
+    show _ = Multiset.map _ (Finset.univ : Finset (Finset (Fin (L.length + 1)))).val
+    rw [hval, Multiset.map_add]
+    simp only [Multiset.map_map]
+    refine congrArg₂ (fun x y : Multiset (K × K × List _) => x + y) ?_ ?_
+    · refine Multiset.map_congr (Eq.refl
+        (Finset.univ : Finset (Finset (Fin L.length))).val) (fun W' _ => ?_)
+      show (o.snd.fst * _, _, AggExpr.strip o :: _) = _
+      have hprod : ∏ j ∈ insert (0 : Fin (L.length + 1))
+            (W'.map (succEmb L.length)), ((o :: L).get j).snd.fst
+          = o.snd.fst * ∏ j ∈ W', (L.get j).snd.fst := by
+        rw [Finset.prod_insert (notMem_map_succ _), Finset.prod_map]
+        exact congrArg₂ (fun x y : K => x * y) rfl
+          (Finset.prod_congr rfl fun i _ => rfl)
+      have hsum : ∑ j ∈ (insert (0 : Fin (L.length + 1))
+            (W'.map (succEmb L.length)))ᶜ, ((o :: L).get j).snd.fst
+          = ∑ j ∈ W'ᶜ, (L.get j).snd.fst := by
+        rw [compl_insert_map, Finset.sum_map]
+        exact Finset.sum_congr rfl fun i _ => rfl
+      have hseq : Having.seqOf (o :: L) (insertEmb L.length W')
+          = o :: Having.seqOf L W' := by
+        show Having.seqOf (o :: L)
+            (insert (0 : Fin (L.length + 1)) (W'.map (succEmb L.length))) = _
+        simp only [Having.seqOf]
+        rw [ite_eq_left (Finset.mem_insert_self _ _), filter_succ_insert]
+        rfl
+      show (o.snd.fst * _, _, AggExpr.strip o :: _)
+        = ((∏ j ∈ insert (0 : Fin (L.length + 1)) (W'.map (succEmb L.length)),
+              ((o :: L).get j).snd.fst),
+            (∑ j ∈ (insert (0 : Fin (L.length + 1))
+                (W'.map (succEmb L.length)))ᶜ, ((o :: L).get j).snd.fst),
+            (Having.seqOf (o :: L) (insertEmb L.length W')).map AggExpr.strip)
+      rw [hprod, hsum, hseq, List.map_cons]
+    · refine Multiset.map_congr (Eq.refl
+        (Finset.univ : Finset (Finset (Fin L.length))).val) (fun W' _ => ?_)
+      have hprod : ∏ j ∈ (W'.map (succEmb L.length)),
+            ((o :: L).get j).snd.fst
+          = ∏ j ∈ W', (L.get j).snd.fst := by
+        rw [Finset.prod_map]
+        exact Finset.prod_congr rfl fun i _ => rfl
+      have hsum : ∑ j ∈ (W'.map (succEmb L.length))ᶜ,
+            ((o :: L).get j).snd.fst
+          = o.snd.fst + ∑ j ∈ W'ᶜ, (L.get j).snd.fst := by
+        rw [compl_map, Finset.sum_insert (notMem_map_succ _), Finset.sum_map]
+        exact congrArg₂ (fun x y : K => x + y) rfl
+          (Finset.sum_congr rfl fun i _ => rfl)
+      have hseq : Having.seqOf (o :: L) (mapEmb L.length W')
+          = Having.seqOf L W' := by
+        show Having.seqOf (o :: L) (W'.map (succEmb L.length)) = _
+        simp only [Having.seqOf]
+        rw [ite_eq_right (notMem_map_succ _), filter_succ_map]
+        rfl
+      show (_, o.snd.fst + _, _)
+        = ((∏ j ∈ (W'.map (succEmb L.length)), ((o :: L).get j).snd.fst),
+            (∑ j ∈ (W'.map (succEmb L.length))ᶜ, ((o :: L).get j).snd.fst),
+            (Having.seqOf (o :: L) (mapEmb L.length W')).map AggExpr.strip)
+      rw [hprod, hsum, hseq]
+
+omit [ValueType T] [DecidableEq K] in
+/-- **The world statistics are blind to a tie-block permutation of the
+family.** Exchanging two occurrences that carry the same values and the
+same leaf flags exchanges the two subfamilies that keep one of them and
+not the other, and those carry the same product, the same sum and – the
+occurrences being stripped of their annotations – the same selection. So
+everything a *nested* value reads of an occurrence survives the
+permutation its column may differ by. -/
+theorem subStats_congr {q : ℕ}
+    {occs₁ occs₂ : List ((Fin q → T) × K × (Fin q → Bool) × (Fin q → Bool))}
+    (h : TiePerm (fun z z' => z.fst = z'.fst ∧ z.snd.snd = z'.snd.snd)
+      occs₁ occs₂) :
+    AggExpr.subStats occs₁ = AggExpr.subStats occs₂ := by
+  induction h with
+  | nil => rfl
+  | cons o _ ih => rw [AggExpr.subStats_cons, AggExpr.subStats_cons, ih]
+  | @swap o o' hoo' L₁ L₂ _ ih =>
+      have hstrip : AggExpr.strip o = AggExpr.strip o' :=
+        Prod.ext_iff.mpr ⟨hoo'.1, hoo'.2⟩
+      rw [AggExpr.subStats_cons, AggExpr.subStats_cons, AggExpr.subStats_cons,
+        AggExpr.subStats_cons, ih]
+      simp only [Multiset.map_add, Multiset.map_map, Function.comp_def, hstrip]
+      rw [show (fun x : K × K × List ((Fin q → T) × (Fin q → Bool) × (Fin q → Bool)) =>
+              (o'.snd.fst * (o.snd.fst * x.fst), x.snd.fst,
+                AggExpr.strip o' :: AggExpr.strip o' :: x.snd.snd))
+            = (fun x : K × K × List ((Fin q → T) × (Fin q → Bool) × (Fin q → Bool)) =>
+              (o.snd.fst * (o'.snd.fst * x.fst), x.snd.fst,
+                AggExpr.strip o' :: AggExpr.strip o' :: x.snd.snd))
+          from funext (fun x => by rw [mul_left_comm]),
+        show (fun x : K × K × List ((Fin q → T) × (Fin q → Bool) × (Fin q → Bool)) =>
+              (x.fst, o'.snd.fst + (o.snd.fst + x.snd.fst), x.snd.snd))
+            = (fun x : K × K × List ((Fin q → T) × (Fin q → Bool) × (Fin q → Bool)) =>
+              (x.fst, o.snd.fst + (o'.snd.fst + x.snd.fst), x.snd.snd))
+          from funext (fun x => by rw [add_left_comm])]
+      exact add_add_add_comm _ _ _ _
+  | trans _ _ ih₁ ih₂ => rw [ih₁, ih₂]
+
+omit [ValueType T] [DecidableEq K] in
+/-- **The statistics, read through the recursion over the family.** This
+is what carries them across a tie-block permutation
+(`AggExpr.worldStats_congr`). -/
+theorem worldStats_eq_subStats (e : AggExpr T K) :
+    e.worldStats = (subStats e.occs).map (fun z =>
+      (z.fst, z.snd.fst, e.valOfSel z.snd.snd, e.isWorldOfSel z.snd.snd)) := by
+  rw [AggExpr.subStats_eq_univ e.occs, Multiset.map_map]
+  refine Multiset.map_congr rfl (fun S _ => ?_)
+  show (_, _, e.valOn S, decide (e.IsWorld S)) = _
+  rw [AggExpr.valOn_eq_valOfSel, AggExpr.isWorld_eq_isWorldOfSel]
+  rfl
+
+omit [ValueType T] [DecidableEq K] in
+/-- **The statistics a nested value reads are blind to a tie-block
+permutation of the family**: they are the recursion's
+(`AggExpr.worldStats_eq_subStats`), and the recursion is
+(`AggExpr.subStats_congr`). This is what an aggregate column owes a
+nested value that reads it, beside the four readings. -/
+theorem worldStats_congr {q : ℕ} {φ₁ φ₂ : FamId T} {os₁ os₂ : List (OccId T)}
+    {occs₁ occs₂ : List ((Fin q → T) × K × (Fin q → Bool) × (Fin q → Bool))}
+    (aggs : Fin q → SeqAggFunc T) (sc : Fin q → Bool) (g : (Fin q → T) → T)
+    (h : TiePerm (fun z z' => z.fst = z'.fst ∧ z.snd.snd = z'.snd.snd)
+      occs₁ occs₂) :
+    (AggExpr.mk q occs₁ aggs sc g φ₁ os₁).worldStats
+      = (AggExpr.mk q occs₂ aggs sc g φ₂ os₂).worldStats := by
+  rw [AggExpr.worldStats_eq_subStats, AggExpr.worldStats_eq_subStats,
+    subStats_congr h]
+  rfl
+
+
+omit [DecidableEq K] [CommSemiringWithMonus K] in
+/-- **The family of an unmerged filtered aggregate is permuted with its
+sequence**: each occurrence carries its own value, annotation and flags,
+all three read off its row. -/
+theorem ofSeqWhen_tiePerm_occs {m : ℕ} (f : SeqAggFunc T) {c : ℕ}
+    (t : TermIn T c m) (keep : Tuple T m → Bool) (sc : Bool) (γ : Fin c → T)
+    {U U' : List (AnnotatedTuple T K m)}
+    (hU : TiePerm (fun a b : AnnotatedTuple T K m => a.fst = b.fst) U U') :
+    TiePerm (fun z z' : (Fin 1 → T) × K × (Fin 1 → Bool) × (Fin 1 → Bool) => z.fst = z'.fst ∧ z.snd.snd = z'.snd.snd)
+      (AggExpr.ofSeqWhen f t keep U sc γ).occs
+      (AggExpr.ofSeqWhen f t keep U' sc γ).occs := by
+  rw [AggExpr.occs_ofSeqWhen, AggExpr.occs_ofSeqWhen]
+  exact hU.map
+    (eqv' := fun z z' : (Fin 1 → T) × K × (Fin 1 → Bool) × (Fin 1 → Bool) => z.fst = z'.fst ∧ z.snd.snd = z'.snd.snd)
+    (fun p : AnnotatedTuple T K m => ((fun _ : Fin 1 => t.eval p.fst γ), p.snd,
+      (fun _ : Fin 1 => true), (fun _ : Fin 1 => keep p.fst)))
+    (fun hab => ⟨funext (fun _ => congrArg (fun z => t.eval z γ) hab),
+      by rw [hab]⟩)
+
+omit [DecidableEq K] in
+/-- **The family is blind to a tie-block permutation of the sequence.**
+The merged part does not see the order at all – it reads the classes and
+their sums (`AggValue.mergeOccs_congr`) – and the rejected part is
+permuted with the sequence. -/
+theorem ofSeqDistWhen_tiePerm_occs {m : ℕ}
+    (f : SeqAggFunc T) {c : ℕ} (t : TermIn T c m) (keep : Tuple T m → Bool)
+    (sc : Bool) (γ : Fin c → T) {U U' : List (AnnotatedTuple T K m)}
+    (hU : TiePerm (fun a b : AnnotatedTuple T K m => a.fst = b.fst) U U') :
+    TiePerm (fun z z' : (Fin 1 → T) × K × (Fin 1 → Bool) × (Fin 1 → Bool) => z.fst = z'.fst ∧ z.snd.snd = z'.snd.snd)
+      (AggExpr.ofSeqDistWhen f t keep U sc γ).occs
+      (AggExpr.ofSeqDistWhen f t keep U' sc γ).occs := by
+  have hpay : AggExpr.distPayload t keep U γ = AggExpr.distPayload t keep U' γ := by
+    unfold AggExpr.distPayload
+    exact AggValue.mergeOccs_congr
+      ((hU.filter (fun hab => congrArg keep hab)).map
+        (eqv' := fun p q : T × K => p.fst = q.fst)
+        (fun p : AnnotatedTuple T K m => (t.eval p.fst γ, p.snd))
+        (fun hab => congrArg (fun z => t.eval z γ) hab))
+  rw [AggExpr.occs_ofSeqDistWhen, AggExpr.occs_ofSeqDistWhen, hpay]
+  refine TiePerm.append (TiePerm.refl _ _) ?_
+  exact (hU.filter (fun hab => congrArg (fun u => !keep u) hab)).map
+    (eqv' := fun z z' : (Fin 1 → T) × K × (Fin 1 → Bool) × (Fin 1 → Bool) => z.fst = z'.fst ∧ z.snd.snd = z'.snd.snd)
+    (fun p : AnnotatedTuple T K m => ((fun _ : Fin 1 => t.eval p.fst γ), p.snd,
+      (fun _ : Fin 1 => true), (fun _ : Fin 1 => false)))
+    (fun hab => ⟨funext (fun _ => congrArg (fun z => t.eval z γ) hab), rfl⟩)
+
+omit [ValueType T] [DecidableEq K] in
+/-- **The walk commutes with a homomorphism.** Every step is a sum, a
+product, a monus or the indicator of a test on *values*, and a
+`SemiringWithMonusHom` preserves all four – the test reads the aggregate
+values, which the pushforward leaves alone. Proving it on the recursion
+rather than on the world sum is the whole point of having the recursion:
+the induction is one line per constructor. -/
+theorem exprProvAux_mapAnn {K' : Type} [CommSemiringWithMonus K']
+    (h : SemiringWithMonusHom K K') (aggs : Fin q → SeqAggFunc T)
+    (sc : Fin q → Bool) (g : (Fin q → T) → T) (P : T → Kleene) :
+    ∀ (L : List ((Fin q → T) × K × (Fin q → Bool) × (Fin q → Bool))) (acc : Fin q → List T)
+      (ex : K) (started : Fin q → Bool),
+      h.toRingHom (exprProvAux aggs sc g P acc ex started L)
+        = exprProvAux aggs sc g P acc (h.toRingHom ex) started
+            (L.map (fun z => (z.fst, h.toRingHom z.snd.fst, z.snd.snd)))
+  | [], acc, ex, started => by
+    show h.toRingHom (if _ then _ else _) = if _ then _ else _
+    by_cases hall : (List.finRange q).all (fun l => sc l || started l) = true
+    · rw [hall]
+      show h.toRingHom ((1 - ex) * Having.chiOf P _) = _
+      rw [map_mul, SemiringWithMonusHom.map_sub, map_one]
+      refine congrArg₂ (· * ·) rfl ?_
+      unfold Having.chiOf
+      split
+      · exact map_one _
+      · exact map_zero _
+    · rw [show (List.finRange q).all (fun l => sc l || started l) = false from
+        by simpa using hall]
+      exact map_zero _
+  | (v, a, fr, kp) :: t, acc, ex, started => by
+    show h.toRingHom (a * _ + _) = _
+    rw [map_add, map_mul, exprProvAux_mapAnn h aggs sc g P t _ ex _,
+      exprProvAux_mapAnn h aggs sc g P t acc (ex + a) started, map_add]
+    rfl
+
+/-- **Predicate provenance commutes with a homomorphism**, for an
+aggregate expression as for a token: the pushforward moves the
+annotations and no reading. -/
+theorem predProvWith_mapAnn {K' : Type} [CommSemiringWithMonus K']
+    [DecidableEq K'] (h : SemiringWithMonusHom K K') (e : AggExpr T K)
+    (P : T → Kleene) :
+    h.toRingHom (e.predProvWith P) = (e.mapAnn ⇑h.toRingHom).predProvWith P := by
+  rw [predProvWith_eq_exprProvAux, predProvWith_eq_exprProvAux,
+    exprProvAux_mapAnn h e.aggs e.scalar e.g P e.occs (fun _ => []) 0
+      (fun _ => false), map_zero]
+  rfl
+
+/-- **An expression's predicate provenance absorbs the `δ`-guard of its
+own family**, provided some leaf is grouped – which is what forces every
+world to be non-empty, so that one occurrence annotation is there to
+swallow `δ` of the whole family's sum. Where every leaf is scalar the
+empty world is a world and there is nothing to absorb with. -/
+theorem predProvWith_delta_absorb (e : AggExpr T K)
+    (hgr : ∃ l, e.scalar l = false) (P : T → Kleene) :
+    e.predProvWith P * SemiringWithMonus.delta e.annList.sum
+      = e.predProvWith P := by
+  unfold predProvWith
+  rw [Finset.sum_mul]
+  refine Finset.sum_congr rfl fun W hW => ?_
+  obtain ⟨-, hworld⟩ := Finset.mem_filter.mp hW
+  obtain ⟨l, hl⟩ := hgr
+  obtain ⟨i₀, hi₀'⟩ := hworld l hl
+  have hi₀ : i₀ ∈ W := (Finset.mem_inter.mp hi₀').1
+  have hmem : e.anns i₀ ∈ (↑e.annList : Multiset K) :=
+    Multiset.mem_coe.mpr
+      (List.mem_map.mpr ⟨e.occs.get i₀, List.get_mem _ _, rfl⟩)
+  have hr : e.annList.sum
+      = e.anns i₀ + ((↑e.annList : Multiset K).erase (e.anns i₀)).sum := by
+    rw [← Multiset.sum_coe, ← Multiset.sum_cons, Multiset.cons_erase hmem]
+  have key : e.anns i₀ * SemiringWithMonus.delta e.annList.sum = e.anns i₀ := by
+    rw [hr]
+    exact SemiringWithMonus.delta_absorb _ _
+  have hw : Having.worldAnn e.anns W
+      = e.anns i₀ * ((∏ i ∈ W.erase i₀, e.anns i)
+          * (1 - ∑ i ∈ Wᶜ, e.anns i)) := by
+    unfold Having.worldAnn
+    rw [← Finset.mul_prod_erase W e.anns hi₀, mul_assoc]
+  rw [hw]
+  calc e.anns i₀ * ((∏ i ∈ W.erase i₀, e.anns i)
+          * (1 - ∑ i ∈ Wᶜ, e.anns i)) * Having.chiOf P (e.valOn W)
+        * SemiringWithMonus.delta e.annList.sum
+      = ((∏ i ∈ W.erase i₀, e.anns i) * (1 - ∑ i ∈ Wᶜ, e.anns i)
+          * Having.chiOf P (e.valOn W))
+        * (e.anns i₀ * SemiringWithMonus.delta e.annList.sum) := by
+        rw [mul_rotate (e.anns i₀), mul_assoc]
+    _ = ((∏ i ∈ W.erase i₀, e.anns i) * (1 - ∑ i ∈ Wᶜ, e.anns i)
+          * Having.chiOf P (e.valOn W)) * e.anns i₀ := by
+        rw [key]
+    _ = e.anns i₀ * ((∏ i ∈ W.erase i₀, e.anns i)
+          * (1 - ∑ i ∈ Wᶜ, e.anns i)) * Having.chiOf P (e.valOn W) :=
+        (mul_rotate _ _ _).symm
+
+end AggExpr

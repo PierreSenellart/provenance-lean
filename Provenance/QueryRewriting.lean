@@ -25,8 +25,10 @@ identity `Multiset.semijoin_proj_eq_filter`, after bridging the
 via `Query.rewriting_valid_diff_inner_dd_inst`) and a `matched_eq` half (proved
 via the keyed-projection semijoin `Multiset.semijoin_keyed_proj_eq_filter`, after
 substituting the inner aggregation with the closed-form
-`Query.evaluate_agg_rewriting_eq`). Rule (R5) – aggregation – is not part of
-this classical rewriting: it lives on the general syntax, in
+`Query.evaluate_agg_rewriting_eq`). Both halves join on the data columns with
+`≐`, SQL's `IS NOT DISTINCT FROM`: difference keys on values, two nulls being
+one key, where `NULL = NULL` would be unknown and drop the row. Rule (R5) –
+aggregation – is not part of this classical rewriting: it lives on the general syntax, in
 `Provenance.AggQueryGroupRewriting`, where an aggregate output is a symbolic
 token rather than a quotiented K-tensor.
 
@@ -41,7 +43,7 @@ def Query.rewriting [ValueType T] (q: Query T n) (hq: q.source) : Query (T⊕K) 
 | Proj  ts q  =>
   let ts :=
     (λ (k: Fin (n+1)) => if h : ↑k<n then (ts ⟨k,h⟩).castToAnnotatedTuple
-                         else Term.index (Fin.last q.arity))
+                         else TermIn.index (Fin.last q.arity))
   Proj ts (q.rewriting (sourceProj hq rfl))
 | Sel   φ  q  => Sel φ.castToAnnotatedTuple (q.rewriting (sourceSel hq rfl))
 | @Prod T n₁ n₂ n hn q₁ q₂ =>
@@ -52,7 +54,7 @@ def Query.rewriting [ValueType T] (q: Query T n) (hq: q.source) : Query (T⊕K) 
     (λ k: Fin (n+1) =>
       if ↑k<n₁ then #(k.castLE (by simp))
     else if (↑k<n: Prop) then #(Fin.ofNat _ (↑k+1))
-    else Term.mul #(Fin.ofNat _ n₁) #(Fin.ofNat _ (n+1)))
+    else TermIn.mul #(Fin.ofNat _ n₁) #(Fin.ofNat _ (n+1)))
   Proj ts product
 | Sum   q₁ q₂ => Sum (q₁.rewriting (sourceSum hq rfl).left) (rewriting q₂ (sourceSum hq rfl).right)
 | Dedup q     =>
@@ -63,15 +65,15 @@ def Query.rewriting [ValueType T] (q: Query T n) (hq: q.source) : Query (T⊕K) 
   let q'₂ := q₂.rewriting (sourceDiff hq rfl).right
   let joinCond₁ :=
     ((List.range n).map
-      (λ k ↦ @Selection.BT (T⊕K) (2*n+1) (#(Fin.ofNat _ k) == #(Fin.ofNat _ (k+n+1))))).foldr
+      (λ k ↦ @Selection.BT (T⊕K) (2*n+1) (#(Fin.ofNat _ k) ≐ #(Fin.ofNat _ (k+n+1))))).foldr
       (λ t t' ↦ Selection.And t t') Selection.True
   let prod₁t := λ r ↦ Sel joinCond₁ (@Query.Prod _ (n+1) n (2*n+1) (by omega) q'₁ r)
-  let prod₁r := Dedup (Diff (Proj (λ (k: Fin n) ↦ (Term.index (k.castLE (Nat.le_succ _)))) q'₁)
-                            (Proj (λ (k: Fin n) ↦ (Term.index (k.castLE (Nat.le_succ _)))) q'₂))
+  let prod₁r := Dedup (Diff (Proj (λ (k: Fin n) ↦ (TermIn.index (k.castLE (Nat.le_succ _)))) q'₁)
+                            (Proj (λ (k: Fin n) ↦ (TermIn.index (k.castLE (Nat.le_succ _)))) q'₂))
   let prod₁ := prod₁t (prod₁r)
   let joinCond₂ :=
     ((List.range n).map
-      (λ k ↦ @Selection.BT (T⊕K) (2*n+2) (#(Fin.ofNat _ k)==#(Fin.ofNat _ (k+n+1))))).foldr
+      (λ k ↦ @Selection.BT (T⊕K) (2*n+2) (#(Fin.ofNat _ k) ≐ #(Fin.ofNat _ (k+n+1))))).foldr
       (λ t t' ↦ Selection.And t t') Selection.True
   have h₂ : (2*n+2 - (n+1): ℕ) = n+1  := by omega
   let prod₂t := λ r ↦ Sel joinCond₂ (@Query.Prod _ (n+1) (n+1) (2*n+2) (by omega) q'₁ r)
@@ -79,7 +81,7 @@ def Query.rewriting [ValueType T] (q: Query T n) (hq: q.source) : Query (T⊕K) 
   let prod₂ := prod₂t (prod₂r)
   let ts₁ := (λ (k: Fin (n+1)) ↦ #(k.castLE (by omega)))
   let ts₂ := (λ (k: Fin (n+1)) ↦ if ↑k<n then #(k.castLE (by omega))
-                                 else Term.sub #(Fin.ofNat _ n) #(Fin.last (2*n+1)))
+                                 else TermIn.sub #(Fin.ofNat _ n) #(Fin.last (2*n+1)))
   Sum (Proj ts₁ prod₁) (Proj ts₂ prod₂)
 | ProvSum _ _ _ => by simp[source] at hq
 
@@ -467,9 +469,9 @@ lemma Selection.eval_foldr_and_map {T: Type} [ValueType T] {N: ℕ} {α : Type*}
     ((list.map f).foldr (λ t t' ↦ Selection.And t t') Selection.True) t
   ↔ ∀ x ∈ list, Selection.eval (f x) t := by
   induction list with
-  | nil => simp [Selection.eval]
+  | nil => simp
   | cons hd tl ih =>
-    simp only [List.map_cons, List.foldr_cons, Selection.eval, List.mem_cons]
+    simp only [List.map_cons, List.foldr_cons, Selection.eval_and, List.mem_cons]
     rw[ih]
     constructor
     · rintro ⟨hhd, htl⟩ x (rfl | hx)
@@ -478,27 +480,32 @@ lemma Selection.eval_foldr_and_map {T: Type} [ValueType T] {N: ℕ} {α : Type*}
     · intro h
       exact ⟨h hd (Or.inl rfl), fun x hx ↦ h x (Or.inr hx)⟩
 
-/-- The folded join condition `(#k == #(k+n+1))` for `k ∈ List.range n` evaluates true iff the
+/-- The folded join condition `(#k ≐ #(k+n+1))` for `k ∈ List.range n` evaluates true iff the
 tuple's values at indices `ofNat k` and `ofNat (k+n+1)` agree for every `k < n`. -/
 lemma Query.rewriting_valid_joinCond_eval
-  {T K: Type} [ValueType T] [SemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K]
+  {T K: Type} [ValueType T] [SemiringWithMonus K] [DecidableEq K]
+  [HasAltLinearOrder K]
   {N n: ℕ} [NeZero N] (t: Tuple (T⊕K) N):
   Selection.eval
     (((List.range n).map
       (λ k ↦ @Selection.BT (T⊕K) N
-        (#(Fin.ofNat N k) == #(Fin.ofNat N (k+n+1))))).foldr
+        (#(Fin.ofNat N k) ≐ #(Fin.ofNat N (k+n+1))))).foldr
       (λ t t' ↦ Selection.And t t') Selection.True) t
   ↔ ∀ k: Fin n, t (@Fin.ofNat N _ k)
               = t (@Fin.ofNat N _ (k+n+1)) := by
+  have hatom : ∀ i j : Fin N,
+      (Selection.BT (T := T ⊕ K)
+        (BoolTerm.SYNEQ (TermIn.index i) (TermIn.index j))).eval t ↔ t i = t j := by
+    intro i j
+    show CompOp.syneq.eval3 (t i) (t j) = Kleene.true ↔ _
+    rw [CompOp.syneq_eval3_eq_true_iff]
   rw[Selection.eval_foldr_and_map]
   simp only [List.mem_range]
   constructor
   · intro h k
-    have := h k.val k.isLt
-    simpa [Selection.eval, BoolTerm.eval, Term.eval] using this
+    exact (hatom _ _).mp (h k.val k.isLt)
   · intro h k hk
-    have := h ⟨k, hk⟩
-    simpa [Selection.eval, BoolTerm.eval, Term.eval] using this
+    exact (hatom _ _).mpr (h ⟨k, hk⟩)
 
 /-- Semiring-sum over the filter, via `groupByKey.find?`-based lookup. -/
 lemma Query.rewriting_valid_find_getD_eq_sum
@@ -756,15 +763,16 @@ lemma cast_append_at_ofNat_right {α : Type} {n : ℕ}
     rw [hmod]; omega
   rw [hidx_eq, Fin.append_right]
 
-/-- `selFilter` on `Tuple.cast h (Fin.append p q)` characterizes the first-`n`
-projection equality between `p` and `q`. -/
+/-- The join condition of the difference rule, evaluated on
+`Tuple.cast h (Fin.append p q)`, characterizes the first-`n` projection
+equality between `p` and `q`. -/
 lemma selFilter_cast_append_iff {T K : Type} [ValueType T] [SemiringWithMonus K]
     [HasAltLinearOrder K] {n : ℕ}
     (h : n+1+n = 2*n+1) (p : Tuple (T⊕K) (n+1)) (q : Tuple (T⊕K) n)
     [NeZero (2*n+1)] :
     Selection.eval (((List.range n).map
       (λ k ↦ @Selection.BT (T⊕K) (2*n+1)
-        (#(Fin.ofNat _ k) == #(Fin.ofNat _ (k+n+1))))).foldr
+        (#(Fin.ofNat _ k) ≐ #(Fin.ofNat _ (k+n+1))))).foldr
       (λ t t' ↦ Selection.And t t') Selection.True) (Tuple.cast h (Fin.append p q))
     ↔ (fun (k : Fin n) ↦ p (k.castLE (Nat.le_succ n))) = q := by
   classical
@@ -870,7 +878,7 @@ lemma selFilter_cast_append_2n2_iff {T K : Type} [ValueType T] [SemiringWithMonu
     [NeZero (2*n+2)] :
     Selection.eval (((List.range n).map
       (λ k ↦ @Selection.BT (T⊕K) (2*n+2)
-        (#(Fin.ofNat _ k) == #(Fin.ofNat _ (k+n+1))))).foldr
+        (#(Fin.ofNat _ k) ≐ #(Fin.ofNat _ (k+n+1))))).foldr
       (λ t t' ↦ Selection.And t t') Selection.True) (Tuple.cast h (Fin.append p q))
     ↔ (fun (k : Fin n) ↦ p (k.castLE (Nat.le_succ n)))
       = (fun (k : Fin n) ↦ q (k.castLE (Nat.le_succ n))) := by
@@ -1029,7 +1037,7 @@ lemma Query.evaluate_agg_rewriting_eq
         ((q.evaluateAnnotated hq d).map Prod.fst).dedup := by
   -- This proof mirrors `rhs_eq` in the `Dedup` case below.
   unfold evaluate
-  simp only [evaluate, Term.eval]
+  simp only [evaluate, TermIn.eval]
   rw [← ih]
   apply Eq.trans (b := Multiset.map _
     (Multiset.map (fun v ↦ (fun k : Fin _ ↦ (Sum.inl (v k) : T⊕K)))
@@ -1127,7 +1135,7 @@ theorem Query.rewriting_valid
     funext t k
     by_cases hkn' : k=Fin.last n'
     . simp[hkn']
-      simp[Term.eval]
+      simp[TermIn.eval]
       unfold Query.arity
       have : ∀ x, Fin.last x = Fin.natAdd (Fin.last x) 0 := by
         simp
@@ -1143,7 +1151,7 @@ theorem Query.rewriting_valid
       rewrite (occs := [1]) [this]
       unfold AnnotatedTuple.toComposite
       rw [Fin.append_left]
-      rw[Term.castToAnnotatedTuple_eval]
+      rw[TermIn.castToAnnotatedTuple_eval]
       rfl
   | Sel φ q' ih =>
     unfold evaluateAnnotated evaluate rewriting
@@ -1192,7 +1200,7 @@ theorem Query.rewriting_valid
     subst hn
     by_cases hlt₁: ↑k < n₁
     . simp[hlt₁]
-      simp only[Term.eval]
+      simp only[TermIn.eval]
       have hksucc : ↑(Fin.castLE (by omega : n₁+n₂+1 ≤ n₁+n₂+2) k) < n₁+1 := by simp; omega
       rw[tupleCast_append_left (n:=n₁+n₂+2) p.1 p.2 (by omega) _ hksucc]
       apply congrArg
@@ -1200,7 +1208,7 @@ theorem Query.rewriting_valid
       simp[Fin.castLT]
     . by_cases hlt: ↑k < n₁+n₂
       . simp[hlt₁,hlt]
-        simp only[Term.eval]
+        simp only[TermIn.eval]
         simp only [← Fin.ofNat_eq_cast]
         have hk₁₂: ((k:ℕ)+1)<n₁+n₂+2 := by omega
         rw[tupleCast_append_right (n:=n₁+n₂+2) p.1 p.2 (by omega)
@@ -1211,7 +1219,7 @@ theorem Query.rewriting_valid
         have hkn1 : ((k:ℕ)-n₁)<n₂+1 := by omega
         simp [Fin.ofNat, Nat.mod_eq_of_lt hk₁₂, Nat.mod_eq_of_lt hkn1]
       . simp[hlt₁,hlt]
-        simp only[Term.eval]
+        simp only[TermIn.eval]
         simp only [← Fin.ofNat_eq_cast]
         have hn1 : n₁<n₁+n₂+2 := by omega
         rw[tupleCast_append_left (n:=n₁+n₂+2) p.1 p.2 (by omega)
@@ -1259,7 +1267,7 @@ theorem Query.rewriting_valid
                       (q.evaluateAnnotated hq' d))).sum))
           (Multiset.dedup (Multiset.map Prod.fst (q.evaluateAnnotated hq' d))) := by
       unfold rewriting evaluate
-      simp only [evaluate, Term.eval]
+      simp only [evaluate, TermIn.eval]
       rw[← ih']
       apply Eq.trans (b := Multiset.map _
         (Multiset.map (fun v ↦ (fun k: Fin _ ↦ (Sum.inl (v k): T⊕K)))
@@ -1333,13 +1341,13 @@ theorem Query.rewriting_valid
         (Query.Proj (fun (k: Fin (n+1)) ↦ #(k.castLE (by omega)))
           (Query.Sel (((List.range n).map
               (λ k ↦ @Selection.BT (T⊕K) (2*n+1)
-                (#(Fin.ofNat _ k) == #(Fin.ofNat _ (k+n+1))))).foldr
+                (#(Fin.ofNat _ k) ≐ #(Fin.ofNat _ (k+n+1))))).foldr
               (λ t t' ↦ Selection.And t t') Selection.True)
             (@Query.Prod _ (n+1) n (2*n+1) (by omega) (q₁.rewriting hq'₁)
               (Query.Dedup (Query.Diff
-                (Query.Proj (λ (k: Fin n) ↦ Term.index (k.castLE (Nat.le_succ _)))
+                (Query.Proj (λ (k: Fin n) ↦ TermIn.index (k.castLE (Nat.le_succ _)))
                   (q₁.rewriting hq'₁))
-                (Query.Proj (λ (k: Fin n) ↦ Term.index (k.castLE (Nat.le_succ _)))
+                (Query.Proj (λ (k: Fin n) ↦ TermIn.index (k.castLE (Nat.le_succ _)))
                   (q₂.rewriting hq'₂)))))))
         d.toComposite
       = AnnotatedRelation.toComposite
@@ -1350,7 +1358,7 @@ theorem Query.rewriting_valid
       set AR₁ := q₁.evaluateAnnotated hq'₁ d with hAR₁
       set AR₂ := q₂.evaluateAnnotated hq'₂ d with hAR₂
       -- Unfold `evaluate` and reduce the inner subqueries via the induction hypotheses.
-      simp only [evaluate, Term.eval]
+      simp only [evaluate, TermIn.eval]
       rw[← ih'₁, ← ih'₂]
       -- The goal contains the inner-Diff form
       --   (Multiset.filter (· ∉ Multiset.map proj_n AR₂.toComposite)
@@ -1388,7 +1396,7 @@ theorem Query.rewriting_valid
       let dp1 : DecidablePred (fun x : Tuple (T⊕K) (n+1) × Tuple (T⊕K) n =>
           Selection.eval (((List.range n).map
             (λ k ↦ @Selection.BT (T⊕K) (2*n+1)
-              (#(Fin.ofNat _ k) == #(Fin.ofNat _ (k+n+1))))).foldr
+              (#(Fin.ofNat _ k) ≐ #(Fin.ofNat _ (k+n+1))))).foldr
             (λ t t' ↦ Selection.And t t') Selection.True) (Tuple.cast (by omega) (Fin.append x.1 x.2))) :=
         fun x => Selection.evalDecidable _ _
       let dp2 : DecidablePred (fun x : Tuple (T⊕K) (n+1) × Tuple (T⊕K) n =>
@@ -1443,10 +1451,10 @@ theorem Query.rewriting_valid
       evaluate
         (Query.Proj (fun (k: Fin (n+1)) ↦
             if ↑k < n then #(k.castLE (by omega))
-            else Term.sub #(Fin.ofNat _ n) #(Fin.last (2*n+1)))
+            else TermIn.sub #(Fin.ofNat _ n) #(Fin.last (2*n+1)))
           (Query.Sel (((List.range n).map
               (λ k ↦ @Selection.BT (T⊕K) (2*n+2)
-                (#(Fin.ofNat _ k) == #(Fin.ofNat _ (k+n+1))))).foldr
+                (#(Fin.ofNat _ k) ≐ #(Fin.ofNat _ (k+n+1))))).foldr
               (λ t t' ↦ Selection.And t t') Selection.True)
             (@Query.Prod _ (n+1) (n+1) (2*n+2) (by omega) (q₁.rewriting hq'₁)
               (Query.ProvSum (fun k: Fin n ↦ k.castLE (by simp))
@@ -1461,16 +1469,16 @@ theorem Query.rewriting_valid
                 (q₂.evaluateAnnotated hq'₂ d))).sum)) := by
       set AR₁ := q₁.evaluateAnnotated hq'₁ d with hAR₁
       set AR₂ := q₂.evaluateAnnotated hq'₂ d with hAR₂
-      -- Derive the unfolded-form Agg equation: after `simp only [evaluate, Term.eval]`,
+      -- Derive the unfolded-form Agg equation: after `simp only [evaluate, TermIn.eval]`,
       -- the inner `evaluate (Agg ...) d.toComposite` matches the helper's LHS after
       -- the same simp. Pre-compute it here so we can `rw` once the outer Proj/Sel/Prod
       -- have been unfolded.
       have hAggForm := Query.evaluate_agg_rewriting_eq q₂ hq'₂ d ih'₂
-      simp only [evaluate, Term.eval] at hAggForm
+      simp only [evaluate, TermIn.eval] at hAggForm
       rw [← ih'₂] at hAggForm
       -- Unfold the outer Proj/Sel/Prod (and the inner Agg, which gets re-folded via
       -- `hAggForm`).
-      simp only [evaluate, Term.eval]
+      simp only [evaluate, TermIn.eval]
       rw [← ih'₁, ← ih'₂]
       -- Substitute the unfolded Agg form with its closed form via `hAggForm`.
       rw [hAggForm]
@@ -1485,7 +1493,7 @@ theorem Query.rewriting_valid
       let dp1 : DecidablePred (fun x : Tuple (T⊕K) (n+1) × Tuple (T⊕K) (n+1) =>
           Selection.eval (((List.range n).map
             (λ k ↦ @Selection.BT (T⊕K) (2*n+2)
-              (#(Fin.ofNat _ k) == #(Fin.ofNat _ (k+n+1))))).foldr
+              (#(Fin.ofNat _ k) ≐ #(Fin.ofNat _ (k+n+1))))).foldr
             (λ t t' ↦ Selection.And t t') Selection.True) (Tuple.cast (by omega) (Fin.append x.1 x.2))) :=
         fun x => Selection.evalDecidable _ _
       let dp2 : DecidablePred (fun x : Tuple (T⊕K) (n+1) × Tuple (T⊕K) (n+1) =>
@@ -1504,7 +1512,7 @@ theorem Query.rewriting_valid
         Multiset.filter_congr (fun x _ ↦ selFilter_cast_append_2n2_iff (by omega) x.1 x.2)
       change Multiset.map (fun (x : Tuple (T⊕K) (n+1) × Tuple (T⊕K) (n+1)) (k : Fin (n+1)) ↦
               (if ↑k < n then (#((Fin.castLE (by omega : n+1 ≤ 2*n+2)) k) : Term (T⊕K) (2*n+2))
-                else Term.sub (#(Fin.ofNat (2*n+2) n)) (#(Fin.last (2*n+1)))).eval
+                else TermIn.sub (#(Fin.ofNat (2*n+2) n)) (#(Fin.last (2*n+1)))).eval
                   (Tuple.cast (by omega : (n+1)+(n+1) = 2*n+2) (Fin.append x.1 x.2)))
             (@Multiset.filter _ _ dp1 Prod2) = _
       rw [hcong]
@@ -1587,7 +1595,7 @@ theorem Query.rewriting_valid
         (fun (p q : Tuple (T⊕K) (n+1)) ↦
           fun (k : Fin (n+1)) ↦
             (if ↑k < n then (#((Fin.castLE (by omega : n+1 ≤ 2*n+2)) k) : Term (T⊕K) (2*n+2))
-              else Term.sub (#(Fin.ofNat (2*n+2) n)) (#(Fin.last (2*n+1)))).eval
+              else TermIn.sub (#(Fin.ofNat (2*n+2) n)) (#(Fin.last (2*n+1)))).eval
                 (Tuple.cast (by omega : (n+1)+(n+1) = 2*n+2) (Fin.append p q)))
         hS_nodup h_val_eq
       -- Chain via hsemi.trans.
@@ -1618,7 +1626,7 @@ theorem Query.rewriting_valid
       funext k
       by_cases hk : ↑k < n
       · -- Data case: result is Sum.inl (ap.1 k).
-        simp only [hk, ite_eq_left, Term.eval]
+        simp only [hk, ite_eq_left, TermIn.eval]
         rw [proj_outer_2n2_cast_append_eq_fst]
         -- Goal: ATC ap k = ATC (ap.1, ap.2 - sum_β ap.1) k for k.val < n.
         -- Both reduce to Sum.inl (ap.1 ⟨k.val, hk⟩); the .2 component is unused.
@@ -1634,7 +1642,7 @@ theorem Query.rewriting_valid
           have h2 : ¬ k.val < n := hk
           omega
         subst hk_eq
-        simp only [Fin.val_last, lt_self_iff_false, ite_false, Term.eval]
+        simp only [Fin.val_last, lt_self_iff_false, ite_false, TermIn.eval]
         rw [cast_append_2n2_at_ofNat_n, cast_append_2n2_at_last]
         -- Show: ATC ap (Fin.last n) - ATC (ap.1, sum_β ap.1) (Fin.last n)
         --     = ATC (ap.1, ap.2 - sum_β ap.1) (Fin.last n)

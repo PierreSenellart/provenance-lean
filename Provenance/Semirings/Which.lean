@@ -348,3 +348,27 @@ theorem Which.no_hom_from_BoolFunc {Y : Type} [Inhabited Y] [Inhabited α] :
     ∃ ν : Y → Which α,
       ¬ ∃ φ : BoolFunc Y →+* Which α, ∀ i : Y, φ (BoolFunc.var i) = ν i :=
   BoolFunc.no_hom_of_not_absorptive (Which.not_absorptive ⟨default, trivial⟩)
+
+/-- **Lineage is multiplicatively idempotent**: `⊗` is union of witness
+sets. -/
+theorem Which.mulIdempotent : _root_.mulIdempotent (Which α) := by
+  intro a
+  cases a with
+  | wbot => rfl
+  | wset sa => show Which.wset (sa ∪ sa) = _; rw [Finset.union_self]
+
+/-- **`Lin[X]` is complemented.** `𝟙 ⊖ a` is `𝟙` where `a` is `𝟘` and
+`𝟘` elsewhere – subtracting any set from `∅` leaves nothing – and `⊗` is
+`𝟘`-absorbing with `𝟙 ⊗ 𝟙 = 𝟙`, so both sides are `𝟙` exactly when both
+summands are `𝟘`. -/
+theorem Which.complemented : _root_.complemented (Which α) := by
+  intro a b
+  cases a with
+  | wbot => cases b with
+    | wbot => rfl
+    | wset sb => show _ = _ * _; rfl
+  | wset sa => cases b with
+    | wbot => show (1 : Which α) - wset sa = _ * _; rfl
+    | wset sb =>
+      show (1 : Which α) - wset (sa ∪ sb) = _ * _
+      rfl

@@ -20,12 +20,26 @@ is `0`.
 The tropical semiring is absorptive and idempotent, and satisfies left-distributivity
 of multiplication over monus.
 
+**Which order a line speaks in.** Two orders live here and they are
+opposite: the *semiring's* natural order, in which the axioms and every
+statement of `Provenance.SemiringWithMonus` are written (`𝟘 = ⊤` is the
+least element, and `a ≤ b` is `untrop a ≥ untrop b`), and the *carrier's*
+order, in which the monus is implemented (`a ⊖ b = ⊤` where
+`untrop a ≥ untrop b`). A statement about this semiring therefore reads
+as its own opposite depending on which order the reader supplies, and the
+proofs below say `untrop` wherever they mean the carrier's. The same
+reversal is in `Provenance.Semirings.MinMax`, and it has misled a reader
+of each file at least once: when a line looks like the negation of what
+it should say, check which order it is written in before believing
+either.
+
 The tropical semiring is used as a provenance semiring in
 [Green, Karvounarakis & Tannen, *Provenance Semirings*][green2007provenance].
 
 Note: [Geerts & Poggi, *On database query languages for K-relations*, Example 4][geerts2010database]
 claims that the tropical semiring cannot be extended to an m-semiring. That claim is
-incorrect: the paper gives a wrong definition of the monus operator.
+incorrect: [Geerts & Poggi][geerts2010database] give a wrong definition of the monus
+operator.
 
 ## References
 
@@ -535,3 +549,35 @@ theorem minScan_ne_prov :
   exact absurd (WithTop.coe_injective (MinTropical.trop_injective h)) (by norm_num)
 
 end MinTropicalR
+
+/-- **The tropical semiring is complemented.** `𝟙 ⊖ a` is `𝟘` where
+`a`'s weight is at most `𝟙`'s – the monus reading the *usual* order, not
+the semiring's – and `𝟙` elsewhere. Addition is the minimum of the
+weights and multiplication their sum, so both sides are `𝟘` exactly when
+one of the two summands has weight at most `𝟙`'s. -/
+theorem MinTropical.complemented [LinearOrderedAddCommMonoidWithTop α] :
+    _root_.complemented (MinTropical α) := by
+  intro a b
+  have hsub : ∀ x : MinTropical α, (1 : MinTropical α) - x
+      = if MinTropical.untrop (1 : MinTropical α) ≥ MinTropical.untrop x
+        then 0 else 1 := fun _ => rfl
+  rw [hsub, hsub, hsub]
+  by_cases ha : MinTropical.untrop (1 : MinTropical α)
+      ≥ MinTropical.untrop a
+  · have hab : MinTropical.untrop (1 : MinTropical α)
+        ≥ MinTropical.untrop (a + b) := by
+      rw [MinTropical.untrop_add]
+      exact le_trans (min_le_left _ _) ha
+    rw [ite_eq_left hab, ite_eq_left ha, zero_mul]
+  · by_cases hb : MinTropical.untrop (1 : MinTropical α)
+        ≥ MinTropical.untrop b
+    · have hab : MinTropical.untrop (1 : MinTropical α)
+          ≥ MinTropical.untrop (a + b) := by
+        rw [MinTropical.untrop_add]
+        exact le_trans (min_le_right _ _) hb
+      rw [ite_eq_left hab, ite_eq_right ha, ite_eq_left hb, mul_zero]
+    · have hab : ¬ (MinTropical.untrop (1 : MinTropical α)
+          ≥ MinTropical.untrop (a + b)) := by
+        rw [MinTropical.untrop_add, ge_iff_le, min_le_iff]
+        exact fun h => h.elim (fun h' => ha h') (fun h' => hb h')
+      rw [ite_eq_right hab, ite_eq_right ha, ite_eq_right hb, one_mul]

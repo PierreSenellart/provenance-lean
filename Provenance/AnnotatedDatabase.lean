@@ -71,6 +71,28 @@ def AnnotatedDatabase.find (n: ℕ) (s: String) (d: AnnotatedDatabase T K) : Opt
   | (s',rn)::tl => if h: n = rn.fst ∧ s =s' then some (Eq.mp (by rw[h.left]) rn.snd) else f tl
   f d
 
+/-- **Binding a relation name**, the `Î[R ↦ M̂]` of a recursion's rounds:
+a cons, shadowing whatever the name had. -/
+def AnnotatedDatabase.assign (s : String) {k : ℕ} (X : AnnotatedRelation T K k)
+    (d : AnnotatedDatabase T K) : AnnotatedDatabase T K := (s, ⟨k, X⟩) :: d
+
+omit [ValueType T] [Zero K] in
+@[simp] theorem AnnotatedDatabase.find_assign (s : String) {k : ℕ}
+    (X : AnnotatedRelation T K k) (d : AnnotatedDatabase T K) :
+    (d.assign s X).find k s = some X := by
+  show (if h : k = k ∧ s = s then _ else _) = _
+  rw [dite_eq_left ⟨rfl, rfl⟩]
+  rfl
+
+omit [ValueType T] [Zero K] in
+theorem AnnotatedDatabase.find_assign_of_ne (s s' : String) {k k' : ℕ}
+    (X : AnnotatedRelation T K k) (d : AnnotatedDatabase T K)
+    (h : ¬(k' = k ∧ s' = s)) :
+    (d.assign s X).find k' s' = d.find k' s' := by
+  show (if h : k' = k ∧ s' = s then _ else _) = _
+  rw [dite_eq_right h]
+  rfl
+
 def AnnotatedTuple.toComposite (p: AnnotatedTuple T K n) :=
   Fin.append (λ k: Fin n ↦ Sum.inl (p.fst k)) ![Sum.inr p.snd]
 

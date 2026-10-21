@@ -136,3 +136,24 @@ theorem Nat.counterexample_having :
     let t₃ : ℕ := 1
     (t₁ * t₂) * (1 - t₃) + (t₁ * t₃) * (1 - t₂) + (t₂ * t₃) * (1 - t₁)
       ≠ (t₁ * t₂ + t₁ * t₃ + t₂ * t₃) - t₁ * t₂ * t₃ := by decide
+
+/-- **`ℕ` is complemented**, for the other of the two reasons: `𝟙 ⊖ a` is
+`𝟙` when `a` is `𝟘` and `𝟘` otherwise, so both sides are `𝟙` exactly when
+both summands vanish. It is complemented and not multiplicatively
+idempotent, which is the combination that separates the two readings of a
+conjunction of atoms over *one* family while leaving disjoint families
+alone. -/
+theorem Nat.complemented : _root_.complemented ℕ := by
+  intro a b
+  cases a <;> cases b <;> simp
+  omega
+
+/-- **`ℕ` is not multiplicatively idempotent**, which is what separates
+it from the lattice-like exclusive domains: it is exclusive, so the
+worlds of a family do annihilate each other pairwise, but a world
+annotated `2` is not worth the same squared. It is the one semiring of
+the catalog that is exclusive without being multiplicatively
+idempotent. -/
+theorem Nat.not_mulIdempotent : ¬ _root_.mulIdempotent ℕ := by
+  intro h
+  exact absurd (h 2) (by decide)

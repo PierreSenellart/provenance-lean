@@ -33,7 +33,7 @@ aggregate-comparison atom holds on the contributors of a single group:
   `ρ_{J ⊔ {i}}(j+1) = (1 - p i) · ρ_J(j+1) + p i · ρ_J(j)`,
   `ρ_{J ⊔ {i}}(0) = (1 - p i) · ρ_J(0)`.
 * **SUM (weighted Poisson-binomial) recurrence**
-  (`sumMass_insert`):
+  (`sumMass_insert_of_le`, `sumMass_insert_of_lt`):
   `σ_{J ⊔ {i}}(s) = (1 - p i) · σ_J(s) + p i · σ_J(s - t i)`
   (with the convention that `σ_J` at a negative-shifted index is `0`).
 
@@ -1487,8 +1487,17 @@ theorem worldAnn_eval_iff {N : ℕ} (α : Fin N → BoolFunc X)
 
 /-- Evaluation of the comparison characteristic `χ_op`. -/
 lemma chi_eval_iff (op : CompOp) (a c : T) (v : X → Bool) :
-    (Having.chi (K := BoolFunc X) op a c) v = true ↔ op.eval a c := by
+    (Having.chi (K := BoolFunc X) op a c) v = true
+      ↔ op.eval3 a c = Kleene.true := by
   unfold Having.chi
+  split_ifs with h
+  · exact iff_of_true rfl h
+  · exact iff_of_false (fun hh => Bool.noConfusion hh) h
+
+/-- Evaluation of the characteristic of an arbitrary test. -/
+lemma chiOf_eval_iff (P : T → Kleene) (a : T) (v : X → Bool) :
+    (Having.chiOf (K := BoolFunc X) P a) v = true ↔ P a = Kleene.true := by
+  unfold Having.chiOf
   split_ifs with h
   · exact iff_of_true rfl h
   · exact iff_of_false (fun hh => Bool.noConfusion hh) h
@@ -1503,7 +1512,7 @@ theorem havingProv_eval_iff {m : ℕ} (U : List (AnnotatedTuple T (BoolFunc X) m
     (t : Term T m) (f : SeqAggFunc T) (op : CompOp) (c : T) (v : X → Bool) :
     (havingProv U t f op c) v = true
       ↔ (realizedWorld U v).Nonempty
-        ∧ op.eval (aggValOn U t f (realizedWorld U v)) c := by
+        ∧ op.eval3 (aggValOn U t f (realizedWorld U v)) c = Kleene.true := by
   unfold havingProv
   rw [sum_eval_eq_true_iff]
   constructor
@@ -1527,6 +1536,27 @@ theorem havingProv_eval_iff {m : ℕ} (U : List (AnnotatedTuple T (BoolFunc X) m
     exact hgoal
 
 
+/-- Pointwise evaluation of a `Multiset.prod` of `BoolFunc`s: the product
+(AND) evaluates to true iff every factor does. -/
+lemma multiset_prod_eval_eq_true_iff (s : Multiset (BoolFunc X))
+    (v : X → Bool) : s.prod v = true ↔ ∀ f ∈ s, f v = true := by
+  induction s using Multiset.induction with
+  | empty =>
+    rw [Multiset.prod_zero]
+    exact iff_of_true rfl (fun f hf => absurd hf (Multiset.notMem_zero f))
+  | cons a s ih =>
+    rw [Multiset.prod_cons]
+    show (a v && s.prod v) = true ↔ _
+    rw [Bool.and_eq_true, ih]
+    constructor
+    · rintro ⟨ha, hall⟩ f hf
+      rcases Multiset.mem_cons.mp hf with rfl | hfs
+      · exact ha
+      · exact hall f hfs
+    · intro hall
+      exact ⟨hall a (Multiset.mem_cons_self a s),
+        fun f hf => hall f (Multiset.mem_cons_of_mem hf)⟩
+
 /-- Pointwise evaluation of a `Multiset.sum` of `BoolFunc`s: the sum (OR)
 evaluates to true iff some summand does. -/
 lemma multiset_sum_eval_eq_true_iff (s : Multiset (BoolFunc X)) (v : X → Bool) :
@@ -1548,31 +1578,6 @@ lemma multiset_sum_eval_eq_true_iff (s : Multiset (BoolFunc X)) (v : X → Bool)
       rcases Multiset.mem_cons.mp hf with rfl | hfs
       · exact Or.inl h
       · exact Or.inr ⟨f, hfs, h⟩
-
-/-- Selecting the positions whose element satisfies a Boolean predicate
-yields the filtered list. -/
-theorem seqOf_filter_positions {β : Type} (P : β → Bool) :
-    ∀ U : List β,
-      seqOf U (Finset.univ.filter (fun i => P (U.get i) = true)) = U.filter P
-  | [] => rfl
-  | a :: U => by
-    rw [seqOf]
-    have h0 : ((0 : Fin (U.length + 1)) ∈ Finset.univ.filter
-        (fun i => P ((a :: U).get i) = true)) ↔ P a = true := by
-      simp only [Finset.mem_filter, Finset.mem_univ, true_and, List.get_cons_zero]
-    have hsucc : Finset.univ.filter
-          (fun i : Fin U.length => i.succ ∈ Finset.univ.filter
-            (fun j => P ((a :: U).get j) = true))
-        = Finset.univ.filter (fun i => P (U.get i) = true) := by
-      ext i
-      simp only [Finset.mem_filter, Finset.mem_univ, true_and, Fin.succ,
-        List.get_cons_succ]
-    rw [hsucc, seqOf_filter_positions P U]
-    by_cases hPa : P a = true
-    · rw [ite_eq_left (h0.mpr hPa), List.filter_cons_of_pos hPa]
-      rfl
-    · rw [ite_eq_right (fun h => hPa (h0.mp h)),
-        List.filter_cons_of_neg (by simpa using hPa), List.nil_append]
 
 /-- The subsequence selected by the realized world is the sublist of
 occurrences whose annotation is true under the valuation. -/
@@ -1658,9 +1663,9 @@ theorem groupSeq_randomWorld {m n₁ : ℕ} [HasAltLinearOrder (BoolFunc X)]
               : Multiset (AnnotatedTuple T (BoolFunc X) m)) := by rw [hcoe]
       _ = ↑(((havingGroup is r g).filter (fun p => p.snd v)).map Prod.fst) :=
           Multiset.map_coe _ _
-  show Multiset.sort _ (· ≤ ·) = _
-  exact List.Perm.eq_of_pairwise' (Multiset.pairwise_sort _ _) hsorted
-    (Multiset.coe_eq_coe.mp (by rw [Multiset.sort_eq]; exact hmul))
+  show sortList _ = _
+  exact List.Perm.eq_of_pairwise' (sortList_pairwise _) hsorted
+    (Multiset.coe_eq_coe.mp (by rw [sortList_coe]; exact hmul))
 
 /-- A key is realized in the random world iff the realized world of its
 group sequence is non-empty. -/
@@ -1691,8 +1696,11 @@ theorem randomWorld_key_mem_iff {m n₁ : ℕ} [HasAltLinearOrder (BoolFunc X)]
 
 /-- **PQE bridge for Boolean combinations, with polarity.** Under a
 valuation, the polarity-aware predicate provenance of `ψ` is true iff the
-realized world of the group is non-empty and `ψ` (negated according to
-the polarity) holds classically on the realized occurrence sequence. -/
+realized world of the group is non-empty and `ψ` evaluates, on the realized
+occurrence sequence, to *true* at positive polarity and to *false* at
+negative polarity. That is the Kleene reading, and the polarity flag was
+already carrying it: a group on which `ψ` is unknown contributes to neither
+side. -/
 theorem HavingPred.provAux_eval_iff {m n₁ : ℕ}
     (U : List (AnnotatedTuple T (BoolFunc X) m)) (g : Tuple T n₁)
     (v : X → Bool) :
@@ -1700,8 +1708,10 @@ theorem HavingPred.provAux_eval_iff {m n₁ : ℕ}
     (ψ.provAux U g negated) v = true
       ↔ (realizedWorld U v).Nonempty
         ∧ (if negated
-            then ¬ ψ.holdsOnSeq ((seqOf U (realizedWorld U v)).map Prod.fst) g
-            else ψ.holdsOnSeq ((seqOf U (realizedWorld U v)).map Prod.fst) g)
+            then ψ.evalOnSeq ((seqOf U (realizedWorld U v)).map Prod.fst) g
+                = Kleene.false
+            else ψ.evalOnSeq ((seqOf U (realizedWorld U v)).map Prod.fst) g
+                = Kleene.true)
   | negated, .cmp t f op s => by
     show (havingProv U t f (if negated then op.negate else op) (s.eval g)) v
         = true ↔ _
@@ -1713,21 +1723,27 @@ theorem HavingPred.provAux_eval_iff {m n₁ : ℕ}
     cases negated with
     | false =>
       rw [ite_eq_right Bool.false_ne_true, ite_eq_right Bool.false_ne_true]
-      simp only [HavingPred.holdsOnSeq]
+      simp only [HavingPred.evalOnSeq]
       rw [hagg]
     | true =>
       rw [ite_eq_left rfl, ite_eq_left rfl]
-      simp only [HavingPred.holdsOnSeq]
-      rw [CompOp.negate_eval, hagg]
+      simp only [HavingPred.evalOnSeq]
+      rw [CompOp.negate_eval3, hagg]
+      cases h : op.eval3 (aggValOn U t f (realizedWorld U v)) (s.eval g) <;>
+        simp [Kleene.not]
   | negated, .not ψ => by
     show (ψ.provAux U g (!negated)) v = true ↔ _
     rw [HavingPred.provAux_eval_iff U g v (!negated) ψ]
-    simp only [HavingPred.holdsOnSeq]
+    simp only [HavingPred.evalOnSeq]
     cases negated with
     | false =>
       rw [Bool.not_false, ite_eq_left rfl, ite_eq_right Bool.false_ne_true]
+      cases h : ψ.evalOnSeq ((seqOf U (realizedWorld U v)).map Prod.fst) g <;>
+        simp [Kleene.not]
     | true =>
-      rw [Bool.not_true, ite_eq_right Bool.false_ne_true, ite_eq_left rfl, not_not]
+      rw [Bool.not_true, ite_eq_right Bool.false_ne_true, ite_eq_left rfl]
+      cases h : ψ.evalOnSeq ((seqOf U (realizedWorld U v)).map Prod.fst) g <;>
+        simp [Kleene.not]
   | negated, .and ψ₁ ψ₂ => by
     have h₁ := HavingPred.provAux_eval_iff U g v negated ψ₁
     have h₂ := HavingPred.provAux_eval_iff U g v negated ψ₂
@@ -1736,14 +1752,18 @@ theorem HavingPred.provAux_eval_iff {m n₁ : ℕ}
       rw [ite_eq_right Bool.false_ne_true] at h₁ h₂
       show ((ψ₁.provAux U g false) v && (ψ₂.provAux U g false) v) = true ↔ _
       rw [Bool.and_eq_true, h₁, h₂, ite_eq_right Bool.false_ne_true]
-      simp only [HavingPred.holdsOnSeq]
-      tauto
+      simp only [HavingPred.evalOnSeq]
+      cases e₁ : ψ₁.evalOnSeq ((seqOf U (realizedWorld U v)).map Prod.fst) g <;>
+        cases e₂ : ψ₂.evalOnSeq ((seqOf U (realizedWorld U v)).map Prod.fst) g <;>
+        simp [Kleene.and]
     | true =>
       rw [ite_eq_left rfl] at h₁ h₂
       show ((ψ₁.provAux U g true) v || (ψ₂.provAux U g true) v) = true ↔ _
       rw [Bool.or_eq_true, h₁, h₂, ite_eq_left rfl]
-      simp only [HavingPred.holdsOnSeq]
-      tauto
+      simp only [HavingPred.evalOnSeq]
+      cases e₁ : ψ₁.evalOnSeq ((seqOf U (realizedWorld U v)).map Prod.fst) g <;>
+        cases e₂ : ψ₂.evalOnSeq ((seqOf U (realizedWorld U v)).map Prod.fst) g <;>
+        simp [Kleene.and]
   | negated, .or ψ₁ ψ₂ => by
     have h₁ := HavingPred.provAux_eval_iff U g v negated ψ₁
     have h₂ := HavingPred.provAux_eval_iff U g v negated ψ₂
@@ -1752,14 +1772,18 @@ theorem HavingPred.provAux_eval_iff {m n₁ : ℕ}
       rw [ite_eq_right Bool.false_ne_true] at h₁ h₂
       show ((ψ₁.provAux U g false) v || (ψ₂.provAux U g false) v) = true ↔ _
       rw [Bool.or_eq_true, h₁, h₂, ite_eq_right Bool.false_ne_true]
-      simp only [HavingPred.holdsOnSeq]
-      tauto
+      simp only [HavingPred.evalOnSeq]
+      cases e₁ : ψ₁.evalOnSeq ((seqOf U (realizedWorld U v)).map Prod.fst) g <;>
+        cases e₂ : ψ₂.evalOnSeq ((seqOf U (realizedWorld U v)).map Prod.fst) g <;>
+        simp [Kleene.or]
     | true =>
       rw [ite_eq_left rfl] at h₁ h₂
       show ((ψ₁.provAux U g true) v && (ψ₂.provAux U g true) v) = true ↔ _
       rw [Bool.and_eq_true, h₁, h₂, ite_eq_left rfl]
-      simp only [HavingPred.holdsOnSeq]
-      tauto
+      simp only [HavingPred.evalOnSeq]
+      cases e₁ : ψ₁.evalOnSeq ((seqOf U (realizedWorld U v)).map Prod.fst) g <;>
+        cases e₂ : ψ₂.evalOnSeq ((seqOf U (realizedWorld U v)).map Prod.fst) g <;>
+        simp [Kleene.or]
 
 /-- **PQE bridge for Boolean combinations of aggregate comparisons.**
 Under a valuation, the predicate provenance of `ψ` on the group sequence

@@ -237,4 +237,31 @@ theorem mul_sub_left_distributive : mul_sub_left_distributive Viterbi := by
       exact absurd (le_of_mul_le_mul_left habc ha_pos) hbc
   · rfl
 
+/-- **Viterbi is complemented.** `𝟙 ⊖ a` is `𝟘` when `a` is `𝟙` and `𝟙`
+otherwise, `𝟙` being the top of the order, and `⊕` is `max`, so both
+sides are `𝟘` exactly when one of the two summands is `𝟙`. -/
+theorem complemented : _root_.complemented Viterbi := by
+  intro a b
+  have hsub : ∀ x : Viterbi, (1 : Viterbi) - x
+      = if (1 : NNReal) ≤ (x : NNReal) then 0 else 1 := by
+    intro x
+    show (if ((1 : Viterbi) : NNReal) ≤ (x : NNReal) then 0 else (1 : Viterbi))
+      = if (1 : NNReal) ≤ (x : NNReal) then 0 else 1
+    simp
+  rw [hsub, hsub, hsub]
+  by_cases ha : (1 : NNReal) ≤ (a : NNReal)
+  · have hab : (1 : NNReal) ≤ ((a + b : Viterbi) : NNReal) := by
+      simp only [add_def]
+      exact le_trans ha (le_max_left _ _)
+    simp [ha]
+  · by_cases hb : (1 : NNReal) ≤ (b : NNReal)
+    · have hab : (1 : NNReal) ≤ ((a + b : Viterbi) : NNReal) := by
+        simp only [add_def]
+        exact le_trans hb (le_max_right _ _)
+      simp [ha, hb]
+    · have hab : ¬ ((1 : NNReal) ≤ ((a + b : Viterbi) : NNReal)) := by
+        simp only [add_def, not_le] at *
+        exact max_lt ha hb
+      simp [ha, hb]
+
 end Viterbi

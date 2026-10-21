@@ -137,6 +137,11 @@ def AnnotatedRelation.toPlain [Zero K] (r: AnnotatedRelation T K n) :
 def AnnotatedDatabase.toPlain [Zero K] (d: AnnotatedDatabase T K) : Database T :=
   d.map (fun e => (e.fst, ⟨e.snd.fst, e.snd.snd.toPlain⟩))
 
+/-- Forgetting annotations passes under a relation binding. -/
+@[simp] lemma AnnotatedDatabase.toPlain_assign [Zero K] (s : String) {k : ℕ}
+    (X : AnnotatedRelation T K k) (d : AnnotatedDatabase T K) :
+    (d.assign s X).toPlain = d.toPlain.assign s X.toPlain := rfl
+
 lemma AnnotatedDatabase.find_toPlain [Zero K]
     (n : ℕ) (s : String) (d : AnnotatedDatabase T K) :
     (d.toPlain).find n s = (d.find n s).map AnnotatedRelation.toPlain := by
@@ -413,6 +418,11 @@ fragment. -/
 /-- Natural numbers as a value type (used for kernel-computable
 counterexamples: unlike `String`, the order on `ℕ` reduces by `decide`). -/
 instance : ValueType ℕ where
+  nonzero := 1
+  nonzero_ne_zero := Nat.one_ne_zero
+
+/-- Nothing in `ℕ` is null. -/
+instance : NoNulls ℕ := ⟨fun _ => rfl⟩
 
 /-- Over `ℕ`, the non-zero-annotated support of the annotated evaluation
 differs from the plain evaluation on a query combining `Dedup` and `Diff`:

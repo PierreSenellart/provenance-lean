@@ -314,3 +314,17 @@ theorem BoolFunc.homomorphism_from_BoolFunc {X Y : Type} :
   intro i
   funext τ
   rfl
+
+/-- **`𝔹[X]` is complemented**: `𝟙 ⊖ ·` is pointwise negation. -/
+theorem BoolFunc.complemented : _root_.complemented (BoolFunc X) := by
+  intro a b
+  simp[(· - ·),Sub.sub,(· + ·),Add.add,(· * ·),Mul.mul]
+  apply funext
+  intro ν
+  by_cases ha : a ν <;> by_cases hb : b ν <;> simp[ha,hb]
+
+/-- **`𝔹[X]` is multiplicatively idempotent**: `⊗` is pointwise
+conjunction. -/
+theorem BoolFunc.mulIdempotent : _root_.mulIdempotent (BoolFunc X) := by
+  intro a
+  simp[(· * ·),Mul.mul]

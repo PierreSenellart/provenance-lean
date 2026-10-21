@@ -719,8 +719,7 @@ lemma KeyValueList.add_comm_internal [DecidableEq β] [AddCommSemigroup β]
               have := functional l hl _ hz _ hz'
               simp at this
               assumption
-            rw[hzz']
-            assumption
+            rwa [hzz']
 
 instance [DecidableEq β] [AddCommSemigroup β]:
   @LeftCommutative (α×β) _ (KeyValueList.addKVFold) where

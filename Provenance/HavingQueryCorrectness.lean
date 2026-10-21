@@ -15,7 +15,7 @@ rewriting, in absorptive commutative m-semirings. The monotone comparisons
 comparisons `<`, `≤`, `=`, `≠`, which involve a difference of two chains,
 also need `⊗` to distribute over `⊖` (`Query.joinCount_correct`).
 
-* **`C = 1`** (`AggQuery.havingSite_count_ge_one`): the fused
+* **`C = 1`** (`AggQueryIn.havingSite_count_ge_one`): the fused
   `COUNT(*) ≥ 1` operator agrees – key by key, annotation by annotation –
   with the duplicate-eliminated key projection `ε(Π_{keys}(q))`, via the
   extensional characterization `groupByKey_eq_dedup_map` of duplicate
@@ -114,20 +114,20 @@ key – computes exactly the duplicate-eliminated key projection
 query: one row per non-empty group, annotated by the `⊕`-sum of the
 group's annotations. Stated against any general subquery whose annotated
 evaluation is the classical inner query's. -/
-theorem AggQuery.havingSite_count_ge_one
+theorem AggQueryIn.havingSite_count_ge_one
     (h_abs : absorptive K)
     {m n₁ : ℕ} (is : Tuple (Fin m) n₁) (ts : Tuple (Term ℕ m) 1)
     (q : Query ℕ m) (hq : q.source) (d : AnnotatedDatabase ℕ K) :
-    ((AggQuery.havingSite is ts ![SeqAggFunc.count] CompOp.ge 0
-        (Term.const 1) (q.toAgg hq)).evaluateAnnotated d).map
+    ((AggQueryIn.havingSite is ts ![SeqAggFunc.count] CompOp.ge 0
+        (TermIn.const 1) (q.toAgg hq)).evaluateAnnotated d).map
       (fun p => ((fun k : Fin n₁ => p.fst (Fin.castAdd 1 k)), p.snd))
-      = (ε (Π (fun k : Fin n₁ => Term.index (is k)) q)).evaluateAnnotated hq d := by
-  rw [AggQuery.havingSite_evaluateAnnotated,
+      = (ε (Π (fun k : Fin n₁ => TermIn.index (is k)) q)).evaluateAnnotated hq d := by
+  rw [AggQueryIn.havingSite_evaluateAnnotated,
     Query.toAggHaving_input q hq d]
   set r : AnnotatedRelation ℕ K m := q.evaluateAnnotated hq d with hr
   -- The right-hand side: `ε ∘ Π` unfolds to `groupByKey` of the projected
   -- relation, which `groupByKey_eq_dedup_map` characterizes extensionally.
-  have hRHS : (ε (Π (fun k : Fin n₁ => Term.index (is k)) q)).evaluateAnnotated hq d
+  have hRHS : (ε (Π (fun k : Fin n₁ => TermIn.index (is k)) q)).evaluateAnnotated hq d
       = Multiset.ofList (groupByKey
           (Multiset.map (fun p : AnnotatedTuple ℕ K m =>
             ((fun k : Fin n₁ => p.fst (is k)), p.snd)) r)).val := rfl
@@ -452,18 +452,18 @@ copy of the chain: equal group keys and lexicographically larger
 def chainCond (C : ℕ) : Selection ℕ (3 * (C + 1) + 3) :=
   Selection.And
     (Selection.BT (BoolTerm.EQ
-      (Term.index ⟨0, by omega⟩) (Term.index ⟨3 * C + 3, by omega⟩)))
+      (TermIn.index ⟨0, by omega⟩) (TermIn.index ⟨3 * C + 3, by omega⟩)))
     (Selection.Or
       (Selection.BT (BoolTerm.LT
-        (Term.index ⟨3 * C + 1, by omega⟩)
-        (Term.index ⟨3 * C + 3 + 1, by omega⟩)))
+        (TermIn.index ⟨3 * C + 1, by omega⟩)
+        (TermIn.index ⟨3 * C + 3 + 1, by omega⟩)))
       (Selection.And
         (Selection.BT (BoolTerm.EQ
-          (Term.index ⟨3 * C + 1, by omega⟩)
-          (Term.index ⟨3 * C + 3 + 1, by omega⟩)))
+          (TermIn.index ⟨3 * C + 1, by omega⟩)
+          (TermIn.index ⟨3 * C + 3 + 1, by omega⟩)))
         (Selection.BT (BoolTerm.LT
-          (Term.index ⟨3 * C + 2, by omega⟩)
-          (Term.index ⟨3 * C + 3 + 2, by omega⟩)))))
+          (TermIn.index ⟨3 * C + 2, by omega⟩)
+          (TermIn.index ⟨3 * C + 3 + 2, by omega⟩)))))
 
 /-- The `C`-fold self-join chain: `C + 1` copies of the base query, with
 consecutive copies related by `chainCond`. Copy `j` occupies columns
@@ -528,6 +528,9 @@ theorem joinChain_eval_filter (q : Query ℕ 3) (hq : q.source)
       Multiset.map_map, filter_product, Multiset.filter_filter]
     refine Multiset.map_congr (Multiset.filter_congr fun z _ => ?_) fun z _ => ?_
     · -- The chain predicate, transported through `chainCombine`.
+      simp only [Function.comp_apply, chainCond, Selection.eval_and,
+        Selection.eval_or, Selection.eval_bt, BoolTerm.eval_iff,
+        BoolTerm.toCompOp, BoolTerm.args, CompOp.eval, TermIn.eval]
       show ((Fin.append z.1.1 z.2.1 ⟨0, by omega⟩ = a)
             ∧ ((Fin.append z.1.1 z.2.1 ⟨0, by omega⟩
                   = Fin.append z.1.1 z.2.1 ⟨3 * C + 3, by omega⟩)
@@ -666,11 +669,11 @@ theorem groupPairs_eq_havingGroup [HasAltLinearOrder K]
     exact h 0
 
 theorem piChain_source (q : Query ℕ 3) (hq : q.source) (C : ℕ) :
-    ((Π (fun _ : Fin 1 => Term.index ⟨0, by omega⟩) (joinChain q C))).source := by
+    ((Π (fun _ : Fin 1 => TermIn.index ⟨0, by omega⟩) (joinChain q C))).source := by
   exact joinChain_source q hq C
 
 theorem q2_source (q : Query ℕ 3) (hq : q.source) (C : ℕ) :
-    (ε (Π (fun _ : Fin 1 => Term.index ⟨0, by omega⟩) (joinChain q C))).source := by
+    (ε (Π (fun _ : Fin 1 => TermIn.index ⟨0, by omega⟩) (joinChain q C))).source := by
   exact joinChain_source q hq C
 
 /-- **Query-level correctness of the join-based rewriting, general `C`.**
@@ -697,7 +700,7 @@ theorem Query.joinChain_count_correct [HasAltLinearOrder K]
     (hnodup : ((q.evaluateAnnotated hq d).map Prod.fst).Nodup)
     (ts : Tuple (Term ℕ 3) 1) (C : ℕ) (g : Tuple ℕ 1) :
     (Multiset.map Prod.snd (Multiset.filter (fun p => p.fst = g)
-        ((ε (Π (fun _ : Fin 1 => Term.index ⟨0, by omega⟩)
+        ((ε (Π (fun _ : Fin 1 => TermIn.index ⟨0, by omega⟩)
           (joinChain q C))).evaluateAnnotated (q2_source q hq C) d))).sum
       = havingProv
           (havingGroup (fun _ : Fin 1 => (⟨0, by omega⟩ : Fin 3))
@@ -743,15 +746,15 @@ theorem Query.joinChain_count_correct [HasAltLinearOrder K]
       List.map_ofFn]
     rfl
   calc (Multiset.map Prod.snd (Multiset.filter (fun p => p.fst = g)
-        ((ε (Π (fun _ : Fin 1 => Term.index ⟨0, by omega⟩)
+        ((ε (Π (fun _ : Fin 1 => TermIn.index ⟨0, by omega⟩)
           (joinChain q C))).evaluateAnnotated (q2_source q hq C) d))).sum
       = (Multiset.map Prod.snd (Multiset.filter (fun p => p.fst = g)
           (Multiset.ofList (groupByKey
-            ((Π (fun _ : Fin 1 => Term.index ⟨0, by omega⟩)
+            ((Π (fun _ : Fin 1 => TermIn.index ⟨0, by omega⟩)
               (joinChain q C)).evaluateAnnotated (piChain_source q hq C) d)).val))).sum
         := rfl
     _ = (Multiset.map Prod.snd (Multiset.filter (fun p => p.fst = g)
-          ((Π (fun _ : Fin 1 => Term.index ⟨0, by omega⟩)
+          ((Π (fun _ : Fin 1 => TermIn.index ⟨0, by omega⟩)
             (joinChain q C)).evaluateAnnotated (piChain_source q hq C) d))).sum
         := perKeySum_groupByKey _ g
     _ = (Multiset.map Prod.snd (Multiset.filter (fun p => p.fst = g)
@@ -921,7 +924,7 @@ theorem diff_perKeySum {T : Type} [ValueType T] {n : ℕ}
 /-- The join-based query for `COUNT(*) ≥ C + 1`: project the `C`-fold
 chain to its group key and eliminate duplicates. -/
 def joinChainQuery (q : Query ℕ 3) (C : ℕ) : Query ℕ 1 :=
-  ε (Π (fun _ : Fin 1 => Term.index ⟨0, by omega⟩) (joinChain q C))
+  ε (Π (fun _ : Fin 1 => TermIn.index ⟨0, by omega⟩) (joinChain q C))
 
 /-- **Query-level correctness for `COUNT(*) = C + 1`.** The join-based
 query `Q₂^{≥C+1} − Q₂^{≥C+2}` gives every group key the fused
@@ -1089,8 +1092,10 @@ for `≠`. -/
 def Query.joinCountQuery (q : Query ℕ 3) : CompOp → ℕ → Query ℕ 1
   | .lt, C => Query.Diff (joinChainQuery q 0) (joinChainQuery q C)
   | .le, C => Query.Diff (joinChainQuery q 0) (joinChainQuery q (C + 1))
-  | .eq, C => Query.Diff (joinChainQuery q C) (joinChainQuery q (C + 1))
-  | .ne, C => Query.Sum
+  -- over `ℕ` nothing is null, so the syntactic comparisons are `=` and `≠`
+  | .eq, C | .syneq, C =>
+      Query.Diff (joinChainQuery q C) (joinChainQuery q (C + 1))
+  | .ne, C | .synne, C => Query.Sum
       (Query.Diff (joinChainQuery q 0) (joinChainQuery q C))
       (joinChainQuery q (C + 1))
   | .ge, C => joinChainQuery q C
@@ -1100,9 +1105,11 @@ theorem Query.joinCountQuery_source (q : Query ℕ 3) (hq : q.source) :
     ∀ (op : CompOp) (C : ℕ), (Query.joinCountQuery q op C).source
   | .lt, C => by exact ⟨joinChain_source q hq 0, joinChain_source q hq C⟩
   | .le, C => by exact ⟨joinChain_source q hq 0, joinChain_source q hq (C + 1)⟩
-  | .eq, C => by exact ⟨joinChain_source q hq C, joinChain_source q hq (C + 1)⟩
-  | .ne, C => by exact ⟨⟨joinChain_source q hq 0, joinChain_source q hq C⟩,
-      joinChain_source q hq (C + 1)⟩
+  | .eq, C | .syneq, C =>
+      by exact ⟨joinChain_source q hq C, joinChain_source q hq (C + 1)⟩
+  | .ne, C | .synne, C =>
+      by exact ⟨⟨joinChain_source q hq 0, joinChain_source q hq C⟩,
+        joinChain_source q hq (C + 1)⟩
   | .ge, C => q2_source q hq C
   | .gt, C => q2_source q hq (C + 1)
 
@@ -1165,6 +1172,24 @@ theorem Query.joinCount_correct [HasAltLinearOrder K]
   | gt =>
     rw [havingProv_count_gt]
     exact Query.joinChain_count_correct h_abs q hq d hnodup ts (C + 1) g
+  | syneq =>
+    exact Query.joinChainDiff_count_eq_correct h_abs h_distrib q hq d hnodup ts C g
+  | synne =>
+    show _ = havingProv _ _ SeqAggFunc.count CompOp.synne (C + 1)
+    rw [show havingProv (havingGroup (fun _ : Fin 1 => (⟨0, by omega⟩ : Fin 3))
+          (q.evaluateAnnotated hq d) g) (ts 0) SeqAggFunc.count CompOp.synne (C + 1)
+        = havingProv (havingGroup (fun _ : Fin 1 => (⟨0, by omega⟩ : Fin 3))
+          (q.evaluateAnnotated hq d) g) (ts 0) SeqAggFunc.count CompOp.ne (C + 1)
+        from rfl]
+    rw [havingProv_ne_split, havingProv_count_lt, havingProv_count_gt]
+    refine Eq.trans (sum_perKeySum
+      (Query.Diff (joinChainQuery q 0) (joinChainQuery q C))
+      (joinChainQuery q (C + 1))
+      (by exact ⟨joinChain_source q hq 0, joinChain_source q hq C⟩)
+      (q2_source q hq (C + 1)) _ d g) ?_
+    exact congrArg₂ (fun a b : K => a + b)
+      (Query.joinChainDiff_count_le_correct h_abs h_distrib q hq d hnodup ts C g)
+      (Query.joinChain_count_correct h_abs q hq d hnodup ts (C + 1) g)
 
 /-- **Monotone `HAVING` conditions need no distributivity.** For the
 comparison operators `≥` and `>`, the join-based rewriting

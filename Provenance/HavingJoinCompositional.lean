@@ -23,7 +23,7 @@ group key – and duplicate-eliminates the union, which merges everything
 into exactly one row per group key carrying the summed annotation. The
 result (`joinCountQueryPadded_correct`) is *equal as a multiset of
 annotated tuples* to the key projection of the fused `HAVING` output
-(`proj_fused_eq_keyed`), so the substitution is transparent to every
+(`fused_key_proj`), so the substitution is transparent to every
 surrounding operator – including annotation-sensitive ones like `Diff`
 and further `HAVING`s, which are *not* congruences for the naive
 “equal up to `𝟘`-rows” relation (a `𝟘`-annotated row still changes the
@@ -46,7 +46,7 @@ schema. -/
 def keyIdx : Tuple (Fin 3) 1 := fun _ => ⟨0, by omega⟩
 
 /-- The key column, as a projection term. -/
-def keyTerm : Tuple (Term ℕ 3) 1 := fun _ => Term.index ⟨0, by omega⟩
+def keyTerm : Tuple (Term ℕ 3) 1 := fun _ => TermIn.index ⟨0, by omega⟩
 
 /-- The group key of an annotated base row. -/
 def keyOf {K : Type} (p : AnnotatedTuple ℕ K 3) : Tuple ℕ 1 :=
@@ -145,7 +145,7 @@ theorem joinChainQuery_key_mem (q : Query ℕ 3) (hq : q.source)
     x.fst ∈ Multiset.dedup ((q.evaluateAnnotated hq d).map
       keyOf) := by
   have hx' : x ∈ Multiset.ofList (groupByKey
-      ((Query.Proj (fun _ : Fin 1 => Term.index (⟨0, by omega⟩ : Fin (3 * C + 3)))
+      ((Query.Proj (fun _ : Fin 1 => TermIn.index (⟨0, by omega⟩ : Fin (3 * C + 3)))
         (joinChain q C)).evaluateAnnotated
         (Query.sourceDedup (q2_source q hq C) rfl) d)).val :=
     hx
@@ -206,6 +206,11 @@ theorem joinCountQuery_key_mem (q : Query ℕ 3) (hq : q.source)
     · exact joinChainQuery_key_mem q hq d (C + 1) x hx'
   | ge => exact joinChainQuery_key_mem q hq d C x hx
   | gt => exact joinChainQuery_key_mem q hq d (C + 1) x hx
+  | syneq => exact hdiff C (C + 1) x hx
+  | synne =>
+    rcases Multiset.mem_add.mp hx with hx' | hx'
+    · exact hdiff 0 C x hx'
+    · exact joinChainQuery_key_mem q hq d (C + 1) x hx'
 
 end Keys
 
@@ -402,14 +407,14 @@ theorem fused_key_proj_gen (qg : AggQuery ℕ 3 (ColKind.allReg 3))
     (hin : qg.evaluateAnnotated d = q.evaluateAnnotated hq d)
     (ts' : Tuple (Term ℕ 3) 1) (fs : Tuple (SeqAggFunc ℕ) 1) (op : CompOp)
     (s : Term ℕ 1) :
-    ((AggQuery.havingSite keyIdx ts' fs op 0 s qg).evaluateAnnotated d).map
+    ((AggQueryIn.havingSite keyIdx ts' fs op 0 s qg).evaluateAnnotated d).map
         (fun p => ((fun _ : Fin 1 => p.fst ⟨0, by omega⟩, p.snd)
           : Tuple ℕ 1 × K))
       = (Multiset.dedup ((q.evaluateAnnotated hq d).map keyOf)).map
           (fun g => ((g, Having.havingProv
             (Having.havingGroup keyIdx (q.evaluateAnnotated hq d) g)
             (ts' 0) (fs 0) op (s.eval g)) : Tuple ℕ 1 × K)) := by
-  rw [AggQuery.havingSite_evaluateAnnotated, hin]
+  rw [AggQueryIn.havingSite_evaluateAnnotated, hin]
   show ((Multiset.dedup ((q.evaluateAnnotated hq d).map
       (fun p => fun k : Fin 1 => p.fst (keyIdx k)))).map _).map _ = _
   rw [Multiset.map_map]
@@ -426,15 +431,15 @@ theorem fused_key_proj (qg : AggQuery ℕ 3 (ColKind.allReg 3))
     (q : Query ℕ 3) (hq : q.source) (d : AnnotatedDatabase ℕ K)
     (hin : qg.evaluateAnnotated d = q.evaluateAnnotated hq d)
     (ts' : Tuple (Term ℕ 3) 1) (op : CompOp) (C : ℕ) :
-    ((AggQuery.havingSite keyIdx ts' (fun _ => SeqAggFunc.count) op 0
-        (Term.const (C + 1)) qg).evaluateAnnotated d).map
+    ((AggQueryIn.havingSite keyIdx ts' (fun _ => SeqAggFunc.count) op 0
+        (TermIn.const (C + 1)) qg).evaluateAnnotated d).map
         (fun p => ((fun _ : Fin 1 => p.fst ⟨0, by omega⟩, p.snd)
           : Tuple ℕ 1 × K))
       = (Multiset.dedup ((q.evaluateAnnotated hq d).map keyOf)).map
           (fun g => ((g, Having.havingProv
             (Having.havingGroup keyIdx (q.evaluateAnnotated hq d) g)
             (ts' 0) SeqAggFunc.count op (C + 1)) : Tuple ℕ 1 × K)) :=
-  fused_key_proj_gen qg q hq d hin ts' (fun _ => SeqAggFunc.count) op (Term.const (C + 1))
+  fused_key_proj_gen qg q hq d hin ts' (fun _ => SeqAggFunc.count) op (TermIn.const (C + 1))
 
 /-- **Site substitution.** The key-projected fused
 `HAVING COUNT(*) op (C + 1)` site over the embedded classical query and
@@ -447,8 +452,8 @@ theorem countHaving_site_rewrite
     (q : Query ℕ 3) (hq : q.source) (d : AnnotatedDatabase ℕ K)
     (hnodup : ((q.evaluateAnnotated hq d).map Prod.fst).Nodup)
     (ts' : Tuple (Term ℕ 3) 1) (op : CompOp) (C : ℕ) :
-    ((AggQuery.havingSite keyIdx ts' (fun _ => SeqAggFunc.count) op 0
-        (Term.const (C + 1)) (q.toAgg hq)).evaluateAnnotated d).map
+    ((AggQueryIn.havingSite keyIdx ts' (fun _ => SeqAggFunc.count) op 0
+        (TermIn.const (C + 1)) (q.toAgg hq)).evaluateAnnotated d).map
         (fun p => ((fun _ : Fin 1 => p.fst ⟨0, by omega⟩, p.snd)
           : Tuple ℕ 1 × K))
       = (joinCountQueryPadded q op C).evaluateAnnotated
@@ -465,8 +470,8 @@ theorem countHaving_site_rewrite_monotone
     (hnodup : ((q.evaluateAnnotated hq d).map Prod.fst).Nodup)
     (ts' : Tuple (Term ℕ 3) 1) (op : CompOp) (hop : op = CompOp.ge ∨ op = CompOp.gt)
     (C : ℕ) :
-    ((AggQuery.havingSite keyIdx ts' (fun _ => SeqAggFunc.count) op 0
-        (Term.const (C + 1)) (q.toAgg hq)).evaluateAnnotated d).map
+    ((AggQueryIn.havingSite keyIdx ts' (fun _ => SeqAggFunc.count) op 0
+        (TermIn.const (C + 1)) (q.toAgg hq)).evaluateAnnotated d).map
         (fun p => ((fun _ : Fin 1 => p.fst ⟨0, by omega⟩, p.snd)
           : Tuple ℕ 1 × K))
       = (joinCountQueryPadded q op C).evaluateAnnotated
