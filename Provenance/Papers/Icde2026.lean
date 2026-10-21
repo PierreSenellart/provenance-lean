@@ -6,6 +6,8 @@ module
 
 public import Provenance.QueryRewriting
 public import Provenance.Semirings.Why
+import Mathlib.Algebra.Order.Group.Nat
+import Mathlib.Tactic.Bound.Init
 
 /-!
 # Frozen restatement of the claims of a published paper
