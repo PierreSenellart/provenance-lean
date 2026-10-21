@@ -13,9 +13,9 @@ same classes, by a query of the same kinds whose annotated evaluation
 agrees with it on every `K`-instance wherever the query's recursions
 settle there (`AggQueryIn.AnnSettlesAt`). The equality is of the bags of
 annotated tuples the two queries emit, tokens collapsed and group
-factors cashed (`AggQueryIn.evaluateAnnotated`); it is finer than the
-equality up to rows annotated `𝟘` the semantics paper reads, so a set
-that generates here generates there.
+factors cashed (`AggQueryIn.evaluateAnnotated`); it is finer than
+equality up to rows annotated `𝟘` (`GeneratesAnnZ`), so a set that
+generates here generates there.
 
 What transfers from the plain classification, for every semiring at
 once: the data part of the annotated evaluation is the plain evaluation
@@ -839,8 +839,8 @@ well-kinded and reading no aggregate column as a key, is matched by a
 well-kinded query over the classes, of the same kinds, reading none either, whose
 annotated evaluation settles and agrees with the query's on every
 `K`-instance at which the query's does. The equality is of the bags of
-annotated tuples (`AggQueryIn.evaluateAnnotated`), finer than the
-semantics paper's equality up to rows annotated `𝟘`. -/
+annotated tuples (`AggQueryIn.evaluateAnnotated`), finer than
+equality up to rows annotated `𝟘`. -/
 def GeneratesAnn (T : Type) [ValueType T] (K : Type) [CommSemiringWithMonus K] [DecidableEq K]
     [HasAltLinearOrder K] (sch : Schema) (cnt : SeqAggFunc T) (S : Set OpKind) : Prop :=
   ∀ {n : ℕ} {κ : Fin n → ColKind} (q : AggQuery T n κ),

@@ -8,8 +8,11 @@
 A Lean 4 formalization of *database provenance* in the semiring framework of
 Green, Karvounarakis and Tannen: relations whose tuples are annotated with
 values from a semiring, an annotated relational algebra with difference and
-aggregation, and the query rewriting by which
-[ProvSQL](https://provsql.org/) computes provenance inside PostgreSQL.
+aggregation, the query rewriting by which
+[ProvSQL](https://provsql.org/) computes provenance inside PostgreSQL, and a
+provenance semantics for a large fragment of SQL: aggregation with `HAVING`,
+`FILTER` and `ORDER BY`, window functions, nested aggregation, lateral
+subqueries and recursion.
 
 The point of the library is to give those constructions a machine-checked
 semantics, so that a claim made in a paper can be followed to a theorem the Lean
@@ -37,21 +40,30 @@ the development is `sorry`-free.
 | Result | Module | Entry point |
 | --- | --- | --- |
 | m-semirings: monus from its Galois connection, the `δ` support operator, homomorphisms | `Provenance/SemiringWithMonus.lean` | `SemiringWithMonus`, `SemiringWithMonusHom` |
-| twelve concrete provenance m-semirings: `𝔹`, `𝔹[X]`, `Why[X]`, `Lin[X]`, `ℕ[X]`, `ℕ`, tropical, Viterbi, min-max, Łukasiewicz, intervals and interval unions | `Provenance/Semirings/` | one file per semiring |
+| fifteen concrete provenance m-semirings: `𝔹`, `𝔹[X]`, `Why[X]`, `Lin[X]`, `ℕ[X]`, `ℕ`, tropical, Viterbi, min-max, Łukasiewicz, interval unions, security clearances, and the three non-commutative ones of regular languages, tropical paths and best paths | `Provenance/Semirings/` | one file per semiring |
 | annotated relational algebra with difference, and its provenance-aware rewriting into a plain query over `T ⊕ K` | `Provenance/QueryRewriting.lean` | `Query.rewriting_valid` |
 | query evaluation commutes with any m-semiring homomorphism on `RA⁺(∖)` – the formal counterpart of ProvSQL's compile-once/evaluate-many architecture | `Provenance/QueryAnnotatedDatabaseHom.lean` | `Query.evaluateAnnotated_hom` |
 | data-part adequacy of the annotated semantics against the plain one, and `𝔹`-support adequacy with transfer along monus homomorphisms | `Provenance/QueryAdequacy.lean`, `Provenance/SupportAdequacy.lean` | `Nat.counterexample_diff_adequacy` bounds it |
 | probabilistic query evaluation: random worlds, the possible-worlds reading of `𝔹[X]` annotations, categorical blocks with deterministic-OR soundness | `Provenance/Probability.lean`, `Provenance/CategoricalBlock.lean` | `randomWorld_evaluateAnnotated` |
 | Boolean provenance circuits, read-once and deterministic-decomposable correctness, and the Tseitin CNF encoding | `Provenance/Circuit.lean`, `Provenance/Tseitin.lean` | `Circuit`, `tseitin_equisat` |
-| a **kind-indexed general query syntax** whose three column kinds (regular values, aggregate tokens, provenance values) mirror ProvSQL's regular / `agg_token` / uuid types, so the scope restrictions on aggregate results are static typing rather than side conditions | `Provenance/AggQuery.lean` | `AggQuery` |
+| a **kind-indexed general query syntax** whose three column kinds (regular values, aggregate tokens, provenance values) mirror ProvSQL's regular / `agg_token` / uuid types, so the scope restrictions on aggregate results are static typing rather than side conditions | `Provenance/AggQuery.lean` | `AggQueryIn` |
 | symbolic aggregate tokens and their semantics, invariant under permutations of tied group elements | `Provenance/AggValue.lean`, `Provenance/AggValueCongr.lean` | `AggValue`, `AggValue.predProv_congr` |
-| the rewriting stated natively on that syntax, the rewriting of a bare `GROUP BY`, the `HAVING` site for a predicate mixing aggregate and regular atoms, and their **compositional closure** over arbitrary token-bearing plans | `Provenance/AggQueryRewriting.lean`, `Provenance/AggQueryGroupRewriting.lean`, `Provenance/AggQueryClosure.lean` | `AggQuery.rewritesTo_valid` |
+| the rewriting stated natively on that syntax, the rewriting of a bare `GROUP BY`, the `HAVING` site for a predicate mixing aggregate and regular atoms, and their **compositional closure** over arbitrary token-bearing plans | `Provenance/AggQueryRewriting.lean`, `Provenance/AggQueryGroupRewriting.lean`, `Provenance/AggQueryClosure.lean` | `AggQueryIn.rewritesTo_valid` |
 | provenance of `HAVING`: its possible-world semantics, the algebraic identities behind counting aggregates, the corresponding probability identities under independence, a scan-computable form for `MIN`/`MAX`/`PICKFIRST`, and the enumeration algorithms with their correctness | `Provenance/HavingSemantics.lean`, `Provenance/Having.lean`, `Provenance/HavingProbability.lean`, `Provenance/HavingMinMax.lean`, `Provenance/Algorithms/` | `Having.havingProv` |
 | complexity: non-zero `HAVING SUM` provenance is NP-complete in data complexity, with hardness by a first-order reduction and a size-honest encoding of concrete groups | `Provenance/HavingComplexity.lean` | `havingSumProv_ne_zero_iff`, `havingSumNonzeroHow_faithful` |
+| the SQL operators beyond grouping: window functions over SQL's frames (single- and multi-frame, `percent_rank`, `cume_dist`, `ntile`), aggregate expressions, `FILTER` and `ORDER BY` on aggregates, aggregation of aggregates at any depth, the lateral apply, and bag and set recursion | `Provenance/AggQuery.lean`, `Provenance/Window.lean`, `Provenance/Frame.lean`, `Provenance/Nested.lean`, `Provenance/Derived.lean` | `AggQueryIn.evaluate` |
+| the metatheory of that semantics: data-part adequacy, commutation with m-semiring homomorphisms, the possible-world reading over `𝔹[X]` and probabilistic query evaluation | `Provenance/AggQueryAdequacy.lean`, `Provenance/AggQueryHom.lean`, `Provenance/AggQueryProbability.lean` | `AggQueryIn.evaluateAnnotated_toPlain`, `AggQueryIn.evaluateAnnotated_hom`, `AggQueryIn.boolean_pqe` |
+| which operators a basis of the plain semantics needs: without recursion, a complete classification of the bases; with recursion, in the minimal signature (no functions on values, `COUNT` as the only aggregate), the same, including the necessity of window functions and the derivation of set recursion and union from bag recursion | `Provenance/BasisAssembly.lean`, `Provenance/RecFreeBasis.lean`, `Provenance/RecursionBasisTheorem.lean`, `Provenance/RecursionBases.lean` | `AggQueryIn.exists_basisOps_plainEquiv`, `generatesOnRF_iff`, `basisRecOps_isBasis`, `generatesOnRec_iff` |
+| the same question for the annotated semantics: a minimal basis over all commutative m-semirings, and a different minimal one, with duplicate elimination in place of set recursion, over a class of semirings that includes `ℕ`, `ℕ[X]`, `Lin[X]` and those where `δ` is the identity, both exactly and up to rows annotated `𝟘` | `Provenance/AnnotatedWhyRow.lean`, `Provenance/AnnotatedBasisClass.lean`, `Provenance/AnnotatedApproxRows.lean`, `Provenance/AnnotatedApplyRow.lean` | `annMuOps_isBasis`, `annEpsOps_isBasis_in_class`, `annEpsOps_isBasis_in_class_ren` |
 
 `Provenance/Example.lean` works a full annotated-database computation end to
-end, in both the classical and the kind-indexed syntax; it is built as part of
-the library, so its `#eval!`s double as executable regression checks.
+end, in both the classical and the kind-indexed syntax, and
+`Provenance/NestedExample.lean` and `Provenance/DistributionExample.lean` do the
+same for nested aggregation and for the distribution window functions. They are
+built as part of the library, so their checks double as regression tests: the
+kind-indexed evaluators are noncomputable (a recursion evaluates to its
+fixpoint), so those checks are theorems closed by `decide`, and the classical
+ones are `#eval!`s.
 
 ## Layers
 
@@ -68,7 +80,11 @@ The library is layered, and the core ripples downward when touched:
    its evaluator, and the aggregation and `HAVING` results. This is the primary
    interface; the classical layer remains the proven engine several of its
    results reuse internally.
-5. **Applications** – probability, circuits, algorithms, complexity.
+5. **Metatheory of the SQL semantics** – adequacy, homomorphisms, possible
+   worlds, and the basis theorems (`PlainBasis.lean`, `Decorrelate.lean`,
+   `RecursionBasis.lean`, the `Annotated*` modules); counterexamples showing
+   that the hypotheses are needed are in `HavingQueryCounterexamples.lean`.
+6. **Applications** – probability, circuits, algorithms, complexity.
 
 ## Releases
 
@@ -155,7 +171,7 @@ Use the metadata in [`CITATION.cff`](CITATION.cff), and cite the version DOI of
 the tag you used rather than the concept DOI, so that the citation names a
 specific state of the code.
 
-## Licence
+## License
 
 MIT. See [LICENSE](LICENSE).
 

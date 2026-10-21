@@ -318,7 +318,7 @@ instance [LinearOrder α] :
 /-- A multiset as a sorted list: the canonical reading of a relation as a
 sequence. It is computable, where a choice through `Multiset.toList` is
 not, and it is determined by the multiset, which is what lets two
-sequences built from the same rows be recognised as the same sequence.
+sequences built from the same rows be recognized as the same sequence.
 
 It is an insertion sort rather than `Multiset.sort`, which is defined by
 well-founded recursion and does not reduce in the kernel: the evaluators

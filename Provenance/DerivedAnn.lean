@@ -411,7 +411,7 @@ section Semijoin
 variable [ValueType T] {k l : ℕ}
 
 /-- The `⊕`-sum of every annotation of an annotated relation: the
-provenance of "there is a row here", which is what an existential
+provenance of “there is a row here”, which is what an existential
 subquery asks for. -/
 def _root_.AnnotatedRelation.annTotal (r : AnnotatedRelation T K n) : K :=
   (Multiset.map Prod.snd r).sum
@@ -635,7 +635,7 @@ theorem mem_matchToken_occs (cnt : SeqAggFunc T) (kap : Fin l)
 
 /-- **The semijoin's annotation.** Each occurrence of the left arm keeps
 its annotation, multiplied by the `⊕`-sum of the annotations of the rows
-it matches – the provenance of "there is a match". -/
+it matches – the provenance of “there is a match”. -/
 theorem evaluateAnnotated_semijoin (h_abs : absorptive K)
     (cnt : SeqAggFunc T) (hc : SeqAggFunc.Counts cnt) (kap : Fin l)
     (φ : GenPredIn T k (ColKind.allReg l))

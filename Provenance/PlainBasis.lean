@@ -9,8 +9,8 @@ import Provenance.Derived
 /-!
 # The plain basis: which operators a query cannot do without
 
-The classification of `sec:basis` grades the operators of the algebra by
-what a query *without* them cannot compute. Each row is one invariant:
+The basis classification grades the operators of the algebra by what a
+query *without* them cannot compute. Each row is one invariant:
 every query that avoids a class of operators satisfies a property of its
 plain semantics, and one query using the class breaks it – so no
 generating set can leave the class out.
@@ -70,10 +70,10 @@ are what ProvSQL's plans build, not what a source query is written with
 them.
 
 **The two recursions are classes like the others** (`muBag`, `muSet`),
-which is what `thm:plainbasis`'s second half grades. A class set holding
+so a class set may or may not hold them. A class set holding
 neither – `plainOps`, and every basis of `Provenance.BasisAssembly` –
-therefore excludes a recursive query exactly as before, so the six rows
-of the recursion-free classification are unchanged. -/
+therefore excludes every recursive query, so the six rows of the
+recursion-free classification hold as stated. -/
 def AggQueryIn.usesOnly (S : Set OpKind) : {c n : ℕ} → {κ : Fin n → ColKind} → {l : List
     (String × ℕ)} →
     AggQueryIn T c n κ l → Prop
@@ -549,7 +549,7 @@ theorem AggQueryIn.usesEmpty_of_overSchema_empty {S : Set OpKind} :
 
 /-! ## The signature: which functions and which aggregates
 
-`sec:prelim`'s signature `𝒜(Ω, Θ)` is a parameter of the *language* and
+The signature `𝒜(Ω, Θ)` is a parameter of the *language* and
 not of the semantics: `Ω` says which functions a term may apply to
 values, `Θ` which aggregate functions are available. The classification's
 rows for `win` and for `μ^⊎` are the two that depend on it – they hold in
@@ -1248,18 +1248,18 @@ theorem AggQueryIn.recGuarded_of_noMention {s : String} :
 
 /-! ## How a recursive term may read the recursive relation
 
-`sec:plain` restricts a recursion: in `μR.(q₀, q₁)` the base `q₀` does
+The plain syntax restricts a recursion: in `μR.(q₀, q₁)` the base `q₀` does
 not read `R`, and in the body `q₁` the name `R` occurs **once**, and only
 under a projection, a selection on regular columns, either side of a
 product, the left side of an apply, or a union. That is narrower than the
 Lean's syntax, which lets a recursion be written with the name anywhere,
 and narrower than `AggQueryIn.recGuarded` – which only keeps `R` out of
 an aggregation, a window, a duplicate elimination and a difference. The
-rows of `tab:basisclasses` that survive a recursion are stated against
-this restriction (relayed by the semantics session, 2026-10-09), so it is
-what a result about the whole algebra asks of a query.
+results about bases of the whole algebra (`Provenance.RecursionBasisTheorem`)
+are stated against this restriction, so it is what such a result asks
+of a query.
 
-What it gives for free is `recGuarded_of_recOnce`: the operators a
+What it gives for free is `AggQueryIn.recGuarded`: the operators a
 recursive term may read `R` under are none of the four the weaker
 restriction keeps it out of, so everything proved there applies. What it
 does **not** give is one storey of recursion – the *other* side of a
@@ -1268,9 +1268,9 @@ read `R`, and either may be a recursion of its own. So a body is not
 recursion-free, and the value analysis has to reach those sub-recursions
 through the outer induction (`AggQueryIn.exists_polyBound_rec`).
 
-`Explode` and `Retag` are on the list here though the document does not name
-them: they are the kind discipline's two operators, identities on plain
-relations, so they move no value and read no column.
+`Explode` and `Retag` are on the list here though they are not SQL
+operators: they are the kind discipline's two operators, identities on
+plain relations, so they move no value and read no column.
 -/
 
 /-- **Every recursion of the query is hygienic**: neither its base nor
@@ -4081,19 +4081,12 @@ product from an apply whose right side reads no outer column
 (`apply_plainEquiv_prod`). Together they leave `{∅, Π, σ, ×, ⊎, γ}`
 generating everything but the apply and the window.
 
-Two statements of `sec:basis` are *not* here, and the gap is in the
-formalization and not in the paper. **Decorrelation** – every query is
-equivalent to one whose applies are products – the paper asserts with an
-induction sketch, so what the identities above give is the generation
-claim with the apply as a further generator. And the **window** case asks
-for an aggregation that reads its group in the clause's order, which this
-library's `γ` is not: `Relation.groupSeq` sorts a group in the domain's
-canonical order while `ValueFrame.frameListOf` reads a frame in the
-clause's (`OrderSpec.sortSeq`). The two agree for a symmetric aggregate
-(`ValueFrame.windowValue_of_perm`) and for a clause that separates
-nothing, which is the case `WindowPartition.evaluate_winByJoin` proves;
-an order-dependent window function – `first_value`, `lag`, `nth_value` –
-would need the sorted aggregation the syntax does not have. -/
+Two further statements complete the generation half, and both are proved
+elsewhere. **Decorrelation** – every query is equivalent to one with no
+apply – is `AggQueryIn.exists_applyFree_plainEquiv` (`Provenance.Decorrelate`).
+And a **window** is an apply of a scalar aggregation that reads its group
+in the window's order, which is what a grouping's `ORDER BY`
+(`Relation.groupSeqOrd`) provides: `plainEquiv_winByApply` below. -/
 
 /-- **`ε` from `γ`**: duplicate elimination is the grouping by every
 column with no aggregate. The keys a grouping emits are the distinct rows
@@ -4136,9 +4129,9 @@ theorem AggQueryIn.apply_plainEquiv_prod {c n₁ n₂ : ℕ}
 
 /-! ### The difference from a product with a tag aggregate
 
-`prop:collapse` reads the difference as SQL's `NOT IN`: a copy of a tuple
-of `q₁` survives when `q₂` holds no copy of it, and every copy survives
-or none does. The construction tags each side's rows with a constant –
+In the plain semantics the difference is SQL's `NOT IN`: a copy of a
+tuple of `q₁` survives when `q₂` holds no copy of it, and every copy
+survives or none does. The construction tags each side's rows with a constant –
 `0` on the left, the domain's non-zero value on the right – unites them,
 groups by the whole tuple, and counts the tags carrying that value. The
 count is `0` exactly on the tuples `q₂` does not hold, and a product
@@ -4146,9 +4139,9 @@ with the keys matched keeps the copies of those tuples.
 
 The aggregate is a *count*: the grouping's one aggregate counts, through
 a `FILTER` clause, the rows carrying the right side's tag. So what the
-construction asks of it is `SeqAggFunc.Counts` – SQL's `count(e)`, which
-`sec:basis` assumes among the aggregates – and nothing about a sum. The
-tag it keys on is the value domain's own non-zero value
+construction asks of it is `SeqAggFunc.Counts` – SQL's `count(e)`, the
+aggregate of the minimal signature – and nothing about a sum. The tag it
+keys on is the value domain's own non-zero value
 (`ValueType.nonzero`), so the construction asks nothing of the domain
 either. -/
 
@@ -4434,9 +4427,9 @@ private theorem notIn_filter_map (r₁ : Multiset (Fin k → T))
   · rw [Multiset.filter_eq_nil.mpr (fun g _ h => hz h.2), Multiset.map_zero,
       ite_eq_right hz]
 
-/-- **`−` from `σ`, `×`, `⊎`, `Π` and `γ`** (`prop:collapse`): the
-difference is SQL's `NOT IN`. Every copy of a tuple of `q₁` survives when
-`q₂` holds no copy of it and none survives otherwise, which is what the
+/-- **`−` from `σ`, `×`, `⊎`, `Π` and `γ`**: the difference is SQL's
+`NOT IN`. Every copy of a tuple of `q₁` survives when `q₂` holds no copy
+of it and none survives otherwise, which is what the
 tag aggregate decides: it reads `0` exactly on the tuples `q₂` does not
 hold, and the product keeps the copies of those.
 
@@ -4507,9 +4500,8 @@ theorem AggQueryIn.diff_plainEquiv_notIn (cnt : SeqAggFunc T)
 
 /-! ### A selection from the difference
 
-The other direction of the swap, which `sec:basis` states right after
-`prop:collapse`: where the comparisons are among the terms, a selection
-is a difference. Tag every row with the truth value of the predicate as a
+The converse direction: where the comparisons are among the terms, a
+selection is a difference. Tag every row with the truth value of the predicate as a
 *value* – which is what a `CASE` expression over the comparisons gives –
 and tag every row with the constant that reads *true*. A row of the first
 is missing from the second exactly where the predicate fails, so removing
@@ -4517,8 +4509,8 @@ that difference from the first leaves the rows the selection keeps.
 
 The term is a parameter of the general statement, with `hterm` saying
 that it reads `yes` on the rows the predicate keeps and nothing else;
-`GenPredIn.polTerm` builds it from the predicate – which is what "Ω
-contains the comparisons" asks for – and
+`GenPredIn.polTerm` builds it from the predicate – which is what “Ω
+contains the comparisons” asks for – and
 `sel_plainEquiv_selByDiff_polTerm` is the identity with no hypothesis on
 the term left. An aggregate atom is excluded: its value is a provenance
 and not a truth value. -/
@@ -4713,7 +4705,7 @@ theorem AggQueryIn.overSchema_selByDiff {sch : Schema} (yes : T)
     (hq : q.overSchema sch) :
     (AggQueryIn.selByDiff yes t q).overSchema sch := ⟨hq, hq, hq⟩
 
-/-- **`σ` from `−`** (the swap of `sec:basis`): a selection whose
+/-- **`σ` from `−`** (the other direction of the swap): a selection whose
 predicate is read by a term is the difference of the tagged rows with
 what the constant tagging leaves out. -/
 theorem AggQueryIn.sel_plainEquiv_selByDiff (yes : T)
@@ -4812,8 +4804,8 @@ end Difference
 
 /-! ### A window from an apply
 
-`prop:winderived`: a window whose frame contains its current row exactly
-when it contains its peers is an apply – the query with, for each of its
+A window whose frame contains its current row exactly when it contains
+its peers is an apply – the query with, for each of its
 rows, a scalar aggregation over the rows that row's frame holds. The
 frame condition is read as a selection comparing the row's keys against
 the *current* row's, which the apply supplies as outer columns, and the
@@ -5852,16 +5844,16 @@ theorem exists_framePred_rangeBefore {c : ℕ} (O : Tuple (Fin n) p)
 /-! #### Every frame condition is a predicate of the language
 
 A frame *is* a condition on the order values (`FrameCond`), so the
-predicate `prop:winderived` spells it out with is not something a caller
-has to supply: it is read off the condition. The two strict cases are
-conditions of the language and not negations, and reading the clause
-backwards is what turns `at or before` into `at or after`
-(`OrderSpec.le_reverse`), so the four comparisons are the two lemmas
-above at `o` and at `o.reverse`. The `EXCLUDE` modifiers and the union of
-the frames of a multi-frame window are the Boolean cases, where the
-reading of a conjunction and of a disjunction are the conjunction and the
-disjunction of the readings – Kleene's logic agreeing with the two-valued
-one on *truth*, which is what a selection keeps a row by. -/
+predicate that spells it out in a window's derived form (`winByApplyOn`)
+is not something a caller has to supply: it is read off the condition. The
+two strict cases are conditions of the language and not negations, and
+reading the clause backwards is what turns `at or before` into
+`at or after` (`OrderSpec.le_reverse`), so the four comparisons are the
+two lemmas above at `o` and at `o.reverse`. The `EXCLUDE` modifiers and the
+union of the frames of a multi-frame window are the Boolean cases, where
+the reading of a conjunction and of a disjunction are the conjunction and
+the disjunction of the readings – Kleene's logic agreeing with the
+two-valued one on *truth*, which is what a selection keeps a row by. -/
 
 /-- A disjunction over a list of conditions, each of which is a
 predicate. -/
@@ -6036,8 +6028,8 @@ theorem FrameCond.exists_condPred {c : ℕ} (O : Tuple (Fin n) p) :
     rfl
 
 /-- **A frame and a `FILTER` clause are a predicate of the language**:
-what `prop:winderived` spells a window's frame out with, for every frame
-the syntax can name and every clause. -/
+what a window's derived form (`winByApplyOn`) spells its frame out
+with, for every frame the syntax can name and every clause. -/
 theorem ValueFrame.exists_framePred {c : ℕ} (O : Tuple (Fin n) p)
     (w : ValueFrame T p) (keep : Option (Selection T n)) :
     ∃ ψ : GenPredIn T (n + c) (ColKind.allReg n),
@@ -6092,8 +6084,8 @@ theorem ValueFrame.groupSeqOrd_filter_map_eq {c : ℕ} (O : Tuple (Fin n) p)
   exact congrArg (fun pp => List.filter pp (sortList X))
     (funext (fun b => by simp))
 
-/-- **A window is an apply of a scalar aggregation** (`prop:winderived`),
-over plain relations, in the generality the document's statement has: the
+/-- **A window is an apply of a scalar aggregation**, over plain
+relations, in full generality: the
 rows the selection keeps are the current row's frame cut down by the
 window's `FILTER` clause, the group reads them in the order the window
 reads them, and a `DISTINCT` window is the same with `f^distinct` as the
@@ -6231,8 +6223,7 @@ theorem evaluatePlain_winByApplyOn {lab : ℕ} {c : ℕ} {rd : Fin c → Bool} {
   · rw [Fin.snoc_castSucc,
       show (Fin.castSucc i) = Fin.castAdd 1 i from rfl, Fin.append_left]
 
-/-- The all-regular case, which is the shape `prop:winderived` states:
-there the frame reads the input itself. -/
+/-- The all-regular case: there the frame reads the input itself. -/
 theorem evaluatePlain_winByApplyOf {lab : ℕ} {c : ℕ} {rd : Fin c → Bool} (P : Tuple (Fin n) m)
     (O : Tuple (Fin n) p) (o : OrderSpec p) {w : ValueFrame T p} {hsql : w.IsSQL o}
     (hc : w.ContainsSelf) (ψ : GenPredIn T (n + c) (ColKind.allReg n))
@@ -6251,9 +6242,9 @@ theorem evaluatePlain_winByApplyOf {lab : ℕ} {c : ℕ} {rd : Fin c → Bool} (
   evaluatePlain_winByApplyOn P O o hc ψ t f dist keep hρ
     (winReadsReg_allReg P O t) q q q (fun _ _ => rfl)
     (fun D γ => (ColKind.map_readTuple_allReg (q.evaluatePlain D γ)).symm) D γ
-/-- **A window is an apply of a scalar aggregation** (`prop:winderived`),
-over plain relations: the rows the selection keeps are the current row's
-frame, the clause reads them in the order the window reads them, and the
+/-- **A window is an apply of a scalar aggregation**, over plain
+relations: the rows the selection keeps are the current row's frame, the
+clause reads them in the order the window reads them, and the
 aggregate is then the window's value. This is the plain form, with
 neither `DISTINCT` nor a `FILTER` clause;
 `evaluatePlain_winByApplyOf` has both. -/
@@ -6278,8 +6269,9 @@ theorem evaluatePlain_winByApply {lab : ℕ} {c : ℕ} {rd : Fin c → Bool} (P 
   simpa using h
 
 /-- **The derived form uses no window**: an apply, a scalar aggregation
-and a selection, which is what the generation half of `thm:plainbasis`
-asks of it. The apply then goes by the decorrelation. -/
+and a selection, which is what eliminating windows from a query
+(`AggQueryIn.exists_winFree`) asks of it. The apply then goes by the
+decorrelation (`AggQueryIn.exists_applyFree_plainEquiv`). -/
 theorem usesOnly_winByApplyOn {c : ℕ} {S : Set OpKind} (P : Tuple (Fin n) m)
     (O : Tuple (Fin n) p) (o : OrderSpec p)
     (ψ : GenPredIn T (n + c) (ColKind.allReg n)) (t : TermIn T c n)
@@ -6317,8 +6309,8 @@ theorem overSchema_winByApply {c : ℕ} {sch : Schema} (P : Tuple (Fin n) m)
     (hq : q.overSchema sch) : (winByApply P O o ψ t f q).overSchema sch :=
   overSchema_winByApplyOn P O o ψ t f hq hq
 
-/-- **A window is expressible without one** (`prop:winderived`), as the
-equivalence of queries the classification uses. -/
+/-- **A window is expressible without one**, as an equivalence of
+queries (`AggQueryIn.PlainEquiv`). -/
 theorem plainEquiv_winByApply {lab : ℕ} {c : ℕ} {rd : Fin c → Bool} (P : Tuple (Fin n) m)
     (O : Tuple (Fin n) p) (o : OrderSpec p) {w : ValueFrame T p} {hsql : w.IsSQL o}
     (hc : w.ContainsSelf) (ψ : GenPredIn T (n + c) (ColKind.allReg n))

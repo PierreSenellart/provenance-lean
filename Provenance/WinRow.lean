@@ -2,7 +2,7 @@ import Provenance.Genericity
 import Mathlib.Analysis.Polynomial.Basic
 
 /-!
-# The `win` row of the whole-algebra table
+# Windows are needed in every basis of the whole algebra
 
 `win` is in every basis of the whole algebra in the minimal universe. The
 witness is `count(*) OVER (… EXCLUDE CURRENT ROW)` on a unary relation
@@ -2366,8 +2366,8 @@ theorem Poly.add_one_ne_X (p : Poly) : p + 1 ≠ Polynomial.X := by
 end WinRow
 
 open WinRow in
-/-- **The `win` row of `tab:basisclasses` for the whole algebra, in the
-minimal universe**: `win` is in every generating set over `ℕ` with the
+/-- **Windows are needed, for the whole algebra in the minimal
+universe**: `win` is in every generating set over `ℕ` with the
 counting aggregate. Without a window every query reads the instance of
 `n` copies of one row as a bag of polynomial shapes (`sym_aux`), and the
 witness – `count(*)` over the whole partition excluding the current row
@@ -2410,7 +2410,7 @@ theorem win_mem_of_generatesAt {S : Set OpKind}
   | gt h => exact absurd hX (ne_of_gt (h n₀ hN₂n))
   | eq h => exact Poly.add_one_ne_X _ (Poly.eq_of_eventually_eq ⟨N₂, h⟩)
 
-/-- **The `win` row**: `win` is in every basis of the whole algebra over `ℕ`
+/-- **Windows are needed**: `win` is in every basis of the whole algebra over `ℕ`
 with the counting aggregate. -/
 theorem win_mem_of_generatesOnRec {S : Set OpKind}
     (hS : GeneratesOnRec ℕ schemaR SeqAggFunc.count S) : OpKind.win ∈ S :=

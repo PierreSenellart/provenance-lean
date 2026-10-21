@@ -27,8 +27,8 @@ via the keyed-projection semijoin `Multiset.semijoin_keyed_proj_eq_filter`, afte
 substituting the inner aggregation with the closed-form
 `Query.evaluate_agg_rewriting_eq`). Both halves join on the data columns with
 `≐`, SQL's `IS NOT DISTINCT FROM`: difference keys on values, two nulls being
-one key, where `NULL = NULL` would be unknown and drop the row. Rule (R5) – aggregation – is not part of
-this classical rewriting: it lives on the general syntax, in
+one key, where `NULL = NULL` would be unknown and drop the row. Rule (R5) –
+aggregation – is not part of this classical rewriting: it lives on the general syntax, in
 `Provenance.AggQueryGroupRewriting`, where an aggregate output is a symbolic
 token rather than a quotiented K-tensor.
 
@@ -763,8 +763,9 @@ lemma cast_append_at_ofNat_right {α : Type} {n : ℕ}
     rw [hmod]; omega
   rw [hidx_eq, Fin.append_right]
 
-/-- `selFilter` on `Tuple.cast h (Fin.append p q)` characterizes the first-`n`
-projection equality between `p` and `q`. -/
+/-- The join condition of the difference rule, evaluated on
+`Tuple.cast h (Fin.append p q)`, characterizes the first-`n` projection
+equality between `p` and `q`. -/
 lemma selFilter_cast_append_iff {T K : Type} [ValueType T] [SemiringWithMonus K]
     [HasAltLinearOrder K] {n : ℕ}
     (h : n+1+n = 2*n+1) (p : Tuple (T⊕K) (n+1)) (q : Tuple (T⊕K) n)

@@ -61,9 +61,9 @@ compute its rows, not that it be classical. A clause rides into it unchanged
 (`Selection.castToAnnotatedTuple` reads the data columns, which the
 embedding keeps), so a filtered grouping is covered as well
 (`AggQueryIn.rewritesTo_gamma_filter`). This is what covers a
-`GROUP BY` whose input is itself a grouping -- the kind discipline asking
+`GROUP BY` whose input is itself a grouping – the kind discipline asking
 the inner aggregate column to be read out first, as SQL does with a
-`SELECT key, count(*) AS c` subquery -- which
+`SELECT key, count(*) AS c` subquery – which
 `AggQueryIn.rewritesTo_gamma_gamma` exhibits and the classical `gamma`
 rule cannot reach. The *selection with an aggregate atom* closes over an
 arbitrary rewritten subquery too (`AggQueryIn.RewritesTo.selAgg`, off
@@ -72,14 +72,14 @@ it reads: `AggQueryIn.rewritesTo_having_over_gamma` puts one over a
 grouping of a grouping. Both selection rules are stated where ProvSQL's
 gate algebra is the joint reading the evaluator computes
 (`GenPredIn.gateExact`). Its provenance column is the gate term times the
-row's own provenance column, with *no* entailment test -- where the
+row's own provenance column, with *no* entailment test – where the
 predicate entails the group's existence the evaluator drops the pending
 factor and the gate term absorbs the guard left in the column instead
 (`GenPredIn.predsem_absorb_prod`, exactly for the factors whose family
 the predicate compares, which is what the evaluator's supersede filter
 selects). The entailment test of the fused site
-(`GenPredIn.siteProvTerm`) is therefore an optimization -- ProvSQL's
-`having_entails_group_existence` -- and not what makes the rewriting
+(`GenPredIn.siteProvTerm`) is therefore an optimization – ProvSQL's
+`having_entails_group_existence` – and not what makes the rewriting
 correct; the fused rule stays because it is the shape ProvSQL emits.
 
 So the closure is complete for the operators the kind discipline admits
@@ -91,7 +91,7 @@ alternatives. For the apply, the recursions and the alternatives there is
 a reason in the shape of the rewritten plan, recorded with
 `AggQueryIn.classical`. For the **windows** there is none: ProvSQL does
 rewrite them, and what is absent here is a *specification* of that
-rewriting, which the semantics this file formalizes does not give. So the
+rewriting, which this library does not give. So the
 window rules are out of scope rather than impossible.
 -/
 
@@ -427,7 +427,7 @@ as its implementation shows. Its gate is
 `gate_cmp`, two wires and one operator, with no range form, and the
 rewriter turns `∧` into `provenance_times` and `∨` into
 `provenance_plus` over one gate per atom – which is exactly the algebra
-of `GenPredIn.gateTerm`. Evaluation then recognises a times or plus whose
+of `GenPredIn.gateTerm`. Evaluation then recognizes a times or plus whose
 children are conditions over one contributor family, rebuilds their
 Boolean tree, enumerates that family's worlds *once* (bounded, a couple
 of dozen contributors) and keeps a world iff the whole predicate holds
@@ -443,7 +443,7 @@ So the fence is faithful to the circuit, which is what `gateTerm`
 translates into, and the joint reading – what the evaluator computes,
 `GenPredIn.predsemJ` – lives in the evaluation pass. The rewriting's
 correctness is therefore stated where the two agree
-(`GenPredIn.gateExact`). Lifting that means modelling the pass – a Boolean combination of `cmpAgg`
+(`GenPredIn.gateExact`). Lifting that means modeling the pass – a Boolean combination of `cmpAgg`
 atoms over one token's family, read in one world, which is what
 `AggValue.predProvOfAnd` and `Provenance.JointFamily` already are
 semantically – and not adding a gate. -/

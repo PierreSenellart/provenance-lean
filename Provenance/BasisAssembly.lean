@@ -8,8 +8,9 @@ import Provenance.Decorrelate
 /-!
 # The basis, assembled
 
-`thm:plainbasis` has two halves. The lower bounds are the six invariants
-of `Provenance.PlainBasis`, each with a query that breaks it. The upper
+Which classes of operators generate the plain fragment is a question with
+two halves. The lower bounds are the six invariants of
+`Provenance.PlainBasis`, each with a query that breaks it. The upper
 bound is this file: **every query of the fragment is equivalent to one
 using only the six classes `∅`, `Π`, `σ`, `×`, `⊎`, `γ`.**
 
@@ -17,13 +18,13 @@ It is three passes, in this order, each of which is a structural
 recursion carrying the identities already proved:
 
 1. **the windows go** (`AggQueryIn.exists_winFree`), each becoming an
-   apply of a scalar aggregation (`prop:winderived`,
-   `PlainBasis.winByApply`);
+   apply of a scalar aggregation over its frame
+   (`winByApply`);
 2. **the applies go** (`AggQueryIn.exists_applyFree_plainEquiv`), by the
    decorrelation of `Provenance.Decorrelate`, which leaves duplicate
    elimination and the difference behind;
 3. **those two go** (`AggQueryIn.exists_basisOps_of_dedupDiff`), by the
-   two identities of `sec:basis` – `ε` from a grouping, `−` from counts.
+   two identities that give `ε` from a grouping and `−` from counts.
 
 The order is forced: a window becomes an apply, so the windows must go
 before the applies; and the decorrelation *builds* an `ε` (the distinct
@@ -39,16 +40,16 @@ and `GeneratesOn` reads it as a property of a set of classes
 it produces names the relations the query it is given names, which is
 what the other half needs.
 
-That other half is six lemmas, one per row of `tab:basisclasses`:
-`proj_mem_of_generatesOn`, `union_mem_of_generatesOn`,
+That other half is six lemmas, one per class a generating set must
+contain: `proj_mem_of_generatesOn`, `union_mem_of_generatesOn`,
 `gamma_mem_of_generatesOn`, `prod_or_apply_mem_of_generatesOn`,
 `empty_mem_of_generatesOn` and `sel_or_diff_mem_of_generatesOn`. They
 are separate statements rather than one conjunction because each names
-the schema its witness lives over, and the `∅` row lives over the
-*empty* schema – no single schema serves them all.
+the schema its witness lives over, and the witness for `∅` lives over
+the *empty* schema – no single schema serves them all.
 
-The two **swaps** of `thm:plainbasis` – `−` for `σ`, the apply for `×` –
-are the last two theorems here, `AggQueryIn.exists_selFree` and
+The two **swaps** – `−` for `σ`, the apply for `×` – are the last two
+theorems here, `AggQueryIn.exists_selFree` and
 `AggQueryIn.exists_prodFree`. Each is a pass applying the identity
 everywhere, and what they ask of a query is `AggQueryIn.SwapReady`: a
 selection's input and a product's left factor must have regular
@@ -79,16 +80,17 @@ scalar aggregation (`AggQueryIn.retypable_of_usesOnly`).
 
 variable {T : Type} [ValueType T]
 
-/-! ## What a window has to be for `prop:winderived` to reach it -/
+/-! ## What a window has to be for its derivation from the apply -/
 
 /-- **Every window of the query is derivable.** Two things at each
 window: its input's columns are all regular (an apply reads its left side
 as a relation of values), and its frame contains its current row –
 `EXCLUDE CURRENT ROW` and `EXCLUDE TIES` have no reading as an
 aggregation, a group being determined by its rows and not by the
-occurrence, which is the restriction `prop:winderived` itself carries.
+occurrence, which is why `evaluatePlain_winByApply` asks
+`ValueFrame.ContainsSelf`.
 
-Nothing is asked about the frame *condition* any more: a frame names a
+Nothing is asked about the frame *condition*: a frame names a
 `FrameCond`, so the selection that spells it out is read off it
 (`ValueFrame.exists_framePred`), for every frame of the syntax, every
 `FILTER` clause and every domain. `DISTINCT` and a clause are covered
@@ -139,8 +141,8 @@ private theorem not_mem_insert_of_ne {S : Set OpKind} {k j : OpKind}
 
 /-! ## The first pass: the windows go -/
 
-/-- **Every window is eliminable** (`prop:winderived`, recursively): a
-query whose windows are derivable is equivalent to one with no window,
+/-- **Every window is eliminable** (`evaluatePlain_winByApply`, applied
+recursively): a query whose windows are derivable is equivalent to one with no window,
 using the apply, the aggregation and the selection in their place. -/
 theorem AggQueryIn.exists_winFree {S : Set OpKind} {sch : Schema}
     (ha : OpKind.apply ∈ S) (hg : OpKind.gamma ∈ S) (hs : OpKind.sel ∈ S)
@@ -286,8 +288,8 @@ theorem AggQueryIn.exists_winFree {S : Set OpKind} {sch : Schema}
 
 /-- **Duplicate elimination and the difference are eliminable**
 (recursively): over a closed query using the basis classes and those
-two, duplicate elimination becomes a grouping (`sec:basis`'s (a)) and
-the difference becomes a count over the tagged union (its (b)), so the
+two, duplicate elimination becomes a grouping and the difference
+becomes a count over the tagged union, so the
 query is equivalent to one over the basis alone.
 
 The query is asked to be closed, which is where the two identities are
@@ -452,20 +454,19 @@ duplicate elimination and the difference, which the decorrelation leaves
 behind and the third pass removes. -/
 def basisDD : Set OpKind := insert OpKind.dedup (insert OpKind.diff basisOps)
 
-/-- **The scope of the classification**: the basis, duplicate
+/-- **The plain fragment's classes**: the basis, duplicate
 elimination, the difference, the apply and the window. The four
 operators `usesOnly` reads as `False` – the two recursions, the
 token-building grouping and the provenance sum – are outside it, as is
 the multi-frame window, which `AggQueryIn.WinsDerivable` excludes. -/
 def plainOps : Set OpKind := insert OpKind.win (insert OpKind.apply basisDD)
 
-/-- **The generation half of `thm:plainbasis`**: every query of the plain
-fragment is equivalent to one using only the six basis classes `∅`, `Π`,
+/-- **The six classes generate the plain fragment**: every query of the
+plain fragment is equivalent to one using only the six basis classes `∅`, `Π`,
 `σ`, `×`, `⊎`, `γ`, over the same schema.
 
 The three hypotheses are what the identities ask for: an aggregate that
-counts (SQL's `count(e)`, which `sec:basis` assumes among the
-aggregates), that the query use only the classes in scope, and that
+counts (SQL's `count(e)`), that the query use only the classes in scope, and that
 every window be derivable. -/
 theorem AggQueryIn.exists_basisOps_plainEquiv {sch : Schema} {n : ℕ}
     {κ : Fin n → ColKind} (cnt : SeqAggFunc T)
@@ -506,7 +507,8 @@ theorem counts_count_nat : SeqAggFunc.Counts (SeqAggFunc.count) :=
 
 /-! ## The basis with the window kept
 
-`win` is a class of the basis (the classification's own `win` row), so the
+`win` is needed in every basis of the whole algebra
+(`win_mem_of_generatesOnRec`), so the
 statement a *source* query is read by keeps its windows and runs only two
 passes: the applies go by the decorrelation, and the duplicate
 elimination and the difference it builds go with them. Nothing is asked
@@ -517,7 +519,7 @@ frame (`ValueFrame.frameOf_slices`: the row a frame takes out is the same
 row on both sides), and the third pass keeps it.
 
 `AggQueryIn.exists_basisOps_plainEquiv` is the strictly stronger claim –
-the window class is not needed *for the windows `prop:winderived`
+the window class is not needed *for the windows `evaluatePlain_winByApply`
 reaches* – and that is where `AggQueryIn.WinsDerivable` is asked. -/
 
 /-- The basis with the window: the six classes and `win`. -/
@@ -525,8 +527,7 @@ def basisWinOps : Set OpKind := insert OpKind.win basisOps
 
 /-- **Every query of the plain fragment is equivalent to one over the
 basis and the window**, over the same schema and with the same columns.
-This is `thm:plainbasis` for the basis that holds `win`, and it carries
-no hypothesis about windows at all. -/
+It carries no hypothesis about windows at all. -/
 theorem AggQueryIn.exists_basisWinOps_plainEquiv {sch : Schema} {n : ℕ}
     {κ : Fin n → ColKind} (cnt : SeqAggFunc T)
     (hcnt : SeqAggFunc.Counts cnt) (q : AggQuery T n κ)
@@ -573,7 +574,8 @@ theorem AggQueryIn.exists_basisWinOps_plainEquiv_nat {sch : Schema} {n : ℕ}
 /-- **A generating set over a schema**: every query over `sch` whose
 windows are derivable, and which applies no function to an aggregate
 column, is equivalent to one over `sch` using only the classes of `S`.
-This is the form the classification needs for the `∅` and `σ`/`−` rows;
+This is the form the necessity of `∅` and of `σ`/`−` needs
+(`empty_mem_of_generatesOn`, `sel_or_diff_mem_of_generatesOn`);
 the three passes give the equivalence on *every* instance, which is
 stronger than `AggQueryIn.PlainEquivOn` asks. The query produced has
 regular columns throughout, which is what the swaps need and what the
@@ -601,8 +603,8 @@ def schemaS : Schema := Schema.ofFn (fun s => if s = "S" then some 2 else none) 
   (fun s hs => Finset.mem_singleton.mpr (by by_contra hne; exact hs (ite_eq_right hne)))
 
 /-- **The six classes generate, over a schema**: `GeneratesOn`'s form of
-the theorem above, which is what the classification's other half is
-stated against. -/
+the theorem above, which is what the necessity lemmas below are stated
+against. -/
 theorem basisOps_generatesOn (cnt : SeqAggFunc T)
     (hcnt : SeqAggFunc.Counts cnt) (sch : Schema) :
     GeneratesOn T sch basisOps :=
@@ -622,10 +624,10 @@ theorem basisOps_generatesOn_nat (sch : Schema) :
 
 /-! ## What every generating set must contain
 
-The other half of `thm:plainbasis`. Each of the six invariants of
-`Provenance.PlainBasis` holds of every query that avoids one class, and
-each has a witness query that breaks it; a generating set that omitted
-the class would have to express the witness by a query that cannot. -/
+Each of the six invariants of `Provenance.PlainBasis` holds of every
+query that avoids one class, and each has a witness query that breaks
+it; a generating set that omitted the class would have to express the
+witness by a query that cannot. -/
 
 /-- **A query with no window has every window derivable**, there being
 none: the condition is on the windows, so it is vacuous. -/
@@ -793,9 +795,8 @@ reference reads the empty relation. So without `∅` one can still write a
 query with no rows – by naming nothing – and without `σ` and `−` one can
 still write a query that is empty on every instance. What makes them
 necessary is that the query be *over the schema*
-(`AggQueryIn.overSchema`), which is how `tab:basisclasses` reads its
-rows, and the generation then has to produce a query over the same
-schema. -/
+(`AggQueryIn.overSchema`), and the generation then has to produce a
+query over the same schema. -/
 
 /-- **`∅` is necessary**: over the empty schema a query can name no
 relation, so there is nothing to write it with. No witness is needed –
@@ -830,12 +831,13 @@ theorem sel_or_diff_mem_of_generatesOn {S : Set OpKind}
 
 /-! ## The swaps: a selection as a difference, a product as an apply
 
-`sec:basis` says that `−` may stand in for `σ`, and the apply for `×`.
-Both identities are in `Provenance.PlainBasis`; what they ask of a query
-is that the input of a selection and the left factor of a product have
-regular columns – the difference and an apply's left side take those –
-and `AggQueryIn.exists_allReg` is what puts a query in that shape
-(`AggQueryIn.SwapReady`). These two passes then apply them everywhere. -/
+`−` may stand in for `σ`, and the apply for `×`. Both identities are in
+`Provenance.PlainBasis`; what they ask of a query is that the input of a
+selection and the left factor of a product have regular columns – the
+difference and an apply's left side take those – and
+`AggQueryIn.exists_allReg` is what puts a query in that shape
+(`AggQueryIn.SwapReady`). These two passes then apply them everywhere.
+-/
 
 /-- **Every product is an apply** (recursively): one whose right side
 reads no outer column, which is what `apply_plainEquiv_prod` says. -/
@@ -1129,8 +1131,8 @@ theorem AggQueryIn.exists_selFree {S : Set OpKind} {sch : Schema}
 /-! ## The two alternative bases
 
 With the swaps proved as passes, the generation half holds of the two
-sets `sec:basis` offers in place of the six: `−` may stand in for `σ`,
-and the apply for `×`. Each is the three passes, then the re-typing,
+sets obtained from the six by letting `−` stand in for `σ`, or the apply
+for `×`. Each is the three passes, then the re-typing,
 then the pass that applies the identity everywhere – the re-typing in
 the middle because a selection's input and a product's left factor have
 to hold values, which is what the difference and an apply's left side
@@ -1233,12 +1235,11 @@ theorem basisApplyOps_generatesOn_nat (sch : Schema) :
 /-! ## Three windows that are derivable
 
 `AggQueryIn.WinsDerivable` asks of a window that its frame contain its
-current row and that its input be all regular. These are the three
-frames of `sec:basis`'s `prop:winderived` that satisfy the first, each
-over any `DISTINCT` and any `FILTER` clause: the whole partition and the
-two `RANGE` frames. Nothing is asked of the frame condition, which
-`ValueFrame.exists_framePred` reads as a predicate of the language, nor
-of the domain. -/
+current row and that its input be all regular. These are three frames
+that satisfy the first, each over any `DISTINCT` and any `FILTER`
+clause: the whole partition and the two `RANGE` frames. Nothing is asked
+of the frame condition, which `ValueFrame.exists_framePred` reads as a
+predicate of the language, nor of the domain. -/
 
 /-- **A window over the whole partition is derivable.** -/
 theorem AggQueryIn.winsDerivable_win_whole {lab : ℕ} {c n m p : ℕ} {rd : Fin c → Bool}
@@ -1277,7 +1278,7 @@ theorem AggQueryIn.winsDerivable_win_rangeBefore {lab : ℕ} {c n m p : ℕ} {rd
 
 /-! ## The fourth basis: both swaps at once
 
-`sec:basis` offers the two swaps independently, so a fourth basis is the
+The two swaps are independent, so a fourth basis is the
 two together: `−` for `σ` and the apply for `×`. What makes the
 composition work is that the selection pass leaves its output ready for
 the product pass (`AggQueryIn.swapReady_selByDiff`), the difference it

@@ -133,8 +133,9 @@ alternatives, each carrying the alternative's annotation. Printed as
 the two possible ones contribute `2` and `1`, and the impossible one is
 annotated `0`. The sum in a world is `2 + 1 = 3`, SQL's answer, and the
 *deterministic* reading of the token is `1 + 2 + 1 = 4`, which is no
-world's. That is what `def:zeq` means by equality after removal "of the
-occurrences annotated `𝟘` inside their aggregate values", and it is why
+world's. That is why equality up to `𝟘` removes the occurrences annotated
+`𝟘` inside aggregate values as well as the rows annotated `𝟘`
+(`GenRow.zeroNorm`), and it is why
 `AggQueryIn.evaluateAnnotated_toPlain` excludes `Explode`: an aggregate
 column read as a key gives one row per value the column takes in *some*
 world, so the data part of the annotated evaluation is not the data part

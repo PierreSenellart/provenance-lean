@@ -4035,9 +4035,8 @@ end AggQueryIn
 
 /-! ## The annotated basis with `ε` and without `μ^∪` -/
 
-/-- **The conjectured basis of the annotated algebra**:
-`{∅, Π, σ, apply, γ, win, μ^⊎, ε, −}` – the classes other than `×`, `⊎`
-and `μ^∪`. -/
+/-- **The annotated basis with `ε`**: `{∅, Π, σ, apply, γ, win, μ^⊎, ε, −}`,
+the classes other than `×`, `⊎` and `μ^∪`. -/
 def annEpsOps : Set OpKind :=
   ((plainRecOps \ {OpKind.prod}) \ {OpKind.union}) \ {OpKind.muSet}
 

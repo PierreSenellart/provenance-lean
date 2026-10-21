@@ -25,17 +25,16 @@ with every `SemiringWithMonusHom`:
   against a token commutes: the world annotations are `⊗`/`⊖`-polynomials
   and the characteristic values `χ` are `{𝟘,𝟙}`-valued, with the
   aggregate values themselves untouched by the pushforward;
-* `NestedValue.predProvWith_mapAnn` – the same for a nested column: its
-  occurrences are a bag and its worlds are read off that bag, so the
-  worlds of the pushforward *are* the pushforwards of the worlds
-  (`worlds_mapAnn`), each carrying the pushed annotation
-  (`World.ann_mapAnn`) and reading the same value;
+* `AggTok.predProvOf_mapAnn` – the same for a column that is not
+  nested; a nested column is related across a homomorphism by the
+  correspondence of its worlds instead (`NestedValue.WCorr`, from
+  `wcorr_of_rel`), since two of its families whose keys the homomorphism
+  merges are decided together after it;
 * `GenPredIn.predsem_mapAnn` – the predicate provenance of a whole
   generalized predicate commutes (`∧ ↦ ⊗`, `∨ ↦ ⊕` through `map_mul`
-  and `map_add`, `¬` by polarity), whichever kind of token its aggregate
-  atoms read.
+  and `map_add`, `¬` by polarity), on a row holding no nested token.
 
-These are unconditional, but they do not by themselves give the
+These do not by themselves give the
 *evaluator-level* commutation `AggQueryIn.evaluateAnnotated_hom` at the
 bottom of this file: the evaluator's supersede and cashing decisions
 compare annotation lists for equality, which a non-injective hom can
@@ -4365,8 +4364,8 @@ What is asked of the *query*:
   whole evaluation (`ClassPres`).
 
 Nothing is asked of the semiring: a second-level aggregation's worlds are
-read off its occurrences' unsplit data, the product a world keeps and the
-sum it leaves out kept apart (`NestedValue.predProvWith_eq_choicesU`).
+read off its occurrences' data, the product a world keeps and the sum it
+leaves out kept apart (`NestedValue.WCorr`).
 
 These are hypotheses of *this proof* and not of the mathematics: every
 output annotation is an expression in the input annotations over `⊕`,

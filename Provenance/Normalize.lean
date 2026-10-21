@@ -197,7 +197,7 @@ multiply the two predicates' provenances in, and `K` is commutative.
 The pending parts are the question, since the supersede test runs once
 per selection in a chain and once on the union of the compared columns
 in the merge. Over **one family** they agree exactly, with nothing asked
-of `K`: each test reduces to "drop that family's factor", and dropping
+of `K`: each test reduces to “drop that family's factor”, and dropping
 it twice is dropping it once. -/
 
 /-- The annotation lists the compared tokens of a predicate carry on a
@@ -258,7 +258,7 @@ theorem GenPredIn.comparedScalarLists_eq_zero {c n : ℕ} {κ : Fin n → ColKin
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K]
   [HasAltLinearOrder K] in
-/-- **The supersede test says "drop that family's factor"** when the
+/-- **The supersede test says “drop that family's factor”** when the
 compared lists are all one list and none of them is scalar. Stated on
 bare multisets so that it unifies with whatever the evaluator's clause
 has built. -/

@@ -8,13 +8,14 @@ import Provenance.AnnotatedChains
 /-!
 # The apply row up to `≈` with occurrence identity
 
-The paper compares annotated results up to `≈` (`def:zeq`): rows annotated
-`𝟘` and occurrences annotated `𝟘` are dropped, and what is left is equal up
-to a one-to-one renaming of the occurrences, which keeps which aggregate
-values share which occurrences. `GeneratesAnnZ` reads an aggregate value
-only through its value; this module compares aggregate values through
-their occurrences, using the identities the evaluator stamps on them
-(`AggValue.oids`, `AggExpr.oids`).
+Annotated results are compared up to `≈`, equality up to rows annotated
+`𝟘`: rows annotated `𝟘` and occurrences annotated `𝟘` are
+dropped, and what is left is equal up to a one-to-one renaming of the
+occurrences, which keeps which aggregate values share which occurrences.
+`GeneratesAnnZ` reads an aggregate value only through its value; this
+module compares aggregate values through their occurrences, using the
+identities the evaluator stamps on them (`AggValue.oids`,
+`AggExpr.oids`).
 
 * `GenRow.zeqRen` is that comparison. An ordinary token and an aggregate
   expression are compared by what they compute and by their occurrences
@@ -109,7 +110,7 @@ def GenRow.zeqNorm {n : ℕ} (τ : OccId T → OccId T)
   (R.filter (fun r => r.snd.finalize ≠ 0)).map
     (fun r => (fun k => GenValue.zeqNorm τ ϕ (r.fst k), r.snd.finalize))
 
-/-- **Two results equivalent up to `≈`** (`def:zeq`): equal once the rows
+/-- **Two results equivalent up to `≈`**: equal once the rows
 and occurrences annotated `𝟘` are dropped, up to a one-to-one renaming of
 the occurrences and one of the families. -/
 def GenRow.zeqRen {n : ℕ} (R R' : Multiset (GenRow T K n)) : Prop :=
@@ -862,7 +863,7 @@ theorem yv_ne_zero : yv ≠ 0 := fun h => by
   simp [yv, BoolFunc.var] at this
   exact absurd this (by decide)
 
-/-- **The instance of size `n`**: `R` holds `2, …, n + 1`, each annotated
+/-- **The instance of size `n`**: `R` holds `2` to `n + 1`, each annotated
 `x`, and `S` holds `1`, annotated `y`. -/
 def dApply (n : ℕ) : AnnotatedDatabase ℕ BoolXY :=
   AnnotatedDatabase.assign "R"

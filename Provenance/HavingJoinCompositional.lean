@@ -23,7 +23,7 @@ group key – and duplicate-eliminates the union, which merges everything
 into exactly one row per group key carrying the summed annotation. The
 result (`joinCountQueryPadded_correct`) is *equal as a multiset of
 annotated tuples* to the key projection of the fused `HAVING` output
-(`proj_fused_eq_keyed`), so the substitution is transparent to every
+(`fused_key_proj`), so the substitution is transparent to every
 surrounding operator – including annotation-sensitive ones like `Diff`
 and further `HAVING`s, which are *not* congruences for the naive
 “equal up to `𝟘`-rows” relation (a `𝟘`-annotated row still changes the

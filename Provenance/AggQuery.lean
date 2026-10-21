@@ -115,14 +115,14 @@ def GenValue.collapse : GenValue T K → T :=
   Sum.elim id AggTok.collapse
 
 /-- **How a lifted value is read as an aggregate expression**: an
-aggregate expression is itself – a term over several aggregate columns is
-one, and `sec:aggcols` reads it as such – an ordinary token is the
-expression of itself (`AggExpr.ofValue`, keeping the identities of its
-occurrences), and a regular value reads no
-occurrence and returns itself (`NestedValue.constInner`), so that
-aggregating a regular column nests nothing. A *nested* value is no
-expression and is read here through its collapse; a second-level
-aggregation reads it as a node instead (`GenValue.innerAt`). -/
+aggregate expression is itself – a term over several aggregate columns
+is one – an ordinary token is the expression of itself
+(`AggExpr.ofValue`, keeping the identities of its occurrences), and a
+regular value reads no occurrence and returns itself
+(`NestedValue.constInner`), so that aggregating a regular column nests
+nothing. A *nested* value is no expression and is read here through its
+collapse; a second-level aggregation reads it as a node instead
+(`GenValue.innerAt`). -/
 def GenValue.innerValue : GenValue T K → AggExpr T K
   | Sum.inl v => NestedValue.constInner v
   | Sum.inr (AggTok.tok a) => { AggExpr.ofValue a with oids := a.oids }
@@ -802,9 +802,9 @@ end GenPredIn
 /-! ## Projection columns -/
 
 /-- **The function a term over one variable computes.** A column that
-reads an aggregate column reads it through a term, as `sec:aggexpr` has
-it – "`g` is the function the term computes" – and this is that
-function. -/
+reads an aggregate column reads it through a term, and the aggregate
+expression it builds applies the function the term computes: this is
+that function. -/
 def TermIn.unary (t : TermIn T 1 0) : T → T :=
   fun x => t.eval (fun j => j.elim0) (fun _ => x)
 
@@ -839,11 +839,11 @@ inductive ProjColIn (T : Type) (c : ℕ) {n : ℕ} (κ : Fin n → ColKind) wher
   | aggTerm : (k : Fin n) → κ k = ColKind.agg → (T → T) → ProjColIn T c κ
   /-- **A term over one aggregate column**, which is the shape the source
   language has: the column the term names, read through a term of the
-  language, `TermIn.unary` being the function it computes. `sec:aggexpr`
-  reads such a column as "a term that mentions a column of aggregate
-  kind", with `g` the function the term computes, so this is the
-  document's column and `aggTerm` is wider. Being a term, it re-types
-  like any other column: the same term reads a regular column. -/
+  language, `TermIn.unary` being the function it computes. This is the
+  aggregate expression `g(a)` with `g` the function the term computes;
+  `aggTerm`, which takes any function, is wider. Being a term, it
+  re-types like any other column: the same term reads a regular column.
+  -/
   | aggTermOf : (k : Fin n) → κ k = ColKind.agg → TermIn T 1 0 →
       ProjColIn T c κ
   | provTerm : TermGIn T c κ → ProjColIn T c κ
@@ -1123,9 +1123,9 @@ inductive AggQueryIn (T : Type) : (c n : ℕ) → (Fin n → ColKind) →
   the operators a hole may sit under are those whose typing passes the
   index through: a projection, a selection with no aggregate atom, either
   side of a product, the left side of an apply, either side of a union,
-  the alternatives and a retagging. Everything else is closed. This is
-  the restriction on recursive terms of `sec:plain`, in the type rather
-  than beside it. -/
+  the alternatives and a retagging. Everything else is closed. This
+  restriction on a recursive term is in the type rather than beside
+  it. -/
   | Hole : {c : ℕ} → (n : ℕ) → (s : String) → (κ : Fin n → ColKind := ColKind.allReg n) →
       AggQueryIn T c n κ [(s, n)]
   /-- **Parameters, as a relation**: one row annotated `𝟙`, column `k`
@@ -1171,9 +1171,10 @@ inductive AggQueryIn (T : Type) : (c n : ℕ) → (Fin n → ColKind) →
       {l₁ l₂ : List (String × ℕ)} →
       AggQueryIn T c n₁ κ₁ l₁ → AggQueryIn T c n₂ κ₂ l₂ →
       AggQueryIn T c (n₁ + n₂) (Fin.append κ₁ κ₂) (l₁ ++ l₂)
-  /-- **Apply** – SQL's `LATERAL`, the operator of Galindo-Legaria and
-  Joshi: a product whose right side is read once per row of the left and
-  may read that row's columns. The right side's context is the left
+  /-- **Apply** – SQL's `LATERAL`, the operator of
+  [Galindo-Legaria & Joshi][galindolegaria2001orthogonal]: a product
+  whose right side is read once per row of the left and may read that
+  row's columns. The right side's context is the left
   side's columns followed by the ambient outer ones, so in a closed
   apply the right side reads exactly the left arity. Its output pairs
   each row `u` of the left with each row of the right read at `u`, and
@@ -1185,11 +1186,11 @@ inductive AggQueryIn (T : Type) : (c n : ℕ) → (Fin n → ColKind) →
 
   The left side may carry aggregate columns, so that a product of two
   token-carrying relations is an apply too. The right side reads such a
-  column as the paper does, world by world: the left row's values, tokens
-  included, are the context of the environment the evaluator carries
-  (`EvalEnv`), and the leaf `AggQueryIn.Param` reads them into columns of
-  the same kinds. A term reads a parameter as a plain value only where it
-  is not aggregate (`AggQueryIn.wellKinded`). -/
+  column world by world: the left row's values, tokens included, are the
+  context of the environment the evaluator carries (`EvalEnv`), and the
+  leaf `AggQueryIn.Param` reads them into columns of the same kinds. A
+  term reads a parameter as a plain value only where it is not aggregate
+  (`AggQueryIn.wellKinded`). -/
   | Apply : {c n₁ n₂ : ℕ} → {κ₁ : Fin n₁ → ColKind} → {κ₂ : Fin n₂ → ColKind} →
       {l : List (String × ℕ)} →
       AggQueryIn T c n₁ κ₁ l →
@@ -1250,8 +1251,8 @@ inductive AggQueryIn (T : Type) : (c n : ℕ) → (Fin n → ColKind) →
   one per value the column takes, each carrying `[a ≐ v]`, and the
   column becomes regular (`GenRow.alternativesAt`). This is ProvSQL's
   `rewrite_explode_agg_value` (one row per value the aggregate takes
-  over the possible worlds) and the semantics paper's reading of an
-  aggregate column as a key, as against the reading as a value, which
+  over the possible worlds), the reading of an aggregate column as a
+  key, as against the reading as a value, which
   the aggregate atoms and terms have world by world and which needs no
   operator. Over a plain relation an aggregate value is a value and
   this is the identity – it is a typing device there, charged to no
@@ -1317,8 +1318,8 @@ inductive AggQueryIn (T : Type) : (c n : ℕ) → (Fin n → ColKind) →
       AggQueryIn T c m (ColKind.allReg m) →
       (ord : GroupOrder T m := GroupOrder.unord) →
       AggQueryIn T c n₂ (fun _ => ColKind.agg)
-  /-- **Second-level aggregation** (`sec:aggcols`, "as values"): group by
-  the key columns `is`, none of which may be an aggregate column, and
+  /-- **Second-level aggregation** (an aggregate column read as a value):
+  group by the key columns `is`, none of which may be an aggregate column, and
   aggregate the projection column `p` over each group under `f`. Because
   `p` may read an *aggregate* column, the token this builds is
   **nested**: its occurrences are the group's rows, and what each carries
@@ -3926,20 +3927,17 @@ makes it hold by construction, and downstream theorems (the random-world
 commutation in particular) invoke it instead of assuming wellformedness. -/
 
 /-- **Every aggregate column of a tuple holds an ordinary token** –
-neither a nested value nor an expression over several of them. This is
-the metatheory's standing assumption while those two readings are
-unproved; on a row the evaluator produces it is a theorem,
-`AggQueryIn.evaluate_ordinaryTokens`, so no result on a query carries
-it. -/
+neither a nested value nor an expression over several of them. On a
+row the evaluator produces it is a theorem for a query with no
+multi-frame window, no second-level aggregation and no `FILTER` clause
+(`AggQueryIn.evaluate_ordinaryTokens`). -/
 def GenRow.OrdinaryTokens {n : ℕ} (u : Tuple (GenValue T K) n) : Prop :=
   ∀ (k : Fin n) (a : AggTok T K), u k = Sum.inr a → a.isTok = true
 
-/-- **No column of a tuple holds a *nested* token.** The weaker of the
-two fences: the readings of an aggregate *expression* are proved
-(`AggExpr.predProvWith_congr`, `_mapAnn`, `_delta_absorb`,
-`vals_congr`), so a result need only exclude `nest`, whose readings are
-not. `GenRow.OrdinaryTokens` is the stronger fence, for results that
-have not yet been extended to an expression. -/
+/-- **No column of a tuple holds a *nested* token.** Weaker than
+`GenRow.OrdinaryTokens`, which also excludes an aggregate expression.
+On a row the evaluator produces it is a theorem for a query with no
+second-level aggregation (`AggQueryIn.evaluate_noNested`). -/
 def GenRow.NoNested {n : ℕ} (u : Tuple (GenValue T K) n) : Prop :=
   ∀ (k : Fin n) (a : AggTok T K), u k = Sum.inr a → a.isNested = false
 
@@ -4083,9 +4081,9 @@ def AggQueryIn.recSettles : {c n : ℕ} → {κ : Fin n → ColKind} → {l : Li
 
 /-- **Every aggregating operator records the parameters it reads**: its
 read set `rd` holds every outer column its subtree reads – the operator's
-`readsOuter`, which counts `rd` itself, is `rd`. This is the paper's
-identity of occurrences (an operator evaluated on the same inputs produces
-the same occurrences), and it is a condition on the queries a result is
+`readsOuter`, which counts `rd` itself, is `rd`. Then the identity of
+occurrences is that an operator evaluated on the same inputs produces
+the same occurrences, and this is a condition on the queries a result is
 about. A recorded set may hold more than the subtree reads: the passes
 keep each operator's recorded set while rewriting below it, so their
 outputs record what their sources read. -/
@@ -4242,7 +4240,7 @@ window builds an expression and second-level aggregation a nested value,
 which is why both are excluded here.
 
 This is what lets a result proved only for an ordinary token keep its
-statement about rows: it gets "every token here is ordinary" from this
+statement about rows: it gets “every token here is ordinary” from this
 lemma, with the two operators excluded on the query. -/
 theorem AggQueryIn.evaluate_ordinaryTokens :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l),

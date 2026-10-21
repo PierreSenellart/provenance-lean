@@ -16,9 +16,9 @@ nulls, which the domain's order knows nothing about. Order values that the
 preorder does not separate are SQL's *peers*.
 
 This file gives the specification (`OrderCol`, `OrderSpec`) and proves that
-it is a total preorder (`OrderSpec.le_refl`, `le_trans`, `le_total`). Two
-things are defined from it, and both are things the domain's order cannot
-supply.
+it is a total preorder (`OrderSpec.le_trans`, `OrderSpec.le_total`, and
+reflexivity as the diagonal of totality). Two things are defined from
+it, and both are things the domain's order cannot supply.
 
 The first is the *bound* of a frame: `RANGE BETWEEN UNBOUNDED PRECEDING AND
 CURRENT ROW` is the peers of the current row and everything sorted before
@@ -83,7 +83,7 @@ def le (c : OrderCol) (a b : T) : Bool :=
 def peer (c : OrderCol) (a b : T) : Bool := c.le a b && c.le b a
 
 /-- **The column read backwards.** Reversing the direction reverses where
-the nulls go with it, as `ASC`/`DESC` already do: `OrderCol.ASC.reverse` is
+the nulls go with it, as `ASC`/`DESC` do: the reverse of `OrderCol.ASC` is
 `OrderCol.DESC`. -/
 def reverse (c : OrderCol) : OrderCol :=
   { desc := !c.desc, nullsFirst := !c.nullsFirst }

@@ -11,15 +11,15 @@ SQL computes on the results of aggregates – `count(*) + 1`,
 `x * 100 / sum(x) OVER (…)`, `CASE WHEN sum(x) > 0 THEN … END` – and so
 do the ranks. A term that mentions a column of aggregate kind produces a
 column of aggregate kind, and what that column carries is a formal
-**aggregate expression** `e = g(a₁, …, a_p)`: the function `g` the term
-computes, applied to the aggregate values `a₁, …, a_p` of the tuple it
+**aggregate expression** `e = g(a₁ … a_p)`: the function `g` the term
+computes, applied to the aggregate values `a₁ … a_p` of the tuple it
 reads. The regular values it reads are constants of `g`.
 
 The worlds are the point. With `U_j` the occurrences of `a_j` and
 `V = ⋃_j U_j`, a world of `e` is a subfamily `W ⊆ V` meeting `U_j` for
 each *grouped* `a_j` – a scalar one is exempt, its empty world being one
 of its worlds – and the value there is
-`g(val_{a₁}(W ∩ U₁), …, val_{a_p}(W ∩ U_p))`. Reading one world at a time
+`g(val_{a₁}(W ∩ U₁) … val_{a_p}(W ∩ U_p))`. Reading one world at a time
 is what makes the leaves answer together: two aggregates over the same
 group are read over the same occurrences, and an expression of them is
 not a function of their values separately.
@@ -67,7 +67,7 @@ structure AggExpr (T K : Type) where
   present is still a world, annotated as it should be, and the leaf
   reads `f []` there. Cutting the family instead loses exactly that
   world, and no convention over the cut family recovers it
-  (`HavingQueryCounterexamples.chain_count_zero_when_ne`).
+  (`chain_count_zero_when_ne`).
 
   Both sit in the occurrence rather than beside the list as `Finset`s of
   positions. That way a recursion over the family carries them along
@@ -219,7 +219,7 @@ An aggregate column holds one of these, so an expression owes what a
 token owes: the convention it is read in, the family it carries, the
 value it takes under a valuation of the annotations, and the values it
 takes over its worlds. Each is the `AggValue` notion with `IsWorld` in
-place of "non-empty if grouped" and the shared family in place of the
+place of “non-empty if grouped” and the shared family in place of the
 token's own. -/
 
 /-- **The convention the expression is read in**: scalar exactly where
@@ -624,7 +624,8 @@ What a *nested* value makes of one of its occurrences is a function of
 this: over every subfamily, the product of the annotations it keeps, the
 sum of those it leaves out, and the occurrences it selects read as values
 and leaf flags. The factor the nested world carries is the first two
-(`NestedValue.World.ann_split`), the value its leaf reads is a filter of
+(`NestedValue.World.ann`: the product kept, times `𝟙` minus the sum left
+out), the value its leaf reads is a filter of
 the third (`leafSeq_eq_filter`), and whether the subfamily is a world is
 read off the third as well. Written as a recursion over the family rather
 than as a sum over subfamilies, so that a tie-block permutation of the
@@ -706,7 +707,7 @@ the expression takes there and whether it is a world. The arity does not
 appear in the type, so two aggregate columns can be compared by it – which
 is what `GenValue.Equiv` needs for a column a nested value reads, since a
 nested world's weight is this and not the four readings
-(`NestedValue.World.ann_split`).
+(`NestedValue.World.ann`).
 
 The fourth component is the *expression's own* world condition
 (`AggExpr.IsWorld`: each grouped leaf's family met by the subfamily),
@@ -1017,7 +1018,7 @@ This is what an `AggValue` cannot be. Its occurrence carries a value and
 an annotation, so a clause can only be applied when the token is built,
 cutting the family – and then that world is gone and no convention
 recovers it
-(`HavingQueryCounterexamples.chain_count_zero_when_ne`). -/
+(`chain_count_zero_when_ne`). -/
 def ofSeqWhen [ValueType T] {c m : ℕ} (f : SeqAggFunc T) (t : TermIn T c m)
     (keep : Tuple T m → Bool) (U : List (AnnotatedTuple T K m)) (sc : Bool)
     (γ : Fin c → T := fun _ => 0) : AggExpr T K where

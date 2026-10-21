@@ -8,10 +8,12 @@ import Provenance.AllRegular
 # Decorrelation: an apply read as a product
 
 An apply evaluates its right side once per row of its left side, with
-that row's values filled in for the parameters. `sec:basis` claims that
-nothing is lost by forbidding it: every query is equivalent to one whose
-applies are products. The construction is Galindo-Legaria and Joshi's,
-and the form here is the paper's `lem:decorrelation`: given a *parameter
+that row's values filled in for the parameters. Nothing is lost by
+forbidding it: every query is equivalent to one whose applies are
+products. The construction is that of [Galindo-Legaria & Joshi,
+*Orthogonal Optimization of Subqueries and
+Aggregation*][galindolegaria2001orthogonal], in the form
+`AggQueryIn.hasDecorrelation_of_usesOnly` states: given a *parameter
 relation* `P` whose rows are pairwise distinct, a query `q` reading `P`'s
 columns as parameters is turned into a closed query `D_P(q)` over the
 parameters and `q`'s own columns together, so that
@@ -540,7 +542,7 @@ the end. Nothing here needs a `castKind`: the kind vector of the
 decorrelated query is whatever the construction produces, and what is
 claimed of it is an equality of plain semantics. -/
 
-/-- **The six classes of the basis** (`thm:plainbasis`): the empty
+/-- **The six classes of the basis**: the empty
 relation, the generalized projection, the selection, the product, the
 union and the aggregation. The other four classes the plain semantics
 grades – duplicate elimination, the difference, the apply and the window
@@ -1789,12 +1791,12 @@ theorem AggQueryIn.hasDecorrelation_gamma {lab : ℕ} {c m n₁ n₂ : ℕ} {rd 
 A scalar aggregation has one row whatever its input, so the
 decorrelation has one row per parameter row – including those whose
 slice is empty, which a grouping by the parameters does not produce.
-Those are recovered from the parameter rows the slices do not reach, as
-`prop:collapse` has it. Where the paper writes the aggregates' value on
-no input as a *constant term*, the library writes it as a constant
-aggregate: a projection column carrying a constant is a regular column,
-and the column a scalar aggregation produces is an aggregate one, so only
-an aggregating operator can build it. -/
+Those are recovered from the parameter rows the slices do not reach,
+each carrying the aggregates' value on no input. That value is written
+as a constant aggregate rather than as a constant term: a projection
+column carrying a constant is a regular column, and the column a scalar
+aggregation produces is an aggregate one, so only an aggregating
+operator can build it. -/
 
 /-- The group of a decorrelated query at a parameter row, when the
 parameters are the whole key: the slice itself. -/
@@ -2342,9 +2344,9 @@ theorem ColKind.snoc_winSrc {c n : ℕ} (κ : Fin n → ColKind)
 
 /-- **A window partitions by the parameters as well**: each partition
 then lies inside one slice, so a frame is a frame of that slice and the
-column takes the value it takes there. The frames are asked to contain
-their current row, which is what `thm:plainbasis` asks of the windows it
-covers. -/
+column takes the value it takes there. Every frame is covered,
+`EXCLUDE CURRENT ROW` and `EXCLUDE TIES` included: the row a frame takes
+out is the same row on both sides (`ValueFrame.frameOf_slices`). -/
 theorem AggQueryIn.hasDecorrelation_win {lab : ℕ} {c n mp p : ℕ} {rd : Fin c → Bool}
     {κ : Fin n → ColKind}
     {S : Set OpKind} {sch : Schema}
@@ -3179,9 +3181,9 @@ private theorem mem_of_mem_insert_apply {S : Set OpKind} {k : OpKind}
   (Set.mem_insert_iff.mp h).resolve_left hk
 
 /-- **Every query has an apply-free decorrelation** over every parameter
-relation whose rows are distinct. This is `lem:decorrelation`: the
-construction is Galindo-Legaria and Joshi's, each operator carrying the
-parameters along, and the apply itself recursing with the distinct rows
+relation whose rows are distinct. The
+construction is that of [Galindo-Legaria & Joshi][galindolegaria2001orthogonal], each
+operator carrying the parameters along, and the apply itself recursing with the distinct rows
 of its own left side as the new parameter relation.
 
 The target set is the query's own, which is what makes the result
@@ -3308,8 +3310,7 @@ theorem AggQueryIn.overSchema_unit {sch : Schema} :
 empty row, which is the parameter relation a closed query reads – the
 decorrelation is the query itself, its parameter block empty, so
 projecting that block away gives an apply-free query with the same plain
-semantics. This is what `sec:basis` asserts when it leaves the apply out
-of the basis classes. -/
+semantics. This is why the apply is left out of the basis classes. -/
 theorem AggQueryIn.exists_applyFree_plainEquiv_sig {S : Set OpKind} {sch : Schema}
     (hS : decorrOps ⊆ S) (hg : OpKind.gamma ∈ S)
     (hmb : OpKind.muBag ∉ S) (hms : OpKind.muSet ∉ S) {n : ℕ}

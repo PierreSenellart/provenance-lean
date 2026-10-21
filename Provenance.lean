@@ -272,7 +272,8 @@ the provenance-aware relational database system
   is a term, so that the constructor asks nothing of the value domain)
   and by `TermIn.coalesce`: with those two, a guard that is a Boolean
   combination of comparisons needs no more – a conjunction is a nested
-  `CASE`, a disjunction a `COALESCE`, a negation `CompOp.negate`. Also the aggregate catalog `SeqAggFunc` and
+  `CASE`, a disjunction a `COALESCE`, a negation `CompOp.negate`.
+  Also the aggregate catalog `SeqAggFunc` and
   the two of SQL's three **input policies** that a null makes visible:
   `SeqAggFunc.sqlOf`, the *null-skipping* one (`SUM`, `MIN`, `MAX`, `AVG`),
   which drops the nulls and gives `NULL` when nothing is left, and
@@ -335,8 +336,9 @@ proven engine several general results reuse internally.
   transport preserve it, and `predProvOf` reads a token in its own
   convention, commuting with homomorphisms either way
   (`predProvOf_mapAnn`); the annotation pushforward (`mapAnn`), and lifted
-  column values `T ⊕ AggValue T K` mixing key and token columns **A count compared to zero collapses to a single
-  reading**: `predProvScalar_count_eq_zero` gives `𝟙 ⊖ ⊕ᵢ αᵢ` with no
+  column values `T ⊕ AggValue T K` mixing key and token columns.
+  **A count compared to zero collapses to a single reading**:
+  `predProvScalar_count_eq_zero` gives `𝟙 ⊖ ⊕ᵢ αᵢ` with no
   hypothesis on `K` at all – the comparison holds in the empty world and in
   no other, so there is no family of worlds to collapse
   (`predProvScalar_of_only_empty`) – and `predProvScalar_count_ne_zero`
@@ -402,7 +404,7 @@ proven engine several general results reuse internally.
   deterministic function of SQL, a Boolean combination among them, this
   is one rule for `∧`, `∨`, `¬`, a Boolean-valued aggregate column and a
   searched `CASE` alike, and it is the semantics – ProvSQL's too – that
-  the structural rules of `GenPred.predsem` are a short cut for:
+  the structural rules of `GenPredIn.predsem` are a short cut for:
   agreeing on an atom, a decomposition of the joint reading for `∧`
   under hypotheses, and not a theorem at all for `∨`, where the sum has
   to be computed instead.
@@ -428,56 +430,50 @@ proven engine several general results reuse internally.
   `g(a)` reads there – which is what a term over one aggregate column
   produces
 - `Provenance.Nested` – **nested aggregate values**: what an
-  aggregation or a window builds when its term reads an aggregate
-  column. Its occurrences are those of its own family together with
-  those of the inner values, which an `AggValue` cannot hold – its
-  reading consults its own list alone – so `NestedValue` carries the
-  inner reading per outer occurrence, an aggregate *expression* since a
-  term over several aggregate columns is one, and a `World` chooses both
-  which outer occurrences are present and which occurrences of each
-  inner value are. Both are **bags**: `≼` orders plain tuples, and an
-  occurrence of a nested value carries a tuple with an aggregate column,
-  so the family a nested value aggregates has no sequence to be listed
-  in. Its aggregate is accordingly a function of a bag (`SeqAggFunc.onBag`
-  makes one of a symmetric aggregate), a world is a bag of decided
-  occurrences (`WorldOcc`: present or not, and which occurrences of the
-  inner value, with `World.IsWorldOf` saying whose world it is), and
-  `worlds` enumerates them off the bag – which is exactly what `addOcc`
-  being left-commutative licenses, so nothing has to list the
+  aggregation builds when its term reads an aggregate column. Its
+  occurrences are those of its own family together with those of every
+  value it reads, at every storey, which an `AggValue` cannot hold – its
+  reading consults its own list alone. A nested value is a **tower**:
+  `NestInner T K j` is what an occurrence of a value of storey `j` reads
+  (an aggregate expression at storey `0`, and at storey `j + 1` either
+  something storey `j` reads or a node, `NestNode`, aggregating a bag of
+  storey-`j` values), and `NestedValue` is an outer aggregate over a bag
+  of such occurrences. Everything is a **bag**: `≼` orders plain tuples,
+  and an occurrence of a nested value carries a tuple with an aggregate
+  column, so the family a nested value aggregates has no sequence to be
+  listed in. Its aggregate is accordingly a function of a bag
+  (`SeqAggFunc.onBag` makes one of a symmetric aggregate). An
+  occurrence is one object however many times it is read, so a world
+  decides each **family** once: its own occurrences (`root`), each
+  expression family by its key (`leafKey`) and each inner node by its
+  key (`NestNode.key`); `worlds` enumerates the decisions off the bags,
+  the steps being left-commutative, so nothing has to list the
   occurrences and nothing has to be proved invariant under relisting
-  them. A world meets the family of each grouped inner value
-  **that it reads**, which is to say at an outer occurrence it keeps
+  them. A world meets the family of each grouped inner value **that it
+  reads**, which is to say along a path of present occurrences
   (`World.IsWorld`): an absent outer occurrence contributes nothing, and
   asking its inner family to be met would ask a group to be non-empty
-  while the row carrying it is absent. This is deliberately *not* the
-  condition a predicate's worlds satisfy – a predicate's families belong
-  to one tuple, which exists or does not, while a nested value's belong
-  to different outer occurrences the world is choosing between. Whether
-  a world should also be *barred* from meeting the family of an inner
-  value it does not read is open, so the world predicate is a parameter
-  (`World.IsWorldWith`, with `World.IsWorldCoherent` the other answer)
-  and either settles by substitution. `valOn_full` says the world with
-  everything present reads as the collapse. A world's **annotation** is
-  the one every family gets – `World.ann`, the product of what is
-  present times `𝟙 ⊖` the sum of what is absent – and it does not
-  depend on the open question, which is about which worlds are admitted
-  and not about how one is weighed: `World.ann_full` for the full
-  world, and `World.presentProd_eq_of_coherent` saying that under the
-  coherent reading the inner products collapse to the occurrences the
-  world actually reads. The **readings** the value owes are there too,
-  over the world set the coherence clause does not restrict:
+  while the row carrying it is absent. The converse, barring a world
+  from meeting a family no present occurrence reads
+  (`World.IsWorldCoherent`), is refuted: it removes the world a
+  valuation realizes, and `World.IsWorldWith` keeps the predicate a
+  parameter so that the refuted reading can be stated. `valOn_full` says
+  the world with everything present reads as the collapse. A world's
+  **annotation** is `World.ann`, the product of what is present at every
+  storey times `𝟙 ⊖` the sum of what is absent, the monus taken once.
+  The **readings** the value owes are there too:
   `NestedValue.predProvWith` and `predProvOf` for a test of its value,
   and `realizedWorld`/`specialize` for the world-faithful reading under
   a valuation – with `specialize_of_forall` saying the two agree where
   every occurrence is realized, and `predProvWith_of_never` that a test
   no value satisfies annotates `𝟘`. The structure degenerates as it
-  should:
-  `ofAggValue` nests an ordinary token – a symmetric one, its aggregate
-  becoming the outer one on the bag – by giving each occurrence an inner
-  value that reads nothing (`constInner`), and `ann_worldOf` says a world
-  of it (`worldOf`, from a subfamily of the token's own occurrences)
-  carries exactly `Having.worldAnn` of the token's own family – so
-  nesting adds weight only where something is actually nested
+  should: `ofAggValue` nests an ordinary token – a symmetric one, its
+  aggregate becoming the outer one on the bag – by giving each
+  occurrence an inner value that reads nothing (`constInner`), and
+  `ann_worldOf` says a world of it (`worldOf`, from a subfamily of the
+  token's own occurrences) carries exactly `Having.worldAnn` of the
+  token's own family – so nesting adds weight only where something is
+  actually nested
 - `Provenance.JointFamily` – **two occurrence families as one**, which
   is what a predicate reading two aggregate values reads. The two
   families are indexed separately, so the union is built:
@@ -520,7 +516,7 @@ proven engine several general results reuse internally.
   sort keys (`tiePerm_of_perm_of_sorted` produces one from two sorted
   permuted lists), a recursion form of the predicate provenance
   (`AggValue.predProvAux`, equal to the world-sum by
-  `AggValue.predProv_eq_predProvAux`), and the congruences
+  `AggValue.predProvWith_eq_predProvAux`), and the congruences
   (`AggValue.predProv_congr`, `collapse_congr`, `annSum_congr`) making the
   annotation tie-break of the group sort semantically invisible
 - `Provenance.AggQuery` – the general (non-fused) HAVING semantics:
@@ -531,9 +527,9 @@ proven engine several general results reuse internally.
   over token columns, normal-form projections and selections),
   the **empty relation** `Empty` of arity `0` – the one leaf that belongs
   to the query and not to the instance, from which the unit relation
-  (`AggQuery.unit`, its scalar aggregation with no aggregate: one empty
+  (`AggQueryIn.unit`, its scalar aggregation with no aggregate: one empty
   tuple annotated `𝟙`, PostgreSQL's `SELECT;`) and SQL's `VALUES`
-  (`AggQuery.values`, a union of projections of the unit onto constants,
+  (`AggQueryIn.values`, a union of projections of the unit onto constants,
   with `evaluatePlain_values` and `evaluateAnnotated_values` reading
   them) are derived, so a constant relation needs no leaf of its own –
   aggregation without grouping (`GammaScalar`, whose single row survives an
@@ -553,13 +549,13 @@ proven engine several general results reuse internally.
   `GenPred` mixing regular and aggregate atoms (`∧ ↦ ⊗`, `∨ ↦ ⊕`, `¬` by
   operator complementation – the short cut the joint reading of
   `Provenance.AggExpr` licenses, semiring permitting), and the general evaluator
-  `AggQuery.evaluate` with factored row annotations `GenAnn`
+  `AggQueryIn.evaluate` with factored row annotations `GenAnn`
   implementing the replace-the-δ-factor combination rule: `Gamma` leaves
   its group-existence factor pending, an aggregate selection supersedes
   exactly the compared groups' factors with the predicate provenance, and
   projections cash the factors of dropped token columns. Also the plain
-  evaluator `AggQuery.evaluatePlain` (classical filtering, aggregates
-  computed over the whole group) and the stripping `AggQuery.stripAgg`.
+  evaluator `AggQueryIn.evaluatePlain` (classical filtering, aggregates
+  computed over the whole group) and the stripping `AggQueryIn.stripAgg`.
   The two **recursions** `Mu` (SQL's `WITH RECURSIVE … UNION ALL`) and
   `MuSet` (`… UNION`) bind a relation name to the previous round –
   `AnnotatedDatabase.assign`, a cons, since a database is searched front
@@ -570,7 +566,7 @@ proven engine several general results reuse internally.
   (`muFix`), both taken through `Nat.sInf` – and a recursion that does
   not settle has no value. Nothing in the syntax bounds the rounds: a
   recursion that stopped at a count rather than at its own rounds would
-  not be this operator. Settling is a hypothesis, `AggQuery.recSettles`,
+  not be this operator. Settling is a hypothesis, `AggQueryIn.recSettles`,
   which the four results that evaluate a recursion carry (adequacy, the
   homomorphism commutation, the random world and the PQE results off
   it); it also asks `step 0 = 0` at `Mu`, which is what makes an empty
@@ -582,19 +578,19 @@ proven engine several general results reuse internally.
   homomorphism through them round by round. Taking the fixpoint makes
   the evaluators `noncomputable`, so the worked examples check their
   values by `decide` rather than printing them. Recursion is outside the
-  (R1)–(R5) rewriting fragment (`AggQuery.classical`): a rewritten body
+  (R1)–(R5) rewriting fragment (`AggQueryIn.classical`): a rewritten body
   carries the provenance column, so the bound name would have to be
   bound to the rewritten relation and the fixpoint would be over another
   schema.
   A projection column may also *compute* over one aggregate column
-  (`ProjCol.aggTerm`), which produces an aggregate column again – the
+  (`ProjColIn.aggTerm`), which produces an aggregate column again – the
   unary aggregate expression of `Provenance.AggExpr` – and is what
   `count(*) + 1` and the ranks need; over plain relations it is an
   ordinary term, and its token is the input's read through the
   function, so every reading of it is the input's read through the
   function too.
-  Predicates are read three-valuedly throughout – `GenPred.eval3`,
-  `evalPlain3`, `HavingPred.evalOnSeq`, `GenPred.evalRew3` – with `holds`,
+  Predicates are read three-valuedly throughout – `GenPredIn.eval3`,
+  `evalPlain3`, `HavingPred.evalOnSeq`, `GenPredIn.evalRew3` – with `holds`,
   `holdsPlain`, `holdsOnSeq` and `holdsRew` keeping the rows on which the
   predicate is *true*. `Having.chi` contributes `𝟘` to a provenance on an
   unknown comparison, and `predsem` needed no change at all: its polarity
@@ -603,7 +599,7 @@ proven engine several general results reuse internally.
   The window operator `Win` gives every row of its input a further column
   holding the aggregate over that row's frame: it removes no row, merges
   none and changes no annotation, so it creates no group and leaves nothing
-  pending. `AggQuery.evaluate_Win_eq` and `AggQuery.evaluatePlain_Win_eq`
+  pending. `AggQueryIn.evaluate_Win_eq` and `AggQueryIn.evaluatePlain_Win_eq`
   read its output off the relation – the input mapped row by row, each row
   gaining the token (`ValueFrame.tokenOf`) or the value
   (`ValueFrame.windowValue`) that the relation gives it – which is the form
@@ -614,7 +610,8 @@ proven engine several general results reuse internally.
   clause reads *regular columns only*, SQL forbidding an aggregate inside
   the `FILTER` of an aggregate, so its truth at an occurrence is the same
   in every world and survives any transport that keeps the data columns –
-  which is why no result below asks anything about what a clause reads. What a clause may change is what its own
+  which is why no result below asks anything about what a clause reads.
+  What a clause may change is what its own
   aggregate **reads**, and nothing else: the worlds stay the group's or
   the frame's, every occurrence carrying its annotation to them, so the
   world in which only rejected rows are present is still a world and the
@@ -632,31 +629,33 @@ proven engine several general results reuse internally.
   row). A grouping reads it the same way, through
   `AggExpr.ofGroupWhen`: one leaf over the whole group, whose clause cuts
   what it reads, so `Gamma`'s filtered column is an expression and not an
-  ordinary token – which is why `AggQuery.evaluate_ordinaryTokens` asks
+  ordinary token – which is why `AggQueryIn.evaluate_ordinaryTokens` asks
   for `noFilter`. A single-frame window reads it the same way
   (`ValueFrame.exprWhen`), with the kept part merged by value under
   `DISTINCT` and the rejected occurrences left unmerged and unread, so no
-  clause anywhere cuts a family now.
-  `HavingQueryCounterexamples.chain_count_zero_when_ne` measures what a
+  clause anywhere cuts a family.
+  `chain_count_zero_when_ne` measures what a
   cut family cost, against `chainExprNone_zero`, `chainExprMixed_zero`
   and `chainWinMixed_zero` for what the expression reading gives, and
   `natWinDistinct_ne_unmerged` records that a `DISTINCT` aggregate's
   classes carry the `⊕` of their occurrences rather than deduplicating
-  inside each world. Only the
-  rewriting excludes a clause outright, with `AggQuery.noFilter`: a
-  clause is a predicate on the base domain where the rewritten world's
-  rows carry composite values
+  inside each world. A filtered
+  aggregate builds an expression and not an ordinary token, so
+  `AggQueryIn.noFilter` is what `AggQueryIn.evaluate_ordinaryTokens`
+  asks
 - `Provenance.AggQuerySubst` – **substituting the outer columns**: the
   apply is defined by substitution – its right side is read, for each
   row `u` of the left, as the closed query `q₂[u]` – while the
   evaluators read it under an outer *valuation*, which is what makes
-  them structurally recursive. `AggQuery.substMap` performs the
+  them structurally recursive. `AggQueryIn.substMap` performs the
   substitution (generally enough to close only the ambient part of a
   nested context, which is what passing under an apply needs) and
-  `AggQuery.evaluate_substMap` says the two readings agree, so that the
-  document's clauses `AggQuery.evaluate_Apply_subst` and
-  `AggQuery.evaluatePlain_Apply_subst` are theorems about the evaluator
-  rather than a second semantics
+  `AggQueryIn.evaluatePlain_substMap` says the two readings agree, so
+  that reading the apply by substitution
+  (`AggQueryIn.evaluatePlain_Apply_subst`) is a theorem about the
+  evaluator rather than a second semantics; in the annotated semantics
+  `AggQueryIn.evaluate_substMap` holds for renamings of the outer
+  columns, a constant in a parameter's place being no parameter
 - `Provenance.Occurrence` – **relations as families of occurrences**:
   `OccFam`, a relation read as an indexed family rather than a multiset, so
   that two copies of a row are two occurrences. The row type is a parameter,
@@ -666,7 +665,7 @@ proven engine several general results reuse internally.
   different results (a window frame excluding the row it is computed for
   reads its twin, not itself), a comparison reading two aggregate values
   whose occurrence families overlap, and a statement quantifying over the
-  ways equal rows could be told apart. `toRelation` forgets the index and
+  ways equal rows could be told apart. `OccFam.toMultiset` forgets the index and
   `Congr` says when two indexings are the same family, so that an operator
   defined on families is meaningful exactly when it respects `Congr`
   (`toMultiset_congr`). It sits beside `AnnotatedRelation` rather than
@@ -694,7 +693,8 @@ proven engine several general results reuse internally.
   `ContainsSelf` – and the classification lands where the general theory
   says it must, `EXCLUDE GROUP` keeping a frame readable off the relation
   and `EXCLUDE TIES` not. The two families agree where every column is
-  `ASC` and nothing is null (`rangeUpTo_asc`, `rangeBefore_asc`); the `ROWS` frames with offsets are not among them and
+  `ASC` and nothing is null (`rangeUpTo_asc`, `rangeBefore_asc`);
+  the `ROWS` frames with offsets are not among them and
   cannot be, since which row is the previous one depends on which rows are
   present. `frameOf` reads a frame off the *relation* rather than off an
   indexing – the rows of the partition the frame's relation accepts, the
@@ -708,7 +708,7 @@ proven engine several general results reuse internally.
   since it reads only the rows. What that buys is
   `frameOf_map` (a map keeping the values carries every frame to the image
   of its frame: changing the semiring, or forgetting the annotations) and
-  `frameOf_filter` (the restriction property again, now on relations),
+  `frameOf_filter` (the restriction property again, on relations),
   which are what the window's metatheorems run on
 - `Provenance.Window` – **the token a window gives a row**: the aggregate
   over that row's frame, built as a grouping builds one from its group, with
@@ -759,7 +759,7 @@ proven engine several general results reuse internally.
 - `Provenance.AggQueryAdequacy` – **data-part adequacy of the general
   evaluator**: forgetting the annotations of `Query.evaluateAnnotated` yields
   the plain evaluation of the stripped query
-  (`AggQuery.evaluateAnnotated_toPlain`), the aggregate tokens
+  (`AggQueryIn.evaluateAnnotated_toPlain`), the aggregate tokens
   contributing through their deterministic `collapse` reading and the
   fused group sequence projecting onto the plain one
   (`havingGroup_map_fst`). A window's added column is adequate for the same
@@ -770,7 +770,7 @@ proven engine several general results reuse internally.
 - `Provenance.OrderSpec` – **what an `ORDER BY` orders by**: a direction
   and a null placement per order column (`OrderCol`, `OrderSpec`), read
   lexicographically down the columns. It is a total preorder
-  (`OrderSpec.le_refl`, `le_trans`, `le_total`) and not an order: the values
+  (`OrderSpec.le_rfl`, `le_trans`, `le_total`) and not an order: the values
   it does not separate are SQL's *peers*, and every null is a peer of every
   other whichever side the clause puts them on. Where every column is `ASC`
   and nothing is null the clause is the library's own tuple order
@@ -826,13 +826,13 @@ proven engine several general results reuse internally.
   rank it is, and `distinctOn` is `λ^{P,O}_{0,1}`, SQL's `DISTINCT ON`.
   The range it filters on is a single atom, `GenPredIn.aggRange`, so its
   predicate provenance is the one `⊕`-sum over the worlds where the rank
-  is in range that §derivedann asks for (`predsem_rankRange`), with no
+  is in range (`predsem_rankRange`), with no
   hypothesis on the m-semiring – where a conjunction of two atoms would
   give the product of two sums. No `provsql_having` gate carries a range,
   so the site rewriting is stated on range-free predicates
   (`GenPredIn.rangeFree`): the term it would emit denotes the product,
   which an evaluator may resolve back to the range's own sum by
-  recognising that the two gates read one family, but which the term
+  recognizing that the two gates read one family, but which the term
   itself does not denote.
   `gammaSets` is SQL's `GROUPING SETS`: the union of one
   aggregation per set of the family, each padded back onto the columns
@@ -872,7 +872,7 @@ proven engine several general results reuse internally.
   domain's order is what makes it world-faithful with no condition on
   the aggregate – that order restricted to the classes a world holds is
   the world's own order (`AggValue.specialize_mergeByValue`,
-  `ValueFrame.tokenOfDist_specialize`). The metatheorems go through on
+  `tokenOfDist_specialize`). The metatheorems go through on
   `classSum_map` and `mergeByValue_congr`: the merge commutes with the
   annotation pushforward and is blind to a tie-block permutation of the
   payload
@@ -933,7 +933,7 @@ proven engine several general results reuse internally.
   `winByApply` writes the window's frame as a selection against the
   current row, which the apply supplies as outer columns. The window's
   frame is asked to contain its current row, which is the hypothesis of
-  `prop:winderived` and not of the decorrelation
+  `evaluatePlain_winByApplyOf` and not of the decorrelation
 - `Provenance.Decorrelate` – **an apply read as a product**: the
   construction of Galindo-Legaria and Joshi, proved rather than cited.
   Given a *parameter relation* `P` whose rows are pairwise distinct, a
@@ -986,14 +986,14 @@ proven engine several general results reuse internally.
   (`ValueFrame.windowValueOpt_readTuple_of_det`, with
   `windowValue_readTuple` the symmetric unfiltered case), and a `FILTER`
   clause is carried through on the condition that it read the
-  occurrence's regular columns, which is what `sec:agg` says a clause
-  does. What the theorem leaves behind is
+  occurrence's regular columns, as a clause does in SQL, which forbids
+  an aggregate inside the `FILTER` of an aggregate. What the theorem leaves behind is
   `AggQueryIn.SwapReady`, which is what the two swaps of the basis ask
   for
 - `Provenance.Determinacy` – **the listing an aggregate reads, and the
   query that is refused**: an aggregate reads its group, or a window's
-  frame, as a sequence that its clause only partly fixes, and the
-  document admits a query only where the listing cannot matter – each
+  frame, as a sequence that its clause only partly fixes, and a query
+  is determinate where the listing cannot matter – each
   aggregate symmetric, or its term constant on the rows the clause
   ties. `ValueFrame.windowValue_eq_of_listing` and
   `Relation.groupSeqOrd_map_eq_of_listing` say the listing is then
@@ -1005,13 +1005,13 @@ proven engine several general results reuse internally.
   holds and refuses where it does not, with
   `windowValue_eq_of_listing_of_determinateOn` and
   `gammaAgg_eq_of_listing_of_determinateOn` saying what its answer
-  means. `AggQueryIn.evaluatePlain` is unchanged and keeps its own
+  means. `AggQueryIn.evaluatePlain` keeps its own
   listing – one the condition admits – which is why no result of the
   metatheory asks for determinacy: each relates two readings of one
   listing. The one place two listings meet is the re-typing of
   `Provenance.AllRegular`, whose window fence *is* this condition
-- `Provenance.BasisAssembly` – **the basis, assembled**: the generation
-  half of `thm:plainbasis`, as three passes over the syntax.
+- `Provenance.BasisAssembly` – **the basis, assembled**: every plain query is
+  equivalent to one over six classes, as three passes over the syntax.
   `AggQueryIn.exists_winFree` replaces every window by an apply of a
   scalar aggregation, `AggQueryIn.exists_applyFree_plainEquiv` (the
   decorrelation) replaces every apply by a product, and
@@ -1023,10 +1023,10 @@ proven engine several general results reuse internally.
   each is stated with its target class set as a parameter – which is why
   the decorrelation had to be parameterized too: a pass may only be
   composed with the next if what it produces is known not to contain
-  what the previous one removed. `Generates` reads the conclusion as a
-  property of a set of classes, `basisOps_generates` says the six have
-  it, and `generates_necessary` is the converse for four of the classes,
-  from the invariants of `Provenance.PlainBasis` and their witnesses.
+  what the previous one removed. `GeneratesOn` reads the conclusion as a
+  property of a set of classes, `basisOps_generatesOn` says the six have
+  it, and the rows below are the converse, from the invariants of
+  `Provenance.PlainBasis` and their witnesses.
   Each pass also carries `AggQueryIn.overSchema`: the query it produces
   names the relations the query it is given names, which is what the
   other half needs – two of the six rows (`∅` and `σ`/`−`) are necessary
@@ -1038,18 +1038,19 @@ proven engine several general results reuse internally.
   over the schema its witness lives on. Three of them hold of the whole
   algebra: for `σ`/`−`, `AggQueryIn.NonzeroOn`, the dichotomy relative
   to a set of names forced empty, is what carries the invariant through
-  a set recursion; for `Π`, `AggQueryIn.affine_of_recOnce` says that a
+  a set recursion; for `Π`, `AggQueryIn.affine_of_body` says that a
   recursive term without a projection reads the recursive relation
   tuple by tuple, so a bag recursion settles only at its base; for
-  `×`/apply, `AggQueryIn.pointwise_of_recOnce` says that without them a
+  `×`/apply, `AggQueryIn.pointwise_of_body` says that without them a
   recursive term maps each row to at most one row, and in a signature
   without functions on values (`AggQueryIn.recNoFun`) the orbit of a row
   stays in a box of a size the query fixes (`rowBox`, `recBound`), so
   the rounds a recursion can run are bounded (`optIter_exists_lt`,
   `optIter_ne_none`). In all three, `AggQueryIn.SettlesAt` – the
   recursions settle at this instance – is the one hypothesis a statement
-  about a recursion's value needs, and `AggQueryIn.recRestricted` is
-  `sec:plain`'s restriction on a recursive term. `GeneratesOn` asks the
+  about a recursion's value needs, and the typing of `AggQueryIn` (a
+  recursive term reads its hole once, under `Π`, `σ`, `×`, the left of an
+  apply or `⊎`) is the restriction on a recursive term. `GeneratesOn` asks the
   set of classes to hold no recursion, so the query it produces settles
   everywhere, as the plain query it stands for does.
   What a window has to be for the first pass to reach it is
@@ -1094,14 +1095,15 @@ proven engine several general results reuse internally.
   `AggQueryIn.exists_basisWinOps_plainEquiv` over
   `{∅, Π, σ, ×, ⊎, γ, win}`, two passes and no hypothesis about windows
   at all: nothing has to rewrite one, the decorrelation carrying a
-  window of every frame and the third pass keeping it. That is the basis
-  `thm:plainbasis` states, the window class being necessary (`EXCLUDE
-  CURRENT ROW`); the six-class statements are the stronger claim, about
-  the windows `prop:winderived` reaches
-- `Provenance.RecursionBasis` – **the recursions in the
-  classification**: the row of `μ^⊎`, which in the minimal signature is
-  in every basis because a bag recursion counts the *derivations* of a
-  tuple. The witness is a chain of `n` diamonds – `diamondEdges`, `4n`
+  window of every frame and the third pass keeping it. The window class
+  is necessary there (`EXCLUDE CURRENT ROW`,
+  `win_mem_of_generatesOnRec`); the six-class statements are the
+  stronger claim, about the windows `evaluatePlain_winByApplyOf`
+  derives
+- `Provenance.RecursionBasis` – **the recursions in a
+  basis**: `μ^⊎`, which in the minimal signature is in every basis
+  because a bag recursion counts the *derivations* of a tuple.
+  The witness is a chain of `n` diamonds – `diamondEdges`, `4n`
   distinct edges over `dChain n`, an instance of `4n + 1` rows with no
   duplicate – and the query `μ^⊎R.(S, Π_{#3}(σ_{#1=#2}(R × E)))`
   (`chainWitness`). `evaluatePlain_reachStep` reads one round as the
@@ -1126,8 +1128,8 @@ proven engine several general results reuse internally.
   The signature the row is stated in is
   `AggQueryIn.inMinimalSig` of `Provenance.PlainBasis`
 - `Provenance.SumByMu` – **`⊎` from `μ^⊎`**: with a bag recursion the
-  union is a derived operator, so the `⊎` row of the plain fragment's
-  table does not survive to the whole algebra. `AggQueryIn.sumByMu` is
+  union is a derived operator, so `⊎`, necessary in a basis of the
+  recursion-free fragment, is not necessary in one of the whole algebra. `AggQueryIn.sumByMu` is
   the construction (two bag recursions over a one-row driver, each
   reading one operand once through a phase tag; `evaluatePlain_sumByMu`
   says it is `q₁ ⊎ q₂`, `settlesAt_sumByMu` that it settles wherever the
@@ -1193,12 +1195,12 @@ proven engine several general results reuse internally.
   `AggQueryIn.exists_card_bound_muSet` is what `Provenance.MuUnion` needs:
   a set recursion's fixpoint, duplicate-free over the base set and the
   count types, has polynomially many rows in the number of values the
-  recursion reads. This is the lemma on parameters the semantics paper
-  argues after `prop:muunion`; the value lemma
+  recursion reads, which is what bounds the counter the simulation of a
+  set recursion runs; the value lemma
   `AggQueryIn.valsIn_evaluatePlain` (every value of a result is read off
   the instance, the context or the constants, or is a count) is its
   first half
-- `Provenance.WinRow` – **the `win` row of the whole-algebra table**:
+- `Provenance.WinRow` – **the window class is necessary**:
   `win_mem_of_generatesOnRec` says the window class is in every
   generating set over `ℕ` with the counting aggregate. The witness is
   `count(*) OVER (… EXCLUDE CURRENT ROW)` on `n` copies of one row
@@ -1256,7 +1258,7 @@ proven engine several general results reuse internally.
   evaluation (`evaluateAnnotated`) settles and agrees with it on every
   `K`-instance at which the query's does (`AggQueryIn.AnnSettlesAt`, the
   per-instance settling of the annotated recursions, in
-  `Provenance.AggQueryAdequacy`, whose data-part adequacy now takes it).
+  `Provenance.AggQueryAdequacy`, whose data-part adequacy takes it).
   The settling of the recursions transfers both ways between the
   annotated evaluation and the plain evaluation of the stripped query
   (`settlesAt_stripAgg_of_annSettlesAt`; `annSettlesAt_of_settlesAt`
@@ -1419,12 +1421,12 @@ proven engine several general results reuse internally.
   (`Graded`, `AggQueryIn.exists_grade`) – while a set recursion over an edge
   carrying `m` one-variable witnesses builds one of `m`. So over `Why[X]`
   the set with `ε` in place of `μ^∪` does not generate
-  (`not_generatesAnn_annEpsOps_why`). The same holds up to `≈`, with one
-  storey of second-level aggregation (`annMuOps_isBasis_approx`,
+  (`not_generatesAnn_annEpsOps_why`). The same holds up to `≈`, nested
+  aggregation included (`annMuOps_isBasis_approx`,
   `muSet_mem_of_generatesAnnZ`)
-- `Provenance.MuUnion` – **`μ^∪` from `μ^⊎`** (`prop:muunion`, for every
-  restricted term): a set recursion is simulated by a bag recursion over
-  pairs of a tuple and a counter, the base `(q₀ ⊎ C) × E^K` and each
+- `Provenance.MuUnion` – **`μ^∪` from `μ^⊎`** (`basisRecOps_generatesOnRec`, for
+  every restricted term): a set recursion is simulated by a bag
+  recursion over pairs of a tuple and a counter, the base `(q₀ ⊎ C) × E^K` and each
   round applying the term to the tuple part and moving the counter to
   every larger one in the lexicographic order of `E^K` (`AggQueryIn.sim`,
   `simResult` = its tuple parts without duplicates).
@@ -1550,7 +1552,7 @@ proven engine several general results reuse internally.
   (`AggQueryIn.hasDecorrelation_of_usesOnly_gen`). Recursion-free, `{−, ×}`
   is a basis; with recursion it is not (`not_generatesOnRec_prodDiff`)
 - `Provenance.WindowPartition` – **a window over a whole partition is a join
-  with its grouping**: `AggQuery.winByJoin` writes it without a window – join
+  with its grouping**: `AggQueryIn.winByJoin` writes it without a window – join
   the query with its own grouping on the partition key with `≐`, the
   syntactic equality a window partitions by, and keep the group's aggregate
   column – and `evaluatePlain_winByJoin`, `evaluate_winByJoin` prove
@@ -1601,8 +1603,8 @@ proven engine several general results reuse internally.
   parameters', and equal parameters make equal inputs
   (`AggQueryIn.coh_node`)
 - `Provenance.AggQueryBridges` – **the fused `HAVING` site in closed
-  form**: `AggQuery.havingSite` is one aggregate comparison directly above
-  the grouping, and `AggQuery.havingSite_evaluateAnnotated` computes it
+  form**: `AggQueryIn.havingSite` is one aggregate comparison directly above
+  the grouping, and `AggQueryIn.havingSite_evaluateAnnotated` computes it
   – one row per group key, annotated by `Having.havingProv` – since the
   pending group factor is superseded by the token's predicate provenance
   (`AggValue.predProv_ofGroup`) and the data part collapses to the
@@ -1630,24 +1632,22 @@ proven engine several general results reuse internally.
   `σ_{ψ₁} ∘ σ_{ψ₂}` is a product of two, and they agree only where the
   conjunction decomposes, so the two spellings of what a SQL user calls
   one query part would differ – `4` against `2` over `ℕ`
-  (`natRangeToken_mul_ne_and`). `AggQuery.normalize` merges adjacent
+  (`natRangeToken_mul_ne_and`). `AggQueryIn.normalize` merges adjacent
   selections, a query being read as `evaluate (normalize q)`, and
   `normalize_chainFree`, `normalize_id_of_chainFree` and
   `normalize_idem` say the result has no selection above a selection,
   that normalizing a normal form changes nothing, and that the pass is
   idempotent. The equality it buys is up to impossible rows and not of
-  relations (`AggQuery.evaluate_Sel_reg_absorb`), since merging a
+  relations (`AggQueryIn.evaluate_Sel_reg_absorb`), since merging a
   regular selection keeps the rows it would have removed, annotated
-  `𝟘`. That the merge is *sound* is
-  `AggQuery.evaluate_Sel_merge_of_readsOne`: where both predicates read
-  one family on every row (`GenPred.ReadsOne`) and both entail its
-  existence, the merged selection computes what the chain computes, and
-  nothing is asked of `K` – the concrete parts agree by commutativity
-  and the pending parts because each supersede test reduces to "drop
-  that family's factor" (`Having.supersede_test_iff`) and dropping it
-  twice is dropping it once
+  `𝟘`. Where both predicates read
+  one family on a row (`GenPredIn.ReadsOne`), the pending parts of the
+  chain and of the merge agree with nothing asked of `K`: each supersede
+  test reduces to “drop that family's factor”
+  (`Having.supersede_test_iff`), and dropping it twice is dropping it
+  once
 - `Provenance.Alternatives` – **aggregate columns read as keys**, the
-  operator being `AggQuery.Explode` in `Provenance.AggQuery`: it replaces
+  operator being `AggQueryIn.Explode` in `Provenance.AggQuery`: it replaces
   each occurrence by its alternatives and makes the column regular, so
   a `GROUP BY` on a count or a `DISTINCT` on an aggregate can be
   written at all – every key-comparing operator takes regular columns.
@@ -1657,9 +1657,9 @@ proven engine several general results reuse internally.
   world, and it specializes to what the occurrence specializes to, so
   the random-world commutation covers it. It is **not** data-part
   adequate, and cannot be: it gives one row per value the column takes
-  in *some* world, so `AggQuery.evaluateAnnotated_toPlain` carries the
-  hypothesis `AggQuery.noExplode`. It **commutes with homomorphisms**
-  (`AggQuery.sim_alternativesAt`), since the values a token takes
+  in *some* world, so `AggQueryIn.evaluateAnnotated_toPlain` carries the
+  hypothesis `AggQueryIn.noExplode`. It **commutes with homomorphisms**
+  (`sim_alternativesAt`), since the values a token takes
   survive both the pushforward (`AggValue.vals_mapAnn`) and tie-block
   equivalence (`AggValue.vals_congr`) – both because `AggValue.vals`
   reads the occurrences only through their values
@@ -1702,16 +1702,16 @@ proven engine several general results reuse internally.
   counts worlds that do not exist
 - `Provenance.AggQueryProbability` – **the random-world commutation for
   the general evaluator** over `𝔹[X]`:
-  `AggQuery.genRandomWorld_evaluate` – specializing the realized rows
+  `AggQueryIn.genRandomWorld_evaluate` – specializing the realized rows
   of the general annotated evaluation is the plain evaluation of the
   realized world (`genRandomWorld v (q.evaluate d) =
   q.evaluatePlain (d.randomWorld v)`), for arbitrary queries with
   aggregate comparisons anywhere. Built from the token-level PQE bridge
   (`AggValue.predProv_eval_iff`), the predicate-provenance evaluation
-  under existence guards (`GenPred.predsem_eval_iff`, with `¬` handled by
+  under existence guards (`GenPredIn.predsem_eval_iff`, with `¬` handled by
   polarity), the existence-entailment extraction
-  (`GenPred.entails_guard`), the σ-aggregate row lemma
-  (`GenPred.sel_finalize_eval_iff`), and the conformance and guardedness
+  (`GenPredIn.entails_guard`), the σ-aggregate row lemma
+  (`GenPredIn.sel_finalize_eval_iff`), and the conformance and guardedness
   invariants of the evaluator (`evaluate_conform`,
   `evaluate_guarded`). A window commutes for the reason it was built to:
   restricting the relation to a world restricts every frame to that world,
@@ -1719,10 +1719,10 @@ proven engine several general results reuse internally.
   row (`tokenOf_specialize`). Its token is guarded by the row it is computed
   for whenever that row is in its own frame, and scalar – so exempt – when
   it is not. As corollaries, **unrestricted probabilistic
-  query evaluation**: `AggQuery.boolean_pqe` (the probability that a
+  query evaluation**: `AggQueryIn.boolean_pqe` (the probability that a
   random world has a non-empty answer is the probability of the query's
   Boolean provenance, the `⊕`-sum of the rows' finalized annotations) and
-  `AggQuery.tuple_pqe` (the marginal probability of an answer tuple, for
+  `AggQueryIn.tuple_pqe` (the marginal probability of an answer tuple, for
   all-regular outputs) – both for arbitrary queries with aggregate
   comparisons anywhere, removing the top-level restriction of the fused
   `booleanHaving_pqe`
@@ -1730,7 +1730,7 @@ proven engine several general results reuse internally.
   token and annotation layer: the finalized factored annotation
   (`GenAnn.finalize_mapHom`, through `map_delta`), the predicate
   provenance of a token comparison (`AggValue.predProv_mapAnn`) and of a
-  whole generalized predicate (`GenPred.predsem_mapAnn`) commute with
+  whole generalized predicate (`GenPredIn.predsem_mapAnn`) commute with
   every `SemiringWithMonusHom` –
   the `⊕`/`⊗`/`⊖`/`δ`-polynomial content of “compile once, evaluate
   many”. The evaluator-level commutation
@@ -1744,7 +1744,7 @@ proven engine several general results reuse internally.
   family is presented once for the whole evaluation (`ClassPres`,
   `AggQueryIn.evaluate_hom_univ`): the guard-absorption
   identities licensed by `delta_absorb`
-  (`AggValue.predProv_delta_absorb`, `GenPred.predsem_delta_absorb`)
+  (`AggValue.predProv_delta_absorb`, `GenPredIn.predsem_delta_absorb`)
   neutralize the supersede decisions a non-injective hom can conflate,
   the group-sequence transport (`havingGroup_tiePerm`,
   `ofGroup_predProv_hom`, `havingGroup_annSum_hom`) neutralizes the
@@ -1753,21 +1753,13 @@ proven engine several general results reuse internally.
   the evaluator. A window's frame is carried unchanged, being read off the
   values; what the pushforward moves is only the order inside a block of
   equal tuples, which `sortList_hom_tiePerm` and `tokenOf_mapAnn_tiePerm`
-  render invisible exactly as for a group. The layer asks nothing about
-  which kind of token an aggregate column holds, a nested one included:
-  `NestedValue.predProvWith_mapAnn` commutes its reading (the worlds of
-  the pushforward are the pushforwards of the worlds, `worlds_mapAnn`,
-  each carrying the pushed annotation, `World.ann_mapAnn`) and
-  `NestedValue.predProvWith_delta_absorb` gives it the guard absorption,
-  so `GenValue.Equiv` relates nested columns like expression ones. What a
-  *nested* column asks at the evaluator is more than those readings: its
-  world's weight takes one monus over both levels, and what carries it is
-  `NestedValue.World.ann_split`, which factors that monus occurrence by
-  occurrence in a complemented semiring (`monus_multiset_sum`), together
-  with the statistic `AggExpr.worldStats` – the bag of triples `(∏_{j∈S}
-  anns j, Σ_{j∉S} anns j, valOn S)` over the subfamilies of an inner
-  family – which `GenRow.Sim` relates on an aggregate column and which a
-  tie-block permutation preserves (`AggExpr.worldStats_congr`)
+  render invisible exactly as for a group. A *nested* column is related
+  family by family (`NestInner.Rel`): both sides' world enumerations are
+  images of one index bag, with products and absent sums pushed through
+  the hom (`NestedValue.WCorr`, from `wcorr_of_rel` under
+  `KeysFaithful`, which `keysFaithful_of_homUniv` supplies), so its world's
+  weight, one monus over every storey, is carried with nothing asked of
+  the semiring
 - `Provenance.QueryToAgg` – the embedding of the classical query
   syntax into the general evaluator: `Query.toAgg` translates the
   non-aggregating fragment one to one over all-regular kinds, faithfully
@@ -1789,33 +1781,33 @@ proven engine several general results reuse internally.
 - `Provenance.AggQueryRewriting` – **the provenance-aware rewriting,
   natively on the general syntax**: the rewritten column layout
   `ColKind.rewKinds` (`n` regular data columns plus one provenance
-  column), the fragment predicate `AggQuery.classical`, and the rewriting
-  `AggQuery.rewriting` mirroring the classical rules – with
+  column), the fragment predicate `AggQueryIn.classical`, and the rewriting
+  `AggQueryIn.rewriting` mirroring the classical rules – with
   deduplication and difference expressed through the native `ProvSum`
   aggregation of provenance columns and the `Retag` cast
 - `Provenance.AggQueryStrip` – the strip of the classical fragment back
-  to the classical `Query` syntax (`AggQuery.strip`) and its
-  faithfulness `AggQuery.strip_bridge`, through the row invariant
+  to the classical `Query` syntax (`AggQueryIn.strip`) and its
+  faithfulness `AggQueryIn.strip_bridge`, through the row invariant
   `GenRow.Inv`
 - `Provenance.AggQueryRewritingValid` – **correctness of the native
-  rewriting**: the plain-semantics agreement `AggQuery.rewriting_plain`
-  of the two rewritten queries, and `AggQuery.rewriting_valid`, which
+  rewriting**: the plain-semantics agreement `AggQueryIn.rewriting_plain`
+  of the two rewritten queries, and `AggQueryIn.rewriting_valid`, which
   states that the annotated semantics folded into composite `T ⊕ K`
   tuples agrees with the plain evaluation of the rewritten query
 - `Provenance.AggQueryHavingRewriting` – **the rewritten world's
   evaluator, with tokens as ordinary column values**: rewritten
   queries run over rows `Tuple (GenValue (T ⊕ K) K) n`
-  (`AggQuery.evaluateRew`), where the token-building grouping `GammaTok`
+  (`AggQueryIn.evaluateRew`), where the token-building grouping `GammaTok`
   is ProvSQL's `provsql_agg` (explicit annotation term, group guard
   `δ(⊕ occs)` in the `prov` output column) and the two term gates are
-  interpreted by their primitives (`TermG.evalRew`): `TermG.cmpAgg` is
-  `provsql_having`, read by `AggValue.predProv`, and `TermG.chiGate` is
+  interpreted by their primitives (`TermGIn.evalRew`): `TermGIn.cmpAgg` is
+  `provsql_having`, read by `AggValue.predProv`, and `TermGIn.chiGate` is
   the regular-atom indicator, read by `Having.chi`. Off the token
   operators and the indicator gate the evaluator is the plain semantics
-  through the `inl` embedding (`AggQuery.evaluateRew_plain`, under
-  `AggQuery.noGammaTok` and `AggQuery.chiFree`), connecting it to the
+  through the `inl` embedding (`AggQueryIn.evaluateRew_plain`, under
+  `AggQueryIn.noGammaTok` and `AggQueryIn.chiFree`), connecting it to the
   classical rewriting correctness – the classical rewriting stays inside
-  that fragment (`AggQuery.rewriting_chiFree`). `AggQuery.rewriting_provRel` reads a rewritten
+  that fragment (`AggQueryIn.rewriting_chiFree`). `AggQueryIn.rewriting_provRel` reads a rewritten
   evaluation back as an annotated relation – the input the token-building
   groupings consume – and `Having.havingGroup_toComposite` transports the
   group sequence along the composite embedding; the rewriting rules built
@@ -1832,82 +1824,83 @@ proven engine several general results reuse internally.
   embedding (`AggValue.toComposite` on token columns, the finalized
   annotation appended as the provenance column), agreeing with the old
   embedding on token-free rows (`GenRow.toCompositeRow_of_reg`);
-  `AggQuery.gammaRew` is the rewritten grouping (`GammaTok` over the
-  classically rewritten subquery) and `AggQuery.gammaRew_valid` its
+  `AggQueryIn.gammaRew` is the rewritten grouping (`GammaTok` over the
+  classically rewritten subquery) and `AggQueryIn.gammaRew_valid` its
   correctness; a `FILTER` clause rides into it unchanged
   (`Selection.castToAnnotatedTuple`), its aggregate's column being an
   expression over the whole group on both sides
   (`AggExpr.ofGroupWhen_toComposite`, against the rewritten world's
   `AggExpr.ofGroupWhenRew`, whose reading is the one the transport
   carries). Both rest on the reusable
-  `AggQuery.rewriting_provRel` – the rewritten world's reading of a
+  `AggQueryIn.rewriting_provRel` – the rewritten world's reading of a
   classical rewriting back as an annotated relation, and
   `AggValue.predProv_toComposite` – a transported token is read by the
   gate unchanged
 - `Provenance.AggQueryClosure` – **the compositional closure of the three
   base rewritings** (classical blocks, `HAVING` sites, bare groupings).
   Since the base rules do not share an output shape – a bare grouping
-  emits token columns – the relation `AggQuery.RewritesTo` is indexed by
+  emits token columns – the relation `AggQueryIn.RewritesTo` is indexed by
   the rewritten query's own kind vector and correctness
-  (`AggQuery.rewritesTo_valid`) is stated at token level, specializing to
-  the all-regular form as `AggQuery.rewritesTo_valid_reg`. The
+  (`AggQueryIn.rewritesTo_valid`) is stated at token level, specializing to
+  the all-regular form as `AggQueryIn.rewritesTo_valid_reg`. The
   uniform rewritten kind vector `ColKind.rewKindsOf κ` (source kinds plus
   the provenance column) makes casting into the rewritten world
-  kind-preserving, so `TermG.castRew`, `GenPred.castRew` and
-  `ProjCol.castRew` need no all-regular hypothesis and selection,
+  kind-preserving, so `TermGIn.castRew`, `GenPredIn.castRew` and
+  `ProjColIn.castRew` need no all-regular hypothesis and selection,
   projection and union close over token-bearing subqueries – the
   `SELECT … FROM (GROUP BY …)` shape. The module also lifts the two
-  scope restrictions of the `HAVING` site: `AggQuery.havingPredRew` is
+  scope restrictions of the `HAVING` site: `AggQueryIn.havingPredRew` is
   the site *with its aggregates exposed* (keys and tokens kept as output
   columns, the gates in the provenance column – the shape ProvSQL
   actually emits) for an *arbitrary* predicate with an aggregate atom,
   not just a single comparison, regular atoms mixed in included.
-  `GenPred.gateTerm` translates the `predsem` algebra into a rewritten
+  `GenPredIn.gateTerm` translates the `predsem` algebra into a rewritten
   term (`∧ ↦ ⊗`, `∨ ↦ ⊕`, `¬` pushed to the atoms), an aggregate atom
-  becoming a `provsql_having` gate and a regular one a `TermG.chiGate`
-  indicator gate. It is faithful (`GenPred.gateTerm_evalRew`) for a row
+  becoming a `provsql_having` gate and a regular one a `TermGIn.chiGate`
+  indicator gate. It is faithful (`GenPredIn.gateTerm_evalRew`) for a row
   whose aggregate columns hold no *nested* token: the gate reads the
   transported column, and the transport preserves the reading of an
   ordinary token (`AggValue.predProvOf_toComposite`) and of an
   expression – a window's, or a filtered aggregate's – alike
   (`AggExpr.predProv_toComposite`, off the world transport
   `AggExpr.isWorld_toComposite` and `AggExpr.valOn_toComposite`). What it
-  does exclude is a *range* atom (`GenPred.rangeFree`), and that is the
+  does exclude is a *range* atom (`GenPredIn.rangeFree`), and that is the
   gate vocabulary's own limit: ProvSQL's gate carries one comparison, so
   the emitted term is the product of two of them, which denotes the
   two-world reading. The system recovers the one-world reading in its
   evaluation pass instead – a product of conditions over one contributor
   family is resolved jointly, with the closed form `S_C ⊖ S_{D+1}`
   (`Having.G_eq_S_monus_S`) for a two-sided bound on a count – so
-  lifting the fence means modelling that pass, not adding a gate. Whether the group-existence guard is superseded or
-  kept as a factor is decided by `GenPred.entailsExistence`, in
-  `GenPred.siteProvTerm`: an aggregate-only predicate always supersedes
-  it (`GenPred.aggOnly_entailsExistence`), one with a regular atom
+  lifting the fence means modeling that pass, not adding a gate.
+  Whether the group-existence guard is superseded or
+  kept as a factor is decided by `GenPredIn.entailsExistence`, in
+  `GenPredIn.siteProvTerm`: an aggregate-only predicate always supersedes
+  it (`GenPredIn.aggOnly_entailsExistence`), one with a regular atom
   reachable in an empty group does not. Deduplication closes too, through
-  `AggQuery.dedupRew`/`AggQuery.dedupRew_valid`: ProvSQL's `ε` rule
+  `AggQueryIn.dedupRew`/`AggQueryIn.dedupRew_valid`: ProvSQL's `ε` rule
   (group by the data columns, `⊕`-sum the provenance column) proven
   against an arbitrary rewritten subquery. So does product
-  (`AggQuery.prodRew`/`AggQuery.prodRew_valid`), whose join reassembly
-  uses the kind-dispatched column copy `ProjCol.copy`, faithful because
+  (`AggQueryIn.prodRew`/`AggQueryIn.prodRew_valid`), whose join reassembly
+  uses the kind-dispatched column copy `ProjColIn.copy`, faithful because
   the operands' rows conform (`GenRow.toCompositeRow_conform` over
-  `AggQuery.evaluate_conform`). The **grouping itself** closes over an
-  arbitrary rewritten subquery (`AggQuery.RewritesTo.gammaOf`, off
-  `AggQuery.gammaRewOf_valid`): the rule asks only that some query of the
+  `AggQueryIn.evaluate_conform`). The **grouping itself** closes over an
+  arbitrary rewritten subquery (`AggQueryIn.RewritesTo.gammaOf`, off
+  `AggQueryIn.gammaRewOf_valid`): the rule asks only that some query of the
   rewritten world compute its input's rows – the pairs of a plain tuple
   and the annotation its provenance column carries, which
-  `AggQuery.provRel_of_toCompositeRow` reads off any such rewriting – so
+  `AggQueryIn.provRel_of_toCompositeRow` reads off any such rewriting – so
   a `GROUP BY` over a `GROUP BY` is covered, the inner aggregate column
   read out first as the kinds ask
-  (`AggQuery.rewritesTo_gamma_gamma`). The **selection with an aggregate
+  (`AggQueryIn.rewritesTo_gamma_gamma`). The **selection with an aggregate
   atom** closes over an arbitrary rewritten subquery as well
-  (`AggQuery.RewritesTo.selAgg`, off `AggQuery.selAggRew_valid`), so a
+  (`AggQueryIn.RewritesTo.selAgg`, off `AggQueryIn.selAggRew_valid`), so a
   `HAVING` need not sit on the grouping it reads – one over a grouping of
-  a grouping is covered (`AggQuery.rewritesTo_having_over_gamma`). Its
+  a grouping is covered (`AggQueryIn.rewritesTo_having_over_gamma`). Its
   provenance column is the gate term times the row's own provenance
   column, with no entailment test: where the predicate entails the
   group's existence the evaluator drops the pending factor and the gate
   term absorbs the guard left in the column instead
-  (`GenPred.predsem_absorb_prod`, for exactly the factors the evaluator's
+  (`GenPredIn.predsem_absorb_prod`, for exactly the factors the evaluator's
   supersede filter selects). ProvSQL's
   `having_entails_group_existence` test is therefore an optimization and
   not what makes the rewriting correct; the fused site rule stays because
@@ -1926,7 +1919,8 @@ proven engine several general results reuse internally.
   [Sen, Maniu & Senellart][sen2026provsql] on the classical syntax, with
   correctness `Query.rewriting_valid`. The difference rule joins the two
   branches on their data columns with `≐`, the syntactic equality difference
-  itself uses, so the rule holds over a domain with a null as it stands. Rule (R5) – aggregation – lives on the
+  itself uses, so the rule holds over a domain with a null as it stands.
+  Rule (R5) – aggregation – lives on the
   general syntax instead (`Provenance.AggQueryGroupRewriting`), where an
   aggregate output is a symbolic token rather than a quotiented K-tensor
 **HAVING: algebra, possible worlds, probability, and correctness**
@@ -2035,7 +2029,7 @@ proven engine several general results reuse internally.
   m-semirings (`⊗`-over-`⊖` distributivity is needed for `<`, `≤`, `=`,
   `≠` only; the monotone `≥` and `>` cases hold without it,
   `Query.joinCount_monotone_correct`): the `C = 1` case
-  (`AggQuery.havingSite_count_ge_one`, the fused `COUNT(*) ≥ 1` site
+  (`AggQueryIn.havingSite_count_ge_one`, the fused `COUNT(*) ≥ 1` site
   equals the duplicate-eliminated key projection) and the general
   case (`Query.joinChain_count_correct`, the `C`-fold self-join chain with
   a lexicographic occurrence-identifier tie-break gives every key the
@@ -2074,7 +2068,8 @@ proven engine several general results reuse internally.
   that the HAVING / JOIN correspondence for `COUNT(*)` needs both
   absorptivity (tropical over `ℤ ∪ {∞}`, for `≥`) and `⊗`-over-`⊖`
   distributivity (`ChainFive`, for `=`), and that the `≥` correspondence
-  does close in `ChainFive` (`ChainFive.query_ge_agree`). It also witnesses that the collapse of a
+  does close in `ChainFive` (`HavingQueryCounterexamples.ChainFive.query_ge_agree`).
+  It also witnesses that the collapse of a
   count needs absorptivity: over `ℕ`, two occurrences annotated `1` and `2`
   give a possible-world sum of `2`, the product, because every world
   omitting one of them is killed by the monus – neither the `⊕`-sum `3`
@@ -2110,7 +2105,8 @@ proven engine several general results reuse internally.
   nonetheless keep the **row-level** absorption of the `∨` rule, in
   every configuration of the two tests (`mm_row_agree_one`,
   `mm_row_agree_both`, `mm_row_agree_neither`) – so `δ = id` suffices
-  for that where `ChainFive` showed an idempotent `⊕` does not. Both instances are also stated against the definition
+  for that where `ChainFive` showed an idempotent `⊕` does not.
+  Both instances are also stated against the definition
   itself rather than against a sum written family by family –
   `natOrExpr` and `natCaseExpr` are the two Boolean functions as
   `AggExpr`s over one shared family, and `natOrExpr_ne_structural` and
@@ -2191,16 +2187,13 @@ proven engine several general results reuse internally.
   seen. It is the instance at `Set L` of
   `BooleanAlgebra.toSemiringWithMonus`, which reads **any** Boolean
   algebra as an m-semiring (`⊕ = ⊔`, `⊗ = ⊓`, `a ⊖ b = a ∖ b`, `δ = id`)
-  and proves there, once, everything the properties tables ask of a
-  semiring: both idempotences, absorptivity, exclusivity,
+  and proves there, once, every property the library states of an
+  m-semiring: both idempotences, absorptivity, exclusivity,
   complementedness and `⊗`-over-`⊖` distributivity. That construction is
   a `def` and not an instance on purpose – `Bool`, `Prop`, `Set α` and
   `α → Bool` are all Boolean algebras, so a global instance would collide
   with the catalog's own `𝔹` and `𝔹[X]` instances – and `Security` is its
   own type for the same reason
-
-**Published papers**
-
 - `Provenance.Semirings.Regex` – **the regular-expression semiring**
   (ProvSQL's `sr_regex`, 1.13.0): languages over the labels of the
   input tuples, `⊕` the union, `⊗` the concatenation, a product gate
@@ -2233,6 +2226,9 @@ proven engine several general results reuse internally.
   the monus on both sides, and absorptive on both sides for nonnegative
   costs (`absorptive_of`), which is what lets ProvSQL solve a recursion
   in it by Dijkstra's algorithm
+
+**Published papers**
+
 - `Provenance.Papers.Icde2026` – a frozen restatement of the claims of
   [Sen, Maniu & Senellart][sen2026provsql], each proved by applying the
   declaration the paper links to. Its statements are fixed at publication and
@@ -2256,7 +2252,7 @@ extension instead – monus difference, duplicate elimination, compositional
 aggregation – and therefore anchors correctness differently: through
 homomorphism commutation (`Provenance.QueryAnnotatedDatabaseHom`), the
 rewriting correctness theorems (`Query.rewriting_valid`,
-`AggQuery.rewritesTo_valid`), the possible-worlds adequacy of the
+`AggQueryIn.rewritesTo_valid`), the possible-worlds adequacy of the
 Boolean-function annotated semantics (`randomWorld_evaluateAnnotated` in
 `Provenance.Probability`), the `𝔹`-support adequacy and its transfer along
 monus homomorphisms (`Provenance.SupportAdequacy`), and the data-part

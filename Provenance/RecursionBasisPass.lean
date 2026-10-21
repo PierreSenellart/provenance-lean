@@ -3,9 +3,9 @@ import Provenance.WinKept
 /-!
 # The pass over the whole algebra
 
-`thm:plainbasis` classifies the bases of the recursion-free fragment and
-says of the whole algebra only which classes every basis contains. This
-module is the construction behind the other half: **one structural
+Which classes every basis of the whole algebra contains is
+`required_mem_of_generatesOnRec`. This module is the construction
+behind the generation half: **one structural
 induction** (`exists_basisRec_aux`) matching every query of the whole
 algebra in the minimal universe by a query over a target set of classes
 holding the construction's six (`AggQueryIn.sumMuOps`: `∅`, `Π`, `σ`,

@@ -3,10 +3,10 @@ import Provenance.RecursionBasis
 /-!
 # `⊎` from `μ^⊎` in the minimal universe
 
-`tab:basisclasses`'s `⊎` row holds of recursion-free class sets only
-(`union_mem_of_generatesOn`): with a bag recursion, the union is a
-derived operator. The construction (semantics session, 2026-10-12,
-checked on PostgreSQL 18): for `R`, `S` of arity `k`, two constants
+`⊎` is in every basis of the recursion-free algebra
+(`union_mem_of_generatesOn`), but with a bag recursion the union is a
+derived operator. The construction (checked on
+PostgreSQL 18): for `R`, `S` of arity `k`, two constants
 `p₀ ≠ p₁`, a `k`-tuple `c̄`, and `Z_R`, `Z_S` the two relations with the
 tag `p₀` prepended,
 
@@ -1128,7 +1128,7 @@ end AggQueryIn
 /-! ## The pass: every `⊎` replaced by the construction
 
 A `⊎` *inside a recursive body* cannot be replaced by the construction
-as it stands: the restriction on recursive terms (`AggQueryIn.recOnce`)
+as it stands: the restriction on recursive terms, which the syntax carries,
 lets the recursive relation be read under a projection, a selection, a
 product, the left side of an apply or a union, and under no recursion.
 What a body `q₁` with a `⊎` on its recursive path is, though, is a
@@ -2157,9 +2157,9 @@ theorem exists_sumFree_aux {S : Set OpKind} (hS : sumMuOps ⊆ S) {Θ : Set (Seq
     exact ⟨hs', by simp only [AggQueryIn.evaluatePlain, he']⟩
   | WinExpr P O o ws ts fs g q keeps ih => exact fun _ _ hi => hi.elim
 
-/-- **`⊎` is derivable from `μ^⊎` in the minimal universe** (the `⊎` row
-of `tab:basisclasses` for the whole algebra, the semantics session's
-construction, 2026-10-12): every query over the classes of `S` and `⊎` –
+/-- **`⊎` is derivable from `μ^⊎` in the minimal universe** (`⊎` is not
+needed in a basis of the whole algebra once `μ^⊎` is available): every
+query over the classes of `S` and `⊎` –
 restricted recursions, the signature `Θ`, every `⊎` all-regular – is
 matched, on every instance where it is defined, by one over the classes
 of `S` alone, for any `S` holding the construction's classes

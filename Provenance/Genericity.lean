@@ -3,8 +3,7 @@ import Provenance.RecursionBasisPass
 /-!
 # Genericity of the minimal universe: a query reads its parameters only up to order
 
-The order-type lemma `sec:basis` of `sql-semantics.tex` argues and does not
-check: a recursion-free query of the minimal signature, with parameters,
+The order-type lemma: a recursion-free query of the minimal signature, with parameters,
 answers up to the substitution of its parameters the same on any two
 parameter tuples that fall the same way among a finite set of values the
 query and the instance fix. This module builds the pieces: a **faithful

@@ -336,7 +336,7 @@ canonically ordered semiring needs – so read in the *semiring*, `⊕` is
 the join, `⊗` the meet, `𝟙` the top and `𝟘` the bottom. A statement
 about min-max is therefore true in either telling; only the `α`-values
 change places, which is worth saying because `𝟙 = ⟨⊥⟩` reads as
-"`𝟙` is the bottom" and means the opposite. -/
+“`𝟙` is the bottom” and means the opposite. -/
 
 /-- `𝟙` is `α`'s bottom, hence the semiring's top. -/
 theorem MinMax.one_eq_bot {α : Type} [LinearOrder α] [BoundedOrder α] :

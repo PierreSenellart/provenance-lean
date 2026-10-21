@@ -15,14 +15,14 @@ defines the substitution and proves the two readings agree – in the plain
 semantics for every substitution (`AggQueryIn.evaluatePlain_subst`), and in
 the annotated one for a *renaming* (`AggQueryIn.evaluate_substMap`): an
 aggregating operator records the values of the parameters it reads in the
-family it stamps, and a constant put in a parameter's place is no longer
-read as one.
+family it stamps, and a constant put in a parameter's place is not read
+as one.
 
 `substMap` sends each outer position either to a value or to an outer
 position of the target context. That generality is what the `Apply` case
 of the recursion needs: the right side of an apply reads its left
-neighbour's columns *and* the ambient outer ones, and closing the
-ambient part must leave the neighbour's alone. Closing everything is the
+neighbor's columns *and* the ambient outer ones, and closing the
+ambient part must leave the neighbor's alone. Closing everything is the
 special case `subst`.
 -/
 
@@ -372,8 +372,8 @@ def substRd {c d : ℕ} (θ : Fin c → T ⊕ Fin d) (rd : Fin c → Bool) : Fin
     ∧ rd k = true)
 
 /-- Substitute the outer columns of a query. The right side of an apply
-reads its left neighbour's columns first and the ambient outer ones
-after, so the substitution passes under it by leaving the neighbour's
+reads its left neighbor's columns first and the ambient outer ones
+after, so the substitution passes under it by leaving the neighbor's
 block alone and shifting the ambient one. -/
 def AggQueryIn.substMap {c d n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)}
     (θ : Fin c → T ⊕ Fin d) (q : AggQueryIn T c n κ l) : AggQueryIn T d n κ l :=

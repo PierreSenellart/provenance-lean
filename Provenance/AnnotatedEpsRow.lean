@@ -681,7 +681,7 @@ theorem dedup_or_muSet_mem_of_generatesAnn {S : Set OpKind}
   have hfin : r.snd.finalize = 2 := congrArg Prod.snd hre
   omega
 
-/-! ## The document's basis is minimal -/
+/-! ## The basis with `ε` is minimal -/
 
 /-- **No proper subset of `{∅, Π, σ, apply, γ, win, μ^⊎, ε, −}` generates
 the annotated algebra over both `ℕ` and `ℕ × ℕ`**, with the counting

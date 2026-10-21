@@ -80,10 +80,10 @@ is what a frame *is*, and `FrameCond` says it: not an arbitrary relation
 on order values, but one of these.
 
 This is what lets every frame of the syntax be read back as a predicate
-of the query language (`FrameCond.exists_pred`), so that deriving a
-window from an aggregation – `prop:winderived`, which spells the frame
-out as a selection against the current row – asks nothing of the frame
-beyond containing its current row. -/
+of the query language (`FrameCond.exists_condPred`), so that deriving a
+window from an aggregation through the apply, which spells the frame out
+as a selection against the current row, asks nothing of the frame beyond
+containing its current row. -/
 
 /-- The condition a frame names, as a condition on the order value of an
 occurrence (the first argument) against the current row's (the second).
@@ -1062,11 +1062,11 @@ theorem token_eq_tokenOf {c : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
 The operator's clause is read by `exprWhen` below, which keeps the frame
 whole and cuts what the leaf reads of it. The *token* here – the frame
 cut down to the occurrences the clause keeps, read in the scalar
-convention – is the cut-family reading that
-`HavingQueryCounterexamples.chain_count_zero_when_ne` refutes: with the
-family cut, the world holding only rejected rows is gone, and then a
-clause that keeps everything does not read as no clause. It remains as
-the machinery the expression's readings run on – the frame restriction
+convention – is the cut-family reading that `chain_count_zero_when_ne`
+(in `HavingQueryCounterexamples`) refutes: with the family cut, the
+world holding only rejected rows is gone, and then a clause that keeps
+everything does not read as no clause. It remains as the machinery the
+expression's readings run on – the frame restriction
 (`tokenOfWhen_filter_agg`) and the merge (`tokenOfDistWhen_specialize`)
 are proved of it – and no operator builds one. -/
 
@@ -1177,7 +1177,8 @@ theorem collapse_exprWhen [AddCommMonoid K] {c : ℕ} (P : Tuple (Fin n) m)
   · simp only [ite_true]
     rw [AggExpr.collapse_ofSeqDistWhen]
 
-/-- The relation-level counterpart of `tokenDistWhen`. -/
+/-- The cut-family window token of `tokenOfWhen`, merged by value under
+`DISTINCT`. -/
 def tokenOfDistWhen [AddCommMonoid K] {c : ℕ} (P : Tuple (Fin n) m)
     (O : Tuple (Fin n) p) (o : OrderSpec p) (w : ValueFrame T p)
     (t : TermIn T c n) (f : SeqAggFunc T) (dist : Bool)
@@ -1493,8 +1494,8 @@ theorem collapse_exprWhenOf [AddCommMonoid K] {c : ℕ} (P : Tuple (Fin n) m)
 
 /-! ## The frames the clause determines
 
-`ρ o' o` reads "an occurrence with order value `o'` is in the frame of one
-with order value `o`", so the current row's value is the second argument. -/
+`ρ o' o` reads “an occurrence with order value `o'` is in the frame of one
+with order value `o`”, so the current row's value is the second argument. -/
 
 /-- `RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW` under the clause
 `o`, SQL's default frame when a window names an `ORDER BY`: the current row,
@@ -1705,8 +1706,8 @@ theorem not_containsSelf_excludeTies (o : OrderSpec p) {w : ValueFrame T p}
 
 omit [ValueType T] in
 /-- `RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW` under the
-all-ascending clause is `ValueFrame.upTo`, which is now what that frame
-is defined to be: a frame names a condition, and the condition the
+all-ascending clause is `ValueFrame.upTo`, which is how that frame is
+defined: a frame names a condition, and the condition the
 domain's own order states is the all-ascending clause's. -/
 theorem rangeUpTo_asc :
     (rangeUpTo (OrderSpec.asc p) : ValueFrame T p) = ValueFrame.upTo := rfl
@@ -1826,7 +1827,7 @@ leaf aggregates there. The conventions are the unfiltered ones: a clause
 does not make a leaf scalar, since the world in which only rejected rows
 are present is a world of the frame, and the leaf reads `f []` in it.
 Cutting the family instead loses that world, and then no convention is
-right (`HavingQueryCounterexamples.chain_count_zero_when_ne`). -/
+right (`chain_count_zero_when_ne`, in `HavingQueryCounterexamples`). -/
 def exprOfValsWhen (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
     (o : OrderSpec p) (ws : Fin q → ValueFrame T p)
     (keeps : Fin q → Option (Selection T n))

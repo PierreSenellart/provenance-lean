@@ -18,7 +18,9 @@ An `AggValue` cannot hold this: its reading consults its own occurrence
 list alone. `NestedValue` carries, per outer occurrence, the inner
 aggregate value the term reads there, and a `World` chooses which outer
 occurrences are present *and* which occurrences of each inner family
-are.
+are. An inner value may itself be nested, to any depth: `NestInner T K j`
+is a value of storey `j`, an aggregate expression at storey `0` and an
+expression or an inner node (`NestNode`) above it.
 
 ## Inner families are shared
 
@@ -27,22 +29,25 @@ apply repeats a row carrying an aggregate value, and a grouping over the
 result sees the value once per copy. The inner family is then **one**
 family, decided once in each world, not once per copy – the inner
 occurrences are objects, and an object is present or absent, not both.
-So a nested value keeps its occurrences grouped by the inner family they
-read (`groups`, each group with the family's annotations and the
-occurrences reading it), a world decides one subfamily per group
-(`WorldGrp.sub`), and a world's annotation counts each inner occurrence
-once. Two inner values belong to one family when they carry the same
-family identifier and the same occurrence annotations (`innerKey`), which
+So a world decides each family once: the value's own occurrences
+(`World.root`), the positions kept of each expression family
+(`World.leaf`) and the occurrences present of each inner node
+(`World.node`), read through the decider that looks a family up by its
+key (`World.dec`); a world's annotation counts each inner occurrence
+once. Two inner expressions belong to one family when they carry the same
+family identifier and the same occurrence annotations (`leafKey`), which
 is how the joint reading of a selection groups the aggregate columns of a
-row (`AggTok.classKey`).
+row (`AggTok.classKey`); two inner nodes, when they carry the same family
+identifier and the same occurrences (`NestNode.key`).
 
 ## No sequence, and so a bag
 
 `≼` orders plain tuples, and an occurrence of a nested value carries a
 tuple with an *aggregate* column, so there is nothing to order these
 occurrences by: the family a nested value aggregates is a bag, and so is
-each group. Its aggregate is accordingly a function of a bag, a world is
-a bag of decided groups, and `worlds` enumerates the worlds off that bag.
+each inner node's. Its aggregate is accordingly a function of a bag, a
+world is made of bags of decisions, and `worlds` enumerates the worlds
+off those bags.
 Nothing indexes an occurrence, so no reading has to be shown invariant
 under a relisting of the family, and an operator building a nested value
 needs no order to list its group in – which is what it could not have, a
@@ -67,9 +72,9 @@ choosing which of those occurrences are present, so a blanket condition
 would quantify over occurrences the world has already excluded.
 
 Whether a world should also be *barred* from meeting an inner family no
-present occurrence reads is settled in the negative (`World.IsWorldWith`):
-the predicate is a parameter of everything below so that the refuted
-reading can be stated.
+present occurrence reads is settled in the negative (`World.IsWorldWith`
+sets out why); the refuted reading is kept as `World.IsWorldCoherent` so
+that its refutation can be stated.
 -/
 
 variable {T K : Type}
@@ -188,7 +193,7 @@ So a world decides each **family** once. An aggregate expression's family
 is keyed by its family identifier and its annotations (`leafKey`) – the
 key a joint reading groups a row's aggregate columns by
 (`AggTok.classKey`); a node's occurrences by its family identifier and the
-occurrences themselves (`nodeKey`). -/
+occurrences themselves (`NestNode.key`). -/
 
 /-- **The key of an expression's family**: its family identifier and its
 occurrence annotations. -/
@@ -415,8 +420,8 @@ on an aggregate value brings a failing group's row to `𝟘` while its
 aggregate column stays realized, so the actual world keeps the inner
 occurrences of an absent outer one. Barring that configuration removes
 the world as it is: over `𝔹` the two readings give `⊤` and `𝟘` on
-`HavingQueryCounterexamples.nestedIncoherentWitness`
-(`nestedIncoherent_ne_coherent`, `realizedWorld_not_coherent`), so a
+`nestedIncoherentWitness` (in `HavingQueryCounterexamples`;
+`nestedIncoherent_ne_coherent`, `realizedWorld_not_coherent`), so a
 coherent reading would contradict `World.ann_eval_iff` and the
 possible-world results resting on it.
 
@@ -1416,18 +1421,18 @@ A column of aggregate kind holds an ordinary token, a nested one or an
 aggregate expression. `AggTok` is that choice, and `GenValue` is built on
 it, so an ordinary token keeps its type and everything already proved
 about `AggValue` applies to the `tok` case unchanged. The `nest` case has
-its own readings, and what is proved of them travels: the pushforward
-moves no value (`NestedValue.valOn_mapAnn`), keeps the values the column
-takes (`vals_mapAnn`) and commutes with the predicate provenance
-(`AggQueryHom`'s `NestedValue.predProvWith_mapAnn`), so the hom
-commutation of a column and of a predicate asks nothing about the kind of
-token. It also absorbs the `δ`-guard of its own family
+its own readings: the pushforward keeps the values the column takes
+(`AggTok.vals_mapAnn`), and the hom commutation relates two nested values
+family by family (`NestInner.Rel`), their world enumerations being images
+of one index bag (`wcorr_of_rel`). It also absorbs the `δ`-guard of its own family
 (`NestedValue.predProvWith_delta_absorb`), which is what the evaluator's
 supersede bookkeeping needs, and over `𝔹[X]` only the world a valuation
 cuts out is annotated true (`NestedValue.World.ann_eval_iff`), which is
-what the random-world reading needs. So no result of the metatheory asks
-which kind of token a column holds any more. What a result may still
-exclude is the *operator* that builds one – second-level aggregation,
+what the random-world reading needs. So the results of the metatheory
+ask nothing of the kind of token a column holds; the one-token `mapAnn`
+commutations (`AggTok.predProvOf_mapAnn` and its siblings) ask
+`isNested = false`, and nothing downstream reads them on a nested column.
+What a result may exclude is the *operator* that builds one – second-level aggregation,
 `AggQueryIn.GammaNest` – and it does that with
 `AggQueryIn.noGammaNest`, not with a condition on the column;
 `GenRow.NoNested` is what `AggQueryIn.evaluate_noNested` gives a query

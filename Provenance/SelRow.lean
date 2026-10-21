@@ -807,18 +807,18 @@ theorem ltWitness_not_expressible {Θ : Set (SeqAggFunc ℕ)} {S : Set OpKind}
 
 /-! ## The row -/
 
-/-- **Generation with no aggregate column read as a key**: the whole-algebra
-generation predicate (`GeneratesOnRec`) with the produced query also
-asked to be `noExplode` and well-kinded. This is the scope of the
-annotated classification, where the alternatives are not an operator of the
-source language; over it the selection is in every basis, which the plain
-scope's "`−` for `σ`" construction escapes only by reading aggregate
-columns as keys. An apply's right side reading an aggregate column of its
-left side as a plain value would escape it the same way – a window's rank
-read as a parameter compares two values against a constant with a
-difference – and well-kindedness is what refuses that reading: an
-aggregate parameter is read by the leaf `AggQueryIn.Param`, into an
-aggregate column. -/
+/-- **Generation with no aggregate column read as a key**: the
+whole-algebra generation predicate (`GeneratesOnRec`) with the produced
+query also asked to be `noExplode` and well-kinded. This is the scope of
+the annotated generation, where the alternatives are not an operator of
+the source language; over it the selection is in every basis, which the
+plain construction putting `−` in place of `σ` (`basisRecDiffOps_isBasis`)
+escapes only by reading aggregate columns as keys. An apply's right side
+reading an aggregate column of its left side as a plain value would escape
+it the same way – a window's rank read as a parameter compares two values
+against a constant with a difference – and well-kindedness is what refuses
+that reading: an aggregate parameter is read by the leaf
+`AggQueryIn.Param`, into an aggregate column. -/
 def GeneratesAtNoExplode (T : Type) [ValueType T] (sch : Schema) (cnt : SeqAggFunc T)
     (S : Set OpKind) {n : ℕ} {κ : Fin n → ColKind} (q : AggQuery T n κ) : Prop :=
   q.overSchema sch → q.usesOnly plainRecOps → q.inMinimalSig cnt →

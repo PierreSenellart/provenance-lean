@@ -1,7 +1,7 @@
 import Provenance.Genericity
 
 /-!
-# `μ^∪` from `μ^⊎` (`prop:muunion`)
+# `μ^∪` from `μ^⊎`
 
 A set recursion `μ^∪R.(q₀, q₁)` whose recursive term is `L(R) ⊎ C`, with
 `L` reading `R` once under a projection, a selection, a product, the left
@@ -14,7 +14,7 @@ increasing chain, so the bag recursion ends after `|E|^K` rounds – it
 always settles – and its rounds carry, as sets, the rounds of the set
 recursion, which reach the fixpoint within `|F|` rounds, `F` the
 fixpoint. So `ε(Π_tuple(S)) = F` as soon as `|E|^K ≥ |F|`
-(`AggQueryIn.evaluatePlain_muSetSim`).
+(`AggQueryIn.evaluatePlain_simResult`).
 
 This module has the construction and its correctness for *any* counter
 relation `E` of non-null values that is large enough. What `E` can be
@@ -22,7 +22,7 @@ read off the query is the other half: the values of the instance at the
 recursion's leaves, its constants and the context, with two constants of
 the domain (`counterRel`), and a width `K` fixed by the query. A count
 inside the term takes values that no such set enumerates, which is where
-the paper's *order-type* lemma enters: the fixpoint is duplicate-free
+the *order-type* lemma enters: the fixpoint is duplicate-free
 over those values and the counts the recursion computes, of which there
 are polynomially many (`AggQueryIn.exists_card_bound_muSet` in
 `Provenance.Genericity`), so `|F| ≤ |E|^K` for a `K` read off that
@@ -33,7 +33,8 @@ variable {T : Type} [ValueType T]
 
 /-! ## Linear recursive terms
 
-`recOnce` admits the recursive relation under a `⊎`, with the other side
+The typing of a recursive term admits the recursive relation under a
+`⊎`, with the other side
 closed; the simulation needs the term without that side – which is the
 `q₁'` half of the split the generation pass produces – and reading the
 relation at a fixed arity. -/
@@ -581,7 +582,7 @@ theorem AggQueryIn.evaluatePlain_substRel {s : String} {c n : ℕ}
 
 omit [ValueType T] in
 /-- The substituted term mentions nothing the term and `ρ` do not, and
-no longer the recursive name. -/
+not the recursive name. -/
 theorem AggQueryIn.noMention_substRel {s s' : String} {c n : ℕ}
     (pv : Fin n → T ⊕ Fin c) (hρ : (AggQueryIn.Param pv (ColKind.allReg n) : AggQueryIn T c n
         (ColKind.allReg n)).noMention s') :
@@ -1473,8 +1474,8 @@ namespace AggQueryIn
 
 variable {c : ℕ}
 
-/-- **`μ^∪` from `μ^⊎`** (`prop:muunion`, the correctness of the
-construction): for a set recursion `μ^∪R.(q₀, q₁)` whose term splits as
+/-- **`μ^∪` from `μ^⊎`** (the correctness of the construction): for a
+set recursion `μ^∪R.(q₀, q₁)` whose term splits as
 `L ⊎ C` with `L` linear, a base query computing `q₀ ⊎ C`, and a counter
 relation `E` of non-null values with `|E|^K` at least the size of the
 fixpoint, the simulation's tuples are the fixpoint, wherever the
@@ -2632,8 +2633,8 @@ end AggQueryIn
 
 /-! ## The set recursion replaced
 
-`prop:muunion` as the pass needs it: where the target classes hold no
-`μ^∪`, a set recursion whose term computes no aggregate is replaced by
+The simulation as the pass needs it: where the target classes hold no
+`μ^∪`, a set recursion is replaced by
 the simulation – its base the rewritten base and closed part summed, its
 term the rewritten body, its counter the counter relation over the values
 the fixpoint can hold – and the unions the counter relation is built with
@@ -2916,8 +2917,8 @@ theorem union_notMem_basisRecOps : OpKind.union ∉ basisRecOps := by
 theorem muSet_notMem_basisRecOps : OpKind.muSet ∉ basisRecOps := by
   simp [basisRecOps, AggQueryIn.sumMuOps]
 
-/-- **`prop:muunion` as a generation statement, for every restricted
-term**: over a schema declaring finitely many names, every query of the
+/-- **`μ^∪` is not needed, for every restricted term**: over a schema
+declaring finitely many names, every query of the
 whole algebra in the minimal universe with restricted recursions is
 matched over `∅`, `Π`, `σ`, the apply, `γ`, `win` and `μ^⊎` – defined
 wherever the query is and equal to it there. A set recursion is simulated
@@ -2927,8 +2928,9 @@ fixpoint is duplicate-free over those values and the counts the recursion
 computes, of which there are polynomially many
 (`AggQueryIn.exists_card_bound_muSet`, off the order types of
 `Provenance.Genericity`), so a counter of a width fixed by the query
-covers it. With the necessity rows, a basis of the whole algebra in the
-minimal universe is `∅`, `Π`, `γ`, `μ^⊎`, one of `σ` and `−`, one of `×`
+covers it. With the necessary classes (`required_mem_of_generatesOnRec`),
+a basis of the whole algebra in the minimal universe is `∅`, `Π`, `γ`,
+`μ^⊎`, one of `σ` and `−`, one of `×`
 and the apply, and `win` (`Provenance.WinRow`); `μ^∪` is in none. -/
 theorem basisRecOps_generatesOnRec (sch : Schema) (cnt : SeqAggFunc T) (hcnt : cnt.IsCount) :
     GeneratesOnRec T sch cnt basisRecOps := by
@@ -2943,8 +2945,8 @@ theorem basisRecOps_generatesOnRec (sch : Schema) (cnt : SeqAggFunc T) (hcnt : c
   exact ⟨_, q', hb.over sch hfsch ho, hb.usesOnly, hb.inSig,
     AggQueryIn.Extends.of_settles (fun D γ hs => he D γ hs)⟩
 
-/-- **And without the window class**, for the windows `prop:winderived`
-reaches: the six classes `∅`, `Π`, `σ`, the apply, `γ` and `μ^⊎` match
+/-- **And without the window class**, for the windows an apply derives
+(`evaluatePlain_winByApplyOf`): the six classes `∅`, `Π`, `σ`, the apply, `γ` and `μ^⊎` match
 every query of the whole algebra in the minimal universe whose windows
 are derivable (`AggQueryIn.WinsDerivable`). -/
 theorem sumMuOps_generatesOnRec_of_winsDerivable (sch : Schema)

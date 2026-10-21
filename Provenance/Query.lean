@@ -439,7 +439,7 @@ exclude the row it is computed for – it is read, by the scalar convention of
 
 Each aggregate of SQL also comes with an *input policy*, which says what it
 reads of a sequence in which some values are null. There are three.
-*Null-skipping* (`SUM`, `MIN`, `MAX`, `AVG`, …) drops the nulls and answers
+*Null-skipping* (`SUM`, `MIN`, `MAX`, `AVG` …) drops the nulls and answers
 `NULL` over what is left of nothing: that is `sqlOf`. *Counting* (`COUNT`)
 reads every occurrence, which counts when its value is not null, and
 answers `0` over nothing: that is `counting`. *Null-keeping* (`ARRAY_AGG`,

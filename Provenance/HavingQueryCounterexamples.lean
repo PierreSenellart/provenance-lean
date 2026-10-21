@@ -24,7 +24,8 @@ that both hypotheses are needed. All facts are checked by `decide`.
 
 It also witnesses, at that same level, that the `EXCEPT` spelling of
 `WHERE NOT EXISTS` is not the antijoin
-(`ChainFive.antijoin_query_ne_except`, beside the algebraic
+(`HavingQueryCounterexamples.ChainFive.antijoin_query_ne_except`,
+beside the algebraic
 `ChainFive.antijoin_ne_difference`). An operator-level witness and a
 query-level one are different statements, not two presentations of one:
 the second has to pick the operators the syntax offers, an instance on
@@ -53,8 +54,8 @@ comparison is on the multisets of annotations.
   with annotations `(mid, hi, hi)` on one group, `COUNT(*) = 1` yields
   annotation `hi` on the fused side but `𝟘` on the join side. On the same
   instance the monotone comparisons `COUNT(*) ≥ 1` and `COUNT(*) ≥ 2` do
-  agree with `Q₂^{≥1}` and `Q₂^{≥2}` (`ChainFive.query_ge_agree`,
-  `ChainFive.query_ge_two_agree`), as `Query.joinCount_monotone_correct`
+  agree with `Q₂^{≥1}` and `Q₂^{≥2}` (`HavingQueryCounterexamples.ChainFive.query_ge_agree`,
+  `HavingQueryCounterexamples.ChainFive.query_ge_two_agree`), as `Query.joinCount_monotone_correct`
   requires: distributivity is needed for `=`, not for `≥`.
 
 * **Absorptivity is needed**
@@ -70,7 +71,7 @@ comparison is on the multisets of annotations.
   `ChainFive`, one row annotated `mid` grouped and tested by
   `HAVING count(*) ≐ 0` gives `𝟘`, while the same read over the
   occurrences the clause keeps, in the scalar convention, gives `𝟙`.
-  This is why no clause cuts a family any more: a grouping, a window and
+  This is why no clause cuts a family: a grouping, a window and
   a multi-frame window all read one through `AggExpr`'s two flag families
   (`AggExpr.ofGroupWhen`, `ValueFrame.exprWhen`, `ValueFrame.exprOfWhen`),
   and what the expression reading gives instead is `chainExprNone_zero`,
@@ -303,7 +304,7 @@ theorem MinTropicalZ.existsToken_sum :
     ∑ i, MinTropicalZ.existsToken.anns i
       = MinTropical.trop ((-1 : ℤ) : WithTop ℤ) := by decide
 
-/-- **`WHERE EXISTS` is not "times the sum of the witnesses" outside
+/-- **`WHERE EXISTS` is not “times the sum of the witnesses” outside
 absorptivity.** The two differ by a whole `trop (-1)`: the row is read as
 asking that *every* match be present, not that at least one is. -/
 theorem MinTropicalZ.existsToken_ne_sum :
@@ -335,7 +336,7 @@ the second is weighted `𝟙 ⊖ 2 = 𝟘`, and one that omits the first `𝟙 �
 𝟘`, so the only world contributing is the one holding both, and the sum is
 their product. The reading the collapse gives under absorptivity is
 `⊕αᵢ = 3`, and the indicator reading `δ(⊕αᵢ)` is `𝟙`; the sum is `2`, and
-is neither. What it counts is "every match present", not "at least one". -/
+is neither. What it counts is “every match present”, not “at least one”. -/
 
 /-- The token of two occurrences annotated `1` and `2`, counted. -/
 def natCountToken : AggValue ℕ ℕ := ⟨SeqAggFunc.count, [(1, 1), (1, 2)], true, FamId.none, []⟩
@@ -460,7 +461,7 @@ deterministic function of SQL, a Boolean combination among them.
 `GenPredIn.predsem` is not that definition but a short cut for it,
 `∧ ↦ ⊗` and `∨ ↦ ⊕`, the computation ProvSQL performs where the
 m-semiring's properties license it – the same semantics, computed
-cheaply. The question each instance below settles is where the licence
+cheaply. The question each instance below settles is where the license
 runs out. For `∧` they do under hypotheses
 (`Having.sum_mul_sum_of_overlap`, with `complemented` alone for
 disjoint families and `AggValue.predProvOf_mul_predProvOf` for one
@@ -910,8 +911,8 @@ A filtered aggregate read over the occurrences the clause keeps – a *cut*
 family – has to be read in the scalar convention, and the convention is
 forced by the clause that keeps nothing: the family is then empty, so only
 the empty world can carry the row SQL still emits for a group that exists.
-(`AggValue.ofGroupWhen` was that reading; the library now reads a filtered
-aggregate as an expression over the whole group.)
+The library does not read a filtered aggregate that way: it reads it as
+an expression over the whole group (`AggExpr.ofGroupWhen`).
 
 Where the clause keeps *everything*, the same recipe is not the unfiltered
 reading. The empty world of the uncut family weighs `𝟙 ⊖ ⊕α`, and the
@@ -1503,7 +1504,7 @@ theorem nnreal_not_complemented : ¬ complemented NNReal := by
 
 /-! ## The coherent reading of a nested world is not a convention
 
-`q:nestedcoherent` asks whether a world of a nested value may keep an
+The question is whether a world of a nested value may keep an
 inner occurrence of an outer occurrence it drops. The library's
 `NestedValue.World.IsWorld` allows it; `IsWorldCoherent` forbids it. It
 would be tempting to close the question by showing the two readings agree
@@ -1552,7 +1553,8 @@ theorem nestedIncoherentWitness_world_counts :
       = (5, 3) := by decide
 
 /-- **And they weigh the row differently over `𝔹`**: `⊤` against `𝟘`. So
-`q:nestedcoherent` is not settled by `δ = id` with exclusivity, and the
+whether a nested world must be coherent is not settled by `δ = id` with
+exclusivity, and the
 two readings are not interchangeable in any semiring of the catalog. -/
 theorem nestedIncoherent_ne_coherent :
     ((nestedIncoherentWitness.worlds.filter

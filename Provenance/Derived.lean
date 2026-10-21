@@ -952,8 +952,7 @@ def rankRange {n : ℕ} (κ : Fin n → ColKind) (lo hi : T) :
 
 /-- **The range a truncation filters on is one atom**, so its predicate
 provenance is the single `⊕`-sum over the worlds where the rank is in
-range – the annotation §derivedann asks of a truncation, with no
-hypothesis on the m-semiring. Written as a conjunction of two atoms it
+range, with no hypothesis on the m-semiring. Written as a conjunction of two atoms it
 would instead be the product of two sums, which is that sum only where
 `AggValue.predProvOf_mul_predProvOf` applies. -/
 theorem predsem_rankRange {K : Type} [CommSemiringWithMonus K]

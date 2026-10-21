@@ -9,8 +9,8 @@ import Provenance.AggQuery
 
 An aggregate reads its group – or a window's frame – as a *sequence*,
 and the clause only partly fixes that sequence: rows the clause leaves
-tied may be listed either way. `sql-semantics.tex` answers this by
-admitting a query only where the listing cannot matter: each aggregate
+tied may be listed either way. A query is admitted only where the
+listing cannot matter: each aggregate
 is symmetric, or any two rows its clause ties carry equal values of the
 term it aggregates. That condition is about the rows, so it is a
 judgment about the query *and* the instance, and a query that fails it
@@ -48,7 +48,7 @@ the adequacy hold on every instance, determinate or not. Determinacy is
 what a *second* listing asks for, which is why it is the hypothesis the
 re-typing of `Provenance.AllRegular` carries at a window: erasing a
 column's tag lets it into the tie-break, and
-`ValueFrame.windowValue_readTuple_of_det` is where `rowsAgree` and
+`ValueFrame.windowValueOpt_readTuple_of_det` is where `rowsAgree` and
 `OrderSpec.map_eq_of_keySorted` are put to work.
 -/
 
@@ -236,8 +236,8 @@ def Relation.allRows {k : ℕ} (r : Multiset (Tuple T k))
 /-- **The query's aggregates cannot tell their listings apart, on this
 instance**: at each aggregation and each window, either the aggregate
 reads its input as a bag, or the term it aggregates is constant on the
-rows the clause leaves tied. This is the condition under which the
-document admits a query – a condition on the rows, so a judgment about
+rows the clause leaves tied. This is the condition under which a query
+is admitted – a condition on the rows, so a judgment about
 the query *and* the instance, which is why it is quantified here and not
 read off the syntax. -/
 def AggQueryIn.DeterminateOn : {c n : ℕ} → {κ : Fin n → ColKind} → {l : List (String × ℕ)} →

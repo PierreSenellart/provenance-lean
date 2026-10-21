@@ -33,7 +33,7 @@ aggregate-comparison atom holds on the contributors of a single group:
   `ρ_{J ⊔ {i}}(j+1) = (1 - p i) · ρ_J(j+1) + p i · ρ_J(j)`,
   `ρ_{J ⊔ {i}}(0) = (1 - p i) · ρ_J(0)`.
 * **SUM (weighted Poisson-binomial) recurrence**
-  (`sumMass_insert`):
+  (`sumMass_insert_of_le`, `sumMass_insert_of_lt`):
   `σ_{J ⊔ {i}}(s) = (1 - p i) · σ_J(s) + p i · σ_J(s - t i)`
   (with the convention that `σ_J` at a negative-shifted index is `0`).
 

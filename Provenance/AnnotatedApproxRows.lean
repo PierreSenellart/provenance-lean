@@ -7,7 +7,7 @@ import Provenance.AnnotatedBasisClass
 /-!
 # The necessity rows up to `≈`
 
-The paper compares annotated results up to `≈`: rows annotated `𝟘` are
+Annotated results are compared up to `≈`: rows annotated `𝟘` are
 dropped, and so are the occurrences annotated `𝟘` inside aggregate values.
 `GeneratesAnnZ` is `GeneratesAnn` with that comparison in place of
 equality, so a set generating up to `≈` need not reproduce the rows a
@@ -17,11 +17,12 @@ against it.
 * The comparison (`GenRow.zeroNorm`) keeps the rows whose annotation is
   not `𝟘` and reads each aggregate column in the world of its occurrences
   annotated otherwise (`GenRow.zeroTuple`). It reads a token's value and
-  not the token, so it is coarser than the paper's `≈` on results that
-  carry aggregate values: generating up to the paper's `≈` generates up
-  to this one, and the rows below are the stronger statements.
-* **The rows inherited from the plain basis** can no longer go through
-  the data part: a match may annotate `𝟘` rows the plain result does not
+  not the token, so it is coarser than the comparison by occurrence
+  identity (`GenRow.zeqRen`) on results that carry aggregate values:
+  generating up to that one generates up to this one, and the rows below
+  are the stronger statements.
+* **The rows inherited from the plain basis** cannot go through the
+  data part: a match may annotate `𝟘` rows the plain result does not
   hold. They go through the Boolean support instead. Over `𝔹` (`BoolNone`,
   Boolean functions of no variable) the rows `≈` keeps are the realized
   world of an evaluation, which is the plain evaluation of the realized
@@ -446,9 +447,10 @@ theorem zeroNorm_fst_boolNone {n : ℕ} (R : Multiset (GenRow T BoolNone n)) :
 
 /-- **The transfer to the plain semantics, up to `≈`**: a set generating the
 annotated algebra over `𝔹` up to `≈` generates, plainly and without
-reading aggregate columns as keys, every faithful query. Over `𝔹` the rows `≈` keeps are the realized
-world of an evaluation, which is the plain evaluation of the realized
-world (`AggQueryIn.genRandomWorld_evaluate`), and an instance annotated `𝟙`
+reading aggregate columns as keys, every faithful query. Over `𝔹` the
+rows `≈` keeps are the realized world of an evaluation, which is the
+plain evaluation of the realized world
+(`AggQueryIn.genRandomWorld_evaluate`), and an instance annotated `𝟙`
 realizes itself. -/
 theorem generatesAtNoExplode_of_generatesAnnZ {sch : Schema} {cnt : SeqAggFunc T}
     {S : Set OpKind} (h : GeneratesAnnZ T BoolNone sch cnt S) {n : ℕ} {κ : Fin n → ColKind}

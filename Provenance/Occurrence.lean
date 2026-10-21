@@ -18,10 +18,10 @@ results – a window frame that excludes the row it is computed for reads its
 twin and not itself, so the two rows get different aggregate values from the
 same relation. A comparison may read two aggregate values whose occurrence
 families overlap, and then the worlds it sums over are subfamilies of their
-union, which needs an occurrence of one family to be recognisable as an
+union, which needs an occurrence of one family to be recognizable as an
 occurrence of the other. And a statement *about* an operator may quantify
 over the ways equal rows could be told apart, which is how one shows that no
-operator selecting rows can have the behaviour of `EXCEPT ALL`.
+operator selecting rows can have the behavior of `EXCEPT ALL`.
 
 This module gives the finer reading: a relation as a family indexed by
 occurrences, where the index is the identity a multiset discards. It does not
@@ -184,9 +184,9 @@ relation as a family involves no arbitrary choice.
 
 This is the standard fact that a permutation of lists gives a bijection of
 positions carrying one to the other, which Mathlib does not appear to state
-for lists with repeats. It is the one obligation of this module left open;
-nothing below depends on it for its definition, only for the claim that the
-definition is about relations rather than about indexings. -/
+for lists with repeats. Nothing below depends on it for its definition, only
+for the claim that the definition is about relations rather than about
+indexings. -/
 theorem Congr_of_toMultiset_eq {r r' : OccFam α}
     (h : r.toMultiset = r'.toMultiset) : Congr r r' := by
   have hofFn : ∀ q : OccFam α, q.toMultiset = Multiset.ofList (List.ofFn q.row) := by

@@ -15,7 +15,7 @@ its round function is `X ↦ ε(B ⊎ X ⊳ G)`, where `X ⊳ G` sends a row
 `(u, a)` to the rows of `G u`, each annotated by `a` times its own
 annotation, and `ε` sums the annotations of the copies of a tuple. Its
 `k`-th iterate is therefore `ε` of the sum of the first `k` rounds
-`B, B ⊳ G, (B ⊳ G) ⊳ G, …` (`iterate_step_eq`), and the weight of a tuple
+`B, B ⊳ G, (B ⊳ G) ⊳ G, …` (`iterate_stepK_eq`), and the weight of a tuple
 in round `j` is the sum, over the paths of `j` steps ending at it, of the
 product of the annotations along the path (`y_eq_sum_pathsTo`).
 

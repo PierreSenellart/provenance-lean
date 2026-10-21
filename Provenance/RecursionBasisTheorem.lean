@@ -31,8 +31,7 @@ theorem generatesOnRec_of_basisRecOps_subset (sch : Schema) (cnt : SeqAggFunc T)
 /-- **What every generating set contains**: a set of classes generating
 the whole algebra over `ℕ` with the counting aggregate, over every
 schema, holds `∅`, `Π`, `γ`, `μ^⊎` and `win`, one of `σ` and `−`, and one
-of `×` and the apply. Each conjunct is one row of `tab:basisclasses`,
-witnessed over its own schema. -/
+of `×` and the apply. Each conjunct is witnessed over its own schema. -/
 theorem required_mem_of_generatesOnRec {S : Set OpKind}
     (hS : ∀ sch : Schema, GeneratesOnRec ℕ sch SeqAggFunc.count S) :
     OpKind.empty ∈ S ∧ OpKind.proj ∈ S ∧ OpKind.gamma ∈ S ∧ OpKind.muBag ∈ S

@@ -302,7 +302,7 @@ Over `𝔹[X]` a valuation picks one world of a family – the occurrences it
 realizes – and the joint reading of two families is therefore true at a
 valuation exactly when each family's own realized world is a world of it
 and the test holds on the two values read there
-(`Having.jointPair_eval_iff`).
+(`AggValue.jointPair_eval_iff`).
 
 That is what makes the **row** reading exact here, at every family size:
 the row an implementation reports is `δ(β₁) ⊗ δ(β₂) ⊗ (p₁ ⊕ p₂)`, which
@@ -395,9 +395,9 @@ joint reading of the disjunction.
 
 Each side's predicate provenance already carries its own family's
 existence, so the `δ` factors absorb it and both readings come to
-"both groups exist, and one of the two tests holds in the world the
-valuation picks". `δ` being the identity here is what lets the factors do
-that: `HavingQueryCounterexamples.chain_row_ne` is the same statement
+“both groups exist, and one of the two tests holds in the world the
+valuation picks”. `δ` being the identity here is what lets the factors do
+that: `chain_row_ne` is the same statement
 failing where `δ` collapses a group, in a semiring whose `⊕` is
 idempotent, so idempotence is not the condition. -/
 theorem row_agree_of_delta_id (a b : AggValue T (BoolFunc X))

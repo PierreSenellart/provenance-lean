@@ -125,8 +125,8 @@ the leaf's value, normalized through the data arm.
 
 Every aggregate the rewriting emits is data-valued, being lifted from the
 source's (`SeqAggFunc.liftComposite`), so the normalization is a no-op on
-what actually arises. What it buys is that the column is the composite
-transport of the source's *on the nose*: `AggExpr.toComposite` lifts an
+what actually arises. What it buys is that the column is *equal* to the
+composite transport of the source's: `AggExpr.toComposite` lifts an
 expression's own function the same way, and a bare projection would read
 alike but not be the same data. -/
 def AggExprFun.projComposite : (Fin 1 → T ⊕ K) → T ⊕ K :=

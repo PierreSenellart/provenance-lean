@@ -202,7 +202,7 @@ theorem havingRew_rewritten :
 `HAVING COUNT(*) ≥ 3 OR city = 'Berlin'`. The regular atom becomes an
 indicator gate, `⊕`-ed with the `provsql_having` gate of the aggregate
 one. Since a regular atom can fire in worlds where the group is empty,
-the predicate no longer entails the group's existence, and the guard
+the predicate does not entail the group's existence, and the guard
 `δ(⊕ U)` therefore survives as a factor of the provenance column instead
 of being superseded. -/
 def φbigOrBerlin : GenPred String (ColKind.gammaKinds 1 1) :=

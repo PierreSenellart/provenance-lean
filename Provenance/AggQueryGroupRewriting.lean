@@ -21,8 +21,8 @@ framework no new value domain is needed: the rewritten
 world's evaluator already has aggregate tokens as ordinary column
 values, and `AggQueryIn.GammaTok` – ProvSQL's `provsql_agg` – already
 materializes exactly the token that the general evaluator's `Gamma`
-produces. What was missing is the *correspondence at token level*: the
-statement of `AggQueryIn.havingRewrites_valid` folds an annotated relation
+produces. What is needed is the *correspondence at token level*: the
+statement of `AggQueryIn.rewriting_valid` folds an annotated relation
 into composite rows through `AnnotatedRelation.toComposite`, which reads
 tokens through their deterministic collapse and therefore cannot express
 a token-bearing output.
@@ -31,7 +31,7 @@ a token-bearing output.
 `Sum.inl`, token columns are transported by `AggValue.toComposite` (values
 embedded in the composite domain, occurrence annotations unchanged), and
 the row's finalized annotation is appended as the provenance column. On
-token-free rows it agrees with the old embedding
+token-free rows it agrees with `AnnotatedRelation.toComposite`
 (`GenRow.toCompositeRow_of_reg`), so the statement below genuinely
 extends the compositional rewriting correctness rather than sitting
 beside it.

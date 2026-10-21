@@ -7,14 +7,14 @@ import Provenance.BasisAssembly
 /-!
 # The recursions in the classification
 
-`sec:basis` grades the two recursion operators as it grades the others.
-This module carries the row of `μ^⊎`, the recursion of SQL's `WITH
+The basis classification grades the two recursion operators as it
+grades the others. This module carries the row of `μ^⊎`, the recursion of SQL's `WITH
 RECURSIVE … UNION ALL`: **in the minimal signature, a query without it
 has at most `p(n)` tuples over an instance of `n` tuples, multiplicities
 included, for a polynomial `p` of the query**, and a bag recursion breaks
 that, counting the *derivations* of a tuple rather than deriving it once.
 
-The witness is the document's: a chain of `n` diamonds, `4n` edges and no
+The witness is a chain of `n` diamonds, `4n` edges and no
 duplicate row, over which reachability from the source reaches the sink
 by `2ⁿ` paths, so the sink carries that multiplicity. The query is
 `μ^⊎R.(S, Π_{#3}(σ_{#1=#2}(R × E)))`, which is SQL's
@@ -36,7 +36,7 @@ variable {T : Type} [ValueType T]
 /-! ## The instance: a chain of diamonds -/
 
 /-- A row of arity one, written so that the rows a projection builds are
-it on the nose: `Fin.cons` reduces only under a case on the index, which
+exactly it: `Fin.cons` reduces only under a case on the index, which
 would leave every computation below short of a `funext`. -/
 def node (a : ℕ) : Tuple ℕ 1 := fun _ => a
 
@@ -487,11 +487,11 @@ private theorem exists_lt_two_pow (c k : ℕ) :
     _ = 2 ^ ((k + 1) * m) := by
         rw [← pow_mul, ← pow_add, show m + m * k = (k + 1) * m from by ring]
 
-/-- **`μ^⊎` is in every basis** (`tab:basisclasses`'s row): a bag
-recursion counts the *derivations* of a tuple, and over the chain of `n`
-diamonds – `4n + 1` rows, none of them duplicated – the sink has `2ⁿ` of
-them, which no polynomial in the size of the instance bounds. Every
-other operator of the minimal signature keeps the result polynomial. -/
+/-- **`μ^⊎` is in every basis**: a bag recursion counts the *derivations*
+of a tuple, and over the chain of `n` diamonds – `4n + 1` rows, none of
+them duplicated – the sink has `2ⁿ` of them, which no polynomial in the
+size of the instance bounds. Every other operator of the minimal signature
+keeps the result polynomial. -/
 theorem chainWitness_no_polynomial_bound :
     ¬ ∃ c k : ℕ, ∀ n : ℕ,
       Multiset.card (chainWitness.evaluatePlain (dChain n) (fun j => j.elim0))
@@ -504,9 +504,9 @@ theorem chainWitness_no_polynomial_bound :
 
 /-! ## Half of the invariant: the operators that are not a recursion
 
-`tab:basisclasses`'s `μ^⊎` row is the *invariant* that a query without
-it has at most `p(n)` tuples over an instance of `n` tuples,
-multiplicities included. The operators other than the two recursions
+The necessity of `μ^⊎` rests on an *invariant*: a query without it has
+at most `p(n)` tuples over an instance of `n` tuples, multiplicities
+included. The operators other than the two recursions
 bound their result by sums and products of the bounds of their
 arguments, in numbers fixed by the query, and an apply by the bound of
 its left side times that of its right side – which does not depend on
@@ -700,8 +700,8 @@ theorem AggQueryIn.exists_polyBound :
 
 /-! ## What the values of a result can be
 
-`tab:basisclasses`'s `μ^⊎` row reads the *values* of a result, not only
-its size: in the minimal signature a value is one of the instance, a
+The necessity of `μ^⊎` reads the *values* of a result, not only its
+size: in the minimal signature a value is one of the instance, a
 constant of the query, or a count, and a count is bounded by the size of
 what it counts. That is what bounds a **set** recursion, whose fixpoint
 has no bound in terms of its arguments': a duplicate-free relation of
@@ -1052,7 +1052,7 @@ by a round has its values in any such set holding the round's values
 too. The second is what the first needs at a set recursion – the rounds
 then never leave the set – and the first is what the second needs for
 the sides of a term that do not read the recursive relation, which
-`sec:plain`'s restriction keeps the counts in: every count inside a
+the restriction on recursive terms keeps the counts in: every count inside a
 recursive term is over a query the recursion does not feed, read off the
 instance the recursion started from (`settlesAt_assign_of_noMention`,
 `evaluatePlain_assign_of_noMention`). -/
@@ -1691,18 +1691,15 @@ theorem AggQueryIn.exists_polyBound_rec {S : Set OpKind}
 
 /-! ## The row: a basis of the whole algebra holds a recursion
 
-`thm:plainbasis`'s second half grades the recursions as classes like the
-others. The witness is the chain of diamonds: a class set holding neither
+The recursions are classes like the others. The witness is the chain of
+diamonds: a class set holding neither
 recursion generates only queries whose answers are polynomial in the
 instance (`AggQueryIn.exists_polyBound`), and the sink of the chain has
 `2ⁿ` rows.
 
-The four rows that do **not** survive a recursion carry the two classes'
-absence as a hypothesis (`Π`, `×`/apply, `⊎`, and `σ`/`−`); `γ` survives
-it with a proof (over an empty instance every round is empty), and `∅`
-survives `μ^⊎` but not `μ^∪` – a scalar aggregation inside a set
-recursion makes a row from the empty round without naming a relation and
-without `∅`, which `tab:basisclasses`'s `∅` row does not account for.
+The recursion-free rows of `Provenance.BasisAssembly` carry no hypothesis
+on the recursions: each holds of every class set, those holding a
+recursion included.
 -/
 
 omit [ValueType T] in
@@ -1742,11 +1739,11 @@ def plainRecOps : Set OpKind :=
   insert OpKind.muBag (insert OpKind.muSet plainOps)
 
 /-- **A generating set of the whole algebra**, over a schema, **in the
-minimal universe** `𝒜(∅, {count})` (Pierre, 2026-10-12: the
-classification with the recursions is done there and only there): every
-query of the algebra over `sch` in the minimal signature is matched by
-one in the minimal signature using only the classes of `S`, which is **defined wherever the query is and agrees with
-it there** (`AggQueryIn.SettlesAt`). A query of the whole algebra is a
+minimal universe** `𝒜(∅, {count})`, where the classification with the
+recursions is stated: every query of the algebra over `sch` in the
+minimal signature is matched by one in the minimal signature using only
+the classes of `S`, which is **defined wherever the query is and agrees
+with it there** (`AggQueryIn.SettlesAt`). A query of the whole algebra is a
 partial function of the instance, so this is what equivalence means for
 it; nothing is asked where the query is undefined. The counting aggregate
 `cnt` is a parameter with `SeqAggFunc.ReadsCount` as its specification
@@ -1770,7 +1767,7 @@ theorem GeneratesOnRec.mono {sch : Schema} {cnt : SeqAggFunc T} {S S' : Set OpKi
   obtain ⟨κ', q', h₁, h₂, h₃, h₄⟩ := h q ho hq hi
   exact ⟨κ', q', h₁, AggQueryIn.usesOnly_mono hSS q' h₂, h₃, h₄⟩
 
-/-! ## The rows of `tab:basisclasses` for the whole algebra
+/-! ## The rows of the classification for the whole algebra
 
 Each row below is the statement that a class is in every basis of the
 whole algebra in the minimal universe. The witnesses are the plain
@@ -1950,12 +1947,12 @@ aggregate. -/
 theorem inSig_chainWitness {Θ : Set (SeqAggFunc ℕ)} : chainWitness.inSig Θ :=
   ⟨trivial, fun _ => rfl, rfl, trivial, trivial⟩
 
-/-- **`μ^⊎` is in every basis of the whole algebra** (`tab:basisclasses`'s
-row): without it, a query of the minimal universe has polynomially many
-rows wherever it is defined – set recursions included, their rows being
-the duplicate-free tuples over a value set of polynomial size – and the
-sink of a chain of `n` diamonds has `2ⁿ`. The one row that reads what
-`cnt` is: a count. -/
+/-- **`μ^⊎` is in every basis of the whole algebra**: without it, a
+query of the minimal universe has polynomially many rows wherever it is
+defined – set recursions included, their rows being the duplicate-free
+tuples over a value set of polynomial size – and the sink of a chain of
+`n` diamonds has `2ⁿ`. Of the necessity results, this is the one that
+reads what `cnt` is: a count. -/
 theorem muBag_mem_of_generatesAt {cnt : SeqAggFunc ℕ}
     (hcnt : cnt.ReadsCount) {S : Set OpKind}
     (hS : GeneratesAt ℕ schemaSE cnt S chainWitness) : OpKind.muBag ∈ S := by

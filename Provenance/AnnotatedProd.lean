@@ -13,7 +13,7 @@ aggregate columns, so may the factors, and nothing re-types a token.
 In a recursive term whose hole is in the *right* factor the apply cannot
 take that factor as its right side, which must be closed, so the two
 factors are swapped and the columns put back by a projection
-(`prodSwapAnn`). A projection cashes the pending group factors of the
+(`AggQueryIn.prodSwap`). A projection cashes the pending group factors of the
 groups whose tokens it does not keep, so the rows it builds differ from
 the product's in how their annotation is split between the concrete part
 and the pending factors – never in what the annotation finalizes to. What

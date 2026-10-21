@@ -285,7 +285,7 @@ partition of that family into the annotations of the two halves
 disjoint families be evaluated atom by atom rather than over the union.
 It is not an m-semiring identity – the non-negative reals with truncated
 subtraction fail it at `a = b = ½`, which
-`HavingQueryCounterexamples.nnreal_not_complemented` records against the
+`nnreal_not_complemented` records against the
 m-semiring instance there – but it is proved for
 **every semiring of the catalog**, for one of two reasons. Either
 `𝟙 ⊖ ·` is a genuine complement, which is De Morgan's law: `𝔹`
@@ -837,7 +837,7 @@ In such a semiring `𝟙 ⊖ a` always joins `a` to `𝟙`
 **exclusivity is exactly what makes it a complement** – `exclusive` says
 it meets `a` at `𝟘` – after which the complement is unique
 (`monus_one_unique_compl`). So an exclusive lattice m-semiring is a
-distributive lattice in which every element has a complement, i.e. a
+distributive lattice in which every element has a complement, i.e., a
 Boolean algebra; conversely, in a Boolean algebra residuation forces
 `a ⊖ b = a ⊓ bᶜ`, whose exclusivity is `a ⊓ aᶜ = ⊥`. What follows is the
 elementwise content of that characterization, stated without building the

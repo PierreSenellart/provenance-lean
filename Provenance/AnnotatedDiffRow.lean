@@ -24,7 +24,7 @@ The invariant is stated for any property `Q` of annotations closed under
 those operations (`AnnClosed`), and proved of every annotation the
 evaluator builds – a row's, the occurrences' of the tokens it carries,
 and the predicate provenance of a selection on aggregate values
-(`AggQueryIn.annIn_evaluate`).
+(`annIn_evaluate`).
 -/
 
 /-! ## Two copies of `ℕ` -/

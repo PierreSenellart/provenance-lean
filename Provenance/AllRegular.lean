@@ -31,23 +31,25 @@ function of the domain: no term expresses that.
 A window is the other exception, and for a different reason: it is the
 one operator whose plain semantics reads the kind vector, reading its
 input through `ColKind.readTuple`. That nulling is how the library lists
-a frame, and it is one admissible listing: what the document asks of an
-aggregation is *determinacy* – the aggregate is symmetric, or any two
-peers of the clause carry equal values of the aggregated term – and
-under determinacy every listing the clause allows gives one value.
+a frame, and it is one listing the clause allows. An aggregation is
+*determinate* where the listing cannot matter – the aggregate is
+symmetric, or any two peers of the clause carry equal values of the
+aggregated term – and then every listing the clause allows gives one
+value.
 Re-typing changes the listing, since an aggregate column read as a value
 enters the tie-break, but only *inside* a block of peers, so a
 determinate window reads the same value either way
 (`ValueFrame.windowValueOpt_readTuple_of_det`). That is what
 `AggQueryIn.Retypable` asks of a window – determinacy on every
 instance, quantified as `AggQueryIn.recSettles` is, or an all-regular
-input where no column moves – and it is the document's condition rather
-than an approximation of it. A `FILTER` clause is asked to read the
-occurrence's regular columns, as `sec:agg` says a clause does, and is
-then carried through with nothing further to prove.
+input where no column moves. A `FILTER` clause is asked to read the
+occurrence's regular columns, as SQL has it (an aggregate may not occur
+inside the `FILTER` of an aggregate), and is then carried through with
+nothing further to prove.
 
-What this is for: the swaps of `sec:basis` – a selection written with a
-difference, a product written with an apply – are stated over queries
+What this is for: the swaps of `AggQueryIn.exists_selFree` and
+`AggQueryIn.exists_prodFree` – a selection written with a difference, a
+product written with an apply – are stated over queries
 whose columns are regular, because that is what `Diff` and an apply's
 left side take. Regularizing first is what lets them apply to a query
 that has aggregate columns in its *type* and ordinary values in its
@@ -381,21 +383,21 @@ columns, so a window over a re-typed input reads values where the
 original read `0`. Both are listings the clause allows, and they differ
 only inside a block of peers – an aggregate column read as a value
 enters the tie-break and nothing else. Determinacy is exactly the
-condition under which that cannot be seen, and it is the document's own
-condition on an aggregation: the aggregate reads its frame as a bag, or
+condition under which that cannot be seen: the aggregate reads its
+frame as a bag, or
 the term it aggregates is constant on the rows the clause leaves tied
 (`Relation.rowsAgree` of `Provenance.Determinacy`, read on the rows the
 window reads, `AggQueryIn.readRows`). Since it is a condition on the
 rows, it is quantified over the instance here, in the manner of
 `AggQueryIn.recSettles`;
-`ValueFrame.windowValue_readTuple_of_det` is what it buys, and
+`ValueFrame.windowValueOpt_readTuple_of_det` is what it buys, and
 `ValueFrame.windowValue_readTuple` the symmetric case of the same thing.
 A query the condition refuses does tell the two readings apart: over the
 rows `(2,5)`, `(2,6)`, `(1,7)` whose first column is an aggregate one,
 with no `ORDER BY`, so that all three are peers, `first_value` of the
 second column reads `5` before the re-typing and `7` after. A `FILTER`
-clause is no longer excluded but asked to read the occurrence's regular
-columns, which is what `sec:agg` says a clause does: its truth is then
+clause is asked to read the occurrence's regular columns, as SQL has
+it: its truth is then
 unchanged by the nulling, so it keeps the same rows on both sides. -/
 def AggQueryIn.Retypable : {c n : ℕ} → {κ : Fin n → ColKind} → {l : List (String × ℕ)} →
     AggQueryIn T c n κ l → Prop
@@ -473,7 +475,7 @@ theorem AggQueryIn.retypable_of_usesOnly {S : Set OpKind}
   | Win P O o w t f q hrr dist keep ih => exact fun hq => absurd hq.1 hw
   | WinExpr P O o ws ts fs g q keeps ih => exact fun hq => absurd hq.1 hw
 
-/-- **What the swaps of `sec:basis` ask of a query**: the input of every
+/-- **What the swaps ask of a query**: the input of every
 selection has regular columns and its predicate has no aggregate atom
 (so that the selection can become a difference, which takes regular
 columns), and the left factor of every product has regular columns (so
@@ -671,9 +673,9 @@ two listings of the frame are sorted by the clause's keys and differ
 only inside a block of peers, where the term does not look
 (`OrderSpec.map_eq_of_keySorted`), and a clause that reads the
 occurrence's regular columns keeps the same rows on both sides. The
-hypothesis is the document's own condition on an aggregation – the
-aggregate reads its frame as a bag, or the term it aggregates is
-constant on the rows the clause leaves tied. -/
+hypothesis is determinacy – the aggregate reads its frame as a bag, or
+the term it aggregates is constant on the rows the clause leaves
+tied. -/
 theorem ValueFrame.windowValueOpt_readTuple_of_det {c : ℕ}
     {κ : Fin n → ColKind} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
     (o : OrderSpec p) (w : ValueFrame T p) (t : TermIn T c n)

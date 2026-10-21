@@ -24,11 +24,10 @@ catalog's own `𝔹` and `𝔹[X]` instances and would put a second `Add`,
 `Mul` and `Sub` on anything else Mathlib happens to make a Boolean
 algebra. Types that want it ask for it, as `Security` does below.
 
-What the construction satisfies is everything the properties tables ask
-of a semiring at once: both idempotences, absorptivity, exclusivity,
+What the construction satisfies is every property the library states of
+an m-semiring at once: both idempotences, absorptivity, exclusivity,
 complementedness, left-distributivity of `⊗` over `⊖`, and `δ = id`.
-That is the content of the characterization in the semantics paper: among
-m-semirings that are lattices, exclusivity *is* being a Boolean algebra
+Among m-semirings that are lattices, exclusivity *is* being a Boolean algebra
 (`monus_one_isCompl`, `monus_one_unique_compl`).
 -/
 
@@ -126,8 +125,7 @@ theorem complemented_of : complemented α := fun a b => by
   simp
 
 /-- **`⊗` distributes over `⊖`**, which is `a ⊓ (b ⊓ cᶜ) = (a ⊓ b) ⊓ (a ⊓ c)ᶜ`
-read through the lattice: the condition the decompositions of the
-semantics paper ask for. -/
+read through the lattice. -/
 theorem mul_sub_left_distributive_of : mul_sub_left_distributive α := by
   intro a b c
   show a ⊓ (b \ c) = (a ⊓ b) \ (a ⊓ c)

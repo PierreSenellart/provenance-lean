@@ -219,7 +219,7 @@ instance : ValueType String where
             add_eq_repr ha (strToNat?_repr (m + k)), Nat.add_assoc]
 
 /-- The string domain has no null: `WithNull String` is how a nullable
-column of strings is modelled. -/
+column of strings is modeled. -/
 instance : NoNulls String := ⟨fun _ => rfl⟩
 
 end ValueTypeString

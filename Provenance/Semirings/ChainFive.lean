@@ -173,8 +173,8 @@ namespace ChainFive
 `WHERE NOT EXISTS (Q)` is the antijoin, and a row annotated `α` whose
 matches are annotated `βᵢ` gets `α ⊗ (𝟙 ⊖ ⊕βᵢ)` from it in every
 m-semiring (`evaluateAnnotated_antijoin`, which asks nothing of `K`).
-The difference `R ∖ Π(σ(R × Q))` that expresses the same condition --
-what an uncorrelated `EXCEPT` uses -- gets `α ⊖ ⊕(α ⊗ βᵢ)` instead, and
+The difference `R ∖ Π(σ(R × Q))` that expresses the same condition –
+what an uncorrelated `EXCEPT` uses – gets `α ⊖ ⊕(α ⊗ βᵢ)` instead, and
 the two are each other's only where `⊗` distributes over `⊖`. `ChainFive`
 is where they part company, and by the whole of the row: the antijoin
 keeps it, the difference annihilates it. -/

@@ -10,8 +10,8 @@ The semiring of languages over an alphabet of labels, with `⊕` the union,
 whose `Semiring` instance is exactly this. ProvSQL's `sr_regex`
 (`src/semiring/Regex.h`, since 1.13.0) computes in it, each value written
 as a regular expression, a product gate concatenating its factors in the
-order of the query. **Concatenation does not commute**, which makes this
-the first entry of the catalog whose multiplication is not commutative:
+order of the query. **Concatenation does not commute**, so this is an
+entry of the catalog whose multiplication is not commutative:
 `not_commutative` below exhibits `a · b ≠ b · a`.
 
 What ProvSQL claims of it, verified here:

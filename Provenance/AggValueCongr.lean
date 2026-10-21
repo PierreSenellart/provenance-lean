@@ -23,8 +23,8 @@ for an order-sensitive aggregate, exchanging two occurrences of equal value
 * `AggValue.predProvAux` – a recursion form of the predicate provenance, with
   accumulators for the values kept so far, the annotations discarded so far,
   and whether the world is already non-empty;
-* `AggValue.predProv_eq_predProvAux` – the world-sum of `AggValue.predProv`
-  equals the recursion form;
+* `AggValue.predProvWith_eq_predProvAux` – the world-sum of the predicate
+  provenance equals the recursion form;
 * `AggValue.predProv_congr` – the congruence: tokens with the same aggregate
   and `TiePerm`-related payloads have the same predicate provenance.
 -/
@@ -670,19 +670,10 @@ meet the part of the family each *grouped* leaf reads.
 The occurrence list carries, per occurrence, the value each leaf reads
 there, the annotation, and which leaves read it – which is `AggExpr`'s
 `occs` together with `reads`, in the form a recursion over the list can
-use.
-
-What is **not** here yet is the specialization to `AggExpr.predProvWith`
-itself, and the obstacle is worth recording. Converting an `AggExpr`
-into the list this walk takes puts the leaf flags in the elements, so
-the walked list is no longer `e.occs` but a list of the same length, and
-every step then needs a transport between `Fin e.occs.length` and
-`Fin (walked list).length`. The cleaner shape is to index the flags by
-*position* instead – walk `e.occs` itself, carrying `rd : ℕ → Fin q →
-Bool` and shifting it in the tail call – so that `Having.seqOf e.occs W`
-appears directly and no transport arises. `Having.seqOf_eq_filter_map`
-and `Having.seqOf_filter_inter` are the two tools that route was
-missing. -/
+use. Since an `AggExpr`'s occurrences carry their leaf flags,
+`AggExpr.leafSeq_eq_filter` is the shape the walk reads, and
+`predProvWith_eq_exprProvAux` specializes the walk to
+`AggExpr.predProvWith`. -/
 
 namespace AggExpr
 
@@ -973,7 +964,7 @@ theorem exprProvAux_congr (aggs : Fin q → SeqAggFunc T) (sc : Fin q → Bool)
 /-- **Predicate provenance as the recursion**, at the empty
 accumulators: the world sum over the shared family is the walk over it.
 This is `AggValue.predProvWith_eq_predProvAux` for several leaves, and
-it is immediate now that the leaf flags travel in the occurrences –
+it is immediate because the leaf flags travel in the occurrences –
 `AggExpr.leafSeq_eq_filter` is exactly the shape the walk reads. -/
 theorem predProvWith_eq_exprProvAux (e : AggExpr T K) (P : T → Kleene) :
     e.predProvWith P
