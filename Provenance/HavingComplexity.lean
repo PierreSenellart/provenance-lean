@@ -6,11 +6,12 @@ module
 
 public import DescriptiveComplexity.Decoding
 public import DescriptiveComplexity.Encoding.BinarySubsetSum
-public import DescriptiveComplexity.Problems.Knapsack
-public import DescriptiveComplexity.Problems.Knapsack.Membership
 public import Provenance.Having
 public import Provenance.Semirings.BoolFunc
 public import Provenance.Semirings.How
+public import DescriptiveComplexity.Hierarchy
+import DescriptiveComplexity.Problems.Knapsack
+import DescriptiveComplexity.Problems.Knapsack.Membership
 
 /-!
 # NP-completeness of deciding non-zero `HAVING` provenance

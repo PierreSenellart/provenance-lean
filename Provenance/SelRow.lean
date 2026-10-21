@@ -1,7 +1,10 @@
 module
 
 public import Provenance.Genericity
-public import Mathlib.Tactic.FinCases
+import Mathlib.Tactic.FinCases
+import Mathlib.Tactic.NormNum.Inv
+import Mathlib.Tactic.NormNum.Pow
+import Provenance.NestedPres
 
 /-!
 # The selection row: `σ` is the only operator reading the order

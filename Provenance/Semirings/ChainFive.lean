@@ -4,8 +4,10 @@
 -/
 module
 
-public import Mathlib.Tactic.DeriveFintype
 public import Provenance.Having
+public import Mathlib.Data.Fintype.Basic
+import Mathlib.Tactic.Bound.Init
+import Mathlib.Tactic.DeriveFintype
 
 /-!
 # A five-element chain m-semiring where `⊗` does not distribute over `⊖`

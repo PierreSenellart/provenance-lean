@@ -5,7 +5,12 @@
 module
 
 public import Provenance.QueryToAgg
-public import Provenance.QueryAnnotatedDatabaseHom
+public import Provenance.AggQueryBridges
+import Mathlib.Algebra.BigOperators.Ring.Multiset
+import Mathlib.Tactic.NormNum.Inv
+import Mathlib.Tactic.NormNum.Pow
+import Provenance.QueryAnnotatedDatabaseHom
+import Provenance.QueryRewriting
 
 /-!
 # Query-level correctness of the fused HAVING operator vs the JOIN rewriting

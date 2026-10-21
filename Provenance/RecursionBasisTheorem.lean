@@ -1,7 +1,9 @@
 module
 
 public import Provenance.MuUnion
-public import Provenance.WinRow
+public import Mathlib.Order.BourbakiWitt
+import Mathlib.Analysis.SpecialFunctions.Pow.NNReal
+import Provenance.WinRow
 
 /-!
 # The bases of the whole algebra in the minimal universe

@@ -1,6 +1,9 @@
 module
 
-public import Provenance.Genericity
+public import Provenance.PlainBasis
+import Mathlib.Data.Fintype.BigOperators
+import Mathlib.Tactic.NormNum.Inv
+import Mathlib.Tactic.NormNum.Pow
 
 /-!
 # The rounds of a bag recursion that settles are bounded

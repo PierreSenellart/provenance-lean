@@ -5,6 +5,9 @@
 module
 
 public import Provenance.HavingQueryCorrectness
+import Mathlib.Tactic.NormNum.Inv
+import Mathlib.Tactic.NormNum.Pow
+import Provenance.QueryAnnotatedDatabaseHom
 
 /-!
 # Compositional correctness of the JOIN rewriting for `HAVING COUNT(*)`

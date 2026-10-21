@@ -1,8 +1,9 @@
 module
 
 public import Provenance.QueryAnnotatedDatabase
-public import Provenance.QueryRewriting
 public import Provenance.Semirings.Nat
+import Mathlib.Tactic.Bound.Init
+import Provenance.QueryRewriting
 
 /-!
 # Data-part adequacy of the annotated semantics

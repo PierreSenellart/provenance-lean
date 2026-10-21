@@ -1,6 +1,10 @@
 module
 
 public import Provenance.SymCode
+public import Provenance.AggQuery
+import Mathlib.Data.Sym.Basic
+import Mathlib.Tactic.NormNum.Inv
+import Mathlib.Tactic.NormNum.Pow
 
 /-!
 # Codes as columns, and comparisons between them

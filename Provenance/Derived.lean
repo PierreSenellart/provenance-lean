@@ -6,7 +6,8 @@ module
 
 public import Mathlib.Data.Finset.Sort
 
-public import Provenance.AggQuerySubst
+public import Provenance.AggQuery
+import Mathlib.Tactic.Bound.Init
 
 /-!
 # Derived operators

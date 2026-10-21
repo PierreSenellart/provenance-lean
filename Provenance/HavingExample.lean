@@ -4,10 +4,14 @@
 -/
 module
 
-public import Mathlib.Tactic.NormNum
 public import Provenance.Having
 public import Provenance.HavingProbability
 public import Provenance.Semirings.BoolFunc
+import Mathlib.Algebra.Order.BigOperators.Ring.Finset
+import Mathlib.Data.Rat.Cast.Order
+import Mathlib.Tactic.NormNum.Abs
+import Mathlib.Tactic.NormNum.DivMod
+import Mathlib.Tactic.NormNum.OfScientific
 
 /-!
 # Worked examples: HAVING provenance and probability on a three-occurrence group

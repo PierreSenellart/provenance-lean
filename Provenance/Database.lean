@@ -1,12 +1,13 @@
 module
 
 public import Mathlib.Data.Multiset.Basic
-public import Mathlib.Data.Set.Finite.Basic
 public import Mathlib.Data.Multiset.AddSub
 public import Mathlib.Data.Multiset.Bind
 
 public import Provenance.Util.ListSort
 public import Provenance.Util.ValueType
+public import Mathlib.Data.Fintype.Basic
+import Mathlib.Tactic.Bound.Init
 
 /-!
 # Tuples, relations, and databases

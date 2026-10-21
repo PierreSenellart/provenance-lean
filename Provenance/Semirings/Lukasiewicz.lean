@@ -2,10 +2,10 @@ module
 
 public import Provenance.SemiringWithMonus
 public import Provenance.Semirings.BoolFunc
-public import Mathlib.Order.Interval.Set.Defs
 public import Mathlib.Data.Rat.Init
-public import Mathlib.Algebra.Order.Ring.Rat
-public import Mathlib.Tactic.Ring.RingNF
+public import Mathlib.Algebra.Order.Ring.Unbundled.Rat
+import Mathlib.Algebra.Order.Ring.Rat
+import Mathlib.Tactic.Ring.RingNF
 
 /-!
 # Łukasiewicz m-semiring

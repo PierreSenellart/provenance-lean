@@ -1,11 +1,11 @@
 module
 
 public import Mathlib.Algebra.MvPolynomial.Basic
-public import Mathlib.Algebra.MvPolynomial.Eval
 
 public import Provenance.SemiringWithMonus
 public import Provenance.Semirings.BoolFunc
 public import Provenance.Semirings.Nat
+import Mathlib.Algebra.MvPolynomial.Eval
 
 /-!
 # How-provenance m-semiring `ℕ[X]`

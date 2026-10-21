@@ -1,6 +1,9 @@
 module
 
 public import Provenance.SymCells
+public import Mathlib.Logic.Equiv.Fin.Basic
+import Mathlib.Tactic.NormNum.Inv
+import Mathlib.Tactic.NormNum.Pow
 
 /-!
 # Symbolic rows

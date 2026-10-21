@@ -4,7 +4,9 @@
 -/
 module
 
-public import Provenance.AggQueryBridges
+public import Provenance.AggQuery
+import Mathlib.Tactic.NormNum.Inv
+import Mathlib.Tactic.NormNum.Pow
 
 /-!
 # Normalizing a chain of selections

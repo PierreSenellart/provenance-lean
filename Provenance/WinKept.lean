@@ -5,6 +5,8 @@
 module
 
 public import Provenance.SumByMu
+import Mathlib.Tactic.NormNum.Inv
+import Mathlib.Tactic.NormNum.Pow
 
 /-!
 # A window kept as a window over an all-regular input

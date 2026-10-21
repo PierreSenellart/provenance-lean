@@ -4,8 +4,12 @@
 -/
 module
 
-public import Provenance.AggQueryBridges
 public import Provenance.SubWorlds
+public import Provenance.AggQuery
+import Mathlib.Algebra.BigOperators.Group.Finset.Basic
+import Mathlib.Tactic.NormNum.Inv
+import Mathlib.Tactic.NormNum.Pow
+import Provenance.AggQueryBridges
 
 /-!
 # The joint reading of a family, and homomorphisms

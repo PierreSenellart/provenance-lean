@@ -6,13 +6,14 @@ module
 
 public import Provenance.JointFamily
 public import Provenance.Nested
-public import Provenance.QueryToAgg
 public import Provenance.Semirings.ChainFive
 public import Provenance.Semirings.Tropical
 public import Provenance.Semirings.Nat
 public import Provenance.Semirings.MinMax
-public import Provenance.Semirings.Viterbi
 public import Provenance.Derived
+public import Mathlib.Basic.NNReal.Defs
+public import Provenance.AggQueryBridges
+import Mathlib.Basic.NNReal.Basic
 
 /-!
 # Query-level counterexamples for the HAVING / JOIN correspondence

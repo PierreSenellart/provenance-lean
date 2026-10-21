@@ -4,8 +4,10 @@
 -/
 module
 
-public import Mathlib.Logic.Equiv.Fin.Basic
-public import Provenance.AnnotatedDatabase
+public import Mathlib.Data.Fintype.Basic
+import Mathlib.Algebra.GroupWithZero.Nat
+import Mathlib.Logic.Equiv.Fin.Basic
+import Mathlib.Tactic.Bound.Init
 
 /-!
 # Relations read as families of occurrences

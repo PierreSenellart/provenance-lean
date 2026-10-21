@@ -4,8 +4,10 @@
 -/
 module
 
-public import Provenance.AggQueryAdequacy
-public import Provenance.Window
+public import Provenance.AggQuery
+import Mathlib.Tactic.NormNum.Inv
+import Mathlib.Tactic.NormNum.Pow
+import Provenance.AggQueryAdequacy
 
 /-!
 # A window over a whole partition is a join with its grouping

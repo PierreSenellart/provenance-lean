@@ -4,10 +4,10 @@
 -/
 module
 
-public import Mathlib.Data.Finset.Powerset
 public import Mathlib.Data.Finset.Card
-public import Mathlib.Data.List.Range
 public import Provenance.Algorithms.CompOp
+public import Mathlib.Tactic.ToAdditive
+import Mathlib.Algebra.Group.Nat.Defs
 
 /-!
 # Correctness of COUNT enumeration

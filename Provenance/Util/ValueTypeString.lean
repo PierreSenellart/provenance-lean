@@ -2,9 +2,13 @@ module
 
 public import Mathlib.Algebra.Group.Defs
 public import Mathlib.Data.String.Basic
-public import Mathlib.Data.Nat.Digits.Defs
 
 public import Provenance.Util.ValueType
+import Mathlib.Data.Rat.Cast.Order
+import Mathlib.Tactic.NormNum.Abs
+import Mathlib.Tactic.NormNum.DivMod
+import Mathlib.Tactic.NormNum.OfScientific
+import Mathlib.Tactic.NormNum.Pow
 
 /-!
 # Strings as a value domain

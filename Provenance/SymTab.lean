@@ -1,6 +1,11 @@
 module
 
 public import Provenance.SymMu
+public import Provenance.RecursionBasisPass
+public import Provenance.SumByProd
+public import Provenance.SymWin
+import Mathlib.Tactic.NormNum.Inv
+import Mathlib.Tactic.NormNum.Pow
 
 /-!
 # The symbolic evaluation of a query, operator by operator

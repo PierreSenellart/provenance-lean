@@ -7,6 +7,9 @@ module
 public import Provenance.AggQuery
 public import Provenance.QueryAdequacy
 public import Provenance.PlainBasis
+import Mathlib.Tactic.NormNum.Inv
+import Mathlib.Tactic.NormNum.Pow
+import Provenance.QueryRewriting
 
 /-!
 # Data-part adequacy of the general evaluator

@@ -5,6 +5,8 @@
 module
 
 public import Provenance.AggExpr
+import Mathlib.Algebra.BigOperators.Fin
+import Mathlib.Tactic.Bound.Init
 
 /-!
 # Nested aggregate values

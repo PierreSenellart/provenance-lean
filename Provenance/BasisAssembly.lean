@@ -6,6 +6,8 @@ module
 
 public import Provenance.AllRegular
 public import Provenance.Decorrelate
+import Mathlib.Tactic.NormNum.Inv
+import Mathlib.Tactic.NormNum.Pow
 
 /-!
 # The basis, assembled

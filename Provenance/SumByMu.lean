@@ -1,6 +1,8 @@
 module
 
-public import Provenance.RecursionBasis
+public import Provenance.BasisAssembly
+import Mathlib.Tactic.NormNum.Inv
+import Mathlib.Tactic.NormNum.Pow
 
 /-!
 # `⊎` from `μ^⊎` in the minimal universe

@@ -1,6 +1,8 @@
 module
 
 public import Provenance.AggExpr
+import Mathlib.Algebra.BigOperators.Fin
+import Mathlib.Tactic.Bound.Init
 
 /-!
 # Congruence of predicate provenance under tie-block permutations

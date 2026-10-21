@@ -4,8 +4,11 @@
 -/
 module
 
-public import Provenance.AggQueryBridges
-public import Provenance.AggQueryHom
+public import Provenance.AggQuery
+import Mathlib.Tactic.NormNum.Inv
+import Mathlib.Tactic.NormNum.Pow
+import Provenance.AggQueryHom
+import Provenance.QueryRewriting
 
 /-!
 # Embedding the classical query syntax into the general evaluator

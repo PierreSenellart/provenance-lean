@@ -1,11 +1,11 @@
 module
 
-public import Mathlib.Algebra.Group.Defs
 public import Mathlib.Logic.OpClass
 public import Mathlib.Data.List.Sort
 public import Provenance.Util.ListSort
 public import Mathlib.Order.Defs.LinearOrder
 public import Mathlib.Data.List.Nodup
+public import Mathlib.Algebra.Group.Semigroup
 
 @[expose] public section
 

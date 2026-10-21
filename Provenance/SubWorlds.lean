@@ -5,6 +5,8 @@
 module
 
 public import Provenance.AggValueCongr
+import Mathlib.Algebra.BigOperators.Group.Finset.Basic
+import Mathlib.Tactic.Bound.Init
 
 /-!
 # The subfamilies of a listing, as a bag

@@ -5,6 +5,7 @@
 module
 
 public import Provenance.AggQuery
+import Mathlib.Tactic.Bound.Init
 
 /-!
 # Substituting the outer columns

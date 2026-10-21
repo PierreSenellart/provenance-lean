@@ -4,8 +4,9 @@
 -/
 module
 
-public import Mathlib.Tactic.FinCases
 public import Provenance.AggQuery
+import Mathlib.Tactic.Bound.Init
+import Mathlib.Tactic.FinCases
 
 /-!
 # Surface syntax for kind-indexed queries

@@ -4,7 +4,10 @@
 -/
 module
 
-public import Provenance.Normalize
+public import Provenance.AggQuery
+import Mathlib.Algebra.BigOperators.Ring.Finset
+import Mathlib.Tactic.NormNum.Inv
+import Mathlib.Tactic.NormNum.Pow
 
 /-!
 # Aggregate columns read as keys: the alternatives

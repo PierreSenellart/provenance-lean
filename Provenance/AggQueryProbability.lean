@@ -4,10 +4,18 @@
 -/
 module
 
-public import Provenance.AggQueryBridges
 public import Provenance.AggQuerySubst
 public import Provenance.JointFamily
-public import Provenance.HavingProbability
+public import Provenance.AggQueryAdequacy
+public import Provenance.Probability
+import Mathlib.Algebra.Order.BigOperators.Ring.Finset
+import Mathlib.Data.Rat.Cast.Order
+import Mathlib.Tactic.NormNum.Abs
+import Mathlib.Tactic.NormNum.DivMod
+import Mathlib.Tactic.NormNum.OfScientific
+import Provenance.AggQueryBridges
+import Provenance.AggQueryHom
+import Provenance.HavingProbability
 
 /-!
 # Possible-world foundations for the general evaluator
@@ -1682,19 +1690,6 @@ theorem GenPredIn.entails_guard {c n : ℕ} {κ : Fin n → ColKind}
     exact ih (!neg) huni hent hp
 
 /-! ## Finalize algebra (any m-semiring) -/
-
-/-- Cashing pending factors into the concrete part preserves the
-finalized annotation (the projection case of the evaluator). -/
-theorem GenAnn.finalize_cash {K' : Type} [CommSemiringWithMonus K']
-    [DecidableEq K'] (b : K') (p kept : Multiset (List K'))
-    (hle : kept ≤ p) :
-    (GenAnn.mk
-        (b * ((p - kept).map (fun l => SemiringWithMonus.delta l.sum)).prod)
-        kept).finalize
-      = (GenAnn.mk b p).finalize := by
-  unfold GenAnn.finalize
-  conv_rhs => rw [← tsub_add_cancel_of_le hle]
-  rw [Multiset.map_add, Multiset.prod_add, mul_assoc]
 
 /-- The finalized annotation of a product row is the product of the
 finalized annotations. -/

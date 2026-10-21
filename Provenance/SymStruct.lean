@@ -1,6 +1,9 @@
 module
 
 public import Provenance.SymApply
+import Mathlib.Algebra.Order.Ring.Nat
+import Mathlib.Tactic.NormNum.Inv
+import Mathlib.Tactic.NormNum.Pow
 
 /-!
 # What the apply written with products is made of

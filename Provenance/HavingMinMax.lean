@@ -6,6 +6,9 @@ module
 
 public import Provenance.Algorithms.CompOp
 public import Provenance.Having
+public import Mathlib.Data.Finset.Max
+import Mathlib.Algebra.BigOperators.Ring.Finset
+import Mathlib.Algebra.Order.BigOperators.Group.Finset
 
 @[expose] public section
 

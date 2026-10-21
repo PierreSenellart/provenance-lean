@@ -4,8 +4,12 @@
 -/
 module
 
-public import Provenance.AnnotatedBasisClass
-public import Provenance.AggQueryHom
+public import Provenance.AnnotatedMuUnion
+public import Provenance.Coherence
+import Mathlib.Analysis.SpecialFunctions.Pow.NNReal
+import Provenance.AggQueryHom
+import Provenance.AnnotatedChains
+import Provenance.AnnotatedSum
 
 /-!
 # The matches of the annotated basis commute with homomorphisms

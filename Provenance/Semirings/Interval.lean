@@ -1,11 +1,7 @@
 module
 
 public import Mathlib.Order.Defs.LinearOrder
-public import Mathlib.Data.Set.Lattice.Bounded
-public import Mathlib.Data.Set.Lattice.Disjoint
-public import Mathlib.Data.Set.Lattice.Image
-public import Mathlib.Data.Set.Lattice.Indexed
-public import Mathlib.Data.Set.Lattice.Order
+public import Mathlib.Data.Set.BooleanAlgebra
 
 /-!
 # Intervals over linear orders

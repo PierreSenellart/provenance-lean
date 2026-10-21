@@ -1,6 +1,9 @@
 module
 
 public import Provenance.SymCut
+import Mathlib.Algebra.Order.Ring.Nat
+import Mathlib.Tactic.NormNum.Inv
+import Mathlib.Tactic.NormNum.Pow
 
 /-!
 # The symbolic evaluation settles on every instance

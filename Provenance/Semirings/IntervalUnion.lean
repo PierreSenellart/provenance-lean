@@ -1,22 +1,18 @@
 module
 
-public import Mathlib.Algebra.BigOperators.Group.Finset.Basic
-public import Mathlib.Algebra.BigOperators.Ring.Finset
 public import Mathlib.Data.EReal.Basic
-public import Mathlib.Data.Fintype.Basic
-public import Mathlib.Data.Fintype.Pi
-public import Mathlib.Data.List.Sort
 public import Mathlib.Data.Set.Lattice.Bounded
-public import Mathlib.Data.Set.Lattice.Disjoint
 public import Mathlib.Data.Set.Lattice.Image
 public import Mathlib.Data.Set.Lattice.Indexed
-public import Mathlib.Data.Set.Lattice.Order
 public import Mathlib.Basic.Nontrivial.Defs
-public import Mathlib.Order.CompleteLattice.Finset
 public import Mathlib.Tactic.Linarith
 public import Provenance.Semirings.BoolFunc
 public import Provenance.Semirings.Interval
 public import Provenance.SemiringWithMonus
+public import Mathlib.Data.Fintype.Defs
+import Mathlib.Algebra.BigOperators.Group.Finset.Basic
+import Mathlib.Data.Fintype.Pi
+import Mathlib.Order.CompleteLattice.Finset
 
 /-!
 # Interval-union semiring

@@ -4,7 +4,9 @@
 -/
 module
 
-public import Provenance.AggQueryEmbedding
+public import Provenance.AggQuery
+import Mathlib.Tactic.NormNum.Inv
+import Mathlib.Tactic.NormNum.Pow
 
 /-!
 # The rewriting rules (R1)–(R4), natively on the general syntax

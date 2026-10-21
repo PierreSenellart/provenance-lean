@@ -4,9 +4,10 @@
 -/
 module
 
-public import Provenance.Derived
 public import Provenance.QueryAdequacy
 public import Provenance.Semirings.Nat
+public import Provenance.AggQuery
+import Mathlib.Tactic.Bound.Init
 
 /-!
 # Second-level aggregation, both ways

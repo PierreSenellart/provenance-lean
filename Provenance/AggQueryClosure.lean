@@ -5,6 +5,11 @@
 module
 
 public import Provenance.AggQueryGroupRewriting
+import Mathlib.Tactic.NormNum.Inv
+import Mathlib.Tactic.NormNum.Pow
+import Provenance.AggQueryHom
+import Provenance.AggQueryRewritingValid
+import Provenance.HavingQueryCorrectness
 
 /-!
 # The compositional closure of the rewriting rules

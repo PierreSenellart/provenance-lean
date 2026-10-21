@@ -1,6 +1,9 @@
 module
 
 public import Provenance.SymRel
+public import Provenance.Genericity
+import Mathlib.Tactic.NormNum.Inv
+import Mathlib.Tactic.NormNum.Pow
 
 /-!
 # Terms and predicates over symbolic rows

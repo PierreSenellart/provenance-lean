@@ -1,6 +1,10 @@
 module
 
 public import Provenance.SymMatch
+public import Provenance.SymCut
+import Mathlib.Tactic.NormNum.Inv
+import Mathlib.Tactic.NormNum.Pow
+import Provenance.SymSettle
 
 /-!
 # An apply written with products

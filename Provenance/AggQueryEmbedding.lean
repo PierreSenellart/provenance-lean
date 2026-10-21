@@ -6,6 +6,8 @@ module
 
 public import Provenance.QueryToAgg
 public import Provenance.HavingJoinCompositional
+import Mathlib.Tactic.NormNum.Inv
+import Mathlib.Tactic.NormNum.Pow
 
 /-!
 # The compositional JOIN rewriting, on the general syntax

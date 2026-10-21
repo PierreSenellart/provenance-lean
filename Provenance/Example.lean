@@ -1,4 +1,4 @@
-module
+module -- shake: keep-all
 
 public import Mathlib.Data.Fin.VecNotation
 public import Mathlib.Data.Finsupp.Single
@@ -25,6 +25,15 @@ public meta import Provenance.QueryRewriting
 public meta import Provenance.Semirings.Nat
 public meta import Provenance.Semirings.Tropical
 public meta import Provenance.Util.ValueTypeString
+public import Mathlib.Algebra.Tropical.Basic
+public import Provenance.AggQueryBridges
+import Mathlib.Algebra.Order.AbsoluteValue.Basic
+import Mathlib.Algebra.Order.Field.Basic
+import Mathlib.Data.Rat.Cast.Order
+import Mathlib.Tactic.NormNum.Abs
+import Mathlib.Tactic.NormNum.DivMod
+import Mathlib.Tactic.NormNum.OfScientific
+import Mathlib.Tactic.NormNum.Pow
 
 @[expose] public section
 

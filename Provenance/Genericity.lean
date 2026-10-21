@@ -1,6 +1,13 @@
 module
 
-public import Provenance.RecursionBasisPass
+public import Mathlib.Data.Fintype.Prod
+public import Provenance.RecursionBasis
+import Mathlib.Algebra.Order.BigOperators.Group.Finset
+import Mathlib.Algebra.Order.Ring.Nat
+import Mathlib.Data.Fintype.BigOperators
+import Mathlib.Tactic.Ring.RingNF
+import Provenance.NestedPres
+import Provenance.RecursionBasisPass
 
 /-!
 # Genericity of the minimal universe: a query reads its parameters only up to order
@@ -514,16 +521,6 @@ theorem Relation.groupSeqOptOrd_coe {m n₁ : ℕ} (is : Tuple (Fin m) n₁) (or
 
 /-! ## Frames and window values under a faithful map -/
 
-/-- Duplicate elimination commutes with a map injective on the bag. -/
-theorem Multiset.dedup_map_of_injOn {α β : Type} [DecidableEq α] [DecidableEq β] {f : α → β}
-    {s : Multiset α} (hf : ∀ x ∈ s, ∀ y ∈ s, f x = f y → x = y) :
-    (s.map f).dedup = s.dedup.map f := by
-  refine (Multiset.Nodup.ext (Multiset.nodup_dedup _)
-    (Multiset.Nodup.map_on (fun x hx y hy => hf x (Multiset.mem_dedup.mp hx) y
-      (Multiset.mem_dedup.mp hy)) (Multiset.nodup_dedup s))).mpr (fun b => ?_)
-  rw [Multiset.mem_dedup, Multiset.mem_map, Multiset.mem_map]
-  exact exists_congr (fun a => and_congr_left (fun _ => Multiset.mem_dedup.symm))
-
 namespace FaithfulOn
 
 variable {τ : T → T} {W : Set T}
@@ -1033,7 +1030,7 @@ theorem keys_map (h : FaithfulOn τ W) {m n₁ : ℕ} [DecidableEq (Tuple T n₁
       = ((r.map (fun u => (fun k => u (is k) : Tuple T n₁))).dedup).map
           (fun g => (τ ∘ g : Tuple T n₁)) := by
   have hinj := Multiset.dedup_map_of_injOn (s := r.map (fun u => (fun k => u (is k) : Tuple T n₁)))
-    (f := fun g => (τ ∘ g : Tuple T n₁)) (fun x hx y hy hxy => by
+    (g := fun g => (τ ∘ g : Tuple T n₁)) (fun x hx y hy hxy => by
       obtain ⟨x', hx', rfl⟩ := Multiset.mem_map.mp hx
       obtain ⟨y', hy', rfl⟩ := Multiset.mem_map.mp hy
       exact (h.row_eq_iff (fun k => hr x' hx' (is k)) (fun k => hr y' hy' (is k))).mp hxy)

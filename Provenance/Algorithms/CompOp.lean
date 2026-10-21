@@ -4,9 +4,9 @@
 -/
 module
 
-public import Mathlib.Basic.Logic.Basic
-public import Mathlib.Data.Nat.Init
 public import Mathlib.Order.Defs.LinearOrder
+import Mathlib.Basic.Logic.Basic
+import Mathlib.Data.Nat.Init
 
 /-!
 # Comparison operator for HAVING enumeration algorithms

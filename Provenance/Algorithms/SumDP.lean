@@ -4,12 +4,10 @@
 -/
 module
 
-public import Mathlib.Data.Finset.Powerset
-public import Mathlib.Data.Finset.Card
 public import Mathlib.Data.List.Range
-public import Mathlib.Algebra.BigOperators.Group.Finset.Basic
-public import Mathlib.Algebra.Order.BigOperators.Group.Finset
 public import Provenance.Algorithms.CompOp
+public import Mathlib.Algebra.BigOperators.Group.Finset.Defs
+import Mathlib.Algebra.Order.BigOperators.Group.Finset
 
 /-!
 # Correctness of SUM enumeration via dynamic programming

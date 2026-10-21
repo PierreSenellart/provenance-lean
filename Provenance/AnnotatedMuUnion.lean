@@ -4,9 +4,14 @@
 -/
 module
 
-public import Provenance.AnnotatedSum
 public import Provenance.PathSum
-public import Provenance.HavingQueryCorrectness
+public import Provenance.AggQueryAdequacy
+public import Provenance.Genericity
+public import Provenance.MuUnion
+public import Provenance.Probability
+import Mathlib.Analysis.SpecialFunctions.Pow.NNReal
+import Provenance.AnnotatedSum
+import Provenance.HavingQueryCorrectness
 
 /-!
 # The set recursion from the bag recursion and `ε`, in the annotated semantics

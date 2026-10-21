@@ -4,10 +4,12 @@
 -/
 module
 
-public import Mathlib.Algebra.BigOperators.Fin
 public import Provenance.HavingMinMax
 public import Provenance.QueryAdequacy
 public import Provenance.QueryAnnotatedDatabase
+public import Mathlib.Data.Fintype.Powerset
+import Mathlib.Algebra.BigOperators.Fin
+import Mathlib.Tactic.Bound.Init
 
 /-!
 # Possible-world semantics of the fused `Having` operator

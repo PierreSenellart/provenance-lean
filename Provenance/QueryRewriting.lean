@@ -6,6 +6,8 @@ public import Provenance.AnnotatedDatabase
 public import Provenance.Query
 public import Provenance.QueryAnnotatedDatabase
 public import Provenance.Util.ValueType
+import Mathlib.Algebra.Order.Group.Nat
+import Mathlib.Tactic.Bound.Init
 
 /-!
 # Query evaluation by rewriting

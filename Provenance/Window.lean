@@ -6,6 +6,7 @@ module
 
 public import Provenance.Frame
 public import Provenance.AggQuery
+import Mathlib.Tactic.Bound.Init
 
 /-!
 # The window operator's token

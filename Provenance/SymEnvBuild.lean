@@ -1,6 +1,9 @@
 module
 
 public import Provenance.SymOrder
+public import Provenance.SymCorrect
+import Mathlib.Algebra.Group.Action.Defs
+import Mathlib.Tactic.Ring.RingNF
 
 /-!
 # The environment of the symbolic evaluation, built from a cut

@@ -4,14 +4,19 @@
 -/
 module
 
-public import Mathlib.Tactic.Ring
 public import Provenance.AggQuery
 public import Provenance.AggValueCongr
 public import Provenance.QueryAnnotatedDatabaseHom
-public import Provenance.AggQueryBridges
 public import Provenance.JointHom
 public import Provenance.NestedPres
 public import Provenance.Coherence
+public import Provenance.AggQueryAdequacy
+import Mathlib.Algebra.BigOperators.Group.Finset.Basic
+import Mathlib.Algebra.Order.Ring.Nat
+import Mathlib.Tactic.NormNum.Inv
+import Mathlib.Tactic.NormNum.Pow
+import Provenance.AggQueryBridges
+import Provenance.QueryRewriting
 
 /-!
 # Hom commutation, token and annotation layer

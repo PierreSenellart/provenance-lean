@@ -1,6 +1,12 @@
 module
 
-public import Provenance.SumByProd
+public import Mathlib.Data.Finset.Max
+public import Mathlib.Data.Fintype.Basic
+public import Provenance.Util.ValueType
+import Mathlib.Data.Fintype.Card
+import Mathlib.Tactic.NormNum.Inv
+import Mathlib.Tactic.NormNum.Pow
+import Provenance.Query
 
 /-!
 # Codes of parameter values relative to a cut

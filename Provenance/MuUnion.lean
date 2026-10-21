@@ -1,6 +1,11 @@
 module
 
-public import Provenance.Genericity
+public import Provenance.RecursionBasisPass
+import Mathlib.Algebra.Order.Ring.Nat
+import Mathlib.Data.Fintype.BigOperators
+import Mathlib.Tactic.NormNum.Inv
+import Mathlib.Tactic.NormNum.Pow
+import Provenance.Genericity
 
 /-!
 # `μ^∪` from `μ^⊎`

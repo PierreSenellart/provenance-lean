@@ -5,6 +5,11 @@
 module
 
 public import Provenance.AggQueryRewriting
+public import Provenance.QueryToAgg
+import Mathlib.Tactic.NormNum.Inv
+import Mathlib.Tactic.NormNum.Pow
+import Provenance.AggQueryHom
+import Provenance.QueryRewriting
 
 /-!
 # Stripping the classical fragment to the classical syntax

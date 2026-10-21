@@ -1,6 +1,8 @@
 module
 
-public import Provenance.SymSettle
+public import Provenance.SymEnvBuild
+import Mathlib.Tactic.NormNum.Inv
+import Mathlib.Tactic.NormNum.Pow
 
 /-!
 # Recognizing a parameter row's descriptor

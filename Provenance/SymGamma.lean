@@ -1,6 +1,9 @@
 module
 
 public import Provenance.SymOps
+public import Provenance.WinKept
+import Mathlib.Tactic.NormNum.Inv
+import Mathlib.Tactic.NormNum.Pow
 
 /-!
 # The symbolic grouping

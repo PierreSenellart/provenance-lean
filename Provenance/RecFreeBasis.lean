@@ -1,6 +1,9 @@
 module
 
-public import Provenance.RecursionBases
+public import Provenance.DiffBasis
+public import Provenance.WinKept
+import Mathlib.Analysis.SpecialFunctions.Pow.NNReal
+import Provenance.WinRow
 
 /-!
 # The bases of the recursion-free algebra in the minimal universe

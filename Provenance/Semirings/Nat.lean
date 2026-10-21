@@ -3,6 +3,8 @@ module
 public import Provenance.SemiringWithMonus
 public import Provenance.Semirings.Bool
 public import Provenance.Semirings.BoolFunc
+public import Mathlib.Algebra.Order.Group.Nat
+import Mathlib.Tactic.Bound.Init
 
 /-!
 # Counting m-semiring

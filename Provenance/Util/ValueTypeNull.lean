@@ -7,6 +7,8 @@ module
 public import Provenance.Util.ValueType
 public import Provenance.Util.Kleene
 public import Provenance.Algorithms.CompOp
+public import Mathlib.Order.WithBot
+import Mathlib.Tactic.Bound.Init
 
 /-!
 # Value domains with a null

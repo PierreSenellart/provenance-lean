@@ -4,7 +4,13 @@
 -/
 module
 
-public import Provenance.AggQueryAdequacy
+public import Provenance.AggQuery
+import Mathlib.Algebra.BigOperators.Ring.Finset
+import Mathlib.Algebra.Order.Monoid.Multiset
+import Mathlib.Algebra.Order.Sub.Basic
+import Mathlib.Tactic.NormNum.Inv
+import Mathlib.Tactic.NormNum.Pow
+import Provenance.AggQueryAdequacy
 
 /-!
 # Regression bridges for the general evaluator

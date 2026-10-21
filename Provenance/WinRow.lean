@@ -1,7 +1,8 @@
 module
 
 public import Provenance.Genericity
-public import Mathlib.Analysis.Polynomial.Basic
+public import Mathlib.Algebra.Polynomial.Eval.Defs
+import Mathlib.Analysis.Polynomial.Basic
 
 /-!
 # Windows are needed in every basis of the whole algebra

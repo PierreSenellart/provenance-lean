@@ -5,6 +5,7 @@
 module
 
 public import Provenance.AggQuery
+import Mathlib.Tactic.Bound.Init
 
 /-!
 # Determinacy: the listing an aggregate reads, and the query that is refused

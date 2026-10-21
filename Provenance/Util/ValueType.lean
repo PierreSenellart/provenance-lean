@@ -4,6 +4,7 @@ public import Mathlib.Algebra.Group.Defs
 public import Mathlib.Order.Defs.LinearOrder
 
 public import Provenance.SemiringWithMonus
+import Mathlib.Tactic.Bound.Init
 
 @[expose] public section
 

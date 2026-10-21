@@ -6,6 +6,8 @@ module
 
 public import Provenance.AnnotatedApproxRows
 public import Provenance.AnnotatedChains
+import Mathlib.Analysis.SpecialFunctions.Pow.NNReal
+import Provenance.AnnotatedSum
 
 /-!
 # The apply row up to `≈` with occurrence identity

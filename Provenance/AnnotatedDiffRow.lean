@@ -6,7 +6,11 @@ module
 
 public import Provenance.AnnotatedMuUnion
 public import Provenance.Semirings.Nat
-public import Mathlib.Algebra.Order.Monoid.Prod
+public import Mathlib.Algebra.Ring.Prod
+public import Provenance.AnnotatedBasis
+import Mathlib.Algebra.Order.Monoid.Prod
+import Mathlib.Analysis.SpecialFunctions.Pow.NNReal
+import Provenance.HavingQueryCorrectness
 
 /-!
 # The difference is necessary in the annotated algebra

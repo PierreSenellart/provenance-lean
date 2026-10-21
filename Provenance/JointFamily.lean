@@ -4,7 +4,10 @@
 -/
 module
 
-public import Provenance.AggExpr
+public import Provenance.AggValue
+import Mathlib.Algebra.BigOperators.Ring.Finset
+import Mathlib.Data.Fintype.BigOperators
+import Mathlib.Tactic.Bound.Init
 
 /-!
 # Two occurrence families as one

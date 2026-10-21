@@ -3,6 +3,7 @@ module
 public import Mathlib.Computability.Language
 
 public import Provenance.SemiringWithMonus
+import Mathlib.Tactic.Bound.Init
 
 /-!
 # The regular-expression m-semiring (ProvSQL's `sr_regex`)

@@ -2,8 +2,9 @@ module
 
 public import Provenance.SelRow
 public import Provenance.WinRow
-public import Provenance.RoundBound
 public import Provenance.AggQueryAdequacy
+import Mathlib.Analysis.SpecialFunctions.Pow.NNReal
+import Provenance.RoundBound
 
 /-!
 # The basis of the annotated semantics: the statement and the inherited rows

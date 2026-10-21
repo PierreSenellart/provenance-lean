@@ -4,7 +4,8 @@
 -/
 module
 
-public import Provenance.AggQuerySubst
+public import Provenance.AggQuery
+import Mathlib.Tactic.Bound.Init
 
 /-!
 # An evaluation reads its context only where it says it does

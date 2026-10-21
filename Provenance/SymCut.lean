@@ -1,6 +1,9 @@
 module
 
 public import Provenance.SymEnvBuild
+import Mathlib.Algebra.Order.Ring.Nat
+import Mathlib.Tactic.NormNum.Inv
+import Mathlib.Tactic.NormNum.Pow
 
 /-!
 # The cut a query's symbolic evaluation is taken relative to

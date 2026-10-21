@@ -1,6 +1,7 @@
 module
 
 public import Provenance.SemiringWithMonus
+import Mathlib.Tactic.Bound.Init
 
 /-!
 # Boolean-function m-semiring `Bool[X]`

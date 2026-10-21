@@ -6,6 +6,7 @@ public import Mathlib.Order.WithBot
 public import Mathlib.Algebra.Order.Monoid.Defs
 
 public import Provenance.SemiringWithMonus
+import Mathlib.Tactic.Bound.Init
 
 /-!
 # The one-best-derivation m-semiring (ProvSQL's `sr_best_path`)

@@ -2,8 +2,9 @@ module
 
 public import Provenance.SemiringWithMonus
 public import Provenance.Semirings.BoolFunc
-public import Mathlib.Data.Finset.Basic
 public import Mathlib.Data.Finset.Lattice.Basic
+public import Mathlib.Data.Finset.SDiff
+import Mathlib.Tactic.Bound.Init
 
 /-!
 # Which-provenance m-semiring (lineage)

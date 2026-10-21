@@ -6,6 +6,7 @@ module
 
 public import Provenance.AggValueCongr
 public import Provenance.Util.ValueTypeNull
+import Mathlib.Tactic.Bound.Init
 
 /-!
 # Order specifications: what a window's `ORDER BY` orders by

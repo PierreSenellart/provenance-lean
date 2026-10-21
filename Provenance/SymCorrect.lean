@@ -1,7 +1,11 @@
 module
 
 public import Provenance.SymTab
-public import Provenance.RoundBound
+import Mathlib.Algebra.BigOperators.Group.Finset.Basic
+import Mathlib.Algebra.Order.Ring.Nat
+import Mathlib.Tactic.NormNum.Inv
+import Mathlib.Tactic.NormNum.Pow
+import Provenance.RoundBound
 
 /-!
 # The symbolic evaluation is correct

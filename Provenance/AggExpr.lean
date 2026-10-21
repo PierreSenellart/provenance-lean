@@ -5,6 +5,8 @@
 module
 
 public import Provenance.AggValue
+import Mathlib.Algebra.BigOperators.Group.Finset.Basic
+import Mathlib.Tactic.Bound.Init
 
 /-!
 # Aggregate expressions

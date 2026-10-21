@@ -2,6 +2,7 @@ module
 
 public import Provenance.SemiringWithMonus
 public import Provenance.Semirings.BoolFunc
+import Mathlib.Tactic.Bound.Init
 
 /-!
 # Boolean m-semiring

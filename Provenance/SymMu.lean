@@ -1,6 +1,11 @@
 module
 
-public import Provenance.SymWin
+public import Provenance.SymOps
+import Mathlib.Algebra.BigOperators.Group.Finset.Basic
+import Mathlib.Data.Sym.Basic
+import Mathlib.Tactic.NormNum.Inv
+import Mathlib.Tactic.NormNum.Pow
+import Provenance.SymGamma
 
 /-!
 # A bag recursion run against a counter

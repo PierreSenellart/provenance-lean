@@ -5,6 +5,8 @@
 module
 
 public import Provenance.AnnotatedDiffRow
+import Mathlib.Analysis.SpecialFunctions.Pow.NNReal
+import Provenance.AggQueryBridges
 
 /-!
 # Duplicate elimination is necessary in the annotated algebra

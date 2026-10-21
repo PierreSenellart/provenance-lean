@@ -4,7 +4,7 @@
 -/
 module
 
-public import Mathlib.Basic.Logic.Basic
+import Std.Data.DTreeMap.Internal.Operations
 
 /-!
 # Kleene's three-valued logic

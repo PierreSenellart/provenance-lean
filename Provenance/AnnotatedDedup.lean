@@ -1,6 +1,8 @@
 module
 
 public import Provenance.AnnotatedBasis
+public import Provenance.RecursionBasisPass
+import Mathlib.Analysis.SpecialFunctions.Pow.NNReal
 
 /-!
 # Duplicate elimination from the set recursion, annotated

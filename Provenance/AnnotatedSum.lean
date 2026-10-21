@@ -1,6 +1,7 @@
 module
 
 public import Provenance.AnnotatedProd
+import Mathlib.Analysis.SpecialFunctions.Pow.NNReal
 
 /-!
 # The union from the bag recursion, annotated

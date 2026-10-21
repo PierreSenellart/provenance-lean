@@ -1,6 +1,10 @@
 module
 
-public import Provenance.SymPass
+public import Mathlib.Order.BourbakiWitt
+public import Provenance.MuUnion
+import Mathlib.Analysis.SpecialFunctions.Pow.NNReal
+import Provenance.RecursionBasisTheorem
+import Provenance.SymPass
 
 /-!
 # The difference in place of the selection

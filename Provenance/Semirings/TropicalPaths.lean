@@ -7,6 +7,8 @@ public import Mathlib.Algebra.Order.Monoid.Defs
 
 public import Provenance.SemiringWithMonus
 public import Provenance.Semirings.Regex
+import Mathlib.Algebra.Order.Sub.Basic
+import Mathlib.Tactic.Bound.Init
 
 /-!
 # The min-cost-paths m-semiring (ProvSQL's `sr_tropical_paths`)

@@ -5,6 +5,9 @@
 module
 
 public import Provenance.AggQueryStrip
+public import Provenance.QueryRewriting
+import Mathlib.Tactic.NormNum.Inv
+import Mathlib.Tactic.NormNum.Pow
 
 /-!
 # Correctness of the native rewriting

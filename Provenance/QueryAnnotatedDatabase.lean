@@ -1,10 +1,10 @@
 module
 
-public import Std.Data.HashMap.Lemmas
 
 public import Provenance.AnnotatedDatabase
 public import Provenance.Query
 public import Provenance.Util.KeyAccValueList
+import Mathlib.Tactic.Bound.Init
 
 /-!
 # Query semantics over annotated databases

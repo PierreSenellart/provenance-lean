@@ -1,10 +1,11 @@
 module
 
-public import Mathlib.Basic.NNReal.Basic
 public import Mathlib.Algebra.Order.Ring.Basic
 
 public import Provenance.SemiringWithMonus
 public import Provenance.Semirings.BoolFunc
+public import Mathlib.Basic.NNReal.Defs
+import Mathlib.Basic.NNReal.Basic
 
 @[expose] public section
 

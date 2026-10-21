@@ -1,6 +1,9 @@
 module
 
-public import Provenance.SymStruct
+public import Provenance.SymApply
+import Mathlib.Algebra.Order.Ring.Nat
+import Mathlib.Tactic.NormNum.Inv
+import Mathlib.Tactic.NormNum.Pow
 
 /-!
 # The apply written with products is well formed over the schema

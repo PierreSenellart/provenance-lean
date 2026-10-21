@@ -4,6 +4,7 @@ public import Provenance.SemiringWithMonus
 public import Provenance.Semirings.BoolFunc
 
 public import Mathlib.Order.BoundedOrder.Basic
+import Mathlib.Tactic.Bound.Init
 
 /-!
 # Min-max semiring

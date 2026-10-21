@@ -1,14 +1,16 @@
 module
 
-public import Mathlib.Algebra.BigOperators.Group.Finset.Basic
-public import Mathlib.Algebra.BigOperators.Pi
-public import Mathlib.Algebra.BigOperators.Ring.Finset
-public import Mathlib.Data.Fintype.BigOperators
 public import Mathlib.Data.Fintype.Pi
 public import Mathlib.Logic.Equiv.Prod
 
 public import Provenance.Probability
 public import Provenance.Semirings.BoolFunc
+import Mathlib.Algebra.Order.BigOperators.Ring.Finset
+import Mathlib.Data.Fintype.BigOperators
+import Mathlib.Data.Rat.Cast.Order
+import Mathlib.Tactic.NormNum.Abs
+import Mathlib.Tactic.NormNum.DivMod
+import Mathlib.Tactic.NormNum.OfScientific
 
 /-!
 # Boolean circuits, read-once and d-D correctness

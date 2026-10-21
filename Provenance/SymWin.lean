@@ -1,6 +1,11 @@
 module
 
 public import Provenance.SymGamma
+public meta import Mathlib.Tactic.ToAdditive
+import Mathlib.Algebra.Order.Sub.Basic
+import Mathlib.Data.Sym.Basic
+import Mathlib.Tactic.NormNum.Inv
+import Mathlib.Tactic.NormNum.Pow
 
 /-!
 # The order of cells, and the symbolic window

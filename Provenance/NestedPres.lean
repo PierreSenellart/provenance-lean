@@ -5,6 +5,10 @@
 module
 
 public import Provenance.JointHom
+public import Mathlib.Logic.Equiv.Fin.Basic
+import Mathlib.Algebra.BigOperators.Group.Finset.Basic
+import Mathlib.Tactic.NormNum.Inv
+import Mathlib.Tactic.NormNum.Pow
 
 /-!
 # Nested values under a homomorphism, at every storey

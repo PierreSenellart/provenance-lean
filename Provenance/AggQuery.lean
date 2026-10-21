@@ -8,6 +8,7 @@ public import Mathlib.Order.Lattice.Nat
 public import Provenance.AggExpr
 public import Provenance.Nested
 public import Provenance.Frame
+import Mathlib.Tactic.Bound.Init
 
 /-!
 # Kind-indexed general queries and their annotated semantics

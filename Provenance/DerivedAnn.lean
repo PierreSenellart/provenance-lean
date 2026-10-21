@@ -5,8 +5,12 @@
 module
 
 public import Provenance.Derived
-public import Provenance.HavingQueryCorrectness
-public import Provenance.AggQuerySubst
+import Mathlib.Algebra.BigOperators.Fin
+import Mathlib.Tactic.NormNum.Inv
+import Mathlib.Tactic.NormNum.Pow
+import Provenance.AggQuerySubst
+import Provenance.HavingQueryCorrectness
+import Provenance.QueryAnnotatedDatabaseHom
 
 /-!
 # Annotations of the derived operators

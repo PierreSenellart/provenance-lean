@@ -1,17 +1,17 @@
 module
 
-public import Mathlib.Data.Finsupp.Defs
 public import Mathlib.Data.Fin.VecNotation
 public import Mathlib.Basic.FunLike.Basic
-public import Mathlib.Data.Vector.Basic
 public import Mathlib.Data.Multiset.Dedup
 public import Mathlib.Data.Multiset.Filter
 public import Mathlib.Data.Multiset.Sort
-public import Mathlib.Order.Prod.Lex.Basic
 
 public import Provenance.Algorithms.CompOp
 public import Provenance.Database
 public import Provenance.Util.ValueTypeNull
+import Mathlib.Algebra.Order.Group.Nat
+import Mathlib.Algebra.Order.Monoid.NatCast
+import Mathlib.Tactic.Bound.Init
 
 /-!
 # Relational algebra

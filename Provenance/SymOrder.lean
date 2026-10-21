@@ -1,6 +1,11 @@
 module
 
-public import Provenance.SymCorrect
+public import Provenance.MuUnion
+public import Provenance.SumByProd
+public import Provenance.SymMu
+import Mathlib.Tactic.NormNum.Inv
+import Mathlib.Tactic.NormNum.Pow
+import Provenance.SymCorrect
 
 /-!
 # The successor relation of a finite relation, without a recursion

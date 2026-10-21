@@ -5,6 +5,9 @@
 module
 
 public import Provenance.AllRegular
+import Mathlib.Algebra.Order.Ring.Nat
+import Mathlib.Tactic.NormNum.Inv
+import Mathlib.Tactic.NormNum.Pow
 
 /-!
 # Decorrelation: an apply read as a product

@@ -1,6 +1,9 @@
 module
 
 public import Provenance.SymTerms
+import Mathlib.Tactic.NormNum.Inv
+import Mathlib.Tactic.NormNum.Pow
+import Provenance.SumByMu
 
 /-!
 # The symbolic operators: projection, selection, join

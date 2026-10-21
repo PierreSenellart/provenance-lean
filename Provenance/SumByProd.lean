@@ -1,6 +1,9 @@
 module
 
-public import Provenance.MuUnion
+public import Provenance.SumByMu
+import Mathlib.Tactic.NormNum.Inv
+import Mathlib.Tactic.NormNum.Pow
+import Provenance.RecursionBasisPass
 
 /-!
 # `⊎` from `μ^⊎` with products

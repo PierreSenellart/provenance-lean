@@ -6,6 +6,7 @@ module
 
 public import Provenance.SemiringWithMonus
 public import Mathlib.Order.BooleanAlgebra.Defs
+import Mathlib.Tactic.Bound.Init
 
 /-!
 # The security semiring, and every Boolean algebra as an m-semiring

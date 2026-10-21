@@ -7,6 +7,7 @@ module
 public import Provenance.Occurrence
 public import Provenance.AggExpr
 public import Provenance.OrderSpec
+import Mathlib.Tactic.Bound.Init
 
 /-!
 # Window frames determined by values

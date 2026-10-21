@@ -5,6 +5,10 @@
 module
 
 public import Provenance.AggQueryHavingRewriting
+import Mathlib.Algebra.BigOperators.Group.Finset.Basic
+import Mathlib.Tactic.NormNum.Inv
+import Mathlib.Tactic.NormNum.Pow
+import Provenance.AggQueryAdequacy
 
 /-!
 # Rewriting a bare grouping: aggregate results as output values

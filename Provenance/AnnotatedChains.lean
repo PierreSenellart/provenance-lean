@@ -5,6 +5,10 @@
 module
 
 public import Provenance.AnnotatedMuUnion
+public import Provenance.AnnotatedBasis
+import Mathlib.Analysis.SpecialFunctions.Pow.NNReal
+import Provenance.AnnotatedProd
+import Provenance.HavingQueryCorrectness
 
 /-!
 # The set recursion from the bag recursion and `ε`: the two counters

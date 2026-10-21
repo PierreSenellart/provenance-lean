@@ -1,7 +1,9 @@
 module
 
 public import Provenance.QueryAnnotatedDatabase
-public import Provenance.QueryRewriting
+import Mathlib.Data.List.Find
+import Mathlib.Tactic.Bound.Init
+import Provenance.QueryRewriting
 
 /-!
 # Query evaluation commutes with m-semiring homomorphisms

@@ -8,6 +8,8 @@ public import Mathlib.Data.Multiset.Count
 
 public import Provenance.Database
 public import Provenance.SemiringWithMonus
+import Mathlib.Algebra.Order.Group.Nat
+import Mathlib.Tactic.Bound.Init
 
 /-!
 # Annotated databases

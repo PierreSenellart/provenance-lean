@@ -3,12 +3,17 @@ module
 public import Mathlib.Algebra.Tropical.Basic
 public import Mathlib.Algebra.Order.Ring.Rat
 public import Mathlib.Basic.Real.Basic
-public import Mathlib.Tactic.Linarith
 
 public import Provenance.Having
 public import Provenance.HavingMinMax
 public import Provenance.SemiringWithMonus
 public import Provenance.Semirings.BoolFunc
+import Mathlib.Algebra.BigOperators.Group.Finset.Basic
+import Mathlib.Data.Rat.Cast.Order
+import Mathlib.Tactic.Linarith.Frontend
+import Mathlib.Tactic.NormNum.Abs
+import Mathlib.Tactic.NormNum.DivMod
+import Mathlib.Tactic.NormNum.OfScientific
 
 /-!
 # Tropical m-semiring

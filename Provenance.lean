@@ -3,7 +3,7 @@
   Authors: Pierre Senellart
 -/
 
-module
+module -- shake: keep-all
 
 /- Three-valued logic and value domains with a null -/
 public import Provenance.Util.Kleene
@@ -216,6 +216,7 @@ public import Provenance.ProvsqlExample
 public import Provenance.DistributionExample
 public import Provenance.NestedExample
 public import Provenance.Example
+import Mathlib.Analysis.SpecialFunctions.Pow.NNReal
 
 /-!
 # Provenance in databases

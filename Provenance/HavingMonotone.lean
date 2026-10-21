@@ -5,6 +5,11 @@
 module
 
 public import Provenance.HavingJoinCompositional
+public import Provenance.QueryAnnotatedDatabaseHom
+import Mathlib.Algebra.BigOperators.Ring.Multiset
+import Mathlib.Tactic.NormNum.Inv
+import Mathlib.Tactic.NormNum.Pow
+import Provenance.AggQueryAdequacy
 
 /-!
 # Monotone `HAVING` conditions: absorptivity suffices

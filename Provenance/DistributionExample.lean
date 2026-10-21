@@ -6,6 +6,7 @@ module
 
 public import Provenance.Derived
 public import Provenance.QueryAdequacy
+import Mathlib.Tactic.Bound.Init
 
 /-!
 # The distribution functions, and the two ranks, on a worked relation

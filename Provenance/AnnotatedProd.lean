@@ -1,8 +1,12 @@
 module
 
-public import Provenance.AnnotatedDedup
 public import Provenance.MuUnion
-public import Provenance.AggQueryProbability
+public import Provenance.AnnotatedBasis
+import Mathlib.Analysis.SpecialFunctions.Pow.NNReal
+import Provenance.AggQueryBridges
+import Provenance.AggQueryHom
+import Provenance.AggQueryProbability
+import Provenance.AnnotatedDedup
 
 /-!
 # The product from the apply, annotated

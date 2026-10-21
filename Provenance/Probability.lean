@@ -1,20 +1,21 @@
 module
 
-public import Mathlib.Algebra.BigOperators.Group.Finset.Basic
 public import Mathlib.Algebra.BigOperators.Group.Multiset.Basic
-public import Mathlib.Algebra.BigOperators.Pi
-public import Mathlib.Algebra.BigOperators.Ring.Finset
-public import Mathlib.Algebra.Order.BigOperators.Group.Finset
-public import Mathlib.Algebra.Order.BigOperators.Ring.Finset
-public import Mathlib.Algebra.Order.Ring.Rat
 public import Mathlib.Data.Fintype.Pi
-public import Mathlib.Tactic.Linarith
 
 public import Provenance.QueryAnnotatedDatabase
 public import Provenance.QueryAnnotatedDatabaseHom
 public import Provenance.QueryRewriting
-public import Provenance.Semirings.Bool
 public import Provenance.Semirings.BoolFunc
+public import Mathlib.Algebra.BigOperators.Group.Finset.Defs
+public import Mathlib.Data.Rat.Defs
+import Mathlib.Algebra.Order.BigOperators.Ring.Finset
+import Mathlib.Data.Rat.Cast.Order
+import Mathlib.Tactic.Linarith.Frontend
+import Mathlib.Tactic.NormNum.Abs
+import Mathlib.Tactic.NormNum.DivMod
+import Mathlib.Tactic.NormNum.OfScientific
+import Provenance.Semirings.Bool
 
 /-!
 # Probability distributions over Boolean variables

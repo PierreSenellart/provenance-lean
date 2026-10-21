@@ -6,6 +6,11 @@ module
 
 public import Provenance.AnnotatedApproxRows
 public import Provenance.Semirings.Why
+public import Mathlib.Data.Set.Card
+import Mathlib.Analysis.SpecialFunctions.Pow.NNReal
+import Provenance.AnnotatedDedup
+import Provenance.AnnotatedSum
+import Provenance.HavingQueryCorrectness
 
 /-!
 # `μ^∪` is necessary in the annotated algebra: the why-provenance semiring

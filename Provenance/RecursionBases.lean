@@ -1,6 +1,10 @@
 module
 
 public import Provenance.DiffBasis
+public import Provenance.SymCut
+import Mathlib.Analysis.SpecialFunctions.Pow.NNReal
+import Provenance.RecursionBasisTheorem
+import Provenance.SymPass
 
 /-!
 # The bases of the whole algebra, all of them

@@ -6,6 +6,8 @@ module
 
 public import Provenance.ReadsCongr
 public import Provenance.JointHom
+import Mathlib.Tactic.NormNum.Inv
+import Mathlib.Tactic.NormNum.Pow
 
 /-!
 # One family identifier, one value

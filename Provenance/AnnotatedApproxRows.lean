@@ -5,6 +5,10 @@
 module
 
 public import Provenance.AnnotatedBasisClass
+public import Provenance.AggQueryProbability
+import Mathlib.Analysis.SpecialFunctions.Pow.NNReal
+import Provenance.AnnotatedChains
+import Provenance.AnnotatedEpsRow
 
 /-!
 # The necessity rows up to `≈`

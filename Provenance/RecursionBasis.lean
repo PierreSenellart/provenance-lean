@@ -5,6 +5,11 @@
 module
 
 public import Provenance.BasisAssembly
+import Mathlib.Algebra.Group.Action.Defs
+import Mathlib.Algebra.Order.BigOperators.Group.Multiset
+import Mathlib.Algebra.Order.Ring.Nat
+import Mathlib.Data.Fintype.BigOperators
+import Mathlib.Tactic.Ring.RingNF
 
 /-!
 # The recursions in the classification

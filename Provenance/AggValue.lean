@@ -5,6 +5,8 @@
 module
 
 public import Provenance.HavingSemantics
+import Mathlib.Algebra.BigOperators.Ring.Finset
+import Mathlib.Tactic.Bound.Init
 
 /-!
 # Symbolic aggregate tokens

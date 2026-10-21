@@ -1,7 +1,10 @@
 module
 
-public import Provenance.AggQueryRewritingValid
-public import Provenance.AggQueryBridges
+public import Provenance.AggQueryStrip
+import Mathlib.Tactic.NormNum.Inv
+import Mathlib.Tactic.NormNum.Pow
+import Provenance.AggQueryAdequacy
+import Provenance.AggQueryRewritingValid
 
 /-! # The rewritten world's evaluator: tokens as ordinary column values
 

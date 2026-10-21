@@ -4,9 +4,14 @@
 -/
 module
 
-public import Mathlib.Tactic.Ring
 
 public import Provenance.Derived
+public import Mathlib.Data.Fintype.Pi
+public import Provenance.AggQuerySubst
+import Mathlib.Algebra.Group.Action.Defs
+import Mathlib.Algebra.Order.BigOperators.Group.Multiset
+import Mathlib.Data.Fintype.BigOperators
+import Mathlib.Tactic.Ring.RingNF
 
 /-!
 # The plain basis: which operators a query cannot do without

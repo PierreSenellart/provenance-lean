@@ -6,6 +6,8 @@ module
 
 public import Provenance.Determinacy
 public import Provenance.PlainBasis
+import Mathlib.Tactic.NormNum.Inv
+import Mathlib.Tactic.NormNum.Pow
 
 /-!
 # Reading every column as a value

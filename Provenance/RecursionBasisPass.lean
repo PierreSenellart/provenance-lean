@@ -1,6 +1,10 @@
 module
 
-public import Provenance.WinKept
+public import Provenance.RecursionBasis
+public import Provenance.SumByMu
+import Mathlib.Tactic.NormNum.Inv
+import Mathlib.Tactic.NormNum.Pow
+import Provenance.WinKept
 
 /-!
 # The pass over the whole algebra

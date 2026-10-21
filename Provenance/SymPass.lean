@@ -1,7 +1,11 @@
 module
 
 public import Provenance.SymOver
-public import Provenance.RecursionBasisTheorem
+public import Mathlib.Order.BourbakiWitt
+public import Provenance.SymStruct
+import Mathlib.Analysis.SpecialFunctions.Pow.NNReal
+import Provenance.RecursionBasisTheorem
+import Provenance.SymSettle
 
 /-!
 # The apply replaced by products, through a whole query
