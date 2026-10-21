@@ -72,6 +72,7 @@ import Provenance.AnnotatedBasisClass
 import Provenance.AnnotatedBasisHom
 import Provenance.AnnotatedApproxRows
 import Provenance.AnnotatedWhyRow
+import Provenance.AnnotatedApplyRow
 import Provenance.MuUnion
 import Provenance.RecursionBasisTheorem
 import Provenance.SumByProd
@@ -1389,6 +1390,17 @@ proven engine several general results reuse internally.
   `AggQueryIn.settlesAt_randomWorld`), the others keep their witnesses'
   rows; with the positive half, the nine classes are a basis up to `≈`
   over the class (`annEpsOps_isBasis_in_class_approx`)
+- `Provenance.AnnotatedApplyRow` – **the apply row up to `≈` with occurrence
+  identity**. Ordinary tokens carry the identities of their occurrences
+  (`AggValue.oids`, stamped by the grouping and the window), and
+  `GenRow.zeqRen` compares results up to `≈` with a one-to-one renaming of
+  them, which keeps which aggregate values share which occurrences;
+  `GeneratesAnnRen` is the generation predicate up to it. Over Boolean
+  functions of two variables a set generating up to it holds the apply
+  (`apply_mem_of_generatesAnnRen`): `R ⊳ γ_∅[count](σ_{#1 < u}(S))` gives
+  each parameter its own occurrence annotated `y`, while without an apply
+  the ordinary tokens holding an occurrence annotated `y` are hit by a set
+  of identities bounded by the query (`AggQueryIn.exists_hit`)
 - `Provenance.AnnotatedWhyRow` – **the annotated basis theorem: set
   recursion is required**. `{∅, Π, σ, apply, γ, win, μ^⊎, −, μ^∪}`
   generates the annotated algebra over every commutative m-semiring, and no

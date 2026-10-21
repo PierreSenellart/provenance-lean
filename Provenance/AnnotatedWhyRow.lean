@@ -172,8 +172,9 @@ def AggTok.annCount : AggTok T K → ℕ
   | .nest a => (a.occs.map (fun o => 1 + NestInner.annCount a.lev o.1)).sum
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
-@[simp] theorem AggTok.annCount_setFam (φ : FamId T) (x : AggTok T K) :
-    (x.setFam φ).annCount = x.annCount := by
+@[simp] theorem AggTok.annCount_setFam (φ : FamId T)
+    {ids : Option (List (OccId T))} (x : AggTok T K) :
+    (x.setFam φ ids).annCount = x.annCount := by
   cases x <;> rfl
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
@@ -997,18 +998,17 @@ theorem AggQueryIn.exists_grade (hG : Graded G) {S : Set OpKind} (hS : OpKind.mu
       subst hk
       have hcX : Multiset.card ((q.evaluate d γ E).map (GenRow.readAnnotated κ')) = C := by
         rw [Multiset.card_map, hcard]
+      simp only [AggTok.Grade, AggTok.AnnsIn_setFam, AggTok.annCount_setFam]
       split
       · have := grade_tokenOfDist hG P' O o w t g dist _ (GenRow.readAnnotated κ' x) γ hX
           ((hb' x hxm).finalize hG)
         rw [hcX] at this
-        exact ⟨by rw [AggTok.AnnsIn_setFam]; exact this.1,
-          by rw [AggTok.annCount_setFam]; exact le_trans this.2 (le_max_right _ _)⟩
+        exact ⟨this.1, le_trans this.2 (le_max_right _ _)⟩
       · rename_i φ
         have := grade_exprWhenOf hG P' O o w t g dist φ.keeps _ (GenRow.readAnnotated κ' x) γ hX
           ((hb' x hxm).finalize hG)
         rw [hcX] at this
-        exact ⟨by rw [AggTok.AnnsIn_setFam]; exact this.1,
-          by rw [AggTok.annCount_setFam]; exact le_trans this.2 (le_max_right _ _)⟩
+        exact ⟨this.1, le_trans this.2 (le_max_right _ _)⟩
     · rw [Fin.snoc_castSucc] at hk
       exact (tx i a hk).mono hG (le_max_left _ _) le_rfl
   | ProvSum is his t q ih => exact fun hu => hu.elim

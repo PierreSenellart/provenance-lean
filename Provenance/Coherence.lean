@@ -261,7 +261,8 @@ end TermCl
 
 omit [DecidableEq K] [HasAltLinearOrder K] [ValueType T] [CommSemiringWithMonus K] in
 theorem AggTok.stamp_spec {x y : AggTok T K} {lab : ℕ} {key : List T}
-    {ps : List (T ⊕ FamId T)} {j : ℕ} (h : x = y.setFam (.mk lab key ps j [])) :
+    {ps : List (T ⊕ FamId T)} {j : ℕ} {ids : Option (List (OccId T))}
+    (h : x = y.setFam (.mk lab key ps j []) ids) :
     x.fam.terms' = [] ∧ x.lab = lab := by
   subst h
   simp [AggTok.lab, AggTok.fam_setFam, FamId.lab, FamId.terms']
@@ -426,7 +427,8 @@ theorem AggQueryIn.labels_eq_map_labWidths :
 
 omit [DecidableEq K] [HasAltLinearOrder K] [ValueType T] [CommSemiringWithMonus K] in
 theorem AggTok.stamp_col {x y : AggTok T K} {lab : ℕ} {key : List T}
-    {ps : List (T ⊕ FamId T)} {j : ℕ} (h : x = y.setFam (.mk lab key ps j [])) :
+    {ps : List (T ⊕ FamId T)} {j : ℕ} {ids : Option (List (OccId T))}
+    (h : x = y.setFam (.mk lab key ps j []) ids) :
     x.fam.col = j := by
   subst h
   simp [AggTok.fam_setFam, FamId.col]
@@ -885,6 +887,22 @@ theorem tokenOfDist_congr_fst {c n m p : ℕ} (P : Tuple (Fin n) m) (O : Tuple (
   unfold tokenOfDist tokenOf
   rw [hf, hxy]
 
+omit [CommSemiringWithMonus K] [DecidableEq K] in
+/-- The identities a window gives the occurrences of a frame depend on the
+row only through its tuple, where the frame contains its current row. -/
+theorem frameOids_congr_fst {n m p : ℕ} (lab : ℕ) (ck : List (T ⊕ FamId T))
+    (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
+    (o : OrderSpec p) {w : ValueFrame T p} (hc : w.ContainsSelf) (X : AnnotatedRelation T K n)
+    {x y : AnnotatedTuple T K n} (hx : Multiset.Mem X x) (hy : Multiset.Mem X y)
+    (hxy : x.fst = y.fst) :
+    frameOids lab ck P O o w X x = frameOids lab ck P O o w X y := by
+  have hf : frameListOf (α := AnnotatedTuple T K n) Prod.fst P O o w X x
+      = frameListOf (α := AnnotatedTuple T K n) Prod.fst P O o w X y := by
+    unfold frameListOf
+    rw [frameOf_congr_val (α := AnnotatedTuple T K n) Prod.fst P O hc X hx hy hxy]
+  unfold frameOids
+  rw [hf, hxy]
+
 omit [DecidableEq K] in
 theorem exprWhenOf_congr_fst {c n m p : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
     (o : OrderSpec p) {w : ValueFrame T p} (hc : w.ContainsSelf) (t : TermIn T c n)
@@ -1050,11 +1068,12 @@ theorem AggQueryIn.newFun_Win {c n m p lab : ℕ} {κ : Fin n → ColKind} {rd :
   cases keep with
   | none =>
     simp only
-    rw [ValueFrame.tokenOfDist_congr_fst P O o hc t f dist _ (hm u hu) (hm u' hu') hg' γ, hg']
+    rw [ValueFrame.tokenOfDist_congr_fst P O o hc t f dist _ (hm u hu) (hm u' hu') hg' γ, hg',
+      ValueFrame.frameOids_congr_fst lab _ P O o hc _ (hm u hu) (hm u' hu') hg']
   | some φ =>
     simp only
     rw [ValueFrame.exprWhenOf_congr_fst P O o hc t f dist φ.keeps _ (hm u hu) (hm u' hu')
-      hg' γ, hg']
+      hg' γ, hg', ValueFrame.frameOids_congr_fst lab _ P O o hc _ (hm u hu) (hm u' hu') hg']
 
 /-- **A multi-frame window over frames containing the current row builds
 one value per identifier.** -/

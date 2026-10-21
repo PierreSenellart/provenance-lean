@@ -360,7 +360,7 @@ A nested value is read through its own worlds and never here. -/
 def flatExpr : AggTok T K → AggExpr T K
   | .tok a => AggExpr.ofValue a
   | .expr e => e
-  | .nest a => AggExpr.ofValue ⟨fun _ => a.collapse, [], true, a.fam⟩
+  | .nest a => AggExpr.ofValue ⟨fun _ => a.collapse, [], true, a.fam, []⟩
 
 end AggTok
 
@@ -1641,6 +1641,32 @@ omit [DecidableEq K] [HasAltLinearOrder K] in
     M.map (GenRow.readAnnotated (ColKind.allReg n))
       = M.map GenRow.toAnnotated := rfl
 
+/-- **The copy number of each element of a list**: how many equal elements
+come before it, `seen` holding those already passed. -/
+def List.copyNums {α : Type} (eq : α → α → Bool) : List α → List α → List ℕ
+  | _, [] => []
+  | seen, a :: as => seen.countP (eq a) :: List.copyNums eq (a :: seen) as
+
+/-- **The identities of a window's occurrences**: an occurrence of the frame
+of the row is numbered by the position, in the listing of its partition, of
+the first row equal to it, plus its copy number among the equal rows of the
+frame. So the frames of one partition give one occurrence one identity, and
+a frame holding a row holds the identity of its first copy. Two equal rows
+get one frame: under `EXCLUDE CURRENT ROW` the semantics gives each the
+frame without itself, which a frame computed from the row alone cannot. -/
+def ValueFrame.frameOids {n m p : ℕ} (lab : ℕ) (ck : List (T ⊕ FamId T))
+    (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p) (w : ValueFrame T p)
+    (X : AnnotatedRelation T K n) (x : AnnotatedTuple T K n) : List (OccId T) :=
+  let e : AnnotatedTuple T K n → AnnotatedTuple T K n → Bool := fun a b =>
+    @decide (a = b) (ValueFrame.annotatedTupleLinearOrder.toDecidableEq a b)
+  let part : List (AnnotatedTuple T K n) :=
+    OrderSpec.sortSeq (Tuple.key O) (fun y : AnnotatedTuple T K n => y.fst) o
+      (sortList (α := AnnotatedTuple T K n) ((X : Multiset (AnnotatedTuple T K n)).filter
+        (fun y : AnnotatedTuple T K n => Tuple.key P y.fst = Tuple.key P x.fst)))
+  let F := ValueFrame.frameListOf (α := AnnotatedTuple T K n) Prod.fst P O o w X x
+  List.zipWith (fun a c => ⟨lab, ck, List.ofFn (Tuple.key P x.fst), part.findIdx (e a) + c⟩)
+    F (List.copyNums e [] F)
+
 /-- **The row a window gives a row of its input**: the row itself, one
 column longer, carrying the token the relation gives it – or, under a
 `FILTER` clause, the aggregate expression over the whole frame whose leaf
@@ -1664,7 +1690,9 @@ def ValueFrame.windowGenRow {c n m p : ℕ} (lab : ℕ) (ck : List (T ⊕ FamId 
       | some φ =>
           AggTok.expr (ValueFrame.exprWhenOf P O o w t f dist φ.keeps X
             (GenRow.readAnnotated κ x) γ)).setFam
-        (.mk lab (List.ofFn (GenRow.readAnnotated κ x).fst) ck 0 []))),
+        (.mk lab (List.ofFn (GenRow.readAnnotated κ x).fst) ck 0 [])
+        (if dist then none
+          else some (ValueFrame.frameOids lab ck P O o w X (GenRow.readAnnotated κ x))))),
     x.snd⟩
 
 /-- Embed an annotated tuple as a general row (all-regular, nothing
@@ -2630,7 +2658,8 @@ noncomputable def AggQueryIn.evaluate {c n : ℕ} {κ : Fin n → ColKind} {l : 
           | none => AggTok.tok (AggValue.ofGroup (fs j) (ts j) U γ)
           | some φ =>
               AggTok.expr (AggExpr.ofGroupWhen (fs j) (ts j) φ.keeps U γ)).setFam
-            (.mk lab (List.ofFn g) (E.paramKey rd γ) j []))),
+            (.mk lab (List.ofFn g) (E.paramKey rd γ) j [])
+            (some (OccId.listing lab (E.paramKey rd γ) (List.ofFn g) U.length)))),
        ⟨1, {U.map Prod.snd}⟩⟩)
   | _, _, _, _, @GammaScalar _ _ m n₂ lab rd ts fs q ord, d, γ, E =>
     let r : AnnotatedRelation T K m := (q.evaluate d γ E).map GenRow.toAnnotated
@@ -2639,7 +2668,8 @@ noncomputable def AggQueryIn.evaluate {c n : ℕ} {κ : Fin n → ColKind} {l : 
     let U := Having.havingGroupOrd (fun k : Fin 0 => k.elim0) ord r
       (fun k : Fin 0 => k.elim0)
     {(⟨fun j => Sum.inr ((AggTok.tok (AggValue.ofScalarGroup (fs j) (ts j) U γ)).setFam
-        (.mk lab [] (E.paramKey rd γ) j [])),
+        (.mk lab [] (E.paramKey rd γ) j [])
+        (some (OccId.listing lab (E.paramKey rd γ) [] U.length))),
         ⟨1, 0⟩⟩
       : GenRow T K n₂)}
   | _, _, _, _, @GammaNest _ _ m n₁ _κ lab rd is _his p f q, d, γ, E =>
@@ -4351,9 +4381,9 @@ theorem AggQueryIn.evaluate_ordinaryTokens :
     cases a with
     | tok _ => rfl
     | nest _ =>
-        exact absurd ha (by simp [AggTok.setFam_tok])
+        exact absurd ha (by simp [AggTok.setFam_tok_some])
     | expr _ =>
-        exact absurd ha (by simp [AggTok.setFam_tok])
+        exact absurd ha (by simp [AggTok.setFam_tok_some])
   | ProvSum is his t q ih =>
     intro hq hn hfl d γ E hE r hr k
     simp only [AggQueryIn.evaluate] at hr
@@ -4605,9 +4635,9 @@ theorem AggQueryIn.evaluate_noNestedOn :
     cases a with
     | tok _ => rfl
     | nest _ =>
-        exact absurd ha (by simp [AggTok.setFam_tok])
+        exact absurd ha (by simp [AggTok.setFam_tok_some])
     | expr _ =>
-        exact absurd ha (by simp [AggTok.setFam_tok])
+        exact absurd ha (by simp [AggTok.setFam_tok_some])
   | ProvSum is his t q ih =>
     intro hn d γ E R hR hC hH r hr k
     simp only [AggQueryIn.evaluate] at hr

@@ -966,7 +966,7 @@ there, `isWorld_ofUnary` that it has the same worlds, and
 `predProvWith_ofUnary` that a comparison against either has the same
 predicate provenance. -/
 def _root_.AggValue.postcomp (gf : T → T) (a : AggValue T K) : AggValue T K :=
-  ⟨fun L => gf (a.agg L), a.occs, a.scalar, a.fam⟩
+  ⟨fun L => gf (a.agg L), a.occs, a.scalar, a.fam, a.oids⟩
 
 @[simp] theorem _root_.AggValue.occs_postcomp (gf : T → T) (a : AggValue T K) :
     (a.postcomp gf).occs = a.occs := rfl

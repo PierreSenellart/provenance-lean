@@ -731,11 +731,12 @@ omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 list. -/
 theorem gammaRow_agg_col {m n₁ n₂ : ℕ} (g : Tuple T n₁)
     (ts : Tuple (Term T m) n₂) (fs : Tuple (SeqAggFunc T) n₂)
-    (U : List (AnnotatedTuple T K m)) (φ : Fin n₂ → FamId T) {k : Fin (n₁ + n₂)}
+    (U : List (AnnotatedTuple T K m)) (φ : Fin n₂ → FamId T) (ids : Option (List (OccId T)))
+    {k : Fin (n₁ + n₂)}
     (hk : ColKind.gammaKinds n₁ n₂ k = ColKind.agg) :
     ∃ a : AggValue T K,
       Fin.append (fun i => (Sum.inl (g i) : GenValue T K))
-          (fun j => Sum.inr ((AggTok.tok (AggValue.ofGroup (fs j) (ts j) U)).setFam (φ j))) k
+          (fun j => Sum.inr ((AggTok.tok (AggValue.ofGroup (fs j) (ts j) U)).setFam (φ j) ids)) k
           = Sum.inr (AggTok.tok a)
         ∧ a.occs.map Prod.snd = U.map Prod.snd := by
   revert hk
@@ -743,7 +744,7 @@ theorem gammaRow_agg_col {m n₁ n₂ : ℕ} (g : Tuple T n₁)
   · intro hk
     rw [ColKind.gammaKinds, Fin.append_left] at hk
     exact ColKind.noConfusion hk
-  · exact fun _ => ⟨{ AggValue.ofGroup (fs j) (ts j) U with fam := φ j },
+  · exact fun _ => ⟨{ AggValue.ofGroup (fs j) (ts j) U with fam := φ j, oids := ids.getD [] },
       Fin.append_right _ _ j, AggValue.annList_ofGroup (fs j) (ts j) U⟩
 
 omit [HasAltLinearOrder K] in
@@ -873,7 +874,10 @@ theorem AggQueryIn.havingPredRew_valid {lab : ℕ} {rd} {m n₁ n₂ : ℕ} (is 
       rw [GenPredIn.gateTerm_evalRew (K := K) φ (GenPredIn.rangeFree_of_gateExact φ hrf) false _
         (gammaRow_noNested kv.fst (fun j => { AggValue.ofGroup (fs j) (ts j)
           (Having.havingGroup is ((qg.evaluate d).map GenRow.toAnnotated)
-            kv.fst) with fam := FamId.mk lab (List.ofFn kv.fst) [] j [] }))]
+            kv.fst) with
+              fam := FamId.mk lab (List.ofFn kv.fst) [] j []
+              oids := OccId.listing lab [] (List.ofFn kv.fst) (Having.havingGroup is
+                ((qg.evaluate d).map GenRow.toAnnotated) kv.fst).length }))]
       show _ = Sum.inl (Sum.inr _ * AggValue.collapseSum
         (GenRow.toCompositeRow _ (Fin.last (n₁ + n₂))))
       rw [GenRow.toCompositeRow_last]
@@ -897,6 +901,9 @@ theorem AggQueryIn.havingPredRew_valid {lab : ℕ} {rd} {m n₁ n₂ : ℕ} (is 
           (Multiset.map GenRow.toAnnotated (qg.evaluate d)) kv.fst)
           (fun j => FamId.mk lab (List.ofFn kv.fst)
             (({} : EvalEnv T K).paramKey rd (fun _ => 0)) j [])
+          (some (OccId.listing lab (({} : EvalEnv T K).paramKey rd (fun _ => 0)) (List.ofFn kv.fst)
+            (Having.havingGroup is
+              (Multiset.map GenRow.toAnnotated (qg.evaluate d)) kv.fst).length))
         (GenPredIn.comparedCols_agg φ hk)
       refine absurd ?_ (Multiset.notMem_zero
         (List.map Prod.snd (Having.havingGroup is
@@ -912,6 +919,9 @@ theorem AggQueryIn.havingPredRew_valid {lab : ℕ} {rd} {m n₁ n₂ : ℕ} (is 
           (Multiset.map GenRow.toAnnotated (qg.evaluate d)) kv.fst)
           (fun j => FamId.mk lab (List.ofFn kv.fst)
             (({} : EvalEnv T K).paramKey rd (fun _ => 0)) j [])
+          (some (OccId.listing lab (({} : EvalEnv T K).paramKey rd (fun _ => 0)) (List.ofFn kv.fst)
+            (Having.havingGroup is
+              (Multiset.map GenRow.toAnnotated (qg.evaluate d)) kv.fst).length))
         (GenPredIn.comparedCols_agg φ (Finset.mem_val.mp hk))
       rw [ha] at hfk
       exact (Option.some.inj hfk).symm.trans hann
@@ -921,7 +931,10 @@ theorem AggQueryIn.havingPredRew_valid {lab : ℕ} {rd} {m n₁ n₂ : ℕ} (is 
       exact GenPredIn.gateTerm_evalRew (K := K) φ (GenPredIn.rangeFree_of_gateExact φ hrf) false _
         (gammaRow_noNested kv.fst (fun j => { AggValue.ofGroup (fs j) (ts j)
           (Having.havingGroup is ((qg.evaluate d).map GenRow.toAnnotated)
-            kv.fst) with fam := FamId.mk lab (List.ofFn kv.fst) [] j [] }))
+            kv.fst) with
+              fam := FamId.mk lab (List.ofFn kv.fst) [] j []
+              oids := OccId.listing lab [] (List.ofFn kv.fst) (Having.havingGroup is
+                ((qg.evaluate d).map GenRow.toAnnotated) kv.fst).length }))
 
 /-! ## Duplicate elimination in the rewritten world -/
 

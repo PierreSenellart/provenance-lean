@@ -238,8 +238,9 @@ def AggTok.AnnsIn (Q : K → Prop) : AggTok T K → Prop
   | .expr e => e.AnnsIn Q
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
-@[simp] theorem AggTok.AnnsIn_setFam (Q : K → Prop) (φ : FamId T) (x : AggTok T K) :
-    (x.setFam φ).AnnsIn Q ↔ x.AnnsIn Q := by
+@[simp] theorem AggTok.AnnsIn_setFam (Q : K → Prop) (φ : FamId T) {ids : Option (List (OccId T))}
+    (x : AggTok T K) :
+    (x.setFam φ ids).AnnsIn Q ↔ x.AnnsIn Q := by
   cases x <;> exact Iff.rfl
 
 section Tokens

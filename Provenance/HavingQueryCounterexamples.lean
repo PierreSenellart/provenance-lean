@@ -289,7 +289,7 @@ noncomputable def MinTropicalZ.existsToken :
     AggValue ℕ (MinTropical (WithTop ℤ)) :=
   ⟨SeqAggFunc.count,
     [(1, MinTropical.trop ((-1 : ℤ) : WithTop ℤ)),
-      (1, MinTropical.trop ((-1 : ℤ) : WithTop ℤ))], true, FamId.none⟩
+      (1, MinTropical.trop ((-1 : ℤ) : WithTop ℤ))], true, FamId.none, []⟩
 
 /-- What the row actually carries: `trop (-1) ⊗ trop (-1) = trop (-2)`,
 the annotation of the one world that keeps both matches. -/
@@ -338,7 +338,7 @@ their product. The reading the collapse gives under absorptivity is
 is neither. What it counts is "every match present", not "at least one". -/
 
 /-- The token of two occurrences annotated `1` and `2`, counted. -/
-def natCountToken : AggValue ℕ ℕ := ⟨SeqAggFunc.count, [(1, 1), (1, 2)], true, FamId.none⟩
+def natCountToken : AggValue ℕ ℕ := ⟨SeqAggFunc.count, [(1, 1), (1, 2)], true, FamId.none, []⟩
 
 /-- **The possible-world sum of `COUNT ≥ 1` over `ℕ` is the product of the
 two annotations**, not their sum and not `𝟙`. -/
@@ -376,7 +376,7 @@ offer, so this instance is out of its reach. -/
 
 /-- One occurrence of multiplicity `2`, counted, read in the scalar
 convention. -/
-def natRangeToken : AggValue ℕ ℕ := ⟨SeqAggFunc.count, [(1, 2)], true, FamId.none⟩
+def natRangeToken : AggValue ℕ ℕ := ⟨SeqAggFunc.count, [(1, 2)], true, FamId.none, []⟩
 
 /-- **A range test on one token is not the sum over the worlds in the
 range.** The product of the two one-sided provenances is `4`, and the
@@ -403,7 +403,7 @@ theorem natRangeToken_mul :
       * natRangeToken.predProvOf CompOp.le 1 = 4 := by decide
 
 /-- The same token with its occurrence annotated `𝟙` agrees. -/
-def natUnitToken : AggValue ℕ ℕ := ⟨SeqAggFunc.count, [(1, 1)], true, FamId.none⟩
+def natUnitToken : AggValue ℕ ℕ := ⟨SeqAggFunc.count, [(1, 1)], true, FamId.none, []⟩
 
 theorem natUnitToken_mul_eq_and :
     natUnitToken.predProvOf CompOp.gt 0
@@ -573,10 +573,10 @@ theorem joint2_branch_split (a b : AggValue T K) (P : T → Kleene)
 end Having
 
 /-- One occurrence, present. -/
-def boolTokenT : AggValue ℕ Bool := ⟨SeqAggFunc.count, [(1, true)], false, FamId.none⟩
+def boolTokenT : AggValue ℕ Bool := ⟨SeqAggFunc.count, [(1, true)], false, FamId.none, []⟩
 
 /-- One occurrence, absent. -/
-def boolTokenF : AggValue ℕ Bool := ⟨SeqAggFunc.count, [(1, false)], false, FamId.none⟩
+def boolTokenF : AggValue ℕ Bool := ⟨SeqAggFunc.count, [(1, false)], false, FamId.none, []⟩
 
 /-- `count ≠ 0`, true on every non-empty world. -/
 def testNe : ℕ → Kleene := fun v => CompOp.ne.eval3 v 0
@@ -619,10 +619,10 @@ disjunction (`p ∨ p` is `2` in `ℕ`), and it is what makes the one-sum
 reading over the union the wrong reference for a disjunction. -/
 
 /-- One occurrence of multiplicity `𝟙`. -/
-def natTokenOne : AggValue ℕ ℕ := ⟨SeqAggFunc.count, [(1, 1)], false, FamId.none⟩
+def natTokenOne : AggValue ℕ ℕ := ⟨SeqAggFunc.count, [(1, 1)], false, FamId.none, []⟩
 
 /-- One occurrence of multiplicity `2`. -/
-def natTokenTwo : AggValue ℕ ℕ := ⟨SeqAggFunc.count, [(1, 2)], false, FamId.none⟩
+def natTokenTwo : AggValue ℕ ℕ := ⟨SeqAggFunc.count, [(1, 2)], false, FamId.none, []⟩
 
 /-- `count ≥ 1`, satisfied. -/
 def testGe1 : ℕ → Kleene := fun v => CompOp.ge.eval3 v 1
@@ -841,11 +841,11 @@ families is open. What is settled is the Boolean case – see
 
 /-- One occurrence annotated `hi`, grouped. -/
 def chainTokenHi : AggValue ℕ ChainFive :=
-  ⟨SeqAggFunc.count, [(1, ChainFive.hi)], false, FamId.none⟩
+  ⟨SeqAggFunc.count, [(1, ChainFive.hi)], false, FamId.none, []⟩
 
 /-- One occurrence annotated `mid`, grouped. -/
 def chainTokenMid : AggValue ℕ ChainFive :=
-  ⟨SeqAggFunc.count, [(1, ChainFive.mid)], false, FamId.none⟩
+  ⟨SeqAggFunc.count, [(1, ChainFive.mid)], false, FamId.none, []⟩
 
 /-- **The reported row**: the two groups' existence factors times the
 structural `⊕` of the two sides. -/
@@ -880,7 +880,7 @@ theorem bool_row_agree :
 
 /-- One occurrence annotated `α`, grouped. -/
 def boolTokenOf (α : Bool) : AggValue ℕ Bool :=
-  ⟨SeqAggFunc.count, [(1, α)], false, FamId.none⟩
+  ⟨SeqAggFunc.count, [(1, α)], false, FamId.none, []⟩
 
 /-- **The same agreement as an equation in the annotations**, at this
 family shape: for *every* pair of annotations, not just the pair `true`,
@@ -938,13 +938,13 @@ def testEq0 : ℕ → Kleene := fun v => CompOp.eq.eval3 v 0
 
 /-- One row, annotated `mid`, aggregated by `count(*)`. -/
 def chainCount : AggValue ℕ ChainFive :=
-  ⟨SeqAggFunc.count, [(1, ChainFive.mid)], false, FamId.none⟩
+  ⟨SeqAggFunc.count, [(1, ChainFive.mid)], false, FamId.none, []⟩
 
 /-- The same group under `FILTER (WHERE true)`: the same occurrences, read
 in the scalar convention. The two tokens differ in nothing else, the
 clause keeping every occurrence. -/
 def chainCountWhen : AggValue ℕ ChainFive :=
-  ⟨SeqAggFunc.count, [(1, ChainFive.mid)], true, FamId.none⟩
+  ⟨SeqAggFunc.count, [(1, ChainFive.mid)], true, FamId.none, []⟩
 
 /-- The first is the token the grouping builds with no clause, and the
 second is what reading the cut family in the scalar convention gave. -/
@@ -1244,7 +1244,7 @@ idempotent `⊕` it was never counted twice. -/
 
 /-- One occurrence, present, read in the scalar convention – so the
 empty world counts and the family's total is `𝟙`. -/
-def boolScalarT : AggValue ℕ Bool := ⟨SeqAggFunc.count, [(1, true)], true, FamId.none⟩
+def boolScalarT : AggValue ℕ Bool := ⟨SeqAggFunc.count, [(1, true)], true, FamId.none, []⟩
 
 theorem bool_incl_excl_sides :
     boolScalarT.predProvOfWith testNe = true
@@ -1263,7 +1263,7 @@ theorem bool_incl_excl_ne :
 
 /-- One occurrence annotated `𝟙`, scalar – the `ℕ` counterpart, where
 the formula does hold. -/
-def natScalarOne : AggValue ℕ ℕ := ⟨SeqAggFunc.count, [(1, 1)], true, FamId.none⟩
+def natScalarOne : AggValue ℕ ℕ := ⟨SeqAggFunc.count, [(1, 1)], true, FamId.none, []⟩
 
 theorem nat_incl_excl_eq :
     Having.jointPair natScalarOne natScalarOne
@@ -1321,11 +1321,11 @@ abbrev MM3 := MinMax (Fin 3)
 
 /-- One occurrence, graded. -/
 def mmTokenA : AggValue ℕ MM3 :=
-  ⟨SeqAggFunc.count, [(1, MinMax.mk (1 : Fin 3))], false, FamId.none⟩
+  ⟨SeqAggFunc.count, [(1, MinMax.mk (1 : Fin 3))], false, FamId.none, []⟩
 
 /-- Another, graded differently. -/
 def mmTokenB : AggValue ℕ MM3 :=
-  ⟨SeqAggFunc.count, [(1, MinMax.mk (2 : Fin 3))], false, FamId.none⟩
+  ⟨SeqAggFunc.count, [(1, MinMax.mk (2 : Fin 3))], false, FamId.none, []⟩
 
 /-- **One test satisfied**: the configuration `ChainFive` parts on. -/
 theorem mm_row_agree_one :
@@ -1367,7 +1367,7 @@ road – an exclusive `⊕` nor a `δ` saturating to `𝟙` – is open. -/
 /-- The inner expression of one outer occurrence: a one-occurrence
 grouped count, of its own family `l`. -/
 abbrev innerOf {K : Type} (l : ℕ) (β : K) : AggExpr ℕ K :=
-  AggExpr.ofValue ⟨SeqAggFunc.count, [(1, β)], false, .mk l [] [] 0 []⟩
+  AggExpr.ofValue ⟨SeqAggFunc.count, [(1, β)], false, .mk l [] [] 0 [], []⟩
 
 /-- Two outer occurrences, each carrying a one-occurrence inner family of
 its own. -/

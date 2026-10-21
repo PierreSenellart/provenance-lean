@@ -74,7 +74,7 @@ the aggregated values are embedded by `Sum.inl`, the aggregate function is
 lifted, and the occurrence annotations are unchanged. -/
 def AggValue.toComposite (a : AggValue T K) : AggValue (T ⊕ K) K :=
   ⟨a.agg.liftComposite, a.occs.map (fun o => (Sum.inl o.fst, o.snd)), a.scalar,
-    FamId.toComposite a.fam⟩
+    FamId.toComposite a.fam, []⟩
 
 omit [DecidableEq K] in
 /-- The token of a group transports to the token of the composite
@@ -87,7 +87,7 @@ theorem AggValue.ofGroup_toComposite {m : ℕ} (f : SeqAggFunc T)
           (U.map (fun p => ((p.toComposite, p.snd)
             : AnnotatedTuple (T ⊕ K) K (m + 1)))) := by
   unfold AggValue.toComposite AggValue.ofGroup
-  refine congrArg (fun l => (AggValue.mk _ l false FamId.none : AggValue (T ⊕ K) K)) ?_
+  refine congrArg (fun l => (AggValue.mk _ l false FamId.none [] : AggValue (T ⊕ K) K)) ?_
   rw [List.map_map, List.map_map]
   refine List.map_congr_left (fun p _ => ?_)
   exact congrArg (fun v => (v, p.snd))
@@ -279,8 +279,9 @@ def AggTok.toComposite : AggTok T K → AggTok (T ⊕ K) K
 
 omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 /-- The transport carries a stamped family to the transported family. -/
-@[simp] theorem AggTok.toComposite_setFam (φ : FamId T) (x : AggTok T K) :
-    (x.setFam φ).toComposite = x.toComposite.setFam (FamId.toComposite φ) := by
+@[simp] theorem AggTok.toComposite_setFam (φ : FamId T)
+    {ids : Option (List (OccId T))} (x : AggTok T K) :
+    (x.setFam φ ids).toComposite = x.toComposite.setFam (FamId.toComposite φ) := by
   cases x <;> rfl
 
 /-- Transport a lifted column value to the composite domain. -/

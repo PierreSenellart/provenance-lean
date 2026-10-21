@@ -250,7 +250,9 @@ theorem AggQueryIn.havingSite_evaluateAnnotated {m n₁ n₂ : ℕ}
   · -- data part: whole-group aggregate values
     exact (GenRow.plainTuple_append kv.fst
         (fun j => (AggTok.tok (AggValue.ofGroup (fs j) (ts j)
-          (Having.havingGroup is A kv.fst))).setFam (FamId.mk 0 (List.ofFn kv.fst) [] j []))).trans
+          (Having.havingGroup is A kv.fst))).setFam (FamId.mk 0 (List.ofFn kv.fst) [] j [])
+            (some (OccId.listing 0 [] (List.ofFn kv.fst)
+              (Having.havingGroup is A kv.fst).length)))).trans
       (congrArg (Fin.append kv.fst)
         (funext fun j => (AggTok.collapse_setFam (FamId.mk 0 (List.ofFn kv.fst) [] j [])
           (AggTok.tok (AggValue.ofGroup (fs j) (ts j) (Having.havingGroup is A kv.fst)))).trans
@@ -270,7 +272,7 @@ theorem AggQueryIn.havingSite_evaluateAnnotated {m n₁ n₂ : ℕ}
       GenPredIn.entailsExistence, ite_true,
       GenAnn.finalize_of_pending_zero, one_mul, TermIn.toGenKey_eval,
       Bool.false_eq_true,
-      AggTok.setFam_tok, AggTok.predProvOf, AggTok.predProvOfWith, AggTok.scalar,
+      AggTok.setFam_tok_some, AggTok.predProvOf, AggTok.predProvOfWith, AggTok.scalar,
       AggTok.annList, AggValue.scalar_ofGroup,
       Option.map_none, Option.getD_none]
     exact AggValue.predProv_ofGroup (fs l) (ts l)

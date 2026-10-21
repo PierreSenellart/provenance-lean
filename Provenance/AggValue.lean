@@ -131,6 +131,31 @@ def addTerm (t : TermIn T 1 0) : FamId T → FamId T
 
 end FamId
 
+/-- **The identity of an occurrence** an aggregate value reads: the operator
+that aggregated it (its label), the values of the `apply` parameters that
+operator reads, its group's key (or its partition's, for a window), and its
+position in the group's (or partition's) listing. So the aggregates of one
+group, and the frames of one partition, share the occurrences they hold in
+common, an aggregation evaluated again on the same input gives the same
+occurrences, and one evaluated for other parameter values gives others –
+which is the identity the semantics gives occurrences. Two copies of a row
+are two positions, so two occurrences. -/
+structure OccId (T : Type) where
+  /-- The aggregating operator's label. -/
+  lab : ℕ
+  /-- The values of the parameters it reads. -/
+  params : List (T ⊕ FamId T)
+  /-- The key of its group or partition. -/
+  key : List T
+  /-- The position in the group's or partition's listing. -/
+  pos : ℕ
+
+/-- The identities of a group's or a partition's listing, position by
+position. -/
+def OccId.listing (lab : ℕ) (params : List (T ⊕ FamId T)) (key : List T) (len : ℕ) :
+    List (OccId T) :=
+  (List.range len).map (fun i => ⟨lab, params, key, i⟩)
+
 /-- A symbolic aggregate token: an aggregate function together with the
 (≼-sorted) occurrence payload of the originating group – for each
 occurrence, the value of the aggregated term paired with the occurrence
@@ -159,6 +184,12 @@ structure AggValue (T K : Type) where
   predicate reading both has to know to read them in one world. No
   reading of the token itself looks at it. -/
   fam : FamId T
+  /-- **The identities of its occurrences**, one per element of `occs`, where
+  the operator that built the token records them (a grouping and a window
+  with no `FILTER` clause and no `DISTINCT`); empty otherwise. No reading of
+  the token looks at them: they say which occurrences two aggregate values
+  share, which is what the equivalence of `GenRow.zeqRen` compares. -/
+  oids : List (OccId T) := []
 
 namespace AggValue
 
@@ -169,7 +200,7 @@ term `t` with `f`: the projection of the group payload. -/
 def ofGroup [ValueType T] {c : ℕ} (f : SeqAggFunc T) (t : TermIn T c m)
     (U : List (AnnotatedTuple T K m))
     (γ : Fin c → T := fun _ => 0) : AggValue T K :=
-  ⟨f, U.map (fun p => (t.eval p.fst γ, p.snd)), false, FamId.none⟩
+  ⟨f, U.map (fun p => (t.eval p.fst γ, p.snd)), false, FamId.none, []⟩
 
 /-- The occurrence annotations of a token, as a function on positions. -/
 def anns (a : AggValue T K) : Fin a.occs.length → K :=
@@ -253,7 +284,7 @@ def mergeOccs [ValueType T] [AddCommMonoid K] (l : List (T × K)) :
 convention its own. -/
 def mergeByValue [ValueType T] [AddCommMonoid K] (a : AggValue T K) :
     AggValue T K :=
-  ⟨a.agg, mergeOccs a.occs, a.scalar, a.fam⟩
+  ⟨a.agg, mergeOccs a.occs, a.scalar, a.fam, []⟩
 
 @[simp] theorem agg_mergeByValue [ValueType T] [AddCommMonoid K]
     (a : AggValue T K) : (mergeByValue a).agg = a.agg := rfl
@@ -312,7 +343,7 @@ def specialize (a : AggValue T K) (ν : K → Bool) : T :=
 /-- Pushforward of `h : K → K'` through the annotations of a token; the
 values are untouched. -/
 def mapAnn (h : K → K') (a : AggValue T K) : AggValue T K' :=
-  ⟨a.agg, a.occs.map (fun o => (o.fst, h o.snd)), a.scalar, a.fam⟩
+  ⟨a.agg, a.occs.map (fun o => (o.fst, h o.snd)), a.scalar, a.fam, a.oids⟩
 
 /-- **The merge commutes with a pushforward of the annotations**: the
 classes are the same, since the values are untouched, and each class's

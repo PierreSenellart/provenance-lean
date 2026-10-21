@@ -78,8 +78,9 @@ omit [Fintype X] [DecidableEq X] in
 
 omit [Fintype X] [DecidableEq X] in
 /-- The family a value is stamped with is not read by its guard. -/
-@[simp] theorem _root_.AggTok.Realized_setFam (φ : FamId T) (x : AggTok T (BoolFunc X))
-    (v : X → Bool) : (x.setFam φ).Realized v ↔ x.Realized v := by
+@[simp] theorem _root_.AggTok.Realized_setFam (φ : FamId T) {ids : Option (List (OccId T))}
+    (x : AggTok T (BoolFunc X))
+    (v : X → Bool) : (x.setFam φ ids).Realized v ↔ x.Realized v := by
   cases x <;> exact Iff.rfl
 
 omit [Fintype X] [DecidableEq X] in
@@ -754,8 +755,9 @@ noncomputable def GenValue.specializeAt (v : X → Bool) :
 
 omit [Fintype X] [DecidableEq X] in
 @[simp] theorem GenValue.specializeAt_inr_setFam (v : X → Bool) (φ : FamId T)
+    {ids : Option (List (OccId T))}
     (x : AggTok T (BoolFunc X)) :
-    GenValue.specializeAt v (Sum.inr (x.setFam φ)) = GenValue.specializeAt v (Sum.inr x) :=
+    GenValue.specializeAt v (Sum.inr (x.setFam φ ids)) = GenValue.specializeAt v (Sum.inr x) :=
   AggTok.specialize_setFam φ _ x
 
 /-- The specialized reading of a row's tuple. -/
@@ -4129,13 +4131,21 @@ theorem AggQueryIn.genRandomWorld_evaluate_env :
               (Having.havingGroupOrd (fun i : Fin 0 => i.elim0) ord
                 ((q.evaluate d γ E).map GenRow.toAnnotated)
                 (fun i : Fin 0 => i.elim0)) γ)).setFam
-                  (FamId.mk _lab [] (E.paramKey rd γ) j [])), ⟨1, 0⟩⟩
+                  (FamId.mk _lab [] (E.paramKey rd γ) j [])
+                  (some (OccId.listing _lab (E.paramKey rd γ) []
+                    (Having.havingGroupOrd (fun i : Fin 0 => i.elim0) ord
+                      ((q.evaluate d γ E).map GenRow.toAnnotated)
+                      (fun i : Fin 0 => i.elim0)).length))), ⟨1, 0⟩⟩
             : GenRow T (BoolFunc X) n₂)}
         = {(⟨fun j => Sum.inr ((AggTok.tok (AggValue.ofScalarGroup (fs j) (ts j)
               (Having.havingGroupOrd (fun i : Fin 0 => i.elim0) ord
                 ((q.evaluate d γ E).map GenRow.toAnnotated)
                 (fun i : Fin 0 => i.elim0)) γ)).setFam
-                  (FamId.mk _lab [] (E.paramKey rd γ) j [])), ⟨1, 0⟩⟩
+                  (FamId.mk _lab [] (E.paramKey rd γ) j [])
+                  (some (OccId.listing _lab (E.paramKey rd γ) []
+                    (Having.havingGroupOrd (fun i : Fin 0 => i.elim0) ord
+                      ((q.evaluate d γ E).map GenRow.toAnnotated)
+                      (fun i : Fin 0 => i.elim0)).length))), ⟨1, 0⟩⟩
             : GenRow T (BoolFunc X) n₂)}
         from Multiset.filter_eq_self.mpr (fun r hr => by
           rw [Multiset.mem_singleton] at hr; subst hr; rfl)]

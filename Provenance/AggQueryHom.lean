@@ -827,8 +827,9 @@ def GenValue.Equiv : GenValue T K → GenValue T K → Prop
 /-- **The equivalence does not read the family** a value is stamped
 with. -/
 theorem GenValue.Equiv.setFam {x' x : AggTok T K}
-    (h : GenValue.Equiv (Sum.inr x') (Sum.inr x)) (φ' φ : FamId T) :
-    GenValue.Equiv (Sum.inr (x'.setFam φ')) (Sum.inr (x.setFam φ)) := by
+    (h : GenValue.Equiv (Sum.inr x') (Sum.inr x)) (φ' φ : FamId T)
+    {ids' ids : Option (List (OccId T))} :
+    GenValue.Equiv (Sum.inr (x'.setFam φ' ids')) (Sum.inr (x.setFam φ ids)) := by
   cases x' <;> cases x <;> exact h
 
 /-- A regular value is equivalent to no token. -/
@@ -2145,8 +2146,8 @@ def groupSpec {c m : ℕ} (f : SeqAggFunc T) (t : TermIn T c m) (γ : Fin c → 
 omit [DecidableEq K] [HasAltLinearOrder K] [HasAltLinearOrder K'] in
 theorem flatExpr_groupTok {K₀ : Type} {c m : ℕ} (f : SeqAggFunc T) (t : TermIn T c m)
     (kp : Option (Selection T m)) (sc : Bool) (U₀ : List (AnnotatedTuple T K₀ m))
-    (γ : Fin c → T) (ψ : FamId T) :
-    ((groupTok f t kp sc U₀ γ).setFam ψ).flatExpr
+    (γ : Fin c → T) (ψ : FamId T) {ids : Option (List (OccId T))} :
+    ((groupTok f t kp sc U₀ γ).setFam ψ ids).flatExpr
       = (groupSpec f t γ sc kp).build U₀ Prod.snd Prod.fst ψ := by
   cases kp <;>
     simp [groupTok, groupSpec, AggTok.setFam, AggTok.flatExpr, AggExpr.ofValue,
@@ -2155,8 +2156,9 @@ theorem flatExpr_groupTok {K₀ : Type} {c m : ℕ} (f : SeqAggFunc T) (t : Term
 omit [DecidableEq K] [HasAltLinearOrder K] [HasAltLinearOrder K'] in
 theorem classKey_groupTok {K₀ : Type} [CommSemiringWithMonus K₀] {c m : ℕ} (f : SeqAggFunc T)
     (t : TermIn T c m) (kp : Option (Selection T m)) (sc : Bool)
-    (U₀ : List (AnnotatedTuple T K₀ m)) (γ : Fin c → T) (ψ : FamId T) :
-    ((groupTok f t kp sc U₀ γ).setFam ψ).classKey = (ψ.family, U₀.map Prod.snd, none) := by
+    (U₀ : List (AnnotatedTuple T K₀ m)) (γ : Fin c → T) (ψ : FamId T)
+    {ids : Option (List (OccId T))} :
+    ((groupTok f t kp sc U₀ γ).setFam ψ ids).classKey = (ψ.family, U₀.map Prod.snd, none) := by
   cases kp <;>
     simp [groupTok, AggTok.setFam, AggTok.classKey, AggTok.annList, AggTok.fam,
       AggValue.ofGroup, AggExpr.annList, AggExpr.ofSeqWhen, List.map_map]
@@ -3205,11 +3207,12 @@ theorem ListingRel.group_D (h : SemiringWithMonusHom K K') {c m n₂ : ℕ}
     (U₀ : List (AnnotatedTuple T K m)) (U₀' : List (AnnotatedTuple T K' m))
     (hp : TiePerm (fun p q : AnnotatedTuple T K' m => p.fst = q.fst)
       (U₀.map (fun p => ((p.fst, h.toRingHom p.snd) : AnnotatedTuple T K' m))) U₀') :
-    ∃ D : ListingRel h.toRingHom T, ∀ (j : Fin n₂) (φ φ' : FamId T),
-      D.Member ((groupTok (fs j) (ts j) (keep j) sc U₀' γ).setFam φ')
-        ((groupTok (fs j) (ts j) (keep j) sc U₀ γ).setFam φ) := by
+    ∃ D : ListingRel h.toRingHom T, ∀ (j : Fin n₂) (φ φ' : FamId T)
+      (ids ids' : Option (List (OccId T))),
+      D.Member ((groupTok (fs j) (ts j) (keep j) sc U₀' γ).setFam φ' ids')
+        ((groupTok (fs j) (ts j) (keep j) sc U₀ γ).setFam φ ids) := by
   obtain ⟨D, hD⟩ := ListingRel.exists_group h.toRingHom U₀ U₀' hp
-  exact ⟨D, fun j φ φ' => hD _ _ (groupSpec (fs j) (ts j) γ sc (keep j)) _ _
+  exact ⟨D, fun j φ φ' ids ids' => hD _ _ (groupSpec (fs j) (ts j) γ sc (keep j)) _ _
     (by cases keep j <;> rfl) (by cases keep j <;> rfl)
     (flatExpr_groupTok _ _ _ _ _ _ _) (flatExpr_groupTok _ _ _ _ _ _ _)⟩
 
@@ -3769,7 +3772,7 @@ theorem AggQueryIn.evaluate_hom_univ (h : SemiringWithMonusHom K K') {𝒰₀ : 
         have e2 := (Sum.inr_injective h2).symm
         subst e1 e2
         refine ⟨?_, by simp only [AggTok.fam_setFam]⟩
-        convert hD j _ _ using 2 <;> cases keep j <;> rfl
+        convert hD j _ _ _ _ using 2 <;> cases keep j <;> rfl
     refine hsim.mono (fun r' hr' r hr hs => ⟨hs.1, ?_⟩)
     obtain ⟨key, hkey0, hkey⟩ := AggQueryIn.newRow_Gamma is ts fs q keep ord d γ E hr
     obtain ⟨key', -, hkey'⟩ := AggQueryIn.newRow_Gamma is ts fs q keep ord _ γ E' hr'
@@ -3901,7 +3904,7 @@ theorem AggQueryIn.evaluate_hom_univ (h : SemiringWithMonusHom K K') {𝒰₀ : 
         have e2 := (Sum.inr_injective h2).symm
         subst e1 e2
         refine ⟨?_, by simp only [AggTok.fam_setFam]⟩
-        convert hD j _ _ using 2 <;> cases keep j <;> rfl
+        convert hD j _ _ _ _ using 2 <;> cases keep j <;> rfl
     refine hsim.mono (fun r' hr' r hr hs => ⟨hs.1, ?_⟩)
     obtain ⟨key, hkey0, hkey1, hkey⟩ := AggQueryIn.newRow_GammaTok is his ts fs a q keep d γ E hr
     obtain ⟨key', -, -, hkey'⟩ := AggQueryIn.newRow_GammaTok is his ts fs a q keep _ γ E' hr'
@@ -3963,7 +3966,7 @@ theorem AggQueryIn.evaluate_hom_univ (h : SemiringWithMonusHom K K') {𝒰₀ : 
         have e1 := (Sum.inr_injective h1).symm
         have e2 := (Sum.inr_injective h2).symm
         subst e1 e2
-        exact ⟨hD j _ _, by simp only [AggTok.fam_setFam]⟩
+        exact ⟨hD j _ _ _ _, by simp only [AggTok.fam_setFam]⟩
     refine hsim.mono (fun r' hr' r hr hs => ⟨hs.1, ?_⟩)
     obtain ⟨key, hkey⟩ := AggQueryIn.newRow_GammaScalar ts fs q ord d γ E hr
     obtain ⟨key', hkey'⟩ := AggQueryIn.newRow_GammaScalar ts fs q ord _ γ E' hr'
@@ -4259,7 +4262,7 @@ theorem AggQueryIn.evaluate_hom_univ (h : SemiringWithMonusHom K K') {𝒰₀ : 
         refine Fin.lastCases ?_ (fun k' => ?_) k
         · rw [Fin.snoc_last, Fin.snoc_last]
           exact (exprOfWhen_mapAnn_equiv h P O o hw.1 ts fs g keeps γ
-            (congrArg Prod.fst (he i)) hmul').setFam _ _
+            (congrArg Prod.fst (he i)) hmul').setFam _ _ (ids' := none) (ids := none)
         · rw [Fin.snoc_castSucc, Fin.snoc_castSucc]
           exact congrArg (fun y : AnnotatedTuple T K' nI => y.fst k') (he i)
       · dsimp only

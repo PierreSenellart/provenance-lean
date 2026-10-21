@@ -571,7 +571,7 @@ theorem mergeByValue_congr {a b : AggValue T K} (hagg : a.agg = b.agg)
     mergeByValue a = mergeByValue b := by
   unfold mergeByValue
   simp only [AggValue.mk.injEq]
-  exact ⟨hagg, mergeOccs_congr h, hsc, hfam⟩
+  exact ⟨hagg, mergeOccs_congr h, hsc, hfam, trivial⟩
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] in
 /-- The deterministic reading of a token only depends on the value sequence,

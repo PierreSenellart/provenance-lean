@@ -427,7 +427,10 @@ noncomputable def matchToken (cnt : SeqAggFunc T) (kap : Fin l)
   { AggValue.ofScalarGroup cnt (TermIn.index (c := 0) kap)
       (Having.havingGroup (fun i : Fin 0 => i.elim0)
         ((Sel φ Q).evaluateAnnotated d u) (fun i : Fin 0 => i.elim0)) with
-    fam := .mk 0 [] (({} : EvalEnv T K).paramKey (Sel φ Q).readsOuter u) 0 [] }
+    fam := .mk 0 [] (({} : EvalEnv T K).paramKey (Sel φ Q).readsOuter u) 0 []
+    oids := OccId.listing 0 (({} : EvalEnv T K).paramKey (Sel φ Q).readsOuter u) []
+      (Having.havingGroup (fun i : Fin 0 => i.elim0)
+        ((Sel φ Q).evaluateAnnotated d u) (fun i : Fin 0 => i.elim0)).length }
 
 /-- A scalar aggregation on one `(term, aggregate)` pair produces the one
 row that carries its token. -/
@@ -438,7 +441,10 @@ theorem evaluate_GammaScalar_one {lab : ℕ} {c m : ℕ} {rd : Fin c → Bool} (
       = {(⟨fun j : Fin 1 => Sum.inr ((AggTok.tok (AggValue.ofScalarGroup cnt t
             (Having.havingGroup (fun i : Fin 0 => i.elim0)
               (q.evaluateAnnotated d γ) (fun i : Fin 0 => i.elim0)) γ)).setFam
-                (.mk lab [] (({} : EvalEnv T K).paramKey rd γ) j [])),
+                (.mk lab [] (({} : EvalEnv T K).paramKey rd γ) j [])
+                (some (OccId.listing lab (({} : EvalEnv T K).paramKey rd γ) []
+                  (Having.havingGroup (fun i : Fin 0 => i.elim0)
+                    (q.evaluateAnnotated d γ) (fun i : Fin 0 => i.elim0)).length))),
           ⟨1, 0⟩⟩ : GenRow T K 1)} := by
   simp only [AggQueryIn.evaluate, AggQueryIn.evaluateAnnotated,
     Having.havingGroupOrd_unord, Matrix.cons_val_fin_one]
