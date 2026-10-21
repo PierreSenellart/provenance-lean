@@ -2,8 +2,10 @@
   Released under the MIT license as described in the file LICENSE.
   Authors: Pierre Senellart
 -/
-import Provenance.QueryRewriting
-import Provenance.Semirings.Why
+module
+
+public import Provenance.QueryRewriting
+public import Provenance.Semirings.Why
 
 /-!
 # Frozen restatement of the claims of a published paper
@@ -58,6 +60,8 @@ recorded here rather than papered over:
 
 Anchor: Provenance.html
 -/
+
+@[expose] public section
 
 namespace Icde2026
 
@@ -400,7 +404,7 @@ theorem rule_difference (q₁ q₂ : Query T n) (hq : (Query.Diff q₁ q₂).sou
          let prod₂ := prod₂t prod₂r
          let ts₁ := fun j : Fin (n + 1) => #(j.castLE (by omega))
          let ts₂ := fun j : Fin (n + 1) =>
-           if (j : ℕ) < n then #(j.castLE (by omega))
+           if ((j : ℕ) < n : Prop) then #(j.castLE (by omega))
            else TermIn.sub #(Fin.ofNat _ n) #(Fin.last (2 * n + 1))
          Sum (Proj ts₁ prod₁) (Proj ts₂ prod₂)) :=
   rfl

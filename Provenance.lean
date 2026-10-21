@@ -207,6 +207,7 @@ public import Provenance.Semirings.Which
 public import Provenance.Semirings.Why
 
 /- Frozen restatements of the claims of published papers -/
+public import Provenance.Papers.Icde2026
 
 /- A worked query checked against ProvSQL's own answer -/
 public import Provenance.ProvsqlExample
