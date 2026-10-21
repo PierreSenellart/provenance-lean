@@ -639,8 +639,6 @@ theorem delta_absorb_indicator
     rw [ha, zero_mul]
   · rw [h.nonzero _ hab, mul_one]
 
-/-! ## Admissibility of a candidate `δ`
-
 /-- **The support map is a legal `δ` wherever the casts are non-zero.**
 It is the greatest legal choice, the identity the least where it is
 available. -/
@@ -650,6 +648,8 @@ theorem isLegalDelta_indicator {K : Type} [Semiring K] [PartialOrder K]
     IsLegalDelta δ :=
   ⟨h.zero, fun hn => delta_natCast_pos_indicator h hn,
     delta_absorb_indicator h⟩
+
+/-! ## Admissibility of a candidate `δ`
 
 `δ` is not determined by the axioms, and the two operators used in practice
 are the identity and the support indicator. `IsDelta` states the axioms as a
