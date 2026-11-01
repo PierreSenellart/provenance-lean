@@ -100,7 +100,7 @@ rather than the concept DOI, so that it points at a specific state of the code.
 <!-- release-table -->
 | Tag | Toolchain | Version DOI |
 | --- | --- | --- |
-| `v1.3.0` | `leanprover/lean4:v4.35.0` | – |
+| `v1.3.0` | `leanprover/lean4:v4.35.0` | [10.5281/zenodo.23856981](https://doi.org/10.5281/zenodo.23856981) |
 | `v1.2.0` | `leanprover/lean4:v4.34.0` | [10.5281/zenodo.22900284](https://doi.org/10.5281/zenodo.22900284) |
 | `v1.1.0` | `leanprover/lean4:v4.33.0` | [10.5281/zenodo.21997271](https://doi.org/10.5281/zenodo.21997271) |
 | `v1.0.0` | `leanprover/lean4:v4.33.0-rc1` | [10.5281/zenodo.21809152](https://doi.org/10.5281/zenodo.21809152) |
