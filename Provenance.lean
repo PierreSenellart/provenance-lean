@@ -188,6 +188,12 @@ public import Provenance.Algorithms.SumDP
 /- Complexity of the HAVING semantics -/
 public import Provenance.HavingComplexity
 
+/- Graded extensionality: which m-semirings annotate a query, not its spelling -/
+public import Provenance.BooleanSemiring
+public import Provenance.FragQuery
+public import Provenance.FragQueryMeta
+public import Provenance.Extensionality
+
 /- Various semirings -/
 public import Provenance.Semirings.BestPath
 public import Provenance.Semirings.Bool
@@ -2159,6 +2165,46 @@ proven engine several general results reuse internally.
   closes it in the decoding direction, which is what carries the hardness back
   to concrete groups. In unary the problem is tractable, by the
   very dynamic program of `Provenance.Algorithms.SumDP`
+
+**Extensionality: which m-semirings annotate a query and not its spelling**
+
+- `Provenance.BooleanSemiring` – the m-semirings in which `⊕` and `⊗` are a
+  bounded distributive lattice (`IsLatticeSemiring`: absorptive, `⊗`
+  idempotent) and those in which `𝟙 ⊖ ·` is moreover a complement
+  (`IsBooleanSemiring`), with their *points*, the semiring homomorphisms
+  onto `𝔹`: they separate the elements of a lattice m-semiring
+  (`IsLatticeSemiring.eq_of_forall_point`, off Mathlib's prime separation
+  theorem), preserve the monus of a Boolean one
+  (`IsBooleanSemiring.map_monus`), and are m-semiring homomorphisms when `δ`
+  is the identity (`IsBooleanSemiring.pointHom`)
+- `Provenance.FragQuery` – the first levels of the chain of SQL fragments as a
+  syntax of their own, `FragQueryIn`: `F₀` (projection, selection, product,
+  apply, union, constants), `F₁` (with duplicate elimination and the
+  semijoin, `EXISTS` and `IN`) and `F₂` (with the difference and the antijoin),
+  read in the general syntax by `FragQueryIn.toAgg`, with the closed forms
+  of both semantics (`FragQueryIn.sem`, `FragQueryIn.semPlain`) and the
+  bridges `FragQueryIn.toAgg_evaluateAnnotated` and
+  `FragQueryIn.toAgg_evaluatePlain`
+- `Provenance.FragQueryMeta` – that semantics under a semiring homomorphism
+  that need not preserve `δ` (`FragQueryIn.sem_mapAnn`), over `𝔹`, where a
+  tuple is in the support of the result exactly when it is in the plain result
+  of the support (`FragQueryIn.mem_support_sem`), and over `ℕ`, where an
+  annotation read as a multiplicity gives the plain semantics of the unfolded
+  instance on `F₀` (`FragQueryIn.semPlain_unfold`)
+- `Provenance.Extensionality` – **graded extensionality**. `K` is
+  *extensional* for a class of queries (`Extensional`) when two queries of the
+  class with the same plain semantics on every instance collapse, on every
+  `K`-instance, to the same K-relation (`AnnotatedRelation.annSum`). Every
+  commutative m-semiring is extensional for `F₀` (`extensional_level0`, by a
+  polynomial identity over `ℕ[K]`), and on the classical layer the swapped
+  product forces the commutativity of `⊗` (`mul_comm_of_extensional_swap`);
+  `K` is extensional for `F₁` iff it is a lattice m-semiring
+  (`extensional_level1_iff`), for `F₂` iff it is a Boolean m-semiring
+  (`extensional_level2_iff`), and for the whole recursion-free algebra under
+  the hygiene of the metatheory (`AggQueryIn.Tame`) iff it is a Boolean
+  m-semiring whose `δ` is the identity (`extensional_tame_iff`). Each axiom is
+  forced by one pair of equivalent queries on a one-tuple instance; the
+  converses go through the points
 
 **Concrete m-semirings** (`Provenance.Semirings.*`)
 
