@@ -83,7 +83,7 @@ Unlike in `Bool`, `𝟙 ⊖ a` is not a complement of `a` here: `2 + (1 - 2) = 2
 and not `1`. Exclusivity asks only for orthogonality, so it holds in a
 semiring where the monus against `𝟙` collapses as well as in one where it
 complements. -/
-private theorem Nat.exclusive : exclusive Nat := by
+theorem Nat.exclusive : exclusive Nat := by
   intro a
   rcases a with _ | n <;> simp
 

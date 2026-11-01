@@ -380,7 +380,7 @@ theorem Lukasiewicz.no_hom_from_BoolFunc {Y : Type} [Inhabited Y] :
 
 /-- The Łukasiewicz semiring is not exclusive: absorptive and totally
 ordered, with `½` neither `𝟘` nor `𝟙`, so `𝟙 ⊖ ½ = 𝟙` and `½ ⊗ 𝟙 = ½`. -/
-private theorem Lukasiewicz.not_exclusive : ¬ exclusive Lukasiewicz := by
+theorem Lukasiewicz.not_exclusive : ¬ exclusive Lukasiewicz := by
   have h0 : (0 : ℚ) ≤ (1 : ℚ) / 2 := by
     rw [le_div_iff₀ (by norm_num : (0 : ℚ) < 2)]; norm_num
   have h1 : (1 : ℚ) / 2 ≤ 1 := by

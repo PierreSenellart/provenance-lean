@@ -1424,7 +1424,7 @@ exclusivity, as in `Bool`; it is open to an absorptive semiring only because `�
 not join-irreducible here – a proper interval union and its complement join to the
 whole space – which is what separates this case from the absorptive chains
 (`MinMax.not_exclusive`). -/
-private theorem IntervalUnion.exclusive [DenselyOrdered α] [BoundedOrder α] :
+theorem IntervalUnion.exclusive [DenselyOrdered α] [BoundedOrder α] :
     exclusive (IntervalUnion α) := by
   intro a
   apply ext_toSet; ext x
@@ -1691,7 +1691,7 @@ every one of its elements has no choice about the property. `Bool` is forced
 by `BoolFunc` as well, but on the other route: it is a subalgebra of it
 (`Bool.exclusive_of_boolFunc`). Surjectivity is unavailable here, the
 homomorphism above having a finite domain. -/
-private theorem IntervalUnion.exclusive_of_boolFunc [DenselyOrdered α] [BoundedOrder α] :
+theorem IntervalUnion.exclusive_of_boolFunc [DenselyOrdered α] [BoundedOrder α] :
     _root_.exclusive (IntervalUnion α) := by
   intro u
   obtain ⟨h, hh⟩ := IntervalUnion.homomorphism_from_BoolFunc α Unit (fun _ => u)

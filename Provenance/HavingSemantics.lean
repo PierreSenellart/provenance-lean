@@ -837,7 +837,7 @@ worlds of a frame that contains its current row. It fails in `How`
 circuit is built in, so the spurious terms are carried by the circuit and
 die only on evaluation into an exclusive semiring, homomorphisms commuting
 with `⊖`. -/
-private theorem worldAnn_mul_eq_zero_of_ne (hexcl : exclusive K) {N : ℕ}
+theorem worldAnn_mul_eq_zero_of_ne (hexcl : exclusive K) {N : ℕ}
     (α : Fin N → K) {W W' : Finset (Fin N)} (h : W ≠ W') :
     worldAnn α W * worldAnn α W' = 0 := by
   -- One direction of the asymmetry; the statement follows by commutativity.

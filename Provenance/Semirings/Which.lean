@@ -343,7 +343,7 @@ collapsing route to exclusivity rather than the complementing one – and
 unlike `ℕ`, Lin[X] is not distributive
 (`Which.not_mul_sub_left_distributive`), so exclusivity and distributivity
 are independent. -/
-private theorem Which.exclusive : exclusive (Which α) := by
+theorem Which.exclusive : exclusive (Which α) := by
   intro a
   cases a <;> simp[(· * ·),Mul.mul,(· - ·),Sub.sub] <;> rfl
 

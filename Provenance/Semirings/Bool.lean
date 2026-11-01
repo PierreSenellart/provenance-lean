@@ -77,7 +77,7 @@ theorem Bool.mul_sub_left_distributive : mul_sub_left_distributive Bool := by de
 
 /-- `𝔹` is exclusive: `a ∧ ¬a = ⊥`. Here `𝟙 ⊖ a` is a genuine complement
 of `a`, which is the stronger of the two ways a semiring can be exclusive. -/
-private theorem Bool.exclusive : exclusive Bool := by decide
+theorem Bool.exclusive : exclusive Bool := by decide
 
 /-- `Bool` has characteristic 0 in the `CharP` sense: it is idempotent and nontrivial
 (`true ≠ false`), so every positive natural-number cast equals `1 = true`. It is not
@@ -127,7 +127,7 @@ injective m-semiring homomorphism), and a sub-m-semiring of an exclusive one
 is exclusive, the property being an equation. This reproves `Bool.exclusive`,
 which `decide` settles directly, and explains it: `Bool` has no more choice
 about the property than any other subalgebra of `BoolFunc` has. -/
-private theorem Bool.exclusive_of_boolFunc : _root_.exclusive Bool := by
+theorem Bool.exclusive_of_boolFunc : _root_.exclusive Bool := by
   obtain ⟨ν, hinj⟩ := Bool.homomorphism_from_BoolFunc (X := Unit)
   exact exclusive_of_injective_homomorphism_exclusive ν hinj BoolFunc.exclusive
 

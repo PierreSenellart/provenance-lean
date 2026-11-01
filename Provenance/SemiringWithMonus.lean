@@ -512,7 +512,7 @@ private theorem one_join_irreducible_of_total [SemiringWithMonus α] (hidem : id
 /-- **Absorptivity and exclusivity together are restrictive.** If `𝟙` is
 join-irreducible – as it is in every absorptive m-semiring whose natural order
 is total – then an exclusive one has no element besides `𝟘` and `𝟙`. -/
-private theorem eq_zero_or_one_of_exclusive_of_absorptive [SemiringWithMonus α]
+theorem eq_zero_or_one_of_exclusive_of_absorptive [SemiringWithMonus α]
     (habs : absorptive α) (hirr : ∀ a z : α, a + z = 1 → a = 1 ∨ z = 1)
     (hexcl : exclusive α) (a : α) : a = 0 ∨ a = 1 := by
   rcases hirr a (1 - a) (add_one_monus_eq_one_of_absorptive habs a) with h | h
@@ -525,7 +525,7 @@ private theorem eq_zero_or_one_of_exclusive_of_absorptive [SemiringWithMonus α]
 absorptive m-semiring with an element other than `𝟘` and `𝟙` is not
 exclusive. This one argument covers `Viterbi`, `MinMax`, `Lukasiewicz`,
 `Tropical` and `ChainFive`. -/
-private theorem not_exclusive_of_absorptive_of_total [SemiringWithMonus α]
+theorem not_exclusive_of_absorptive_of_total [SemiringWithMonus α]
     (habs : absorptive α) (htot : ∀ a b : α, a ≤ b ∨ b ≤ a)
     {a : α} (h0 : a ≠ 0) (h1 : a ≠ 1) : ¬ exclusive α := by
   intro hexcl
@@ -678,7 +678,7 @@ private theorem isDelta_delta [K : SemiringWithMonus α] : IsDelta K.delta :=
 
 /-- To refute `δ := id`, exhibit a pair violating the lattice absorption law
 `a ⊗ (a ⊕ b) = a`, which is what `delta_absorb` demands of the identity. -/
-private theorem not_isDelta_id_of_absorb_ne {K : Type} [Semiring K] {a b : K}
+theorem not_isDelta_id_of_absorb_ne {K : Type} [Semiring K] {a b : K}
     (h : a * (a + b) ≠ a) : ¬ IsDelta (id : K → K) :=
   fun hd => h (by simpa using hd.absorb a b)
 
@@ -686,7 +686,7 @@ private theorem not_isDelta_id_of_absorb_ne {K : Type} [Semiring K] {a b : K}
 `n = 2` reads `𝟙 ⊕ 𝟙 = 𝟙`, whence `a ⊕ a = a ⊗ (𝟙 ⊕ 𝟙) = a`. This is the
 crudest of the three obstructions, and the one that rules the identity out
 of the counting semirings (`ℕ`, `ℕ[X]`). -/
-private theorem not_isDelta_id_of_not_idempotent {K : Type} [Semiring K]
+theorem not_isDelta_id_of_not_idempotent {K : Type} [Semiring K]
     (h : ¬ idempotent K) : ¬ IsDelta (id : K → K) := by
   intro hd
   have h2 : (1 : K) + 1 = 1 := by
@@ -704,13 +704,13 @@ private theorem not_isDelta_id_of_not_idempotent {K : Type} [Semiring K]
 idempotent: `delta_absorb` at `b = a` reads `a ⊗ (a ⊕ a) = a ⊗ a = a`. This is
 the obstruction in the absorptive semirings whose `⊗` is a genuine product
 (Viterbi, Łukasiewicz), where the two coarser tests below say nothing. -/
-private theorem not_isDelta_id_of_not_mul_idempotent {K : Type} [Semiring K]
+theorem not_isDelta_id_of_not_mul_idempotent {K : Type} [Semiring K]
     (hadd : idempotent K) (h : ¬ ∀ a : K, a * a = a) : ¬ IsDelta (id : K → K) :=
   fun hd => h (fun a => by simpa [hadd a] using hd.absorb a a)
 
 /-- `δ := id` requires absorptivity: `delta_absorb` at `a = 𝟙` reads
 `𝟙 ⊗ (𝟙 ⊕ b) = 𝟙`, i.e., `𝟙 ⊕ b = 𝟙`. -/
-private theorem not_isDelta_id_of_not_absorptive {K : Type} [Semiring K]
+theorem not_isDelta_id_of_not_absorptive {K : Type} [Semiring K]
     (h : ¬ absorptive K) : ¬ IsDelta (id : K → K) := by
   intro hd
   exact h (fun a => by simpa using hd.absorb 1 a)
@@ -985,7 +985,7 @@ private theorem mul_sub_left_of_surjective_homomorphism_mul_sub_left
 
 /-- If ν is an injective m-semiring homomorphism from α to β,
   and β is exclusive, so is α. -/
-private theorem exclusive_of_injective_homomorphism_exclusive
+theorem exclusive_of_injective_homomorphism_exclusive
   [SemiringWithMonus α]
   [SemiringWithMonus β]
   (ν: SemiringWithMonusHom α β)
@@ -1020,7 +1020,7 @@ private theorem mul_one_monus_self_eq_zero_of_range
 /-- If ν is an m-semiring homomorphism from α onto β,
   and α is exclusive, so is β. Exclusivity passes to quotients as idempotence
   and distributivity do, being likewise an equation. -/
-private theorem exclusive_of_surjective_homomorphism_exclusive
+theorem exclusive_of_surjective_homomorphism_exclusive
   [SemiringWithMonus α]
   [SemiringWithMonus β]
   (ν: SemiringWithMonusHom α β)

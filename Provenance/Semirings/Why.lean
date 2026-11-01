@@ -364,7 +364,7 @@ private theorem Why.not_isDelta_id (hNotEmpty : ∃ (_ : α), ⊤) :
 a token `{{x}}` does not contain `∅`, so `𝟙 ⊖ {{x}} = 𝟙` and
 `{{x}} ⊗ 𝟙 = {{x}} ≠ 𝟘`. Why[X] is neither absorptive nor distributive, so
 this is a failure for reasons unrelated to the absorptive chains. -/
-private theorem Why.not_exclusive [Inhabited α] : ¬ exclusive (Why α) := by
+theorem Why.not_exclusive [Inhabited α] : ¬ exclusive (Why α) := by
   intro h
   have hsub : (1 : Why α) - ⟨{{default}}⟩ = 1 := by
     apply Why.ext

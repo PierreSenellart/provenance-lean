@@ -171,7 +171,7 @@ theorem ChainFive.not_mul_sub_left_distributive :
 module docstring already performs for a different purpose. It is absorptive
 and not distributive, where `Viterbi` is absorptive and distributive and
 `Bool` is both and exclusive. -/
-private theorem ChainFive.not_exclusive : ¬ exclusive ChainFive := by decide
+theorem ChainFive.not_exclusive : ¬ exclusive ChainFive := by decide
 
 namespace ChainFive
 

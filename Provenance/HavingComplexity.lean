@@ -863,7 +863,7 @@ private theorem hasNonemptySubsetSum_iff_index {A : Type} [Language.binWeights.S
 /-- The encoding side is the concrete-instance bridge
 `BinarySubsetSum.exists_selection_iff`, for the condition “non-empty, and
 summing to the target”. -/
-private theorem concreteNonemptySubsetSum_iff (i : HavingSumInstance) :
+theorem concreteNonemptySubsetSum_iff (i : HavingSumInstance) :
     ConcreteNonemptySubsetSum i ↔ HasNonemptySubsetSum (binarySubsetSumEncoding.Univ i) := by
   rw [hasNonemptySubsetSum_iff_selection BinarySubsetSum.isLinOrd,
     BinarySubsetSum.exists_selection_iff i

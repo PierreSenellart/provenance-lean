@@ -216,7 +216,7 @@ universal semiring, the one every provenance circuit is built in, is exactly
 the one where two distinct worlds of an aggregate value fail to annihilate
 each other. The spurious terms vanish under any homomorphism into an
 exclusive semiring, since homomorphisms commute with `⊖`. -/
-private theorem How.not_exclusive [Inhabited X] : ¬ exclusive (MvPolynomial X ℕ) := by
+theorem How.not_exclusive [Inhabited X] : ¬ exclusive (MvPolynomial X ℕ) := by
   intro h
   have hsub : (1 : MvPolynomial X ℕ) - MvPolynomial.X (default : X) = 1 := by
     apply MvPolynomial.ext

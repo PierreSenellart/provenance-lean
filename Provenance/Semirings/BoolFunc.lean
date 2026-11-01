@@ -257,7 +257,7 @@ the image of a variable under a homomorphism from `BoolFunc` inherits it
 are out of that reach, neither being absorptive
 (`BoolFunc.no_hom_of_not_absorptive`); they are exclusive for the other
 reason, their monus against `𝟙` collapsing to `𝟘`. -/
-private theorem BoolFunc.exclusive : _root_.exclusive (BoolFunc X) :=
+theorem BoolFunc.exclusive : _root_.exclusive (BoolFunc X) :=
   fun f => BoolFunc.mul_sub_self f
 
 /-- If the target `K` is not absorptive, there is no semiring homomorphism
