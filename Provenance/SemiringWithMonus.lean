@@ -643,7 +643,7 @@ theorem delta_absorb_indicator
 /-- **The support map is a legal `δ` wherever the casts are non-zero.**
 It is the greatest legal choice, the identity the least where it is
 available. -/
-private theorem isLegalDelta_indicator {K : Type} [Semiring K] [PartialOrder K]
+theorem isLegalDelta_indicator {K : Type} [Semiring K] [PartialOrder K]
     [IsOrderedAddMonoid K] [CanonicallyOrderedAdd K] [CharZero K]
     [Nontrivial K] {δ : K → K} (h : IsDeltaIndicator δ) :
     IsLegalDelta δ :=
