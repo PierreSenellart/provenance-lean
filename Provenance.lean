@@ -193,6 +193,7 @@ public import Provenance.BooleanSemiring
 public import Provenance.FragQuery
 public import Provenance.FragQueryMeta
 public import Provenance.Extensionality
+public import Provenance.SemanticExtensionality
 
 /- Various semirings -/
 public import Provenance.Semirings.BestPath
@@ -2191,6 +2192,16 @@ proven engine several general results reuse internally.
   of the support (`FragQueryIn.mem_support_sem`), and over `ℕ`, where an
   annotation read as a multiplicity gives the plain semantics of the unfolded
   instance on `F₀` (`FragQueryIn.semPlain_unfold`)
+- `Provenance.SemanticExtensionality` – **extensionality for every semantics
+  that extends semiring provenance**. Over any semiring, a semantics following
+  the clauses of semiring provenance on the positive operators, for all
+  arguments and with nothing asked on negation, is extensional for `F₂` only if
+  the semiring is a Boolean algebra
+  (`FragQueryIn.ExtendsSemiringProvenance.isBooleanRig_of_level2`); over a
+  commutative m-semiring such a semantics exists iff it is a Boolean m-semiring
+  (`exists_semantics_extensional_iff`). The copies themselves need not agree
+  from `F₂` on (`FragQueryIn.splitR_semPlain`, `FragQueryIn.splitR_sem`,
+  `FragQueryIn.splitR_copies_ne`).
 - `Provenance.Extensionality` – **graded extensionality**. `K` is
   *extensional* for a class of queries (`Extensional`) when two queries of the
   class with the same plain semantics on every instance collapse, on every
