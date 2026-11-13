@@ -88,7 +88,9 @@ inductive FragQueryIn (T : Type) [ValueType T] : ℕ → ℕ → Type where
   | Sum : {c n : ℕ} → FragQueryIn T c n → FragQueryIn T c n → FragQueryIn T c n
   /-- Duplicate elimination. -/
   | Dedup : {c n : ℕ} → FragQueryIn T c n → FragQueryIn T c n
-  /-- Difference, `EXCEPT ALL`. -/
+  /-- Difference: the rows of the left side with no equal row on the right,
+  copies kept – the `NOT IN` difference on whole rows (`t ∉ r₂`), not
+  `EXCEPT ALL`, which subtracts multiplicities. -/
   | Diff : {c n : ℕ} → FragQueryIn T c n → FragQueryIn T c n → FragQueryIn T c n
   /-- Semijoin, `WHERE EXISTS` and `IN`: the rows of the left side that the
   predicate matches with some row of the right side, read in the context

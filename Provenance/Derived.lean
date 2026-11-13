@@ -627,7 +627,13 @@ def lastValue (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
       false) P O o.reverse w t SeqAggFunc.pickFirst q (winReadsReg_allReg P O t)
 
 /-- `lag(t)`: `last_value` over the rows strictly before the current
-row's peers. -/
+row's peers. This is SQL's `lag` when the order has no peers within a
+partition, and only then: SQL reads the previous row of one valid sort,
+which may be a peer, so that of two peers with nothing before them one
+reads the other's value; here both read the empty frame. Over peers the
+reading is a choice, like `row_number` read as a rank, and `DeterminateOn`
+does not refuse it, the frame excluding the peers rather than ordering
+them. -/
 def lag (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
     (t : Term T n) (q : AggQuery T n (ColKind.allReg n)) :
     AggQuery T (n + 1) (Fin.snoc (ColKind.allReg n) ColKind.agg) :=
@@ -651,7 +657,8 @@ def nthValue (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
       t)
 
 /-- `lag(t, i+1)`: the value `i + 1` rows before the current row's
-peers, the frame of `lag` read backwards from its end. -/
+peers, the frame of `lag` read backwards from its end; SQL's `lag(t, i+1)`
+when the order has no peers within a partition, as for `lag`. -/
 def lagAt (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
     (i : ℕ) (t : Term T n) (q : AggQuery T n (ColKind.allReg n)) :
     AggQuery T (n + 1) (Fin.snoc (ColKind.allReg n) ColKind.agg) :=

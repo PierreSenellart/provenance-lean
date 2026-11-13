@@ -50,8 +50,9 @@ variable {K : Type} [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder
 
 section Fences
 
-/-- **Every window frame contains its current row**, single-frame windows
-included. -/
+/-- **Every window frame contains its current row exactly when it contains
+its peers** (`ValueFrame.ContainsSelf`), single-frame windows included:
+every frame but `EXCLUDE CURRENT ROW` and `EXCLUDE TIES`. -/
 def AggQueryIn.allFramesContainSelf : {c n : ℕ} → {κ : Fin n → ColKind} →
     {l : List (String × ℕ)} → AggQueryIn T c n κ l → Prop
   | _, _, _, _, .Rel _ _ => True
@@ -899,7 +900,8 @@ private theorem tokenOfDist_congr_fst {c n m p : ℕ} (P : Tuple (Fin n) m) (O :
 
 omit [CommSemiringWithMonus K] [DecidableEq K] in
 /-- The identities a window gives the occurrences of a frame depend on the
-row only through its tuple, where the frame contains its current row. -/
+row only through its tuple, where the frame contains its current row exactly
+when it contains its peers. -/
 private theorem frameOids_congr_fst {n m p : ℕ} (lab : ℕ) (ck : List (T ⊕ FamId T))
     (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
     (o : OrderSpec p) {w : ValueFrame T p} (hc : w.ContainsSelf) (X : AnnotatedRelation T K n)

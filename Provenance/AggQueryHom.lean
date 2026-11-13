@@ -4368,8 +4368,8 @@ congruence layer.
 
 What is asked of the *query*:
 
-* that every window frame contain its current row
-  (`AggQueryIn.allFramesContainSelf`): a multi-frame window lists its
+* that every window frame contain its current row exactly when it
+  contains its peers (`AggQueryIn.allFramesContainSelf`): a multi-frame window lists its
   shared family by occurrence index, which a change of annotation semiring
   re-sorts inside blocks of equal rows, and a window over a frame that
   excludes the current row gives two rows with the same tuple different
