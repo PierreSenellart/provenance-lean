@@ -45,7 +45,12 @@ permissions:
 jobs:
   build:
     name: Build the API documentation
-    runs-on: ubuntu-latest
+    # Pinned, not `ubuntu-latest`: on the ubuntu-26.04 image a build with no
+    # documentation database to restore fails partway through, Lake being
+    # refused the `git` subprocesses of the `srcUri.github` targets with
+    # `resource exhausted (error code: 12, not enough memory)`. The same cold
+    # build passes on ubuntu-24.04. Try `ubuntu-latest` again at a later image.
+    runs-on: ubuntu-24.04
     # Collapse a burst of pushes onto the newest commit: an in-flight build is
     # cancelled as soon as a later one starts.
     concurrency:
