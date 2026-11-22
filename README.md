@@ -1,7 +1,7 @@
 # Provenance in databases, in Lean 4
 
 [![CI](https://github.com/PierreSenellart/provenance-lean/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/PierreSenellart/provenance-lean/actions/workflows/ci.yml)
-[![Mathlib](https://img.shields.io/badge/Mathlib-v4.35.0-blue)](https://github.com/leanprover-community/mathlib4/releases/tag/v4.35.0)
+[![Mathlib](https://img.shields.io/badge/Mathlib-v4.36.0-blue)](https://github.com/leanprover-community/mathlib4/releases/tag/v4.36.0)
 [![DOI](https://img.shields.io/badge/DOI-10.5281%2Fzenodo.21809151-007ec6)](https://doi.org/10.5281/zenodo.21809151)
 [![Archived in Software Heritage](https://archive.softwareheritage.org/badge/origin/https://github.com/PierreSenellart/provenance-lean/)](https://archive.softwareheritage.org/browse/origin/?origin_url=https://github.com/PierreSenellart/provenance-lean)
 
@@ -102,6 +102,7 @@ rather than the concept DOI, so that it points at a specific state of the code.
 <!-- release-table -->
 | Tag | Toolchain | Version DOI |
 | --- | --- | --- |
+| `v1.4.0` | `leanprover/lean4:v4.36.0` | – |
 | `v1.3.0` | `leanprover/lean4:v4.35.0` | [10.5281/zenodo.23856981](https://doi.org/10.5281/zenodo.23856981) |
 | `v1.2.0` | `leanprover/lean4:v4.34.0` | [10.5281/zenodo.22900284](https://doi.org/10.5281/zenodo.22900284) |
 | `v1.1.0` | `leanprover/lean4:v4.33.0` | [10.5281/zenodo.21997271](https://doi.org/10.5281/zenodo.21997271) |
@@ -130,7 +131,7 @@ In a `lakefile.lean`:
 
 ```lean
 require "provenance" from git
-  "https://github.com/PierreSenellart/provenance-lean" @ "v1.3.0"
+  "https://github.com/PierreSenellart/provenance-lean" @ "v1.4.0"
 ```
 
 Pin a tag or a commit rather than `main`, for reproducible builds. Then
