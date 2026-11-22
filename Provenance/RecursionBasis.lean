@@ -1512,10 +1512,9 @@ private theorem AggQueryIn.exists_polyBound_rec_aux {S : Set OpKind}
     refine ⟨?_, fun V hD hγ hc hV => hvals V hD hγ hc
       (subset_trans (countVals_subset (poly_mono (by omega) hmaxK)) hV)⟩
     -- The card, off the value set of polynomial size.
-    set V₀ : Finset T := Union.union (Union.union (Union.union
-      (Database.instVals A D) (AggQueryIn.MuSet s q₀ q₁).consts)
-      (countVals g ((b₀ + b₁) * (D.size + 1) ^ max k₀ k₁)))
-      (Finset.univ.image γ) with hV₀
+    set V₀ : Finset T := Database.instVals A D ⊔ (AggQueryIn.MuSet s q₀ q₁).consts ⊔
+      countVals g ((b₀ + b₁) * (D.size + 1) ^ max k₀ k₁) ⊔
+      Finset.univ.image γ with hV₀
     have hF : Relation.valsIn ((AggQueryIn.MuSet s q₀ q₁).evaluatePlain D γ) V₀ :=
       hvals V₀
         (fun m s' r hm hf => Relation.valsIn_mono

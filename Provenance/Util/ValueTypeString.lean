@@ -218,7 +218,42 @@ instance : Sub String where
 instance : Mul String where
   mul _ _ := ""
 
+/-! ## Deciding the order
+
+The order is the one `String` has. Core decides it through
+`ByteArray.decidableLT`, whose body is not exposed to other modules, so a
+comparison of two strings does not reduce in the kernel, and neither does
+anything that sorts a relation of them. The order below is the same
+relation, decided on the lists of characters, which does reduce. -/
+
+/-- **The order of `String`, decided on the characters.** The relations
+`≤` and `<` are those of `String`; what differs from Mathlib's instance is
+how they, and the minimum, maximum, and comparison built on them, are
+computed. -/
+@[instance_reducible] def linearOrder : LinearOrder String where
+  le := (· ≤ ·)
+  lt := (· < ·)
+  le_refl := le_refl
+  le_trans _ _ _ := le_trans
+  lt_iff_le_not_ge _ _ := lt_iff_le_not_ge
+  le_antisymm _ _ := le_antisymm
+  le_total := le_total
+  toDecidableLE s t :=
+    decidable_of_iff (s.toList ≤ t.toList) String.le_iff_toList_le.symm
+  toDecidableEq := inferInstance
+  toDecidableLT s t :=
+    decidable_of_iff (s.toList < t.toList) String.lt_iff_toList_lt.symm
+  min s t := if s.toList ≤ t.toList then s else t
+  max s t := if s.toList ≤ t.toList then t else s
+  compare s t :=
+    if s.toList < t.toList then .lt else if s = t then .eq else .gt
+  min_def s t := by simp only [String.le_iff_toList_le]
+  max_def s t := by simp only [String.le_iff_toList_le]
+  compare_eq_compareOfLessAndEq s t := by
+    simp only [compareOfLessAndEq, String.lt_iff_toList_lt]
+
 instance : ValueType String where
+  toLinearOrder := linearOrder
   nonzero := numeral 1
   nonzero_ne_zero := by decide
   add_comm := by

@@ -1210,10 +1210,10 @@ theorem muSetSim_correct_chain (cnt : SeqAggFunc T)
       exact Multiset.mem_map_of_mem _ hp
     exact (hrowsM _ hm k (t' k) rfl).imp id (fun h => h.1)
   -- the free values, as a finite set
-  set FreeFin : Finset T := Union.union (Union.union (ValueType.nullVal : Option T).toFinset
-    (Finset.univ.image γ)) (Finset.univ.biUnion (fun k => match E.ctxAt c γ k with
+  set FreeFin : Finset T := (ValueType.nullVal : Option T).toFinset ⊔
+    Finset.univ.image γ ⊔ Finset.univ.biUnion (fun k => match E.ctxAt c γ k with
       | Sum.inl x => {x}
-      | Sum.inr _ => ∅)) with hFreeFin
+      | Sum.inr _ => ∅) with hFreeFin
   have hFreeCard : FreeFin.card ≤ 1 + c + c := by
     refine le_trans (Finset.card_union_le _ _) (Nat.add_le_add ?_ ?_)
     · refine le_trans (Finset.card_union_le _ _) (Nat.add_le_add ?_ ?_)
@@ -1257,7 +1257,7 @@ theorem muSetSim_correct_chain (cnt : SeqAggFunc T)
     (List.mem_append_right _ (by simp)), ValueType.isNull_nonzero⟩
   have hVlV : ∀ x, Vl x → (fun _ => x) ∈ V := fun x hx => Multiset.mem_dedup.2 hx
   have hcard : S.card ≤ W.card := by
-    obtain ⟨AV, hAV⟩ : ∃ AV : Finset T, AV = Union.union (V.map (fun v => v 0)).toFinset FreeFin :=
+    obtain ⟨AV, hAV⟩ : ∃ AV : Finset T, AV = (V.map (fun v => v 0)).toFinset ⊔ FreeFin :=
       ⟨_, rfl⟩
     have hSAV : ∀ t ∈ S, ∀ k, t k ∈ AV := by
       intro t ht k
@@ -1345,7 +1345,7 @@ theorem muSetSim_correct_chain (cnt : SeqAggFunc T)
     -- the values of the derivation, and the constants
     obtain ⟨Vp, hVp⟩ : ∃ Vp : Finset T, Vp = (p.toFinset.biUnion
         (fun u => Finset.univ.image u)).filter (fun x => ¬ F x) := ⟨_, rfl⟩
-    obtain ⟨Cp, hCp⟩ : ∃ Cp : Finset T, Cp = Union.union Vp CV := ⟨_, rfl⟩
+    obtain ⟨Cp, hCp⟩ : ∃ Cp : Finset T, Cp = Vp ⊔ CV := ⟨_, rfl⟩
     have hXC : ∀ x ∈ Cp, X ≤ ev x := by
       intro x hx
       rw [hCp] at hx
@@ -1377,7 +1377,7 @@ theorem muSetSim_correct_chain (cnt : SeqAggFunc T)
     have hWpc : Wp.card = Cp.card ^ K' := by
       rw [hWp, Fintype.card_piFinset, Finset.prod_const, Finset.card_univ, Fintype.card_fin]
     have hlenWp : j + 1 ≤ Wp.card := by
-      obtain ⟨A, hA⟩ : ∃ A : Finset T, A = Union.union Cp FreeFin := ⟨_, rfl⟩
+      obtain ⟨A, hA⟩ : ∃ A : Finset T, A = Cp ⊔ FreeFin := ⟨_, rfl⟩
       have hpA : ∀ u ∈ p.toFinset, ∀ k, u k ∈ A := by
         intro u hu k
         rw [hA, hCp]
@@ -1650,10 +1650,10 @@ theorem muSetSim_correct_succ (cnt : SeqAggFunc T)
       exact Multiset.mem_map_of_mem _ hp
     exact (hrowsM _ hm k (t' k) rfl).imp id (fun h => h.1)
   -- the free values, as a finite set
-  set FreeFin : Finset T := Union.union (Union.union (ValueType.nullVal : Option T).toFinset
-    (Finset.univ.image γ)) (Finset.univ.biUnion (fun k => match E.ctxAt c γ k with
+  set FreeFin : Finset T := (ValueType.nullVal : Option T).toFinset ⊔
+    Finset.univ.image γ ⊔ Finset.univ.biUnion (fun k => match E.ctxAt c γ k with
       | Sum.inl x => {x}
-      | Sum.inr _ => ∅)) with hFreeFin
+      | Sum.inr _ => ∅) with hFreeFin
   have hFreeCard : FreeFin.card ≤ 1 + c + c := by
     refine le_trans (Finset.card_union_le _ _) (Nat.add_le_add ?_ ?_)
     · refine le_trans (Finset.card_union_le _ _) (Nat.add_le_add ?_ ?_)
@@ -1695,7 +1695,7 @@ theorem muSetSim_correct_succ (cnt : SeqAggFunc T)
     (List.mem_append_right _ (by simp)), ValueType.isNull_nonzero⟩
   have hVlV : ∀ x, Vl x → (fun _ => x) ∈ V := fun x hx => Multiset.mem_dedup.2 hx
   have hcard : S.card ≤ W.card := by
-    obtain ⟨AV, hAV⟩ : ∃ AV : Finset T, AV = Union.union (V.map (fun v => v 0)).toFinset FreeFin :=
+    obtain ⟨AV, hAV⟩ : ∃ AV : Finset T, AV = (V.map (fun v => v 0)).toFinset ⊔ FreeFin :=
       ⟨_, rfl⟩
     have hSAV : ∀ t ∈ S, ∀ k, t k ∈ AV := by
       intro t ht k
@@ -1801,7 +1801,7 @@ theorem muSetSim_correct_succ (cnt : SeqAggFunc T)
         rw [this]; exact hv
       have hV12 : 2 ≤ V1.card := Finset.one_lt_card.2 ⟨0, hCV1 0 h0CV, ValueType.nonzero,
         hCV1 _ hnzCV, ValueType.nonzero_ne_zero.symm⟩
-      obtain ⟨A, hA⟩ : ∃ A : Finset T, A = Union.union V1 FreeFin := ⟨_, rfl⟩
+      obtain ⟨A, hA⟩ : ∃ A : Finset T, A = V1 ⊔ FreeFin := ⟨_, rfl⟩
       have hS'A : ∀ t ∈ S.filter (fun t => ∀ k, F (t k) ∨ ¬ Z (t k)), ∀ k, t k ∈ A := by
         intro t ht k
         obtain ⟨htS, ht'⟩ := Finset.mem_filter.1 ht

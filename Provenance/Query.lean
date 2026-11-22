@@ -1120,6 +1120,6 @@ def Query.evaluate (q: Query T n) (d: Database T): Relation T n := match q with
 termination_by q.aggdepth2_plus_depth
 decreasing_by
   all_goals simp[aggdepth2_plus_depth]
-  any_goals refine Nat.lt_add_one_of_le ?_
+  all_goals refine Nat.lt_add_one_of_le ?_
   any_goals exact Nat.le_max_left _ _
-  any_goals exact Nat.le_max_right _ _
+  all_goals exact Nat.le_max_right _ _

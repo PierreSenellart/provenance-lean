@@ -505,7 +505,7 @@ private theorem sliceIs_encAll {k n P : ℕ} (C : Finset T) (par : Fin k → T)
 
 /-- The good values, as a finite set. -/
 noncomputable def goodSet {k : ℕ} (C : Finset T) (par : Fin k → T) : Finset T :=
-  Union.union (Union.union C (Finset.univ.image par)) (ValueType.nullVal : Option T).toFinset
+  C ⊔ Finset.univ.image par ⊔ (ValueType.nullVal : Option T).toFinset
 
 private theorem mem_goodSet {k : ℕ} {C : Finset T} {par : Fin k → T} {b : T}
     (h : GoodVal (C := C) par b) : b ∈ goodSet C par := by

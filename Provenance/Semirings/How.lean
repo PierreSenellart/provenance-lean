@@ -99,7 +99,7 @@ is injective, and `(n : MvPolynomial X ℕ) = C n`. (Equivalent to
 transitive imports of that file.) -/
 instance : CharZero (MvPolynomial X ℕ) where
   cast_injective x y hxy := by
-    rwa [← MvPolynomial.C_eq_coe_nat, ← MvPolynomial.C_eq_coe_nat,
+    rwa [← MvPolynomial.C_eq_natCast, ← MvPolynomial.C_eq_natCast,
          MvPolynomial.C_inj, Nat.cast_inj] at hxy
 
 /-- ProvSQL's `How::delta`: the support indicator. -/

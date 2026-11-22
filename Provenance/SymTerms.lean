@@ -330,10 +330,10 @@ private theorem eval3_transSel {C : Finset T} (P : ℕ) (φ : Selection T n) (h�
     simp only [Selection.noFun, BoolTerm.noFun, Bool.and_eq_true] at hφ
     rw [transSel, eval3_cellCmp_cs P _ _ _ par γ v e hv (fun j => j.elim0)
       (fun a h => hφc a (by
-        show a ∈ Union.union _ _
+        show a ∈ _ ⊔ _
         exact Finset.mem_union_left _ (termCST_const _ hφ.1 h)))
       (fun a h => hφc a (by
-        show a ∈ Union.union _ _
+        show a ∈ _ ⊔ _
         exact Finset.mem_union_right _ (termCST_const _ hφ.2 h))),
       termCST_val _ hφ.1, termCST_val _ hφ.2]
     rfl

@@ -264,7 +264,8 @@ private theorem muIter_eq_muFix_of_card_le (f : Multiset α → Multiset α)
     muIter (fun X => (f X).dedup) N = muFix (fun X => (f X).dedup) := by
   set step : Multiset α → Multiset α := fun X => (f X).dedup with hstep
   have hfix : step (muIter step (muFixIdx step)) = muIter step (muFixIdx step) := by
-    have hmem : step^[muFixIdx step + 1] 0 = step^[muFixIdx step] 0 := Nat.sInf_mem hs
+    have hmem : step^[muFixIdx step + 1] 0 = step^[muFixIdx step] 0 :=
+      Nat.sInf_mem (s := {j | step^[j + 1] 0 = step^[j] 0}) hs
     rw [muIter_eq_iterate]
     exact (Function.iterate_succ_apply' step _ 0).symm.trans hmem
   exact muIter_eq_of_le hfix (le_trans (muFixIdx_le_card_of_mono f hmono) hN)
@@ -2570,7 +2571,7 @@ private theorem mem_names_simResult (x : String) (hx : x ∈ (simResult s s' n K
     · exact Or.inr (Or.inr (Or.inl hx))
     · exact Or.inr (Or.inr (Or.inr (mem_names_pow EQ K x hx)))
   · rw [simBody, AggQueryIn.names_castKind] at hx
-    have hx : x ∈ Union.union ({s'} : Finset String)
+    have hx : x ∈ ({s'} : Finset String) ⊔
         (AggQueryIn.prodA (AggQueryIn.castIdx (subIdx_self s n)
             (AggQueryIn.substRel s (rowPv n K) (L.substMap (applyOuter T c (n + K)))))
           (AggQueryIn.Sel (ltSel n K) ((pow EQ K).substMap (applyOuter T c (n + K))))).names := hx
@@ -2717,7 +2718,7 @@ private theorem muSetHandler {S : Set OpKind} (hS : sumMuOps ⊆ S) (hnu : OpKin
     · have := hf hi; omega
   -- the counter relation
   set ls : List (ℕ × String) := (AggQueryIn.MuSet s q₀ q₁).leaves with hls
-  set cs : List T := (Union.union q₀.allConsts q₁.allConsts).toList ++ [0, ValueType.nonzero]
+  set cs : List T := (q₀.allConsts ⊔ q₁.allConsts).toList ++ [0, ValueType.nonzero]
     with hcs
   set EQ : AggQueryIn T c 1 (ColKind.allReg 1) := counterRel base ls cs with hEQ
   have hls_leaves : ∀ p ∈ ls, p ∈ (AggQueryIn.MuSet s q₀ q₁).leaves := fun p hp => hp

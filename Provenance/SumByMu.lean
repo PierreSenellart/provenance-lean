@@ -68,15 +68,15 @@ def AggQueryIn.names : {c n : ℕ} → {κ : Fin n → ColKind} → {l : List (S
   | _, _, _, _, .Empty => ∅
   | _, _, _, _, .Proj _ q => q.names
   | _, _, _, _, .Sel _ q _ => q.names
-  | _, _, _, _, .Prod q₁ q₂ => Union.union q₁.names q₂.names
-  | _, _, _, _, .Apply q₁ q₂ => Union.union q₁.names q₂.names
-  | _, _, _, _, .Sum q₁ q₂ => Union.union q₁.names q₂.names
+  | _, _, _, _, .Prod q₁ q₂ => q₁.names ⊔ q₂.names
+  | _, _, _, _, .Apply q₁ q₂ => q₁.names ⊔ q₂.names
+  | _, _, _, _, .Sum q₁ q₂ => q₁.names ⊔ q₂.names
   | _, _, _, _, .Dedup q => q.names
-  | _, _, _, _, .Diff q₁ q₂ => Union.union q₁.names q₂.names
+  | _, _, _, _, .Diff q₁ q₂ => q₁.names ⊔ q₂.names
   | _, _, _, _, .Explode _ _ q => q.names
   | _, _, _, _, .Retag _ q => q.names
-  | _, _, _, _, .Mu s q₀ q₁ => insert s (Union.union q₀.names q₁.names)
-  | _, _, _, _, .MuSet s q₀ q₁ => insert s (Union.union q₀.names q₁.names)
+  | _, _, _, _, .Mu s q₀ q₁ => insert s (q₀.names ⊔ q₁.names)
+  | _, _, _, _, .MuSet s q₀ q₁ => insert s (q₀.names ⊔ q₁.names)
   | _, _, _, _, .Gamma _ _ _ q _ _ => q.names
   | _, _, _, _, .GammaScalar _ _ q _ => q.names
   | _, _, _, _, .GammaNest _ _ _ _ q => q.names
@@ -321,30 +321,30 @@ private theorem AggQueryIn.names_substMap :
   | Sel φ q _ ih => exact fun θ => ih θ
   | Prod q₁ q₂ ih₁ ih₂ =>
     intro d θ
-    show Union.union _ _ = Union.union _ _
+    show _ ⊔ _ = _ ⊔ _
     rw [ih₁ θ, ih₂ θ]
   | Apply q₁ q₂ ih₁ ih₂ =>
     intro d θ
-    show Union.union _ _ = Union.union _ _
+    show _ ⊔ _ = _ ⊔ _
     rw [ih₁ θ, ih₂ _]
   | Sum q₁ q₂ ih₁ ih₂ =>
     intro d θ
-    show Union.union _ _ = Union.union _ _
+    show _ ⊔ _ = _ ⊔ _
     rw [ih₁ θ, ih₂ θ]
   | Dedup q ih => exact fun θ => ih θ
   | Diff q₁ q₂ ih₁ ih₂ =>
     intro d θ
-    show Union.union _ _ = Union.union _ _
+    show _ ⊔ _ = _ ⊔ _
     rw [ih₁ θ, ih₂ θ]
   | Explode k hk q ih => exact fun θ => ih θ
   | Retag hk q ih => exact fun θ => ih θ
   | Mu s q₀ q₁ ih₀ ih₁ =>
     intro d θ
-    show insert s (Union.union _ _) = insert s (Union.union _ _)
+    show insert s (_ ⊔ _) = insert s (_ ⊔ _)
     rw [ih₀ θ, ih₁ θ]
   | MuSet s q₀ q₁ ih₀ ih₁ =>
     intro d θ
-    show insert s (Union.union _ _) = insert s (Union.union _ _)
+    show insert s (_ ⊔ _) = insert s (_ ⊔ _)
     rw [ih₀ θ, ih₁ θ]
   | Gamma is ts fs q keep ord ih => exact fun θ => ih θ
   | GammaScalar ts fs q ord ih => exact fun θ => ih θ
@@ -1115,7 +1115,7 @@ private theorem overSchema_sumByMu (sch : Schema) (s₁ s₂ : String)
 
 /-- **The construction names its two bound names and its operands'.** -/
 private theorem names_sumByMu (s₁ s₂ : String) (q₁ q₂ : AggQueryIn T c k (ColKind.allReg k)) :
-    (sumByMu s₁ s₂ q₁ q₂).names ⊆ insert s₁ (insert s₂ (Union.union q₁.names q₂.names)) := by
+    (sumByMu s₁ s₂ q₁ q₂).names ⊆ insert s₁ (insert s₂ (q₁.names ⊔ q₂.names)) := by
   intro x hx
   rw [sumByMu, AggQueryIn.names_castKind] at hx
   simp only [AggQueryIn.names, phaseBody, withTag, driver, unitC, AggQueryIn.names_castKind,
@@ -1577,7 +1577,7 @@ omit [ValueType T] in
 /-- The names clause through a binary operator. -/
 private theorem names_union {f : ℕ → String} {A₁ A₂ B₁ B₂ : Finset String}
     (h₁ : ∀ x, x ∈ A₁ → x ∈ B₁ ∨ ∃ i, x = f i) (h₂ : ∀ x, x ∈ A₂ → x ∈ B₂ ∨ ∃ i, x = f i) :
-    ∀ x, x ∈ Union.union A₁ A₂ → x ∈ Union.union B₁ B₂ ∨ ∃ i, x = f i :=
+    ∀ x, x ∈ A₁ ⊔ A₂ → x ∈ B₁ ⊔ B₂ ∨ ∃ i, x = f i :=
   fun x hx => (Finset.mem_union.mp hx).elim
     (fun h => (h₁ x h).imp_left (Finset.mem_union_left _))
     (fun h => (h₂ x h).imp_left (Finset.mem_union_right _))

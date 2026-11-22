@@ -1565,13 +1565,13 @@ def TermIn.consts {c k : ℕ} : TermIn T c k → Finset T
   | .const a => {a}
   | .outer _ => ∅
   | .index _ => ∅
-  | .add t₁ t₂ => Union.union t₁.consts t₂.consts
-  | .sub t₁ t₂ => Union.union t₁.consts t₂.consts
-  | .mul t₁ t₂ => Union.union t₁.consts t₂.consts
+  | .add t₁ t₂ => t₁.consts ⊔ t₂.consts
+  | .sub t₁ t₂ => t₁.consts ⊔ t₂.consts
+  | .mul t₁ t₂ => t₁.consts ⊔ t₂.consts
   | .caseWhen _ t₁ t₂ t₃ t₄ =>
-      Union.union (Union.union (Union.union t₁.consts t₂.consts) t₃.consts)
+      t₁.consts ⊔ t₂.consts ⊔ t₃.consts ⊔
         t₄.consts
-  | .coalesce t₁ t₂ => Union.union t₁.consts t₂.consts
+  | .coalesce t₁ t₂ => t₁.consts ⊔ t₂.consts
 
 /-- And a kind-indexed term's. -/
 def TermGIn.consts {c k : ℕ} {κ : Fin k → ColKind} : TermGIn T c κ → Finset T
@@ -1580,14 +1580,14 @@ def TermGIn.consts {c k : ℕ} {κ : Fin k → ColKind} : TermGIn T c κ → Fin
   | .index _ _ => ∅
   | .provIndex _ _ => ∅
   | .cmpAgg _ _ _ t => t.consts
-  | .chiGate _ t₁ t₂ => Union.union t₁.consts t₂.consts
-  | .add t₁ t₂ => Union.union t₁.consts t₂.consts
-  | .sub t₁ t₂ => Union.union t₁.consts t₂.consts
-  | .mul t₁ t₂ => Union.union t₁.consts t₂.consts
+  | .chiGate _ t₁ t₂ => t₁.consts ⊔ t₂.consts
+  | .add t₁ t₂ => t₁.consts ⊔ t₂.consts
+  | .sub t₁ t₂ => t₁.consts ⊔ t₂.consts
+  | .mul t₁ t₂ => t₁.consts ⊔ t₂.consts
   | .caseWhen _ t₁ t₂ t₃ t₄ =>
-      Union.union (Union.union (Union.union t₁.consts t₂.consts) t₃.consts)
+      t₁.consts ⊔ t₂.consts ⊔ t₃.consts ⊔
         t₄.consts
-  | .coalesce t₁ t₂ => Union.union t₁.consts t₂.consts
+  | .coalesce t₁ t₂ => t₁.consts ⊔ t₂.consts
 
 /-- And an output column's. -/
 def ProjColIn.consts {c k : ℕ} {κ : Fin k → ColKind} :
@@ -1676,16 +1676,16 @@ def AggQueryIn.consts : {c n : ℕ} → {κ : Fin n → ColKind} → {l : List (
   | _, _, _, _, .Param pv _ =>
       Finset.univ.biUnion fun k => _root_.Sum.elim (fun a => {a}) (fun _ => ∅) (pv k)
   | _, _, _, _, .Empty => ∅
-  | _, _, _, _, .Proj ps q => Union.union (Finset.univ.biUnion fun j => (ps j).consts) q.consts
+  | _, _, _, _, .Proj ps q => (Finset.univ.biUnion fun j => (ps j).consts) ⊔ q.consts
   | _, _, _, _, .Sel _ q _ => q.consts
-  | _, _, _, _, .Prod q₁ q₂ => Union.union q₁.consts q₂.consts
-  | _, _, _, _, .Apply q₁ q₂ => Union.union q₁.consts q₂.consts
-  | _, _, _, _, .Sum q₁ q₂ => Union.union q₁.consts q₂.consts
+  | _, _, _, _, .Prod q₁ q₂ => q₁.consts ⊔ q₂.consts
+  | _, _, _, _, .Apply q₁ q₂ => q₁.consts ⊔ q₂.consts
+  | _, _, _, _, .Sum q₁ q₂ => q₁.consts ⊔ q₂.consts
   | _, _, _, _, .Dedup q => q.consts
-  | _, _, _, _, .Diff q₁ q₂ => Union.union q₁.consts q₂.consts
+  | _, _, _, _, .Diff q₁ q₂ => q₁.consts ⊔ q₂.consts
   | _, _, _, _, .Explode _ _ q => q.consts
-  | _, _, _, _, .Mu _ q₀ q₁ => Union.union q₀.consts q₁.consts
-  | _, _, _, _, .MuSet _ q₀ q₁ => Union.union q₀.consts q₁.consts
+  | _, _, _, _, .Mu _ q₀ q₁ => q₀.consts ⊔ q₁.consts
+  | _, _, _, _, .MuSet _ q₀ q₁ => q₀.consts ⊔ q₁.consts
   | _, _, _, _, .Gamma _ _ _ q _ _ => q.consts
   | _, _, _, _, .GammaScalar _ _ q _ => q.consts
   | _, _, _, _, .GammaNest _ _ _ _ q => q.consts
@@ -2850,7 +2850,7 @@ private theorem card_muSum_le {α : Type} {step : Multiset α → Multiset α}
     exact Nat.add_le_add ih (hiter _)
 
 private theorem mem_union_right_mono {x : T} {A K K' : Finset T}
-    (h : x ∈ Union.union A K) (hK : K ⊆ K') : x ∈ Union.union A K' := by
+    (h : x ∈ A ⊔ K) (hK : K ⊆ K') : x ∈ A ⊔ K' := by
   rcases Finset.mem_union.mp h with h | h
   · exact Finset.mem_union_left _ h
   · exact Finset.mem_union_right _ (hK h)
@@ -3011,7 +3011,7 @@ private theorem AggQueryIn.recNoFun_of_usesOnly {S : Set OpKind}
 /-- The values a row of a recursive term may draw on: the row it comes
 from, the context, and the term's constants. -/
 def rowVals {c n : ℕ} (u : Tuple T n) (γ : Fin c → T) (K : Finset T) : Finset T :=
-  Union.union (Union.union (Finset.univ.image u) (Finset.univ.image γ)) K
+  Finset.univ.image u ⊔ Finset.univ.image γ ⊔ K
 
 omit [ValueType T] in
 /-- A list splitting into a singleton: one half is it, the other empty. -/
@@ -5567,7 +5567,7 @@ private theorem TermIn.noFun_toRegIn {c k : ℕ} (t : Term T k) :
 private theorem Selection.noFun_toPredIn {c k : ℕ} :
     ∀ φ : Selection T k, (φ.toPredIn (c := c)).noFun = φ.noFun
   | .BT b => by
-    cases b <;> (show (_ && _) = (_ && _); rw [TermIn.noFun_toRegIn, TermIn.noFun_toRegIn]; try rfl)
+    cases b <;> (show (_ && _) = (_ && _); rw [TermIn.noFun_toRegIn, TermIn.noFun_toRegIn]; rfl)
   | .Not φ => Selection.noFun_toPredIn φ
   | .And φ₁ φ₂ => by
     show (_ && _) = (_ && _)

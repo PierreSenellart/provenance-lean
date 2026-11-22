@@ -388,7 +388,7 @@ private theorem AggQueryIn.yrow_mem (y : K) {Θ : Set (SeqAggFunc T)} {Bd : T �
     (hC : ∀ k v, C k = Sum.inl v → v ∈ Fv) {r : GenRow T K m}
     (hr : r ∈ q.evaluate d γ (({} : EvalEnv T K).withCtx C)) (hy : r.snd.finalize = y)
     {k : Fin m} {v : T} (hk : r.fst k = Sum.inl v) :
-    v ∈ Union.union (Union.union Fv V) {0} := by
+    v ∈ Fv ⊔ V ⊔ {0} := by
   have h := rowBd_evaluate hB q hsig hex hwk (· ∈ Fv) hF
     (fun p _ rn hf a ha => hD p.1 p.2 rn hf a ha) γ _ (fun k _ => hγ k)
     (fun k v hv => hC k v (by rwa [EvalEnv.ctxAt_withCtx] at hv))
@@ -432,7 +432,7 @@ private theorem AggQueryIn.readAnnotated_yrow_mem (y : K) {Θ : Set (SeqAggFunc 
     (γ : Fin c → T) (C : Tuple (GenValue T K) c) (hγ : ∀ k, γ k ∈ Fv)
     (hC : ∀ k v, C k = Sum.inl v → v ∈ Fv) {r : GenRow T K m}
     (hr : r ∈ q.evaluate d γ (({} : EvalEnv T K).withCtx C)) (hy : r.snd.finalize = y)
-    (k : Fin m) : (GenRow.readAnnotated κ r).fst k ∈ Union.union (Union.union Fv V) {0} := by
+    (k : Fin m) : (GenRow.readAnnotated κ r).fst k ∈ Fv ⊔ V ⊔ {0} := by
   have hreg := AggQueryIn.evaluate_conform q d r hr k
   show GenRow.readTuple κ r.fst k ∈ _
   unfold GenRow.readTuple
@@ -466,7 +466,7 @@ theorem AggQueryIn.exists_hit (y : K) {S : Set OpKind} (hS : OpKind.apply ∉ S)
           ∃ Z : Finset (OccId T), Z.card ≤ B ∧ ∀ (Z₀ : Finset (OccId T)) (E : EvalEnv T K),
             E.ctxAt c γ = C → (∀ k, GenValue.TokHit y Z₀ (C k)) →
             (∀ p ∈ l, ∀ r ∈ E.holes p.1 p.2, ∀ k, GenValue.TokHit y Z₀ (r.fst k)) →
-            ∀ r ∈ q.evaluate d γ E, ∀ k, GenValue.TokHit y (Union.union Z₀ Z) (r.fst k) := by
+            ∀ r ∈ q.evaluate d γ E, ∀ k, GenValue.TokHit y (Z₀ ⊔ Z) (r.fst k) := by
   intro c n κ l q
   induction q with
   | Rel n s =>
@@ -540,7 +540,7 @@ theorem AggQueryIn.exists_hit (y : K) {S : Set OpKind} (hS : OpKind.apply ∉ S)
     refine ⟨B₁ + B₂, fun d hD γ C hγ hC => ?_⟩
     obtain ⟨Z₁, hZ₁, hZ₁'⟩ := hB₁ d hD γ C hγ hC
     obtain ⟨Z₂, hZ₂, hZ₂'⟩ := hB₂ d hD γ C hγ hC
-    refine ⟨Union.union Z₁ Z₂, (Finset.card_union_le _ _).trans (Nat.add_le_add hZ₁ hZ₂),
+    refine ⟨Z₁ ⊔ Z₂, (Finset.card_union_le _ _).trans (Nat.add_le_add hZ₁ hZ₂),
       fun Z₀ E hE hCt hH r hr k => ?_⟩
     simp only [AggQueryIn.evaluate] at hr
     obtain ⟨⟨x, y'⟩, hxy, rfl⟩ := Multiset.mem_map.1 hr
@@ -569,7 +569,7 @@ theorem AggQueryIn.exists_hit (y : K) {S : Set OpKind} (hS : OpKind.apply ∉ S)
     refine ⟨B₁ + B₂, fun d hD γ C hγ hC => ?_⟩
     obtain ⟨Z₁, hZ₁, hZ₁'⟩ := hB₁ d hD γ C hγ hC
     obtain ⟨Z₂, hZ₂, hZ₂'⟩ := hB₂ d hD γ C hγ hC
-    refine ⟨Union.union Z₁ Z₂, (Finset.card_union_le _ _).trans (Nat.add_le_add hZ₁ hZ₂),
+    refine ⟨Z₁ ⊔ Z₂, (Finset.card_union_le _ _).trans (Nat.add_le_add hZ₁ hZ₂),
       fun Z₀ E hE hCt hH r hr k => ?_⟩
     simp only [AggQueryIn.evaluate] at hr
     rcases Multiset.mem_add.1 hr with h | h
@@ -611,12 +611,12 @@ theorem AggQueryIn.exists_hit (y : K) {S : Set OpKind} (hS : OpKind.apply ∉ S)
     refine ⟨B₀ + B₁, fun d hD γ C hγ hC => ?_⟩
     obtain ⟨Z₁, hZ₁, hZ₁'⟩ := hB₀ d hD γ C hγ hC
     obtain ⟨Z₂, hZ₂, hZ₂'⟩ := hB₁ d hD γ C hγ hC
-    refine ⟨Union.union Z₁ Z₂, (Finset.card_union_le _ _).trans (Nat.add_le_add hZ₁ hZ₂),
+    refine ⟨Z₁ ⊔ Z₂, (Finset.card_union_le _ _).trans (Nat.add_le_add hZ₁ hZ₂),
       fun Z₀ E hE hCt hH r hr => ?_⟩
     simp only [AggQueryIn.evaluate, muSumFix] at hr
-    refine muSum_forall (fun r => ∀ k, GenValue.TokHit y (Union.union Z₀ (Union.union Z₁ Z₂))
+    refine muSum_forall (fun r => ∀ k, GenValue.TokHit y (Z₀ ⊔ (Z₁ ⊔ Z₂))
         (r.fst k)) _ (fun X hX r' hr' k => ?_) _ _ (fun r' hr' k => ?_) r hr
-    · have h := hZ₂' (Union.union Z₀ (Union.union Z₁ Z₂)) (E.assignHole s X) hE
+    · have h := hZ₂' (Z₀ ⊔ (Z₁ ⊔ Z₂)) (E.assignHole s X) hE
         (fun k => (hCt k).mono Finset.subset_union_left)
         (fun p hp r'' hr'' k => by
           rw [List.mem_singleton] at hp
@@ -635,13 +635,13 @@ theorem AggQueryIn.exists_hit (y : K) {S : Set OpKind} (hS : OpKind.apply ∉ S)
     exact GenValue.tokHit_inl _ _ _
   | @Gamma cG m n₁ n₂ lab rd is ts fs q keep ord ih =>
     intro hu hsig hex ρc HK hwk hF
-    refine ⟨(Union.union (Union.union Fv V) {0} : Finset T).card ^ n₁,
+    refine ⟨(Fv ⊔ V ⊔ {0} : Finset T).card ^ n₁,
       fun d hD γ C hγ hC => ?_⟩
     obtain ⟨E₀, hE₀⟩ : ∃ E₀ : EvalEnv T K, E₀ = ({} : EvalEnv T K).withCtx C := ⟨_, rfl⟩
     obtain ⟨r₀, hr₀⟩ : ∃ r₀ : AnnotatedRelation T K m,
         r₀ = (q.evaluate d γ E₀).map GenRow.toAnnotated := ⟨_, rfl⟩
     obtain ⟨ps, hps⟩ : ∃ ps : List (T ⊕ FamId T), ps = E₀.paramKey rd γ := ⟨_, rfl⟩
-    refine ⟨(Fintype.piFinset (fun _ : Fin n₁ => Union.union (Union.union Fv V) {0})).image
+    refine ⟨(Fintype.piFinset (fun _ : Fin n₁ => Fv ⊔ V ⊔ {0})).image
         (fun g => (⟨lab, ps, List.ofFn g, (Having.havingGroupOrd is ord r₀ g).findIdx
           (fun p => decide (p.2 = y))⟩ : OccId T)), ?_, fun Z₀ E hE hCt hH r hr k => ?_⟩
     · refine (Finset.card_image_le).trans (le_of_eq ?_)
@@ -734,7 +734,7 @@ theorem AggQueryIn.exists_hit (y : K) {S : Set OpKind} (hS : OpKind.apply ∉ S)
     have hFq : ∀ x ∈ q.allConsts, x ∈ Fv := fun x hx =>
       hF x (by simp only [AggQueryIn.allConsts, Finset.mem_union]; exact Or.inr hx)
     obtain ⟨B, hB'⟩ := ih hu.2 hsig.2.2.2.2 hex hwk.2 hFq
-    refine ⟨B + (Union.union (Union.union Fv V) {0} : Finset T).card ^ nW,
+    refine ⟨B + (Fv ⊔ V ⊔ {0} : Finset T).card ^ nW,
       fun d hD γ C hγ hC => ?_⟩
     obtain ⟨Zc, hZc, hZc'⟩ := hB' d hD γ C hγ hC
     obtain ⟨E₀, hE₀⟩ : ∃ E₀ : EvalEnv T K, E₀ = ({} : EvalEnv T K).withCtx C := ⟨_, rfl⟩
@@ -750,8 +750,8 @@ theorem AggQueryIn.exists_hit (y : K) {S : Set OpKind} (hS : OpKind.apply ∉ S)
         part = fun tt => OrderSpec.sortSeq (Tuple.key O) (fun z : AnnotatedTuple T K nW => z.fst) o
           (sortList (α := AnnotatedTuple T K nW) ((r₀ : Multiset (AnnotatedTuple T K nW)).filter
             (fun z : AnnotatedTuple T K nW => Tuple.key P z.fst = Tuple.key P tt))) := ⟨_, rfl⟩
-    refine ⟨Union.union Zc ((Fintype.piFinset
-        (fun _ : Fin nW => Union.union (Union.union Fv V) {0})).image
+    refine ⟨Zc ⊔ ((Fintype.piFinset
+        (fun _ : Fin nW => Fv ⊔ V ⊔ {0})).image
         (fun tt => (⟨lab, ps, List.ofFn (Tuple.key P tt), (part tt).findIdx (e (tt, y))⟩
           : OccId T))), ?_, fun Z₀ E hE hCt hH r hr k => ?_⟩
     · refine (Finset.card_union_le _ _).trans (Nat.add_le_add hZc ((Finset.card_image_le).trans
@@ -789,8 +789,8 @@ theorem AggQueryIn.exists_hit (y : K) {S : Set OpKind} (hS : OpKind.apply ∉ S)
                 (GenRow.readAnnotated κw x), b.2 = y →
               (⟨lab, ps, List.ofFn (Tuple.key P (GenRow.readAnnotated κw x).fst),
                 (part (GenRow.readAnnotated κw x).fst).findIdx (e b)⟩ : OccId T)
-                ∈ Union.union Zc ((Fintype.piFinset
-                  (fun _ : Fin nW => Union.union (Union.union Fv V) {0})).image
+                ∈ Zc ⊔ ((Fintype.piFinset
+                  (fun _ : Fin nW => Fv ⊔ V ⊔ {0})).image
                   (fun tt => (⟨lab, ps, List.ofFn (Tuple.key P tt),
                     (part tt).findIdx (e (tt, y))⟩ : OccId T))) := by
             intro b hb hby
@@ -1098,7 +1098,7 @@ theorem apply_mem_of_generatesAnnRen {S : Set OpKind}
   obtain ⟨Z, hZ, hZ'⟩ := hBnd (dApply (B + 1)) hD (fun k => k.elim0) (fun k => k.elim0)
     (fun k => k.elim0) (fun k => k.elim0)
   have hhit : ∀ r ∈ q'.evaluate (dApply (B + 1)) (fun k => k.elim0), ∀ k,
-      GenValue.TokHit yv (Union.union ∅ Z) (r.fst k) :=
+      GenValue.TokHit yv (∅ ⊔ Z) (r.fst k) :=
     hZ' ∅ {} (funext fun k => k.elim0) (fun k => k.elim0) (fun p hp => absurd hp List.not_mem_nil)
   obtain ⟨-, τ, ϕ, hτ, -, heq⟩ := hm (dApply (B + 1)) (fun k => k.elim0)
     (AggQueryIn.annSettlesAt_of_noRec applyWitness noRec_applyWitness _ _ _)

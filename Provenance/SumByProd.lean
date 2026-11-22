@@ -299,7 +299,7 @@ private theorem overSchema_sumByMuX (sch : Schema) (s₁ s₂ : String)
 
 /-- **The construction names its two bound names and its operands'.** -/
 private theorem names_sumByMuX (s₁ s₂ : String) (q₁ q₂ : AggQueryIn T c k (ColKind.allReg k)) :
-    (sumByMuX s₁ s₂ q₁ q₂).names ⊆ insert s₁ (insert s₂ (Union.union q₁.names q₂.names)) := by
+    (sumByMuX s₁ s₂ q₁ q₂).names ⊆ insert s₁ (insert s₂ (q₁.names ⊔ q₂.names)) := by
   intro x hx
   rw [sumByMuX, AggQueryIn.names_castKind] at hx
   simp only [AggQueryIn.names, phaseBodyX, withTag, driver, unitC, AggQueryIn.names_castKind,
@@ -413,11 +413,11 @@ private theorem overSchema_notInDiffX (sch : Schema) (s₁ s₂ : String) (cnt :
 private theorem names_notInDiffX (s₁ s₂ : String) (cnt : SeqAggFunc T)
     (q₁ q₂ : AggQueryIn T c k (ColKind.allReg k)) :
     (notInDiffX s₁ s₂ cnt q₁ q₂).names
-      ⊆ insert s₁ (insert s₂ (Union.union q₁.names q₂.names)) := by
+      ⊆ insert s₁ (insert s₂ (q₁.names ⊔ q₂.names)) := by
   intro x hx
   have h := names_sumByMuX s₁ s₂ (.Proj (AggQueryIn.tagCols (c := c) 0) q₁)
     (.Proj (AggQueryIn.tagCols (c := c) ValueType.nonzero) q₂)
-  change x ∈ Union.union q₁.names (sumByMuX s₁ s₂ _ _).names at hx
+  change x ∈ q₁.names ⊔ (sumByMuX s₁ s₂ _ _).names at hx
   simp only [Finset.mem_union] at hx
   rcases hx with hx | hx
   · simp [hx]

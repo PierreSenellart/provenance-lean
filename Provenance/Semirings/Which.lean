@@ -144,10 +144,6 @@ instance : CommSemiring (Which α) where
     intro a b c
     simp [(· + ·),(· * ·),Add.add,Mul.mul]
     cases a <;> cases b <;> cases c <;> simp
-    rename_i x y z
-    ext u
-    simp
-    tauto
 
   nsmul := nsmulRec
 
@@ -310,7 +306,7 @@ private theorem Which.absorptive (h: IsEmpty α): absorptive (Which α) := by
   . rename_i a
     have : a = ∅ := by
       exact Finset.eq_empty_of_isEmpty a
-    simp[this]
+    simp
     rfl
   . rfl
 

@@ -173,13 +173,13 @@ private theorem Poly.exists_cmp (p q : Poly) : ∃ N, Poly.Cmp p q N := by
   · rcases lt_or_gt_of_ne (Polynomial.leadingCoeff_ne_zero.mpr hD0) with hneg | hpos
     · -- `-D` tends to infinity: `q` is eventually above `p`
       obtain ⟨N, hN⟩ := exists_ge_one_of_tendsto (Polynomial.tendsto_atTop_of_leadingCoeff_nonneg
-        (-D) (by rwa [Polynomial.degree_neg]) (by rw [Polynomial.leadingCoeff_neg]; linarith))
+        (P := -D) (by rwa [Polynomial.degree_neg]) (by rw [Polynomial.leadingCoeff_neg]; linarith))
       refine ⟨N, .lt (fun n hn => ?_)⟩
       have := hN n hn
       rw [Polynomial.eval_neg, hval] at this
       exact_mod_cast (show ((p.eval n : ℕ) : ℝ) < q.eval n by linarith)
     · obtain ⟨N, hN⟩ := exists_ge_one_of_tendsto (Polynomial.tendsto_atTop_of_leadingCoeff_nonneg
-        D hdeg (le_of_lt hpos))
+        hdeg (le_of_lt hpos))
       refine ⟨N, .gt (fun n hn => ?_)⟩
       have := hN n hn
       rw [hval] at this
@@ -523,8 +523,8 @@ private theorem TermIn.eval_polyOf {c k : ℕ} (t : TermIn ℕ c k) (ht : t.noFu
 
 private theorem TermIn.polyOf_mem {c k : ℕ} (t : TermIn ℕ c k) (ht : t.noFun = true) (row : Fin k → Poly)
     (cγ : Fin c → Poly) :
-    TermIn.polyOf t row cγ ∈ Union.union (Union.union (Cset t.consts) (Set.range row))
-        (Set.range cγ) := by
+    TermIn.polyOf t row cγ ∈ Cset t.consts ⊔ Set.range row ⊔
+        Set.range cγ := by
   cases t with
   | const a => exact Or.inl (Or.inl (mem_Cset (Finset.mem_singleton_self a)))
   | outer j => exact Or.inr ⟨j, rfl⟩
@@ -555,8 +555,8 @@ private theorem TermGIn.evalPlain_polyOf {c k : ℕ} {κ : Fin k → ColKind} (t
 
 private theorem TermGIn.polyOf_mem {c k : ℕ} {κ : Fin k → ColKind} (t : TermGIn ℕ c κ)
     (ht : t.noFun = true) (row : Fin k → Poly) (cγ : Fin c → Poly) :
-    TermGIn.polyOf t row cγ ∈ Union.union (Union.union (Cset t.consts) (Set.range row))
-        (Set.range cγ) := by
+    TermGIn.polyOf t row cγ ∈ Cset t.consts ⊔ Set.range row ⊔
+        Set.range cγ := by
   cases t with
   | const a => exact Or.inl (Or.inl (mem_Cset (Finset.mem_singleton_self a)))
   | outer j => exact Or.inr ⟨j, rfl⟩
@@ -593,8 +593,8 @@ private theorem ProjColIn.evalPlain_polyOf {c k : ℕ} {κ : Fin k → ColKind} 
 
 private theorem ProjColIn.polyOf_mem {c k : ℕ} {κ : Fin k → ColKind} (p : ProjColIn ℕ c κ)
     (hp : p.noFun = true) (row : Fin k → Poly) (cγ : Fin c → Poly) :
-    ProjColIn.polyOf p row cγ ∈ Union.union (Union.union (Cset p.consts) (Set.range row))
-        (Set.range cγ) := by
+    ProjColIn.polyOf p row cγ ∈ Cset p.consts ⊔ Set.range row ⊔
+        Set.range cγ := by
   cases p with
   | term t => exact TermGIn.polyOf_mem t hp row cγ
   | token j _ => exact Or.inl (Or.inr ⟨j, rfl⟩)
@@ -680,7 +680,7 @@ private theorem Poly.eval_pos_of_ne_zero {p : Poly} (hp : p ≠ 0) {n : ℕ} (hn
     0 < p.eval n := by
   obtain ⟨i, hi⟩ : ∃ i, p.coeff i ≠ 0 := by
     by_contra h
-    exact hp (Polynomial.ext (fun i => by
+    exact hp (AddMonoidAlgebra.ext (Finsupp.ext fun i => by
       rw [not_not.mp (not_exists.mp h i), Polynomial.coeff_zero]))
   rw [Polynomial.eval_eq_sum, Polynomial.sum_def]
   refine lt_of_lt_of_le ?_ (Finset.single_le_sum (fun _ _ => Nat.zero_le _)
@@ -726,42 +726,42 @@ private theorem AggQueryIn.countValsAll_congr_of_noMention {s : String} :
   | Sel φ q _ ih => intro h D D' hD; exact ih h hD
   | Prod q₁ q₂ ih₁ ih₂ =>
     intro h D D' hD
-    show Union.union _ _ = Union.union _ _
+    show _ ⊔ _ = _ ⊔ _
     rw [ih₁ h.1 (hD.mono (fun p hp => List.mem_append_left _ hp)),
       ih₂ h.2 (hD.mono (fun p hp => List.mem_append_right _ hp))]
   | Apply q₁ q₂ ih₁ ih₂ =>
     intro h D D' hD
-    show Union.union _ _ = Union.union _ _
+    show _ ⊔ _ = _ ⊔ _
     rw [ih₁ h.1 hD, ih₂ h.2 (hD.mono (fun p hp => absurd hp List.not_mem_nil))]
   | Sum q₁ q₂ ih₁ ih₂ =>
     intro h D D' hD
-    show Union.union _ _ = Union.union _ _
+    show _ ⊔ _ = _ ⊔ _
     rw [ih₁ h.1 (hD.mono (fun p hp => List.mem_append_left _ hp)),
       ih₂ h.2 (hD.mono (fun p hp => List.mem_append_right _ hp))]
   | Dedup q ih => intro h D D' hD; exact ih h hD
   | Diff q₁ q₂ ih₁ ih₂ =>
     intro h D D' hD
-    show Union.union _ _ = Union.union _ _
+    show _ ⊔ _ = _ ⊔ _
     rw [ih₁ h.1 hD, ih₂ h.2 hD]
   | Explode k hk q ih => intro h D D' hD; exact ih h hD
   | Retag hk q ih => intro h D D' hD; exact ih h hD
   | Mu s' q₀ q₁ ih₀ ih₁ =>
     intro h D D' hD
-    show Union.union _ (Set.iUnion _) = Union.union _ (Set.iUnion _)
+    show _ ⊔ Set.iUnion _ = _ ⊔ Set.iUnion _
     rw [ih₀ h.1 hD]
     congr 1
     exact Set.iUnion_congr (fun X => ih₁ h.2 (hD.assign s' X))
   | MuSet s' q₀ q₁ ih₀ ih₁ =>
     intro h D D' hD
-    show Union.union _ (Set.iUnion _) = Union.union _ (Set.iUnion _)
+    show _ ⊔ Set.iUnion _ = _ ⊔ Set.iUnion _
     rw [ih₀ h.1 hD]
     congr 1
     exact Set.iUnion_congr (fun X => ih₁ h.2 (hD.assign s' X))
   | Gamma is ts fs q keep ord ih =>
     intro h D D' hD
-    show Union.union _ {v | ∃ γ u, Multiset.Mem
+    show _ ⊔ {v | ∃ γ u, Multiset.Mem
         ((AggQueryIn.Gamma is ts fs q keep ord).evaluatePlain
-      D γ) u ∧ _} = Union.union _ {v | ∃ γ u, Multiset.Mem
+      D γ) u ∧ _} = _ ⊔ {v | ∃ γ u, Multiset.Mem
         ((AggQueryIn.Gamma is ts fs q keep ord).evaluatePlain D' γ) u ∧ _}
     rw [ih h hD]
     congr 1
@@ -774,8 +774,8 @@ private theorem AggQueryIn.countValsAll_congr_of_noMention {s : String} :
       exact ⟨γ, u, by rwa [AggQueryIn.evaluatePlain_congr_of_noMention _ h hD γ], hv⟩
   | GammaScalar ts fs q ord ih =>
     intro h D D' hD
-    show Union.union _ {v | ∃ γ u, Multiset.Mem ((AggQueryIn.GammaScalar ts fs q ord).evaluatePlain
-      D γ) u ∧ _} = Union.union _ {v | ∃ γ u, Multiset.Mem
+    show _ ⊔ {v | ∃ γ u, Multiset.Mem ((AggQueryIn.GammaScalar ts fs q ord).evaluatePlain
+      D γ) u ∧ _} = _ ⊔ {v | ∃ γ u, Multiset.Mem
         ((AggQueryIn.GammaScalar ts fs q ord).evaluatePlain D' γ) u ∧ _}
     rw [ih h hD]
     congr 1
@@ -788,8 +788,8 @@ private theorem AggQueryIn.countValsAll_congr_of_noMention {s : String} :
       exact ⟨γ, u, by rwa [AggQueryIn.evaluatePlain_congr_of_noMention _ h hD γ], hv⟩
   | GammaNest is his p f q ih =>
     intro h D D' hD
-    show Union.union _ {v | ∃ γ u, Multiset.Mem ((AggQueryIn.GammaNest is his p f q).evaluatePlain
-      D γ) u ∧ _} = Union.union _ {v | ∃ γ u, Multiset.Mem
+    show _ ⊔ {v | ∃ γ u, Multiset.Mem ((AggQueryIn.GammaNest is his p f q).evaluatePlain
+      D γ) u ∧ _} = _ ⊔ {v | ∃ γ u, Multiset.Mem
         ((AggQueryIn.GammaNest is his p f q).evaluatePlain D' γ) u ∧ _}
     rw [ih h hD]
     congr 1
@@ -804,9 +804,9 @@ private theorem AggQueryIn.countValsAll_congr_of_noMention {s : String} :
   | GammaTok is his ts fs a q keep ih => intro h D D' hD; exact ih h hD
   | Win P O o w t f q hrr dist keep ih =>
     intro h D D' hD
-    show Union.union _ {v | ∃ γ u, Multiset.Mem ((AggQueryIn.Win (hsql := sql_frame%) P O o w t f
+    show _ ⊔ {v | ∃ γ u, Multiset.Mem ((AggQueryIn.Win (hsql := sql_frame%) P O o w t f
       q hrr dist
-      keep).evaluatePlain D γ) u ∧ _} = Union.union _ {v | ∃ γ u, Multiset.Mem
+      keep).evaluatePlain D γ) u ∧ _} = _ ⊔ {v | ∃ γ u, Multiset.Mem
         ((AggQueryIn.Win (hsql := sql_frame%) P O o w t f q hrr dist keep).evaluatePlain D' γ) u ∧
           _}
     rw [ih h hD]
@@ -892,7 +892,7 @@ private theorem CountPolys_finite {c k : ℕ} {κ : Fin k → ColKind} (q : AggQ
       exact Finset.mem_insert_of_mem (Finset.mem_insert_self _ _)
   have hc : ∀ a ∈ q.allConsts, a ∈ baseSet q.allConsts :=
     fun a ha => Finset.mem_insert_of_mem (Finset.mem_insert_of_mem ha)
-  refine ⟨Union.union (baseSet q.allConsts) (q.countTypes (baseSet q.allConsts) (dRep n)), ?_, ?_⟩
+  refine ⟨baseSet q.allConsts ⊔ q.countTypes (baseSet q.allConsts) (dRep n), ?_, ?_⟩
   · exact AggQueryIn.countValsAll_subset SeqAggFunc.isCount_count_nat.readsCount hν h0 q hs hh
       (fun p hp => absurd hp List.not_mem_nil) (dRep n) (dRep n) (fun _ _ _ => rfl) hD hc
   · exact le_trans (Finset.card_union_le _ _) (Nat.add_le_add_left (hb _ _ hν h0 hD hc) _)
@@ -919,7 +919,7 @@ private theorem CountPolysHole_finite {c k m : ℕ} {κ : Fin k → ColKind} {s 
       exact Finset.mem_insert_of_mem (Finset.mem_insert_self _ _)
   have hc : ∀ a ∈ q.allConsts, a ∈ baseSet q.allConsts :=
     fun a ha => Finset.mem_insert_of_mem (Finset.mem_insert_of_mem ha)
-  refine ⟨Union.union (baseSet q.allConsts) (q.countTypes (baseSet q.allConsts) (dRep n)), ?_, ?_⟩
+  refine ⟨baseSet q.allConsts ⊔ q.countTypes (baseSet q.allConsts) (dRep n), ?_, ?_⟩
   · refine Set.iUnion_subset (fun X => ?_)
     refine AggQueryIn.countValsAll_subset SeqAggFunc.isCount_count_nat.readsCount hν h0 q hs hh
       hnm (dRep n) ((dRep n).assign s X) ?_ hD hc
@@ -944,14 +944,14 @@ noncomputable section
 its constants, the instance's value, the context, and its counts. -/
 def Univ {c k : ℕ} {κ : Fin k → ColKind} {l : List (String × ℕ)} (q : AggQueryIn ℕ c k κ l)
     (cγ : Fin c → Poly) : Set Poly :=
-  Union.union (Union.union (Union.union (Cset q.allConsts) {(1 : Poly)}) (Set.range cγ))
-    (CountPolys q)
+  Cset q.allConsts ⊔ {(1 : Poly)} ⊔ Set.range cγ ⊔
+    CountPolys q
 
 /-- The same for a term with a hole, its counts taken over every binding. -/
 def UnivHole {c k : ℕ} {κ : Fin k → ColKind} {l : List (String × ℕ)} (q : AggQueryIn ℕ c k κ l)
     (s : String) (m : ℕ) (cγ : Fin c → Poly) : Set Poly :=
-  Union.union (Union.union (Union.union (Cset q.allConsts) {(1 : Poly)}) (Set.range cγ))
-    (CountPolysHole q s m)
+  Cset q.allConsts ⊔ {(1 : Poly)} ⊔ Set.range cγ ⊔
+    CountPolysHole q s m
 
 private theorem Univ_finite {c k : ℕ} {κ : Fin k → ColKind} (q : AggQueryIn ℕ c k κ)
     (hs : q.inSig {SeqAggFunc.count}) (hh : q.hygienic) (cγ : Fin c → Poly) :
@@ -1009,7 +1009,7 @@ hole is bound to, provided its values lie in a given finite set. -/
 def BodySym {c k : ℕ} {κ : Fin k → ColKind} {l : List (String × ℕ)} (q : AggQueryIn ℕ c k κ l)
     (s : String) (m : ℕ) (cγ : Fin c → Poly) (W : Set Poly) : Prop :=
   ∃ N : ℕ, ∀ LX : PolyBag m, PolyBag.vals LX ⊆ W →
-    ∃ (L : PolyBag k) (b : Prop), PolyBag.vals L ⊆ Union.union W (UnivHole q s m cγ) ∧ ∀ n ≥ N,
+    ∃ (L : PolyBag k) (b : Prop), PolyBag.vals L ⊆ W ⊔ UnivHole q s m cγ ∧ ∀ n ≥ N,
       (q.SettlesAt ((dRep n).assign s (PolyBag.inst LX n)) (ctxAt cγ n) ↔ b)
         ∧ (q.evaluatePlain ((dRep n).assign s (PolyBag.inst LX n)) (ctxAt cγ n)
             : Multiset (Tuple ℕ k)) = PolyBag.inst L n
@@ -1017,7 +1017,7 @@ def BodySym {c k : ℕ} {κ : Fin k → ColKind} {l : List (String × ℕ)} (q :
 /-! ### Bag lemmas the cases need -/
 
 private theorem PolyBag.vals_append {k : ℕ} (L₁ L₂ : PolyBag k) :
-    PolyBag.vals (L₁ ++ L₂) ⊆ Union.union (PolyBag.vals L₁) (PolyBag.vals L₂) := by
+    PolyBag.vals (L₁ ++ L₂) ⊆ PolyBag.vals L₁ ⊔ PolyBag.vals L₂ := by
   rintro p ⟨s, hs, j, rfl⟩
   rcases List.mem_append.mp hs with h | h
   · exact Or.inl ⟨s, h, j, rfl⟩
@@ -1272,7 +1272,7 @@ open Polynomial
 noncomputable section
 
 private theorem range_append_subset {k₁ k₂ : ℕ} (r : Fin k₁ → Poly) (cγ : Fin k₂ → Poly) :
-    Set.range (Fin.append r cγ) ⊆ Union.union (Set.range r) (Set.range cγ) := by
+    Set.range (Fin.append r cγ) ⊆ Set.range r ⊔ Set.range cγ := by
   rintro p ⟨j, rfl⟩
   refine Fin.addCases (fun i => ?_) (fun i => ?_) j
   · rw [Fin.append_left]; exact Or.inl ⟨i, rfl⟩
@@ -1486,8 +1486,8 @@ private theorem sym_aux {S : Set OpKind} (hwin : OpKind.win ∉ S) :
         ProjColIn.evalPlain_polyOf (ps j) (hs.1 j) s cγ n))
     have hvals : ∀ (L : PolyBag m') (cγ : Fin c' → Poly) (V : Set Poly), PolyBag.vals L ⊆ V →
         PolyBag.vals (PolyBag.mapRows (fun row => fun j => ProjColIn.polyOf (ps j) row cγ) L)
-          ⊆ Union.union (Union.union (Cset (Finset.univ.biUnion (fun j => (ps j).consts))) V)
-            (Set.range cγ) := by
+          ⊆ Cset (Finset.univ.biUnion (fun j => (ps j).consts)) ⊔ V ⊔
+            Set.range cγ := by
       intro L cγ V hV
       refine PolyBag.vals_mapRows _ L _ (fun s hs' j => ?_)
       rcases ProjColIn.polyOf_mem (ps j) (hs.1 j) s.row cγ with (h | ⟨i, hi⟩) | h
@@ -1696,9 +1696,9 @@ private theorem sym_aux {S : Set OpKind} (hwin : OpKind.win ∉ S) :
     · subst hl
       obtain ⟨N₁, hN₁⟩ := (ih₁ hq.2.1 hs.1 hh.1).2 s m rfl hn.1 cγ W hW
       choose Ns Ls bs hvs hs2 using hc2 cγ
-      have hU : (Union.union W (UnivHole q₁ s m cγ)).Finite :=
+      have hU : (W ⊔ UnivHole q₁ s m cγ).Finite :=
         hW.union (UnivHole_finite q₁ hs.1 hh.1 (show q₁.noMention s from hn.1) cγ)
-      have hC : {r : Fin n₁ → Poly | ∀ j, r j ∈ Union.union W (UnivHole q₁ s m cγ)}.Finite :=
+      have hC : {r : Fin n₁ → Poly | ∀ j, r j ∈ W ⊔ UnivHole q₁ s m cγ}.Finite :=
         Set.Finite.pi' (fun _ => hU)
       obtain ⟨N₂, hN₂⟩ := exists_uniform hC.toFinset (fun N r => Ns r ≤ N)
         (fun _ _ _ hle h => le_trans h hle) (fun r _ => ⟨Ns r, le_refl _⟩)
@@ -1829,7 +1829,7 @@ private theorem sym_aux {S : Set OpKind} (hwin : OpKind.win ∉ S) :
       have hn₂ : N₂ ≤ n := le_trans (le_trans (le_max_right _ _) (le_max_left _ _)) hn
       have hnd : N' ≤ n := hn
       have h1 : 1 ≤ n := le_trans (le_trans (le_max_right _ _) (le_max_right _ _)) hn
-      have hNd' : Decided (Union.union (PolyBag.vals L₁) (PolyBag.vals L₂)) N' :=
+      have hNd' : Decided (PolyBag.vals L₁ ⊔ PolyBag.vals L₂) N' :=
         hNd.mono (le_trans (le_max_left _ _) (le_max_right _ _))
       refine ⟨and_congr (h₁ n hn₁).1 (h₂ n hn₂).1, ?_⟩
       simp only [AggQueryIn.evaluatePlain]
@@ -1865,8 +1865,8 @@ private theorem sym_aux {S : Set OpKind} (hwin : OpKind.win ∉ S) :
     refine ⟨fun hl cγ => ?_, fun s' m hl => absurd hl (by simp)⟩
     obtain ⟨N₀, L₀, b₀, hv₀, h₀⟩ := (ih₀ hq.2.1 hs.1 hh.2.2.1).1 rfl cγ
     -- the universe the rounds live in
-    obtain ⟨Wst, hWst⟩ : ∃ Wst : Set Poly, Wst = Union.union (PolyBag.vals L₀)
-        (UnivHole q₁ s k' cγ) :=
+    obtain ⟨Wst, hWst⟩ : ∃ Wst : Set Poly, Wst = PolyBag.vals L₀ ⊔
+        UnivHole q₁ s k' cγ :=
       ⟨_, rfl⟩
     have hWf : Wst.Finite :=
       hWst ▸ (PolyBag.vals_finite L₀).union (UnivHole_finite q₁ hs.2 hh.2.2.2 hh.2.1 cγ)
@@ -1898,7 +1898,7 @@ private theorem sym_aux {S : Set OpKind} (hwin : OpKind.win ∉ S) :
         intro j
         rw [hcs]
         exact subset_trans (PolyBag.vals_append _ _) (Set.union_subset (R j).2 (ih (j + 1)))
-    have hcA : (AggQueryIn.Mu s q₀ q₁).allConsts = Union.union q₀.allConsts q₁.allConsts := by
+    have hcA : (AggQueryIn.Mu s q₀ q₁).allConsts = q₀.allConsts ⊔ q₁.allConsts := by
       rw [AggQueryIn.allConsts]
     have hWU : Wst ⊆ Univ (AggQueryIn.Mu s q₀ q₁) cγ := by
       rw [hWst]
@@ -1993,8 +1993,8 @@ private theorem sym_aux {S : Set OpKind} (hwin : OpKind.win ∉ S) :
     refine ⟨fun hl cγ => ?_, fun s' m hl => absurd hl (by simp)⟩
     obtain ⟨N₀, L₀, b₀, hv₀, h₀⟩ := (ih₀ hq.2.1 hs.1 hh.2.2.1).1 rfl cγ
     -- the universe the rounds live in
-    obtain ⟨Wst, hWst⟩ : ∃ Wst : Set Poly, Wst = Union.union (PolyBag.vals L₀)
-        (UnivHole q₁ s k' cγ) :=
+    obtain ⟨Wst, hWst⟩ : ∃ Wst : Set Poly, Wst = PolyBag.vals L₀ ⊔
+        UnivHole q₁ s k' cγ :=
       ⟨_, rfl⟩
     have hWf : Wst.Finite :=
       hWst ▸ (PolyBag.vals_finite L₀).union (UnivHole_finite q₁ hs.2 hh.2.2.2 hh.2.1 cγ)
@@ -2031,7 +2031,7 @@ private theorem sym_aux {S : Set OpKind} (hwin : OpKind.win ∉ S) :
       cases j with
       | zero => rw [hR0]; exact List.nodup_nil
       | succ j => rw [hRs]; exact dedupAt_nodup Nd _
-    have hcA : (AggQueryIn.MuSet s q₀ q₁).allConsts = Union.union q₀.allConsts q₁.allConsts := by
+    have hcA : (AggQueryIn.MuSet s q₀ q₁).allConsts = q₀.allConsts ⊔ q₁.allConsts := by
       rw [AggQueryIn.allConsts]
     have hWU : Wst ⊆ Univ (AggQueryIn.MuSet s q₀ q₁) cγ := by
       rw [hWst]
@@ -2118,20 +2118,20 @@ private theorem sym_aux {S : Set OpKind} (hwin : OpKind.win ∉ S) :
     have hNN : N ≤ N' := hN' ▸ le_trans (le_max_left _ _) (le_max_left _ _)
     have hNdN : Nd ≤ N' := hN' ▸ le_trans (le_max_right _ _) (le_max_left _ _)
     have h1N : 1 ≤ N' := hN' ▸ le_max_right _ _
-    have hV : Decided (Union.union (Union.union (PolyBag.vals L)
-      (Cset (AggQueryIn.Gamma (lab := lab) (rd := rd) is ts fs q keep
-          ord).allConsts)) (Set.range cγ)) N' := hNd.mono hNdN
-    have hVL : ∀ s ∈ L, ∀ j, s.row j ∈ Union.union (Union.union (PolyBag.vals L)
-        (Cset (AggQueryIn.Gamma (lab := lab) (rd := rd) is ts fs q keep
-            ord).allConsts)) (Set.range cγ) :=
+    have hV : Decided (PolyBag.vals L ⊔
+      Cset (AggQueryIn.Gamma (lab := lab) (rd := rd) is ts fs q keep
+          ord).allConsts ⊔ Set.range cγ) N' := hNd.mono hNdN
+    have hVL : ∀ s ∈ L, ∀ j, s.row j ∈ PolyBag.vals L ⊔
+        Cset (AggQueryIn.Gamma (lab := lab) (rd := rd) is ts fs q keep
+            ord).allConsts ⊔ Set.range cγ :=
       fun s hs' j => Or.inl (Or.inl ⟨s, hs', j, rfl⟩)
     have hcA : (AggQueryIn.Gamma (lab := lab) (rd := rd) is ts fs q keep ord).allConsts
-        = Union.union (Union.union (TermIn.constsFam ts)
-          (Finset.univ.biUnion (fun j => Selection.constsOpt (keep j)))) q.allConsts := by
+        = TermIn.constsFam ts ⊔
+          Finset.univ.biUnion (fun j => Selection.constsOpt (keep j)) ⊔ q.allConsts := by
       rw [AggQueryIn.allConsts]
-    have hVk : ∀ j, Cset (Selection.constsOpt (keep j)) ⊆ Union.union (Union.union (PolyBag.vals L)
-        (Cset (AggQueryIn.Gamma (lab := lab) (rd := rd) is ts fs q keep
-            ord).allConsts)) (Set.range cγ) := by
+    have hVk : ∀ j, Cset (Selection.constsOpt (keep j)) ⊆ PolyBag.vals L ⊔
+        Cset (AggQueryIn.Gamma (lab := lab) (rd := rd) is ts fs q keep
+            ord).allConsts ⊔ Set.range cγ := by
       intro j
       refine subset_trans (Cset_mono (A := Selection.constsOpt (keep j))
         (A' := (AggQueryIn.Gamma (lab := lab) (rd := rd) is ts fs q keep
@@ -2282,7 +2282,7 @@ private theorem sym_aux {S : Set OpKind} (hwin : OpKind.win ∉ S) :
     have hV : Decided (PolyBag.vals L) N' := hNd.mono hNdN
     have hcA : (AggQueryIn.GammaNest (lab := lab) (rd := rd) is his p (SeqAggFunc.count.onBag hsym)
         q).allConsts
-        = Union.union p.consts q.allConsts := by
+        = p.consts ⊔ q.allConsts := by
       rw [AggQueryIn.allConsts]
     obtain ⟨KL, hKL⟩ : ∃ KL : PolyBag n₁, KL = dedupAt N' (PolyBag.mapRows (Tuple.key is) L) :=
       ⟨_, rfl⟩

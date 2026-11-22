@@ -521,7 +521,7 @@ theorem exists_prodPass_aux {Θ : Set (SeqAggFunc T)} {cnt : SeqAggFunc T} (hcnt
     · obtain ⟨u, hu', rfl⟩ := Multiset.mem_map.mp hv
       rw [valsU_u2 (part f 3) _ _ (hn₁ 0) (hnE 1) D γ]
       have hmem := ProjColIn.evalPlain_mem_of_noFun (ps i) (hi.1 i)
-        (V := Union.union (Finset.univ.image u) (Union.union (Finset.univ.image γ) (ps i).consts))
+        (V := Finset.univ.image u ⊔ (Finset.univ.image γ ⊔ (ps i).consts))
         (ProjColIn.constsIn_of_subset _ (fun a ha => Finset.mem_union_right _
           (Finset.mem_union_right _ ha))) u
         (fun j => Finset.mem_union_left _ (Finset.mem_image_of_mem u (Finset.mem_univ j))) γ
@@ -662,8 +662,8 @@ theorem exists_prodPass_aux {Θ : Set (SeqAggFunc T)} {cnt : SeqAggFunc T} (hcnt
     · rw [valsU_u2 (part f 3) _ _ (hn₁ 0) (hnC 1) D γ]
       obtain ⟨u, hu, hvu⟩ := Multiset.mem_bind.mp hv
       obtain ⟨w, hw, rfl⟩ := Multiset.mem_map.mp hvu
-      have hleft : ∀ j, InVals X (u j) ∨ u j ∈ Union.union (valsU (Cr₁.evaluatePlain D γ))
-          (valsU ((tabEnv cnt (part (part f 0) 0) R').CQ.evaluatePlain D γ)) := fun j => by
+      have hleft : ∀ j, InVals X (u j) ∨ u j ∈ valsU (Cr₁.evaluatePlain D γ) ⊔
+          valsU ((tabEnv cnt (part (part f 0) 0) R').CQ.evaluatePlain D γ) := fun j => by
         rcases hV₁ D γ X hset.1 u hu j with h | h
         · exact Or.inl h
         · exact Or.inr (Finset.mem_union_left _ h)

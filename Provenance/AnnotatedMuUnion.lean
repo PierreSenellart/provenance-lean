@@ -3676,10 +3676,10 @@ private theorem mem_names_muSetFreeA (ch : Bool) :
       (x ∈ A ∨ ∃ i, x = tri f j i) → (x ∈ A ∨ ∃ i, x = f i) := fun f j x A h =>
     h.imp_right fun ⟨i, hi⟩ => ⟨3 * i + j, hi⟩
   have hu2 : ∀ {A B : Finset String} {x : String} (f : ℕ → String),
-      (x ∈ A ∨ ∃ i, x = f i) → (x ∈ Union.union A B ∨ ∃ i, x = f i) := fun f h =>
+      (x ∈ A ∨ ∃ i, x = f i) → (x ∈ A ⊔ B ∨ ∃ i, x = f i) := fun f h =>
     h.imp_left (Finset.mem_union_left _)
   have hu3 : ∀ {A B : Finset String} {x : String} (f : ℕ → String),
-      (x ∈ B ∨ ∃ i, x = f i) → (x ∈ Union.union A B ∨ ∃ i, x = f i) := fun f h =>
+      (x ∈ B ∨ ∃ i, x = f i) → (x ∈ A ⊔ B ∨ ∃ i, x = f i) := fun f h =>
     h.imp_left (Finset.mem_union_right _)
   intro c n κ l q
   induction q with

@@ -819,7 +819,7 @@ private theorem wellKinded_phaseBodyK {κ : Fin k → ColKind} (s : String) (p�
 omit [ValueType T] in
 private theorem names_phaseBodyK {κ : Fin k → ColKind} (s : String) (p₁ : T)
     (Z : AggQueryIn T c (k + 1) (tagKind κ)) :
-    (phaseBodyK s p₁ Z).names = Union.union {s} Z.names := by
+    (phaseBodyK s p₁ Z).names = {s} ⊔ Z.names := by
   rw [phaseBodyK, AggQueryIn.names_castKind]
   simp only [AggQueryIn.names, AggQueryIn.names_substMap]
 
@@ -934,7 +934,7 @@ private theorem overSchema_sumByMuK (sch : Schema) {κ : Fin k → ColKind} (s�
 /-- **The construction names its two bound names and its operands'.** -/
 private theorem names_sumByMuK {κ : Fin k → ColKind} (s₁ s₂ : String) (cnt : SeqAggFunc T)
     (q₁ q₂ : AggQueryIn T c k κ) :
-    (sumByMuK s₁ s₂ cnt q₁ q₂).names ⊆ insert s₁ (insert s₂ (Union.union q₁.names q₂.names)) := by
+    (sumByMuK s₁ s₂ cnt q₁ q₂).names ⊆ insert s₁ (insert s₂ (q₁.names ⊔ q₂.names)) := by
   intro x hx
   rw [sumByMuK, AggQueryIn.names_castKind] at hx
   simp only [AggQueryIn.names, names_phaseBodyK, names_withTagK, names_driverK,
@@ -1408,7 +1408,7 @@ private theorem names_shift {f : ℕ → String} {x : String} {A B : Finset Stri
 
 private theorem names_union {f : ℕ → String} {A₁ A₂ B₁ B₂ : Finset String}
     (h₁ : ∀ x, x ∈ A₁ → x ∈ B₁ ∨ ∃ i, x = f i) (h₂ : ∀ x, x ∈ A₂ → x ∈ B₂ ∨ ∃ i, x = f i) :
-    ∀ x, x ∈ Union.union A₁ A₂ → x ∈ Union.union B₁ B₂ ∨ ∃ i, x = f i :=
+    ∀ x, x ∈ A₁ ⊔ A₂ → x ∈ B₁ ⊔ B₂ ∨ ∃ i, x = f i :=
   fun x hx => (Finset.mem_union.mp hx).elim
     (fun h => (h₁ x h).imp_left (Finset.mem_union_left _))
     (fun h => (h₂ x h).imp_left (Finset.mem_union_right _))

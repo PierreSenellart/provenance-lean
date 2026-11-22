@@ -88,7 +88,7 @@ private theorem noMention_u2 (f : ℕ → String) {a b : AggQueryIn T c 1 (ColKi
 private theorem valsU_u2 (f : ℕ → String) (a b : AggQueryIn T c 1 (ColKind.allReg 1))
     (ha : a.noMention (f 0)) (hb : b.noMention (f 1)) (D : Database T) (γ : Fin c → T) :
     valsU ((u2 f a b).evaluatePlain D γ)
-      = Union.union (valsU (a.evaluatePlain D γ)) (valsU (b.evaluatePlain D γ)) := by
+      = valsU (a.evaluatePlain D γ) ⊔ valsU (b.evaluatePlain D γ) := by
   rw [u2, AggQueryIn.evaluatePlain_sumByMuX _ _ _ _ ha hb]
   unfold valsU
   rw [Multiset.map_add, Multiset.toFinset_add]

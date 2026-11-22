@@ -904,27 +904,27 @@ private lemma merge_preserves_le [LinearOrder α] {I: Interval α} {J: Interval 
         . by_cases hJIlo : J.lo.val < I.lo.val <;> simp only[hJIlo]
           . tauto
           . by_cases hloIc : I.lo.closed <;> simp only[hloIc] <;>
-            by_cases hloJc : J.lo.closed <;> (try simp only[hloJc]) <;> tauto
+            by_cases hloJc : J.lo.closed <;> simp only [hloJc] <;> tauto
       . constructor
         . by_cases hJIhi : J.hi.val < I.hi.val <;> simp only[hJIhi]
           . tauto
           . by_cases hIJhi : I.hi.val < J.hi.val <;> simp only[hIJhi]
             . tauto
             . by_cases hhiIc : I.hi.closed <;> simp only[hhiIc] <;>
-              by_cases hhiJc : J.hi.closed <;> (try simp only[hhiJc]) <;> tauto
+              by_cases hhiJc : J.hi.closed <;> simp only [hhiJc] <;> tauto
         . constructor
           . by_cases hIJlo : I.lo.val < J.lo.val <;> simp only[hIJlo]
             . tauto
             . by_cases hJIlo : J.lo.val < I.lo.val <;> simp only[hJIlo]
               . tauto
               . by_cases hloIc : I.lo.closed <;> simp only[hloIc] <;>
-                by_cases hloJc : J.lo.closed <;> (try simp only[hloJc]) <;> tauto
+                by_cases hloJc : J.lo.closed <;> simp only [hloJc] <;> tauto
           . by_cases hJIhi : J.hi.val < I.hi.val <;> simp only[hJIhi]
             . tauto
             . by_cases hIJhi : I.hi.val < J.hi.val <;> simp only[hIJhi]
               . tauto
               . by_cases hhiIc : I.hi.closed <;> simp only[hhiIc] <;>
-                by_cases hhiJc : J.hi.closed <;> (try simp only[hhiJc]) <;> tauto
+                by_cases hhiJc : J.hi.closed <;> simp only [hhiJc] <;> tauto
 
 
 /-- Insert an interval into a sorted disjoint list, merging with any overlapping

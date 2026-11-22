@@ -915,7 +915,7 @@ theorem predProvScalar_count_ne_zero [ValueType T] [CommSemiringWithMonus K]
     (U := Finset.univ) (H := Finset.univ) (Finset.subset_univ _))
   refine Finset.sum_congr ?_ (fun _ _ => rfl)
   ext W
-  simp [Finset.inter_univ]
+  simp
 
 /-! ## `ofGroup` bridges to the fused semantics -/
 

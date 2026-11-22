@@ -614,10 +614,10 @@ private lemma KeyValueList.add_comm_internal [DecidableEq β] [AddCommSemigroup 
     any_goals repeat rw[← hy]
     any_goals repeat rw[← hx₁]
     any_goals repeat rw[← hx₂]
-    any_goals simp[hy,hx₁,hx₂]
+    all_goals simp[hy,hx₁,hx₂]
     any_goals repeat rw[← hy]
     any_goals repeat rw[← hx₁]
-    any_goals repeat rw[← hx₂]
+    on_goal 6 => repeat rw[← hx₂]
     . intro h
       right
       rcases h with hwrong|hright

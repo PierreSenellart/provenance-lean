@@ -325,7 +325,7 @@ variable {n m p : ℕ} {c : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o 
 
 private theorem AggQueryIn.names_winByApply : (winByApply P O o ψ t f q).names = q.names := by
   rw [winByApply, winByApplyOn, AggQueryIn.names_castKind]
-  show Union.union q.names (q.substMap _).names = q.names
+  show q.names ⊔ (q.substMap _).names = q.names
   rw [AggQueryIn.names_substMap, Finset.union_self]
 
 private theorem AggQueryIn.noMention_winByApply (s : String) :
@@ -445,10 +445,10 @@ private theorem AggQueryIn.overSchema_notInDiffA {sch : Schema} (h₁ : q₁.ove
   ⟨h₁, (AggQueryIn.overSchema_substMap _ _ sch).mpr ⟨h₁, h₂⟩⟩
 
 private theorem AggQueryIn.names_notInDiffA :
-    (AggQueryIn.notInDiffA cnt q₁ q₂).names ⊆ Union.union q₁.names q₂.names := by
-  show Union.union q₁.names ((AggQueryIn.tagAgg cnt q₁ q₂).substMap _).names ⊆ _
+    (AggQueryIn.notInDiffA cnt q₁ q₂).names ⊆ q₁.names ⊔ q₂.names := by
+  show q₁.names ⊔ ((AggQueryIn.tagAgg cnt q₁ q₂).substMap _).names ⊆ _
   rw [AggQueryIn.names_substMap]
-  show Union.union q₁.names (Union.union q₁.names q₂.names) ⊆ _
+  show q₁.names ⊔ (q₁.names ⊔ q₂.names) ⊆ _
   intro x hx
   simp only [Finset.mem_union] at hx ⊢
   tauto
@@ -525,9 +525,9 @@ private theorem AggQueryIn.overSchema_prodA {sch : Schema} (h₁ : q₁.overSche
 
 omit [ValueType T] in
 private theorem AggQueryIn.names_prodA :
-    (AggQueryIn.prodA q₁ q₂).names = Union.union q₁.names q₂.names := by
+    (AggQueryIn.prodA q₁ q₂).names = q₁.names ⊔ q₂.names := by
   rw [AggQueryIn.prodA, AggQueryIn.names_castKind]
-  show Union.union q₁.names (q₂.substMap _).names = _
+  show q₁.names ⊔ (q₂.substMap _).names = _
   rw [AggQueryIn.names_substMap]
 
 omit [ValueType T] in
@@ -578,9 +578,9 @@ private theorem AggQueryIn.overSchema_prodSwap {sch : Schema} (h₂ : q₂.overS
 
 omit [ValueType T] in
 private theorem AggQueryIn.names_prodSwap :
-    (AggQueryIn.prodSwap q₂ q₁).names = Union.union q₂.names q₁.names := by
+    (AggQueryIn.prodSwap q₂ q₁).names = q₂.names ⊔ q₁.names := by
   rw [AggQueryIn.prodSwap, AggQueryIn.names_castKind]
-  show Union.union q₂.names (q₁.substMap _).names = _
+  show q₂.names ⊔ (q₁.substMap _).names = _
   rw [AggQueryIn.names_substMap]
 
 omit [ValueType T] in
