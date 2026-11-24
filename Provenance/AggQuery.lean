@@ -6,6 +6,7 @@ module
 
 public import Mathlib.Order.Lattice.Nat
 public import Provenance.AggExpr
+public import Provenance.AggExprOfValues
 public import Provenance.Nested
 public import Provenance.Frame
 import Mathlib.Tactic.Bound.Init

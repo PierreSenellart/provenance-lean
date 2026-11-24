@@ -771,6 +771,50 @@ private theorem AggExpr.PresBy.postcompTerm {ρ β : Type} {x : AggTok T K} (hx 
   | tok a => exact ⟨h, ha, hw, fun W => by show _ = t.unary (val _); rw [← hv W]; rfl⟩
   | expr a => exact ⟨h, ha, hw, fun W => by show _ = t.unary (val _); rw [← hv W]; rfl⟩
 
+/-- Reindexing a subfamily twice is reindexing it once. -/
+private theorem map_finCongr_map {a b c : ℕ} (h₁ : a = b) (h₂ : b = c) (W : Finset (Fin a)) :
+    (W.map (finCongr h₁).toEmbedding).map (finCongr h₂).toEmbedding
+      = W.map (finCongr (h₁.trans h₂)).toEmbedding := by
+  subst h₁ h₂
+  ext x
+  simp
+
+omit [ValueType T] [CommSemiringWithMonus K] in
+/-- **Two expressions presented by one listing are presented together**:
+their pair is presented by that listing, a selected sequence being a world
+when it is one of both, and its value the function of their two values.
+This is what lets a term over two aggregate columns of one family be read
+jointly with the other values of the family, on both sides of a
+homomorphism. -/
+theorem AggExpr.PresBy.pair {ρ β : Type} {e₁ e₂ : AggExpr T K} {L : List β} {ann : β → K}
+    {str : β → ρ} {ok₁ ok₂ : List ρ → Prop} {val₁ val₂ : List ρ → T}
+    (h₁ : e₁.PresBy L ann str ok₁ val₁) (h₂ : e₂.PresBy L ann str ok₂ val₂)
+    (g₂ : T → T → T) :
+    (AggExpr.pair e₁ e₂ g₂).PresBy L ann str (fun s => ok₁ s ∧ ok₂ s)
+      (fun s => g₂ (val₁ s) (val₂ s)) := by
+  obtain ⟨hl₁, ha₁, hw₁, hv₁⟩ := h₁
+  obtain ⟨hl₂, ha₂, hw₂, hv₂⟩ := h₂
+  have hsf : AggExpr.SameFamily e₁ e₂ := by
+    apply List.ext_getElem
+    · simp [← hl₁, ← hl₂]
+    · intro i hi₂ hi₁
+      have hi : i < L.length := by simpa [← hl₂] using hi₂
+      have e1 := ha₁ ⟨i, hi⟩
+      have e2 := ha₂ ⟨i, hi⟩
+      simp only [AggExpr.anns, List.get_eq_getElem, finCongr_apply, Fin.val_cast] at e1 e2
+      simp only [List.getElem_map]
+      rw [e1, e2]
+  have hlen := AggExpr.length_occs_pair e₁ e₂ g₂ hsf
+  refine ⟨hl₁.trans hlen, fun i => ?_, fun W => ?_, fun W => ?_⟩
+  · have e1 := ha₁ i
+    simp only [AggExpr.anns, List.get_eq_getElem, finCongr_apply, Fin.val_cast] at e1 ⊢
+    simp only [AggExpr.pair, List.getElem_zipWith]
+    exact e1
+  · rw [← map_finCongr_map hl₁ hlen, AggExpr.isWorld_pair e₁ e₂ g₂ hsf, hw₁,
+      map_finCongr_map hl₁ hsf.length_eq, hw₂]
+  · rw [← map_finCongr_map hl₁ hlen, AggExpr.valOn_pair e₁ e₂ g₂ hsf, hv₁,
+      map_finCongr_map hl₁ hsf.length_eq, hv₂]
+
 /-- **The closure of a set of corresponding values under terms**, taken
 on both sides alike. -/
 inductive PCl (S : AggTok T K' × AggTok T K → Prop) : AggTok T K' × AggTok T K → Prop

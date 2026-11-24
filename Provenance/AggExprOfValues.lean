@@ -6,12 +6,10 @@ module
 
 public import Provenance.AggExpr
 public import Provenance.SubWorlds
-public import Provenance.JointHom
 import all Provenance.AggValue
 import all Provenance.AggExpr
 import all Provenance.HavingSemantics
 import all Provenance.SubWorlds
-import all Provenance.JointHom
 
 /-!
 # An expression over several aggregate values of one family
@@ -32,11 +30,9 @@ deterministic reading is the term of the readings of its values
 values in that world (`AggExpr.valOn_ofValues`).
 
 `AggExpr.pair` does the same for two expressions, which is what a term
-over columns that are already expressions needs. `AggExpr.PresBy.pair`
-says that two expressions presented by one listing of the family are
-presented together by it: the property the joint reading of a row asks of
-the values of a family, on both sides of a homomorphism, is kept by a
-term over two of them.
+over columns that are already expressions needs; `AggExpr.PresBy.pair`, in
+`Provenance.JointHom`, says that two expressions presented by one listing
+of the family are presented together by it.
 -/
 
 @[expose] public section
@@ -105,7 +101,7 @@ theorem collapse_ofValues {p : ℕ} (a : Fin (p + 1) → AggValue T K)
 
 /-- Two lists with the same image select the same image, the positions
 being carried to each along its length. -/
-private theorem seqOf_map_eq {α β γ : Type} {L₁ : List α} {L₂ : List β} (f : α → γ)
+theorem seqOf_map_eq {α β γ : Type} {L₁ : List α} {L₂ : List β} (f : α → γ)
     (g' : β → γ) (h : L₁.map f = L₂.map g') {N : ℕ} (h₁ : N = L₁.length)
     (h₂ : N = L₂.length) (S : Finset (Fin N)) :
     (Having.seqOf L₁ (S.map (finCongr h₁).toEmbedding)).map f
@@ -356,49 +352,6 @@ theorem valOn_pair (e₁ e₂ : AggExpr T K) (g₂ : T → T → T) (h : SameFam
   have : W.map (finCongr (rfl : e₁.occs.length = e₁.occs.length)).toEmbedding = W := by
     ext x; simp
   rw [this]
-
-/-- Reindexing a subfamily twice is reindexing it once. -/
-private theorem map_finCongr_map {a b c : ℕ} (h₁ : a = b) (h₂ : b = c) (W : Finset (Fin a)) :
-    (W.map (finCongr h₁).toEmbedding).map (finCongr h₂).toEmbedding
-      = W.map (finCongr (h₁.trans h₂)).toEmbedding := by
-  subst h₁ h₂
-  ext x
-  simp
-
-/-- **Two expressions presented by one listing are presented together**:
-their pair is presented by that listing, a selected sequence being a world
-when it is one of both, and its value the function of their two values.
-This is what lets a term over two aggregate columns of one family be read
-jointly with the other values of the family, on both sides of a
-homomorphism. -/
-theorem PresBy.pair {ρ β : Type} {e₁ e₂ : AggExpr T K} {L : List β} {ann : β → K}
-    {str : β → ρ} {ok₁ ok₂ : List ρ → Prop} {val₁ val₂ : List ρ → T}
-    (h₁ : e₁.PresBy L ann str ok₁ val₁) (h₂ : e₂.PresBy L ann str ok₂ val₂)
-    (g₂ : T → T → T) :
-    (AggExpr.pair e₁ e₂ g₂).PresBy L ann str (fun s => ok₁ s ∧ ok₂ s)
-      (fun s => g₂ (val₁ s) (val₂ s)) := by
-  obtain ⟨hl₁, ha₁, hw₁, hv₁⟩ := h₁
-  obtain ⟨hl₂, ha₂, hw₂, hv₂⟩ := h₂
-  have hsf : SameFamily e₁ e₂ := by
-    apply List.ext_getElem
-    · simp [← hl₁, ← hl₂]
-    · intro i hi₂ hi₁
-      have hi : i < L.length := by simpa [← hl₂] using hi₂
-      have e1 := ha₁ ⟨i, hi⟩
-      have e2 := ha₂ ⟨i, hi⟩
-      simp only [anns, List.get_eq_getElem, finCongr_apply, Fin.val_cast] at e1 e2
-      simp only [List.getElem_map]
-      rw [e1, e2]
-  have hlen := length_occs_pair e₁ e₂ g₂ hsf
-  refine ⟨hl₁.trans hlen, fun i => ?_, fun W => ?_, fun W => ?_⟩
-  · have e1 := ha₁ i
-    simp only [anns, List.get_eq_getElem, finCongr_apply, Fin.val_cast] at e1 ⊢
-    simp only [AggExpr.pair, List.getElem_zipWith]
-    exact e1
-  · rw [← map_finCongr_map hl₁ hlen, isWorld_pair e₁ e₂ g₂ hsf, hw₁,
-      map_finCongr_map hl₁ hsf.length_eq, hw₂]
-  · rw [← map_finCongr_map hl₁ hlen, valOn_pair e₁ e₂ g₂ hsf, hv₁,
-      map_finCongr_map hl₁ hsf.length_eq, hv₂]
 
 end AggExpr
 
