@@ -114,4 +114,28 @@ theorem group_sum_expr_ok : ∀ i,
       = rel (group_sum_expr i) := by
   decide
 
+set_option maxRecDepth 100000 in
+/-- An order-dependent aggregate under its own `ORDER BY`: the first salary of each group in the order of `id`, a null read as a value.
+```sql
+SELECT dept, (array_agg(sal ORDER BY id))[1] FROM emp GROUP BY dept;
+```
+-/
+theorem group_pickfirst_ordered_ok : ∀ i,
+    run i (AggQueryIn.Gamma (lab := 0) (rd := fun _ => false) ![1] ![TermIn.index 2]
+        ![SeqAggFunc.sqlPickFirst] Emp (fun _ => none) (GroupOrder.byCols ![0] ![OrderCol.ASC]))
+      = rel (group_pickfirst_ordered i) := by
+  decide
+
+set_option maxRecDepth 100000 in
+/-- The same in descending order.
+```sql
+SELECT dept, (array_agg(sal ORDER BY id DESC))[1] FROM emp GROUP BY dept;
+```
+-/
+theorem group_pickfirst_desc_ok : ∀ i,
+    run i (AggQueryIn.Gamma (lab := 0) (rd := fun _ => false) ![1] ![TermIn.index 2]
+        ![SeqAggFunc.sqlPickFirst] Emp (fun _ => none) (GroupOrder.byCols ![0] ![OrderCol.DESC]))
+      = rel (group_pickfirst_desc i) := by
+  decide
+
 end Conformance

@@ -174,3 +174,55 @@ SELECT c, count(*) FROM (SELECT dept, count(*) AS c FROM emp GROUP BY dept) g GR
 SELECT dept, sum(c) FROM (SELECT dept, sal, count(*) AS c FROM emp GROUP BY dept, sal) g GROUP BY dept;
 -- name: grand_total_set
 SELECT count(*), sum(sal) FROM emp GROUP BY GROUPING SETS (());
+-- name: in_list
+SELECT x FROM t WHERE x IN (1, 3);
+-- name: join_using
+SELECT x FROM t JOIN s USING (x);
+-- name: cte_twice
+WITH a AS (SELECT x FROM t WHERE x = 1) SELECT a.x, b.x FROM a, a b;
+-- name: any_sub
+SELECT x FROM t WHERE x > ANY (SELECT x FROM s);
+-- name: row_in
+SELECT d, name FROM dept WHERE (d, d) IN (SELECT dept, dept FROM emp);
+-- name: in_union_body
+SELECT x FROM t WHERE x IN (SELECT x FROM s UNION SELECT x FROM u);
+-- name: exists_no_relation
+SELECT 1 WHERE EXISTS (SELECT 1 FROM u);
+-- name: nested_not_exists
+SELECT d, name FROM dept WHERE NOT EXISTS (SELECT 1 FROM emp WHERE emp.dept = dept.d AND NOT EXISTS (SELECT 1 FROM s WHERE s.x = emp.sal));
+-- name: setop_nested
+(SELECT x FROM t UNION ALL SELECT x FROM s) EXCEPT SELECT x FROM u;
+-- name: except_values
+SELECT x FROM t EXCEPT VALUES (1), (5);
+-- name: proj_nullif
+SELECT NULLIF(x, 1) FROM t;
+-- name: group_pickfirst_ordered
+SELECT dept, (array_agg(sal ORDER BY id))[1] FROM emp GROUP BY dept;
+-- name: group_pickfirst_desc
+SELECT dept, (array_agg(sal ORDER BY id DESC))[1] FROM emp GROUP BY dept;
+-- name: having_max
+SELECT dept FROM emp GROUP BY dept HAVING max(sal) >= 100;
+-- name: having_min
+SELECT dept FROM emp GROUP BY dept HAVING min(sal) < 60;
+-- name: exists_value
+SELECT d, name, CASE WHEN EXISTS (SELECT 1 FROM emp WHERE emp.dept = dept.d) THEN 1 ELSE 0 END FROM dept;
+-- name: setop_limit
+(SELECT x FROM t UNION SELECT x FROM s) ORDER BY x LIMIT 2;
+-- name: win_exclude_current
+SELECT id, dept, sal, sum(sal) OVER (PARTITION BY dept RANGE BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING EXCLUDE CURRENT ROW) FROM emp;
+-- name: win_exclude_group
+SELECT id, dept, sal, count(*) OVER (PARTITION BY dept ORDER BY sal RANGE BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING EXCLUDE GROUP) FROM emp;
+-- name: win_range_offset
+SELECT id, dept, sal, count(*) OVER (ORDER BY sal RANGE BETWEEN 10 PRECEDING AND CURRENT ROW) FROM emp;
+-- name: win_filter
+SELECT id, dept, sal, count(*) FILTER (WHERE sal >= 90) OVER (PARTITION BY dept) FROM emp;
+-- name: rank_over_count
+SELECT dept, c, rank() OVER (ORDER BY c DESC) FROM (SELECT dept, count(*) AS c FROM emp GROUP BY dept) g;
+-- name: limit_on_count
+SELECT dept, c FROM (SELECT dept, count(*) AS c FROM emp GROUP BY dept) g ORDER BY c DESC, dept LIMIT 1;
+-- name: max_of_max
+SELECT dept, max(m) FROM (SELECT dept, sal, max(id) AS m FROM emp GROUP BY dept, sal) g GROUP BY dept;
+-- name: sum_of_sums
+SELECT dept, sum(v) FROM (SELECT dept, sal, sum(sal) AS v FROM emp GROUP BY dept, sal) g GROUP BY dept;
+-- name: count_of_counts
+SELECT dept, count(c) FROM (SELECT dept, sal, count(*) AS c FROM emp GROUP BY dept, sal) g GROUP BY dept;

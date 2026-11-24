@@ -300,4 +300,77 @@ theorem ntile_two_ok : ∀ i,
       = rel (ntile_two i) := by
   decide
 
+set_option maxRecDepth 100000 in
+/-- `ORDER BY … LIMIT` on a `UNION`: the truncation of the deduplicated result.
+```sql
+(SELECT x FROM t UNION SELECT x FROM s) ORDER BY x LIMIT 2;
+```
+-/
+theorem setop_limit_ok : ∀ i,
+    run i (AggQueryIn.truncate cnt (fun k : Fin 0 => k.elim0) ![0] ![OrderCol.ASC]
+        (val 0) (val 2) (AggQueryIn.Dedup (AggQueryIn.Sum T S)) (winReadsReg_allReg _ _ _))
+      = rel (setop_limit i) := by
+  intro i
+  have h := AggQueryIn.evaluatePlain_truncate cnt (fun k : Fin 0 => k.elim0) ![0]
+    ![OrderCol.ASC] (val 0) (val 2) (AggQueryIn.Dedup (AggQueryIn.Sum T S)) (winReadsReg_allReg _ _ _) (db i)
+  simp only [run]
+  rw [h]
+  clear h
+  revert i
+  decide
+
+set_option maxRecDepth 100000 in
+/-- `EXCLUDE CURRENT ROW`: the partition without the row itself, null where nothing is left.
+```sql
+SELECT id, dept, sal, sum(sal) OVER (PARTITION BY dept RANGE BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING EXCLUDE CURRENT ROW) FROM emp;
+```
+-/
+theorem win_exclude_current_ok : ∀ i,
+    run i (AggQueryIn.Win (hsql := sql_frame%) (lab := 0) (rd := fun _ => false) ![1] (fun k : Fin 0 => k.elim0)
+        OrderSpec.unordered (ValueFrame.excludeCurrent ValueFrame.whole)
+        (TermIn.index 2) sumAgg Emp (winReadsReg_allReg _ _ _))
+      = rel (win_exclude_current i) := by
+  decide
+
+set_option maxRecDepth 100000 in
+/-- `EXCLUDE GROUP`: the partition without the row and its peers.
+```sql
+SELECT id, dept, sal, count(*) OVER (PARTITION BY dept ORDER BY sal RANGE BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING EXCLUDE GROUP) FROM emp;
+```
+-/
+theorem win_exclude_group_ok : ∀ i,
+    run i (AggQueryIn.Win (hsql := sql_frame%) (lab := 0) (rd := fun _ => false) ![1] ![2]
+        ![OrderCol.ASC] (ValueFrame.excludeGroup ![OrderCol.ASC] ValueFrame.whole)
+        (TermIn.const (val 1)) cnt Emp (winReadsReg_allReg _ _ _))
+      = rel (win_exclude_group i) := by
+  decide
+
+set_option maxRecDepth 100000 in
+/-- A `RANGE` frame with an offset: the rows whose salary is within 10 below the current one, and for a null salary its peers.
+```sql
+SELECT id, dept, sal, count(*) OVER (ORDER BY sal RANGE BETWEEN 10 PRECEDING AND CURRENT ROW) FROM emp;
+```
+-/
+theorem win_range_offset_ok : ∀ i,
+    run i (AggQueryIn.Win
+        (hsql := Or.inl (ValueFrame.IsSQLUnder.noOthers
+          (FrameCond.SqlBase.offToCur (fun j => Fin.fin_one_eq_zero j) (val 10))))
+        (lab := 0) (rd := fun _ => false) (fun k : Fin 0 => k.elim0) ![2]
+        ![OrderCol.ASC] (⟨.and (.geOff ![OrderCol.ASC] 0 true (val 10)) (.le ![OrderCol.ASC]), true⟩ : ValueFrame V 1)
+        (TermIn.const (val 1)) cnt Emp (winReadsReg_allReg _ _ _))
+      = rel (win_range_offset i) := by
+  decide
+
+set_option maxRecDepth 100000 in
+/-- A window aggregate with a `FILTER` clause.
+```sql
+SELECT id, dept, sal, count(*) FILTER (WHERE sal >= 90) OVER (PARTITION BY dept) FROM emp;
+```
+-/
+theorem win_filter_ok : ∀ i,
+    run i (AggQueryIn.winFilter (hsql := sql_frame%) ![1] (fun k : Fin 0 => k.elim0) OrderSpec.unordered ValueFrame.whole
+        CompOp.ge (TermIn.index 2) (TermIn.const (val 90)) (TermIn.const (val 1)) cntCol Emp)
+      = rel (win_filter i) := by
+  decide
+
 end Conformance

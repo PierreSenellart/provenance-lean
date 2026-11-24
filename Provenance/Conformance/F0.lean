@@ -341,4 +341,64 @@ theorem cross_product_ok : ∀ i,
 theorem cross_product_level : AggQueryIn.InLevel0 cross_product_q.toAgg :=
   ⟨cross_product_q, by simp [FragQueryIn.level0], rfl⟩
 
+/-- `IN` over a list is a disjunction of equalities.
+```sql
+SELECT x FROM t WHERE x IN (1, 3);
+```
+-/
+abbrev in_list_q : FragQuery V 1 :=
+  .Sel (.or (.cmp .eq (col 0) (lit 1)) (.cmp .eq (col 0) (lit 3))) fT
+
+set_option maxRecDepth 100000 in
+theorem in_list_ok : ∀ i,
+    run i in_list_q.toAgg = rel (in_list i) := by
+  intro i
+  simp only [run]
+  rw [FragQueryIn.toAgg_evaluatePlain]
+  revert i
+  decide
+
+theorem in_list_level : AggQueryIn.InLevel0 in_list_q.toAgg :=
+  ⟨in_list_q, by simp [FragQueryIn.level0], rfl⟩
+
+/-- `JOIN … USING` is the join on equality, the shared column kept once.
+```sql
+SELECT x FROM t JOIN s USING (x);
+```
+-/
+abbrev join_using_q : FragQuery V 1 :=
+  .Proj ![col 0] (.Sel (.cmp .eq (col 0) (col 1)) (.Prod fT fS))
+
+set_option maxRecDepth 100000 in
+theorem join_using_ok : ∀ i,
+    run i join_using_q.toAgg = rel (join_using i) := by
+  intro i
+  simp only [run]
+  rw [FragQueryIn.toAgg_evaluatePlain]
+  revert i
+  decide
+
+theorem join_using_level : AggQueryIn.InLevel0 join_using_q.toAgg :=
+  ⟨join_using_q, by simp [FragQueryIn.level0], rfl⟩
+
+/-- A `WITH` query read twice is its body twice.
+```sql
+WITH a AS (SELECT x FROM t WHERE x = 1) SELECT a.x, b.x FROM a, a b;
+```
+-/
+abbrev cte_twice_q : FragQuery V 2 :=
+  .Prod (.Sel (.cmp .eq (col 0) (lit 1)) fT) (.Sel (.cmp .eq (col 0) (lit 1)) fT)
+
+set_option maxRecDepth 100000 in
+theorem cte_twice_ok : ∀ i,
+    run i cte_twice_q.toAgg = rel (cte_twice i) := by
+  intro i
+  simp only [run]
+  rw [FragQueryIn.toAgg_evaluatePlain]
+  revert i
+  decide
+
+theorem cte_twice_level : AggQueryIn.InLevel0 cte_twice_q.toAgg :=
+  ⟨cte_twice_q, by simp [FragQueryIn.level0], rfl⟩
+
 end Conformance

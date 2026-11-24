@@ -110,4 +110,30 @@ theorem having_not_ok : ∀ i,
       = rel (having_not i) := by
   decide
 
+set_option maxRecDepth 100000 in
+/-- `HAVING` on a maximum.
+```sql
+SELECT dept FROM emp GROUP BY dept HAVING max(sal) >= 100;
+```
+-/
+theorem having_max_ok : ∀ i,
+    run i (AggQueryIn.Proj ![ProjColIn.term (TermGIn.index 0 rfl)]
+        (AggQueryIn.Sel (GenPredIn.aggCmp 1 rfl CompOp.ge (lit 100))
+          (AggQueryIn.Gamma (lab := 0) (rd := fun _ => false) ![1] ![TermIn.index 2] ![maxAgg] Emp)))
+      = rel (having_max i) := by
+  decide
+
+set_option maxRecDepth 100000 in
+/-- `HAVING` on a minimum.
+```sql
+SELECT dept FROM emp GROUP BY dept HAVING min(sal) < 60;
+```
+-/
+theorem having_min_ok : ∀ i,
+    run i (AggQueryIn.Proj ![ProjColIn.term (TermGIn.index 0 rfl)]
+        (AggQueryIn.Sel (GenPredIn.aggCmp 1 rfl CompOp.lt (lit 60))
+          (AggQueryIn.Gamma (lab := 0) (rd := fun _ => false) ![1] ![TermIn.index 2] ![minAgg] Emp)))
+      = rel (having_min i) := by
+  decide
+
 end Conformance

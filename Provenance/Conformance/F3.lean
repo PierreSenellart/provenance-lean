@@ -61,4 +61,16 @@ theorem proj_mul_add_ok : ∀ i,
       = rel (proj_mul_add i) := by
   decide
 
+set_option maxRecDepth 100000 in
+/-- `NULLIF` is a `CASE`.
+```sql
+SELECT NULLIF(x, 1) FROM t;
+```
+-/
+theorem proj_nullif_ok : ∀ i,
+    run i (AggQueryIn.Proj ![ProjColIn.term (TermGIn.caseWhen CompOp.eq (col 0) (lit 1)
+          (TermGIn.const nil) (col 0))] T)
+      = rel (proj_nullif i) := by
+  decide
+
 end Conformance

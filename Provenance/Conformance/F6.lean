@@ -245,4 +245,18 @@ theorem grand_total_set_ok : ∀ i,
   revert i
   decide
 
+set_option maxRecDepth 100000 in
+/-- `EXISTS` read as a value: an expression over the count of matches.
+```sql
+SELECT d, name, CASE WHEN EXISTS (SELECT 1 FROM emp WHERE emp.dept = dept.d) THEN 1 ELSE 0 END FROM dept;
+```
+-/
+theorem exists_value_ok : ∀ i,
+    run i (AggQueryIn.Proj ![ProjColIn.term (TermGIn.index 0 rfl), ProjColIn.term (TermGIn.index 1 rfl),
+          ProjColIn.aggTerm (AggQueryIn.countCol 2) (AggQueryIn.countKinds_countCol 2)
+            (fun v => if v = val 0 then val 0 else val 1)]
+        (AggQueryIn.matchCount cnt 0 sameDept Dept (AggQueryIn.Rel 3 "emp")))
+      = rel (exists_value i) := by
+  decide
+
 end Conformance
