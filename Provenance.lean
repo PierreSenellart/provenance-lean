@@ -2111,7 +2111,13 @@ proven engine several general results reuse internally.
   to `𝟙` – are both closed, and the instances say so: over `ℕ` the
   world that keeps an inner occurrence of a dropped outer one is
   annotated `𝟘` (`nat_incoherentWorld_eq_zero`), over min-max it is not
-  (`mm_incoherentWorld_ne_zero`), since `𝟙 ⊖ g = 𝟙` there. Min-max does
+  (`mm_incoherentWorld_ne_zero`), since `𝟙 ⊖ g = 𝟙` there. The same
+  row is where handing an outer aggregate the *alternatives* of an inner
+  count as if they were occurrences invents a value: the sum `4` over
+  three rows is annotated `𝟘` over `𝔹` on every instance
+  (`bool_sumOfAlternatives_four`) and `h` over min-max
+  (`mm_sumOfAlternatives_four`), where the nested reading gives it `𝟘`
+  (`mm_sumOfCounts_four`). Min-max does
   nonetheless keep the **row-level** absorption of the `∨` rule, in
   every configuration of the two tests (`mm_row_agree_one`,
   `mm_row_agree_both`, `mm_row_agree_neither`) – so `δ = id` suffices

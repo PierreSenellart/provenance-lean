@@ -1361,6 +1361,49 @@ theorem mm_row_agree_neither :
       = Having.jointPair mmTokenA mmTokenB
           (fun x y => (testGe2 x).or (testGe2 y)) := by decide
 
+/-! ### Min-max separates both spellings as well
+
+`ChainFive` was built for a finer statement, the bound on a world's
+annotation that the `HAVING` identities rest on. At the level of queries
+the three-element min-max semiring is enough: its `⊗` does not distribute
+over `⊖` either, since `h ⊗ (𝟙 ⊖ h) = h` and `h ⊗ 𝟙 ⊖ h ⊗ h = 𝟘` for the
+middle grade `h`. One row graded `h` with one match graded `h` separates
+`WHERE NOT EXISTS` from the `EXCEPT` that spells it, and one group of two
+rows graded `h` separates `HAVING count(*) = 1` from its rewriting with
+joins and differences. -/
+
+instance : HasAltLinearOrder MM3 := ⟨inferInstance⟩
+
+/-- `R(a)` with one row graded `h`, and `Q(b)` with the one row it
+matches, also graded `h`. -/
+def mmAntiDb : AnnotatedDatabase ℕ MM3 :=
+  [("R", ⟨1, ({⟨![0], MinMax.mk 1⟩} : Multiset (AnnotatedTuple ℕ MM3 1))⟩),
+   ("Q", ⟨1, ({⟨![0], MinMax.mk 1⟩} : Multiset (AnnotatedTuple ℕ MM3 1))⟩)]
+
+/-- **Over min-max the antijoin keeps the row and the `EXCEPT` drops
+it**: `h ⊗ (𝟙 ⊖ h) = h` against `h ⊖ h ⊗ h = 𝟘`. -/
+theorem mm_antijoin_query_ne_except :
+    (HavingQueryCounterexamples.qAnti.evaluateAnnotated mmAntiDb).map (fun p => p.snd) = {MinMax.mk 1}
+      ∧ (HavingQueryCounterexamples.qExcept.evaluateAnnotated (by decide) mmAntiDb).map
+          (fun p => p.snd) = {(0 : MM3)} := by
+  decide
+
+/-- One group with key `0`, values `1, 2`, both rows graded `h`. -/
+def mmCountDb : AnnotatedDatabase ℕ MM3 :=
+  [("R", ⟨2, ({⟨![0, 1], MinMax.mk 1⟩, ⟨![0, 2], MinMax.mk 1⟩}
+      : Multiset (AnnotatedTuple ℕ MM3 2))⟩)]
+
+/-- **Over min-max `HAVING count(*) = 1` and its rewriting part**: each
+singleton world weighs `h ⊗ (𝟙 ⊖ h) = h`, while `Q₂^{≥1} - Q₂^{≥2}` is
+`h ⊖ h = 𝟘`. -/
+theorem mm_having_eq_one_ne_rewriting :
+    ((AggQueryIn.havingSite ![0] ![#1] ![SeqAggFunc.count] CompOp.eq 0
+        (TermIn.const 1) HavingQueryCounterexamples.qgR).evaluateAnnotated mmCountDb).map
+        (fun p => p.snd) = {MinMax.mk 1}
+      ∧ (HavingQueryCounterexamples.q2eq1.evaluateAnnotated (by decide) mmCountDb).map
+          (fun p => p.snd) = {(0 : MM3)} := by
+  decide
+
 /-! ### An aggregate over an inner grouping's aggregates: min-max invents a world
 
 A nested aggregate's worlds range over the occurrences of the outer
@@ -1459,6 +1502,75 @@ world keeps the weight of the rows it holds. -/
 theorem mm_incoherentWorld_ne_zero :
     (incoherentWorld (MinMax.mk (1 : Fin 3)) (MinMax.mk 1)
       (MinMax.mk 1) (MinMax.mk 1)).ann ≠ 0 := by decide
+
+/-! ### An aggregate over a count's alternatives: min-max invents a value
+
+`SELECT sum(c) FROM (SELECT dept, count(*) AS c FROM Emp GROUP BY dept) t`,
+with two employees in one department and one in another. The inner count
+of the first department has two alternatives, `c = 1` and `c = 2`, and it
+is tempting to hand the outer sum those alternatives as if they were
+occurrences, each annotated by the provenance of its comparison. A world
+of that reading may hold both, and with the other department's row its
+sum is `1 + 2 + 1 = 4`, which no world of the input produces: three
+employees sum to at most `3`.
+
+Over `𝔹` the two alternatives are exclusive and that world is annotated
+`𝟘`, whatever the input annotations. Over min-max, with both employees
+graded `h < 𝟙`, each alternative is annotated `h` – the complement factor
+is `𝟙` – and the value `4` gets the weight `h`. The nested reading
+decides the inner family once in each world and gives `4` the weight `𝟘`,
+and `3` the weight `h`. -/
+
+/-- The test `= 2`. -/
+def testEq2 : ℕ → Kleene := fun v => CompOp.eq.eval3 v 2
+
+/-- The test `= 3`. -/
+def testEq3 : ℕ → Kleene := fun v => CompOp.eq.eval3 v 3
+
+/-- The test `= 4`. -/
+def testEq4 : ℕ → Kleene := fun v => CompOp.eq.eval3 v 4
+
+/-- The grouped count of a department with two employees. -/
+abbrev countOfTwo {K : Type} (α₁ α₂ : K) : AggValue ℕ K :=
+  ⟨SeqAggFunc.count, [(1, α₁), (1, α₂)], false, .mk 0 [] [] 0 [], []⟩
+
+/-- **The sum over the alternatives read as occurrences**: `1` and `2`
+for the first department, each annotated by the provenance of the count
+being that value, and `1` for the second. -/
+abbrev sumOfAlternatives {K : Type} [CommSemiringWithMonus K] [DecidableEq K]
+    (α₁ α₂ β : K) : AggValue ℕ K :=
+  ⟨SeqAggFunc.sum,
+    [(1, (countOfTwo α₁ α₂).predProvWith testEq1),
+     (2, (countOfTwo α₁ α₂).predProvWith testEq2), (1, β)],
+    true, FamId.none, []⟩
+
+/-- **The same sum as a nested value**: one occurrence per department,
+reading that department's count. -/
+abbrev sumOfCounts {K : Type} [CommSemiringWithMonus K] (α₁ α₂ β : K) : NestedValue ℕ K :=
+  ⟨0, SeqAggFunc.sum.onBag SeqAggFunc.sum_symmetric,
+    {(AggExpr.ofValue (countOfTwo α₁ α₂), SemiringWithMonus.delta (α₁ + α₂)),
+     (innerOf 1 β, SemiringWithMonus.delta β)}, true, FamId.none⟩
+
+/-- **Over `𝔹` the invented value is annotated `𝟘`**, on every instance:
+the two alternatives are exclusive. -/
+theorem bool_sumOfAlternatives_four :
+    ∀ a₁ a₂ b : Bool, (sumOfAlternatives a₁ a₂ b).predProvScalarWith testEq4 = 0 := by decide
+
+/-- **Over min-max it is not**: with both employees graded `h`, the sum
+`4` gets the weight `h`. -/
+theorem mm_sumOfAlternatives_four :
+    (sumOfAlternatives (MinMax.mk (1 : Fin 3)) (MinMax.mk 1) 1).predProvScalarWith testEq4
+      = MinMax.mk 1 := by decide
+
+/-- **The nested reading excludes it**: no world has the sum `4`. -/
+theorem mm_sumOfCounts_four :
+    (sumOfCounts (MinMax.mk (1 : Fin 3)) (MinMax.mk 1) 1).predProvWith testEq4 = 0 := by decide
+
+/-- And it gives the sum `3`, of the world holding the three employees,
+the weight `h`. -/
+theorem mm_sumOfCounts_three :
+    (sumOfCounts (MinMax.mk (1 : Fin 3)) (MinMax.mk 1) 1).predProvWith testEq3
+      = MinMax.mk 1 := by decide
 
 /-! ## Complementedness is not an m-semiring identity
 
