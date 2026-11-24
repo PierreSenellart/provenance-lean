@@ -5,9 +5,13 @@
 module
 
 public import Provenance.AggExpr
+public import Provenance.SubWorlds
+public import Provenance.JointHom
 import all Provenance.AggValue
 import all Provenance.AggExpr
 import all Provenance.HavingSemantics
+import all Provenance.SubWorlds
+import all Provenance.JointHom
 
 /-!
 # An expression over several aggregate values of one family
@@ -17,15 +21,22 @@ Two aggregates of one group read the same occurrences: `sum(x)` and
 both, `sum(x) + count(*)`, is then one aggregate expression over that
 family, whose leaves are the two aggregates (`AggExpr`).
 
-`AggExpr.ofValues` builds it from the finished values. An `AggValue` keeps,
+`AggExpr.ofValues` builds it from finished values. An `AggValue` keeps,
 per occurrence, the value its term takes there and the occurrence's
 annotation; values of one family list the same occurrences in the same
 order (`AggValue.Aligned`), so the expression's occurrence carries, leaf
-by leaf, the value each of them recorded at that position.
+by leaf, the value each of them recorded at that position. Its
+deterministic reading is the term of the readings of its values
+(`AggExpr.collapse_ofValues`), its worlds are theirs
+(`AggExpr.isWorld_ofValues`) and its value in a world is the term of their
+values in that world (`AggExpr.valOn_ofValues`).
 
-`AggExpr.collapse_ofValues` says the expression is read deterministically
-as the term of the readings of its values: over plain relations the
-column is the term applied to the aggregates, which is what SQL computes.
+`AggExpr.pair` does the same for two expressions, which is what a term
+over columns that are already expressions needs. `AggExpr.PresBy.pair`
+says that two expressions presented by one listing of the family are
+presented together by it: the property the joint reading of a row asks of
+the values of a family, on both sides of a homomorphism, is kept by a
+term over two of them.
 -/
 
 @[expose] public section
@@ -185,6 +196,209 @@ theorem _root_.AggValue.Aligned.mapAnn {K' : Type} {p : ℕ} (h : K → K')
   intro j
   have := congrArg (List.map h) (ha j)
   simpa [AggValue.mapAnn, List.map_map, Function.comp_def] using this
+
+end AggExpr
+
+/-! ## Two expressions of one family as one
+
+`AggExpr.ofValues` takes finished values. A term may also combine columns
+that are expressions already – an aggregate read through a `FILTER`
+clause, a term over an aggregate – and those have several leaves, with
+their own flags. `AggExpr.pair` puts two expressions over one family side
+by side: the leaves of the first, then those of the second, each
+occurrence carrying what both recorded there, and the function applied to
+the two values. -/
+
+namespace AggExpr
+
+/-- An occurrence of an expression of arity `p`: what each leaf reads, the
+annotation, and the two families of flags. -/
+abbrev Occ (T K : Type) (p : ℕ) := (Fin p → T) × K × (Fin p → Bool) × (Fin p → Bool)
+
+/-- What the first expression recorded at an occurrence of the pair. -/
+def occLeft {p q : ℕ} (z : Occ T K (p + q)) : Occ T K p :=
+  (fun j => z.1 (Fin.castAdd q j), z.2.1, fun j => z.2.2.1 (Fin.castAdd q j),
+    fun j => z.2.2.2 (Fin.castAdd q j))
+
+/-- What the second recorded there, under the pair's annotation. -/
+def occRight {p q : ℕ} (z : Occ T K (p + q)) : Occ T K q :=
+  (fun j => z.1 (Fin.natAdd p j), z.2.1, fun j => z.2.2.1 (Fin.natAdd p j),
+    fun j => z.2.2.2 (Fin.natAdd p j))
+
+/-- **The expression `g₂(e₁, e₂)` over the family the two share.** -/
+def pair (e₁ e₂ : AggExpr T K) (g₂ : T → T → T) : AggExpr T K where
+  arity := e₁.arity + e₂.arity
+  occs := List.zipWith (fun o₁ o₂ =>
+    ((Fin.append o₁.1 o₂.1, o₁.2.1, Fin.append o₁.2.2.1 o₂.2.2.1,
+      Fin.append o₁.2.2.2 o₂.2.2.2) : Occ T K (e₁.arity + e₂.arity))) e₁.occs e₂.occs
+  aggs := Fin.append e₁.aggs e₂.aggs
+  scalar := Fin.append e₁.scalar e₂.scalar
+  g := fun v => g₂ (e₁.g (fun j => v (Fin.castAdd e₂.arity j)))
+    (e₂.g (fun j => v (Fin.natAdd e₁.arity j)))
+  fam := e₁.fam
+  oids := e₁.oids
+
+/-- **Two expressions of one family**: as many occurrences, with the same
+annotations in the same order. -/
+def SameFamily (e₁ e₂ : AggExpr T K) : Prop :=
+  e₂.occs.map (fun o => o.2.1) = e₁.occs.map (fun o => o.2.1)
+
+theorem SameFamily.length_eq {e₁ e₂ : AggExpr T K} (h : SameFamily e₁ e₂) :
+    e₁.occs.length = e₂.occs.length := by
+  have := congrArg List.length h
+  simpa using this.symm
+
+/-- The pair's occurrences, read on the left, are the first expression's. -/
+theorem pair_occs_map_left (e₁ e₂ : AggExpr T K) (g₂ : T → T → T)
+    (h : SameFamily e₁ e₂) : (pair e₁ e₂ g₂).occs.map occLeft = e₁.occs := by
+  apply List.ext_getElem
+  · simp [pair, h.length_eq]
+  · intro i h₁ h₂
+    simp only [pair, List.getElem_map, List.getElem_zipWith, occLeft, Fin.append_left]
+
+/-- Read on the right, they are the second's. -/
+theorem pair_occs_map_right (e₁ e₂ : AggExpr T K) (g₂ : T → T → T)
+    (h : SameFamily e₁ e₂) : (pair e₁ e₂ g₂).occs.map occRight = e₂.occs := by
+  apply List.ext_getElem
+  · simp [pair, h.length_eq]
+  · intro i h₁ h₂
+    have hi₁ : i < e₁.occs.length := by simpa [pair, h.length_eq] using h₁
+    have hi₂ : i < e₂.occs.length := h₂
+    have hann : (e₁.occs[i]).2.1 = (e₂.occs[i]).2.1 := by
+      have := congrArg (fun l => l[i]?) h
+      simpa [List.getElem?_eq_getElem hi₁, List.getElem?_eq_getElem hi₂] using this.symm
+    simp only [pair, List.getElem_map, List.getElem_zipWith, occRight, Fin.append_right, hann]
+
+/-- **A selected sequence is a world of the pair** when it is one of each
+side. -/
+theorem okSeq_pair (e₁ e₂ : AggExpr T K) (g₂ : T → T → T)
+    (s : List (Occ T K (e₁.arity + e₂.arity))) :
+    (pair e₁ e₂ g₂).okSeq s ↔ e₁.okSeq (s.map occLeft) ∧ e₂.okSeq (s.map occRight) := by
+  unfold okSeq
+  constructor
+  · intro h
+    refine ⟨fun j hj => ?_, fun j hj => ?_⟩
+    · obtain ⟨z, hz, hf⟩ := h (Fin.castAdd e₂.arity j) (by
+        show Fin.append e₁.scalar e₂.scalar _ = false
+        rw [Fin.append_left]; exact hj)
+      exact ⟨occLeft z, List.mem_map_of_mem hz, hf⟩
+    · obtain ⟨z, hz, hf⟩ := h (Fin.natAdd e₁.arity j) (by
+        show Fin.append e₁.scalar e₂.scalar _ = false
+        rw [Fin.append_right]; exact hj)
+      exact ⟨occRight z, List.mem_map_of_mem hz, hf⟩
+  · rintro ⟨h₁, h₂⟩ j
+    refine Fin.addCases (fun j hj => ?_) (fun j hj => ?_) j
+    · have hj' : e₁.scalar j = false := by
+        have : Fin.append e₁.scalar e₂.scalar (Fin.castAdd e₂.arity j) = false := hj
+        rwa [Fin.append_left] at this
+      obtain ⟨z, hz, hf⟩ := h₁ j hj'
+      obtain ⟨w, hw, rfl⟩ := List.mem_map.mp hz
+      exact ⟨w, hw, hf⟩
+    · have hj' : e₂.scalar j = false := by
+        have : Fin.append e₁.scalar e₂.scalar (Fin.natAdd e₁.arity j) = false := hj
+        rwa [Fin.append_right] at this
+      obtain ⟨z, hz, hf⟩ := h₂ j hj'
+      obtain ⟨w, hw, rfl⟩ := List.mem_map.mp hz
+      exact ⟨w, hw, hf⟩
+
+/-- **The value of the pair on a selected sequence** is the function of
+the two sides' values on it. -/
+theorem valSeq_pair (e₁ e₂ : AggExpr T K) (g₂ : T → T → T)
+    (s : List (Occ T K (e₁.arity + e₂.arity))) :
+    (pair e₁ e₂ g₂).valSeq s
+      = g₂ (e₁.valSeq (s.map occLeft)) (e₂.valSeq (s.map occRight)) := by
+  unfold valSeq
+  show g₂ (e₁.g _) (e₂.g _) = _
+  congr 1
+  · refine congrArg e₁.g (funext fun j => ?_)
+    show Fin.append e₁.aggs e₂.aggs (Fin.castAdd e₂.arity j) _ = _
+    rw [Fin.append_left, List.filter_map, List.map_map]
+    rfl
+  · refine congrArg e₂.g (funext fun j => ?_)
+    show Fin.append e₁.aggs e₂.aggs (Fin.natAdd e₁.arity j) _ = _
+    rw [Fin.append_right, List.filter_map, List.map_map]
+    rfl
+
+/-- The pair has the occurrences of the first expression. -/
+theorem length_occs_pair (e₁ e₂ : AggExpr T K) (g₂ : T → T → T) (h : SameFamily e₁ e₂) :
+    e₁.occs.length = (pair e₁ e₂ g₂).occs.length := by
+  simp [pair, h.length_eq]
+
+/-- **A subfamily is a world of the pair** when it is one of each side. -/
+theorem isWorld_pair (e₁ e₂ : AggExpr T K) (g₂ : T → T → T) (h : SameFamily e₁ e₂)
+    (W : Finset (Fin e₁.occs.length)) :
+    (pair e₁ e₂ g₂).IsWorld (W.map (finCongr (length_occs_pair e₁ e₂ g₂ h)).toEmbedding)
+      ↔ e₁.IsWorld W ∧ e₂.IsWorld (W.map (finCongr h.length_eq).toEmbedding) := by
+  rw [isWorld_iff_okSeq, isWorld_iff_okSeq, isWorld_iff_okSeq, okSeq_pair]
+  have hl := seqOf_map_eq (L₁ := (pair e₁ e₂ g₂).occs) (L₂ := e₁.occs) occLeft id
+    (by rw [pair_occs_map_left e₁ e₂ g₂ h, List.map_id]) (length_occs_pair e₁ e₂ g₂ h) rfl W
+  have hr := seqOf_map_eq (L₁ := (pair e₁ e₂ g₂).occs) (L₂ := e₂.occs) occRight id
+    (by rw [pair_occs_map_right e₁ e₂ g₂ h, List.map_id]) (length_occs_pair e₁ e₂ g₂ h)
+    h.length_eq W
+  rw [hl, hr, List.map_id, List.map_id]
+  have : W.map (finCongr (rfl : e₁.occs.length = e₁.occs.length)).toEmbedding = W := by
+    ext x; simp
+  rw [this]
+
+/-- **The value of the pair in a world** is the function of the two
+sides' values in that world. -/
+theorem valOn_pair (e₁ e₂ : AggExpr T K) (g₂ : T → T → T) (h : SameFamily e₁ e₂)
+    (W : Finset (Fin e₁.occs.length)) :
+    (pair e₁ e₂ g₂).valOn (W.map (finCongr (length_occs_pair e₁ e₂ g₂ h)).toEmbedding)
+      = g₂ (e₁.valOn W) (e₂.valOn (W.map (finCongr h.length_eq).toEmbedding)) := by
+  rw [valOn_eq_valSeq, valOn_eq_valSeq, valOn_eq_valSeq, valSeq_pair]
+  have hl := seqOf_map_eq (L₁ := (pair e₁ e₂ g₂).occs) (L₂ := e₁.occs) occLeft id
+    (by rw [pair_occs_map_left e₁ e₂ g₂ h, List.map_id]) (length_occs_pair e₁ e₂ g₂ h) rfl W
+  have hr := seqOf_map_eq (L₁ := (pair e₁ e₂ g₂).occs) (L₂ := e₂.occs) occRight id
+    (by rw [pair_occs_map_right e₁ e₂ g₂ h, List.map_id]) (length_occs_pair e₁ e₂ g₂ h)
+    h.length_eq W
+  rw [hl, hr, List.map_id, List.map_id]
+  have : W.map (finCongr (rfl : e₁.occs.length = e₁.occs.length)).toEmbedding = W := by
+    ext x; simp
+  rw [this]
+
+/-- Reindexing a subfamily twice is reindexing it once. -/
+private theorem map_finCongr_map {a b c : ℕ} (h₁ : a = b) (h₂ : b = c) (W : Finset (Fin a)) :
+    (W.map (finCongr h₁).toEmbedding).map (finCongr h₂).toEmbedding
+      = W.map (finCongr (h₁.trans h₂)).toEmbedding := by
+  subst h₁ h₂
+  ext x
+  simp
+
+/-- **Two expressions presented by one listing are presented together**:
+their pair is presented by that listing, a selected sequence being a world
+when it is one of both, and its value the function of their two values.
+This is what lets a term over two aggregate columns of one family be read
+jointly with the other values of the family, on both sides of a
+homomorphism. -/
+theorem PresBy.pair {ρ β : Type} {e₁ e₂ : AggExpr T K} {L : List β} {ann : β → K}
+    {str : β → ρ} {ok₁ ok₂ : List ρ → Prop} {val₁ val₂ : List ρ → T}
+    (h₁ : e₁.PresBy L ann str ok₁ val₁) (h₂ : e₂.PresBy L ann str ok₂ val₂)
+    (g₂ : T → T → T) :
+    (AggExpr.pair e₁ e₂ g₂).PresBy L ann str (fun s => ok₁ s ∧ ok₂ s)
+      (fun s => g₂ (val₁ s) (val₂ s)) := by
+  obtain ⟨hl₁, ha₁, hw₁, hv₁⟩ := h₁
+  obtain ⟨hl₂, ha₂, hw₂, hv₂⟩ := h₂
+  have hsf : SameFamily e₁ e₂ := by
+    apply List.ext_getElem
+    · simp [← hl₁, ← hl₂]
+    · intro i hi₂ hi₁
+      have hi : i < L.length := by simpa [← hl₂] using hi₂
+      have e1 := ha₁ ⟨i, hi⟩
+      have e2 := ha₂ ⟨i, hi⟩
+      simp only [anns, List.get_eq_getElem, finCongr_apply, Fin.val_cast] at e1 e2
+      simp only [List.getElem_map]
+      rw [e1, e2]
+  have hlen := length_occs_pair e₁ e₂ g₂ hsf
+  refine ⟨hl₁.trans hlen, fun i => ?_, fun W => ?_, fun W => ?_⟩
+  · have e1 := ha₁ i
+    simp only [anns, List.get_eq_getElem, finCongr_apply, Fin.val_cast] at e1 ⊢
+    simp only [AggExpr.pair, List.getElem_zipWith]
+    exact e1
+  · rw [← map_finCongr_map hl₁ hlen, isWorld_pair e₁ e₂ g₂ hsf, hw₁,
+      map_finCongr_map hl₁ hsf.length_eq, hw₂]
+  · rw [← map_finCongr_map hl₁ hlen, valOn_pair e₁ e₂ g₂ hsf, hv₁,
+      map_finCongr_map hl₁ hsf.length_eq, hv₂]
 
 end AggExpr
 
