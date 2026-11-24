@@ -289,7 +289,7 @@ three matches and on the Accounting and Bakery padded rows, and cuts the
 Catering row exactly in the worlds where three rows sort ahead of it.
 The windows change no annotation, so these are `q1_ann`'s annotations
 with that one gate. -/
-private theorem q2_ann : ∀ v : X → Bool,
+theorem q2_ann : ∀ v : X → Bool,
     (q2.evaluateAnnotated db).map (fun p => ((p.1 0, p.1 2), p.2 v))
       = ((([((val 2, val 201), v dB && v tb1),
             ((val 1, val 101), v dA && v ta1),
