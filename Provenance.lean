@@ -25,6 +25,7 @@ public import Provenance.HavingSemantics
 /- Symbolic aggregate tokens for the general HAVING semantics -/
 public import Provenance.AggValue
 public import Provenance.AggExpr
+public import Provenance.AggExprOfValues
 public import Provenance.Nested
 public import Provenance.JointFamily
 public import Provenance.AggValueCongr
