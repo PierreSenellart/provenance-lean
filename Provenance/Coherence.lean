@@ -199,27 +199,35 @@ section TermCl
 /-- The terms a family identifier records. -/
 def FamId.terms' : FamId T → List (TermIn T 1 0)
   | .mk _ _ _ _ ts => ts
+  | .pair _ _ _ ts => ts
 
 /-- A family identifier with its terms forgotten. -/
 def FamId.root : FamId T → FamId T
   | .mk l k p c _ => .mk l k p c []
+  | .pair t φ ψ _ => .pair t φ ψ []
 
 omit [ValueType T] in
 @[simp] private theorem FamId.root_addTerm (t : TermIn T 1 0) (φ : FamId T) :
-    (φ.addTerm t).root = φ.root := by cases φ; rfl
+    (φ.addTerm t).root = φ.root := by cases φ <;> rfl
 
 omit [ValueType T] in
 @[simp] private theorem FamId.terms'_addTerm (t : TermIn T 1 0) (φ : FamId T) :
-    (φ.addTerm t).terms' = φ.terms' ++ [t] := by cases φ; rfl
+    (φ.addTerm t).terms' = φ.terms' ++ [t] := by cases φ <;> rfl
 
 omit [ValueType T] in
 private theorem FamId.eq_of_root_terms' {φ ψ : FamId T} (h₁ : φ.root = ψ.root)
     (h₂ : φ.terms' = ψ.terms') : φ = ψ := by
-  cases φ; cases ψ
-  simp only [FamId.root, FamId.mk.injEq, and_true] at h₁
-  simp only [FamId.terms'] at h₂
-  obtain ⟨rfl, rfl, rfl, rfl⟩ := h₁
-  rw [h₂]
+  cases φ <;> cases ψ
+  · simp only [FamId.root, FamId.mk.injEq, and_true] at h₁
+    simp only [FamId.terms'] at h₂
+    obtain ⟨rfl, rfl, rfl, rfl⟩ := h₁
+    rw [h₂]
+  · simp [FamId.root] at h₁
+  · simp [FamId.root] at h₁
+  · simp only [FamId.root, FamId.pair.injEq, and_true] at h₁
+    simp only [FamId.terms'] at h₂
+    obtain ⟨rfl, rfl, rfl⟩ := h₁
+    rw [h₂]
 
 /-- Terms applied in order. -/
 def AggTok.postcompTerms {K₀ : Type} (x : AggTok T K₀) : List (TermIn T 1 0) → AggTok T K₀
@@ -242,6 +250,11 @@ private theorem TermCl.root {S : AggTok T K → Prop} (hS : ∀ x, S x → x.fam
     · have := hS x h
       cases hf : x.fam with
       | mk l k p c ts =>
+        rw [hf] at this
+        simp only [FamId.terms'] at this
+        subst this
+        rfl
+      | pair u φ ψ ts =>
         rw [hf] at this
         simp only [FamId.terms'] at this
         subst this
@@ -270,19 +283,28 @@ end TermCl
 
 /-! ## What is built: the operator's label, no term -/
 
+/-- **The identifier of a built value**: an operator's stamp, with no term
+recorded, and not that of a term over two values. -/
+def FamId.IsBase (φ : FamId T) : Prop := ∃ l k p c, φ = FamId.mk l k p c []
+
+omit [ValueType T] in
+theorem FamId.IsBase.terms' {φ : FamId T} (h : φ.IsBase) : φ.terms' = [] := by
+  obtain ⟨l, k, p, c, rfl⟩ := h
+  rfl
+
 omit [DecidableEq K] [HasAltLinearOrder K] [ValueType T] [CommSemiringWithMonus K] in
 private theorem AggTok.stamp_spec {x y : AggTok T K} {lab : ℕ} {key : List T}
     {ps : List (T ⊕ FamId T)} {j : ℕ} {ids : Option (List (OccId T))}
     (h : x = y.setFam (.mk lab key ps j []) ids) :
-    x.fam.terms' = [] ∧ x.lab = lab := by
+    x.fam.IsBase ∧ x.lab = lab := by
   subst h
-  simp [AggTok.lab, AggTok.fam_setFam, FamId.lab, FamId.terms']
+  exact ⟨⟨lab, key, ps, j, AggTok.fam_setFam _ _⟩, by simp [AggTok.lab, AggTok.fam_setFam, FamId.lab]⟩
 
 /-- **A built value records no term and carries a label of the query.** -/
 private theorem AggQueryIn.builds_spec :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l)
       (d : AnnotatedDatabase T K) (γ : Fin c → T) (E : EvalEnv T K) (x : AggTok T K),
-      q.Builds d γ E x → x.fam.terms' = [] ∧ x.lab ∈ q.labels := by
+      q.Builds d γ E x → x.fam.IsBase ∧ x.lab ∈ q.labels := by
   intro c n κ l q
   induction q with
   | Rel _ _ => intro d γ E x h; exact h.elim
@@ -348,7 +370,7 @@ private theorem AggQueryIn.builds_spec :
       rw [Fin.append_right] at hj
       have hx := (Sum.inr_injective hj).symm
       subst hx
-      exact ⟨rfl, List.mem_cons_self⟩
+      exact ⟨⟨_, _, _, _, rfl⟩, List.mem_cons_self⟩
     · exact (ih d γ E x h).imp_right (List.mem_cons_of_mem _)
   | @GammaTok cI mI nI₁ nI₂ κ' lab rd is his ts fs a q keep ih =>
     intro d γ E x h
@@ -389,6 +411,7 @@ section Widths
 /-- The column a family identifier records. -/
 def FamId.col : FamId T → ℕ
   | .mk _ _ _ c _ => c
+  | .pair _ φ _ _ => φ.col
 
 /-- **Each operator's label with the number of columns it builds.** -/
 def AggQueryIn.labWidths : {c n : ℕ} → {κ : Fin n → ColKind} → {l : List (String × ℕ)} →
@@ -1581,11 +1604,7 @@ omit [DecidableEq K] [HasAltLinearOrder K] [ValueType T] [CommSemiringWithMonus 
 private theorem AggTok.lab_eq_of_family {x y : AggTok T K} (h : x.fam.family = y.fam.family) :
     x.lab = y.lab := by
   unfold AggTok.lab
-  cases hx : x.fam
-  cases hy : y.fam
-  rw [hx, hy] at h
-  simp only [FamId.family, Prod.mk.injEq] at h
-  simp only [FamId.lab, h.1]
+  rw [FamId.lab_eq_family, FamId.lab_eq_family, h]
 
 omit [DecidableEq K] [HasAltLinearOrder K] [ValueType T] [CommSemiringWithMonus K] in
 /-- **Values built by an operator and by its subquery**: their labels
@@ -1996,6 +2015,10 @@ private theorem FamId.root_of_terms' {φ : FamId T} (h : φ.terms' = []) : φ.ro
     simp only [FamId.terms'] at h
     subst h
     rfl
+  | pair u φ ψ ts =>
+    simp only [FamId.terms'] at h
+    subst h
+    rfl
 
 omit [ValueType T] in
 private theorem FamId.sizeOf_root_lt {φ : FamId T} (h : φ.terms' ≠ []) : sizeOf φ.root < sizeOf φ := by
@@ -2007,16 +2030,26 @@ private theorem FamId.sizeOf_root_lt {φ : FamId T} (h : φ.terms' ≠ []) : siz
       have h1 : 1 ≤ sizeOf ts := by cases ts <;> simp; omega
       simp only [FamId.root, FamId.mk.sizeOf_spec, List.cons.sizeOf_spec, List.nil.sizeOf_spec]
       omega
+  | pair u φ ψ ts =>
+    cases ts with
+    | nil => exact absurd rfl h
+    | cons t ts =>
+      have h1 : 1 ≤ sizeOf ts := by cases ts <;> simp; omega
+      simp only [FamId.root, FamId.pair.sizeOf_spec, List.cons.sizeOf_spec, List.nil.sizeOf_spec]
+      omega
 
 omit [ValueType T] in
-private theorem FamId.sizeOf_param_lt' {ψ φ : FamId T} (h : Sum.inr φ ∈ ψ.family.2.2) :
-    sizeOf φ < sizeOf ψ := by
-  cases ψ with
-  | mk l k p c ts => exact FamId.sizeOf_param_lt h
+private theorem FamId.sizeOf_param_lt' {φ : FamId T} :
+    ∀ {ψ : FamId T}, Sum.inr φ ∈ ψ.family.2.2 → sizeOf φ < sizeOf ψ
+  | .mk _ _ _ _ _, h => FamId.sizeOf_param_lt h
+  | .pair u ψ₁ ψ₂ ts, h => by
+    have h₁ : sizeOf φ < sizeOf ψ₁ := FamId.sizeOf_param_lt' (ψ := ψ₁) h
+    simp only [FamId.pair.sizeOf_spec]
+    omega
 
 omit [ValueType T] in
 @[simp] private theorem FamId.family_root (φ : FamId T) : φ.root.family = φ.family := by
-  cases φ; rfl
+  cases φ <;> rfl
 
 omit [DecidableEq K] [HasAltLinearOrder K] in
 private theorem AggTok.classKey_postcompTerms (x : AggTok T K) :
@@ -2052,8 +2085,8 @@ theorem AggQueryIn.builds_coherent {c n : ℕ} {κ : Fin n → ColKind} {l : Lis
     with hSdef
   have hSt : ∀ x, S x → x.fam.terms' = [] := by
     rintro x (h | h | h)
-    · exact (q.builds_spec d γ₁ E₁ x h).1
-    · exact (q.builds_spec d γ₂ E₂ x h).1
+    · exact (q.builds_spec d γ₁ E₁ x h).1.terms'
+    · exact (q.builds_spec d γ₂ E₂ x h).1.terms'
     · exact hR₀t x h
   have hcl : ∀ x, TermCl (TermCl S) x → TermCl S x := fun x h => h.idem
   have hR : ∀ x, TermCl R₀ x → TermCl S x := fun x h => h.mono (fun z hz => Or.inr (Or.inr hz))

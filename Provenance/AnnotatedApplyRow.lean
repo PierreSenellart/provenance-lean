@@ -74,6 +74,7 @@ one family. -/
 def FamId.renameFamily (ϕ : ℕ × List T × List (T ⊕ FamId T) → ℕ × List T × List (T ⊕ FamId T)) :
     FamId T → FamId T
   | .mk l k p c ts => .mk (ϕ (l, k, p)).1 (ϕ (l, k, p)).2.1 (ϕ (l, k, p)).2.2 c ts
+  | .pair u φ ψ ts => .pair u (φ.renameFamily ϕ) (ψ.renameFamily ϕ) ts
 
 /-- An aggregate expression read up to `≈`: its occurrences annotated `𝟘`
 dropped together with their identities, the others' identities renamed by

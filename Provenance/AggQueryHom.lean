@@ -2482,6 +2482,7 @@ structure HomUniv (𝒰₀ : AggTok T K → Prop) (𝒰₀' : AggTok T K' → Pr
     Prop where
   t : ∀ x, 𝒰₀ x → x.fam.terms' = []
   t' : ∀ x, 𝒰₀' x → x.fam.terms' = []
+  m : ∀ x, 𝒰₀ x → x.fam.IsBase
   fn : FamFun (TermCl 𝒰₀)
   fn' : FamFun (TermCl 𝒰₀')
   key : FamKeyed (TermCl 𝒰₀)
@@ -2678,15 +2679,12 @@ private theorem NestRelU.postcompTerms {h : SemiringWithMonusHom K K'} {𝒰₀ 
 
 omit [ValueType T] in
 private theorem FamId.eq_mk_of {φ : FamId T} {l : ℕ} {k : List T} {p : List (T ⊕ FamId T)} {c : ℕ}
-    {ts : List (TermIn T 1 0)} (hf : φ.family = (l, k, p)) (hc : φ.col = c)
-    (ht : φ.terms' = ts) : φ = .mk l k p c ts := by
-  cases φ with
-  | mk l' k' p' c' ts' =>
-    simp only [FamId.family, Prod.mk.injEq] at hf
-    simp only [FamId.col] at hc
-    simp only [FamId.terms'] at ht
-    obtain ⟨rfl, rfl, rfl⟩ := hf
-    rw [hc, ht]
+    (hb : φ.IsBase) (hf : φ.family = (l, k, p)) (hc : φ.col = c) : φ = .mk l k p c [] := by
+  obtain ⟨l', k', p', c', rfl⟩ := hb
+  simp only [FamId.family, Prod.mk.injEq] at hf
+  simp only [FamId.col] at hc
+  obtain ⟨rfl, rfl, rfl⟩ := hf
+  rw [hc]
 
 omit [DecidableEq K] [HasAltLinearOrder K] [HasAltLinearOrder K'] [DecidableEq K'] in
 /-- **The class of a fresh row is presented**: an operator row of width
@@ -2725,14 +2723,12 @@ private theorem classPres_row {h : SemiringWithMonusHom K K'} {𝒰₀ : AggTok 
       rfl
     have hlab : y₀.lab = lab := by
       unfold AggTok.lab
-      cases hy : y₀.fam with
-      | mk l k p c ts => rw [hy] at hfam; simp only [FamId.family, Prod.mk.injEq] at hfam
-                         exact hfam.1
+      rw [FamId.lab_eq_family, hfam]
     have hcol := hU.col y₀ hy₀ w (by rw [hlab]; exact hW (Fin.pos j₀).ne')
     obtain ⟨z, hz1, hz2, hz3⟩ := hz ⟨y₀.fam.col, hcol⟩
     obtain ⟨z', hz1', hz2'⟩ := hz' ⟨y₀.fam.col, hcol⟩
     have hyz : y₀ = z := hU.fn y₀ z (TermCl.base hy₀) (TermCl.base hz2) (by
-      rw [hz3]; exact FamId.eq_mk_of hfam rfl (hU.t y₀ hy₀))
+      rw [hz3]; exact FamId.eq_mk_of (hU.m y₀ hy₀) hfam rfl)
     have hyz' : y₀' = z' := hU.fn' y₀' z' (TermCl.base hy₀') (TermCl.base hz2') (by
       rw [heq _ z' z hz1' hz1, ← hyz, hry', hry, hqf])
     refine ⟨⟨y₀.fam.col, hcol⟩, z', z, hz1', hz1, Prod.ext ?_ ?_⟩
@@ -4332,8 +4328,9 @@ private theorem AggQueryIn.homUniv_of (h : SemiringWithMonusHom K K') {c n : ℕ
   obtain ⟨hF', hK'⟩ := q.builds_coherent_closed hld hrr hsc hfc (h.mapAnnotatedDatabase d) γ
   have hW : (q.labWidths.map Prod.fst).Nodup := by
     rw [← AggQueryIn.labels_eq_map_labWidths]; exact hld
-  refine ⟨fun x hx => (q.builds_spec d γ {} x hx).1,
-    fun x hx => (q.builds_spec _ γ {} x hx).1, hF, hF', hK, hK', fun x hx w hw => ?_⟩
+  refine ⟨fun x hx => (q.builds_spec d γ {} x hx).1.terms',
+    fun x hx => (q.builds_spec _ γ {} x hx).1.terms',
+    fun x hx => (q.builds_spec d γ {} x hx).1, hF, hF', hK, hK', fun x hx w hw => ?_⟩
   obtain ⟨w₀, hw₀, hc⟩ := q.builds_col d γ {} x hx
   rw [List.snd_eq_of_mem_of_nodup_map hW hw hw₀]
   exact hc

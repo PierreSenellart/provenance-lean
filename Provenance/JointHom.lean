@@ -935,6 +935,13 @@ private theorem FamPres.pcl [DecidableEq T] [DecidableEq K] [DecidableEq K'] {f 
 /-- The label of the operator a family identifier records. -/
 def FamId.lab : FamId T → ℕ
   | .mk l _ _ _ _ => l
+  | .pair _ φ _ _ => φ.lab
+
+omit [ValueType T] in
+/-- The label is the first component of the family. -/
+theorem FamId.lab_eq_family : ∀ φ : FamId T, φ.lab = φ.family.1
+  | .mk _ _ _ _ _ => rfl
+  | .pair _ φ _ _ => FamId.lab_eq_family φ
 
 /-- The label of the operator that built an aggregate value. -/
 def AggTok.lab (x : AggTok T K) : ℕ := x.fam.lab

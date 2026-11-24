@@ -74,6 +74,10 @@ family, or one column under two terms, are two different parameters. -/
 inductive FamId (T : Type) where
   | mk (lab : ℕ) (key : List T) (params : List (T ⊕ FamId T)) (col : ℕ)
       (terms : List (TermIn T 1 0))
+  /-- **The identity of a term over two values of one family**: the term,
+  the identities of the two values it reads, and the terms applied to the
+  result since. The family is that of the first. -/
+  | pair (t : TermIn T 2 0) (left right : FamId T) (terms : List (TermIn T 1 0))
 
 namespace FamId
 
@@ -93,6 +97,15 @@ def decEq [DecidableEq T] : (a b : FamId T) → Decidable (a = b)
     | _, _, isFalse h, _, _ => isFalse (fun e => h (FamId.mk.inj e).2.2.1)
     | _, _, _, isFalse h, _ => isFalse (fun e => h (FamId.mk.inj e).2.2.2.1)
     | _, _, _, _, isFalse h => isFalse (fun e => h (FamId.mk.inj e).2.2.2.2)
+  | .pair t a b ts, .pair t' a' b' ts' =>
+    match _root_.decEq t t', FamId.decEq a a', FamId.decEq b b', _root_.decEq ts ts' with
+    | isTrue h1, isTrue h2, isTrue h3, isTrue h4 => isTrue (by subst h1 h2 h3 h4; rfl)
+    | isFalse h, _, _, _ => isFalse (fun e => h (FamId.pair.inj e).1)
+    | _, isFalse h, _, _ => isFalse (fun e => h (FamId.pair.inj e).2.1)
+    | _, _, isFalse h, _ => isFalse (fun e => h (FamId.pair.inj e).2.2.1)
+    | _, _, _, isFalse h => isFalse (fun e => h (FamId.pair.inj e).2.2.2)
+  | .mk _ _ _ _ _, .pair _ _ _ _ => isFalse nofun
+  | .pair _ _ _ _, .mk _ _ _ _ _ => isFalse nofun
 /-- Decidable equality of parameter lists. -/
 def decEqParams [DecidableEq T] : (a b : List (T ⊕ FamId T)) → Decidable (a = b)
   | [], [] => isTrue rfl
@@ -128,14 +141,20 @@ operator, its key and the parameters it reads, without the column or the
 terms applied since. Two values of one family are read in one world. -/
 def family : FamId T → ℕ × List T × List (T ⊕ FamId T)
   | .mk l k p _ _ => (l, k, p)
+  | .pair _ φ _ _ => φ.family
 
 /-- The identity of a value after a term is applied to it. -/
 def addTerm (t : TermIn T 1 0) : FamId T → FamId T
   | .mk l k p c ts => .mk l k p c (ts ++ [t])
+  | .pair u φ ψ ts => .pair u φ ψ (ts ++ [t])
 
 @[simp] private theorem family_addTerm (t : TermIn T 1 0) (φ : FamId T) :
     (φ.addTerm t).family = φ.family := by
-  cases φ; rfl
+  cases φ <;> rfl
+
+/-- The pair's family is its first value's. -/
+@[simp] theorem family_pair (t : TermIn T 2 0) (φ ψ : FamId T) (ts : List (TermIn T 1 0)) :
+    (FamId.pair t φ ψ ts).family = φ.family := rfl
 
 end FamId
 

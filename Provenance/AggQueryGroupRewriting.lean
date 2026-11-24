@@ -68,9 +68,11 @@ mutual
 domain: the key's and the parameters' values are embedded by `Sum.inl`.
 The terms applied to the value are dropped: the rewritten world's columns
 apply functions to the data arm (`ProjColIn.aggTerm`), not terms, so its
-values record none, and the rewriting is an equality of rows. -/
+values record none, and the rewriting is an equality of rows. A term over
+two values is dropped likewise, down to its first value's identity. -/
 def FamId.toComposite : FamId T → FamId (T ⊕ K)
   | .mk l k p c _ => .mk l (k.map Sum.inl) (FamId.paramsToComposite p) c []
+  | .pair _ φ _ _ => FamId.toComposite φ
 
 /-- The parameters of a family, transported. -/
 def FamId.paramsToComposite : List (T ⊕ FamId T) → List ((T ⊕ K) ⊕ FamId (T ⊕ K))
@@ -82,7 +84,7 @@ end
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 @[simp] private theorem FamId.toComposite_addTerm (t : TermIn T 1 0) (φ : FamId T) :
     (φ.addTerm t).toComposite (K := K) = φ.toComposite := by
-  cases φ; rfl
+  cases φ <;> rfl
 
 /-- Transport a symbolic aggregate token to the composite value domain:
 the aggregated values are embedded by `Sum.inl`, the aggregate function is
