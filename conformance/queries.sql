@@ -98,3 +98,63 @@ SELECT id, dept, sal, lag(sal) OVER (PARTITION BY dept ORDER BY id) FROM emp;
 SELECT id, dept, sal, last_value(sal) OVER (PARTITION BY dept ORDER BY id RANGE BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) FROM emp;
 -- name: lag_two
 SELECT id, dept, sal, lag(sal, 2) OVER (ORDER BY id) FROM emp;
+-- name: self_join_dups
+SELECT a.x, b.x FROM t a, t b WHERE a.x = b.x;
+-- name: sel_or_null
+SELECT x FROM t WHERE x = 1 OR x IS NULL;
+-- name: sel_and_range
+SELECT x FROM t WHERE x > 1 AND x < 3;
+-- name: sel_ne
+SELECT x FROM t WHERE x <> 1;
+-- name: sel_is_not_null
+SELECT x FROM t WHERE x IS NOT NULL;
+-- name: proj_const
+SELECT 5, x FROM t;
+-- name: select_no_from
+SELECT 1, 2;
+-- name: cross_product
+SELECT s.x, u.x FROM s, u;
+-- name: union_set
+SELECT x FROM t UNION SELECT x FROM s;
+-- name: distinct_pair
+SELECT DISTINCT dept, sal FROM emp;
+-- name: in_null_sub
+SELECT x FROM t WHERE x IN (SELECT x FROM s);
+-- name: exists_uncorrelated
+SELECT x FROM t WHERE EXISTS (SELECT 1 FROM u);
+-- name: except_rev
+SELECT x FROM s EXCEPT SELECT x FROM t;
+-- name: not_exists_uncorrelated
+SELECT x FROM t WHERE NOT EXISTS (SELECT 1 FROM u);
+-- name: not_exists_self
+SELECT x FROM t WHERE NOT EXISTS (SELECT 1 FROM s WHERE s.x = t.x);
+-- name: group_two_keys
+SELECT dept, sal, count(*) FROM emp GROUP BY dept, sal;
+-- name: scalar_min_max
+SELECT min(sal), max(sal), count(sal) FROM emp;
+-- name: group_sum_expr
+SELECT dept, sum(sal + 1) FROM emp GROUP BY dept;
+-- name: having_and
+SELECT dept FROM emp GROUP BY dept HAVING count(*) >= 2 AND sum(sal) > 100;
+-- name: having_or
+SELECT dept FROM emp GROUP BY dept HAVING count(*) >= 3 OR sum(sal) < 60;
+-- name: having_range
+SELECT dept FROM emp GROUP BY dept HAVING count(*) BETWEEN 2 AND 3;
+-- name: having_not
+SELECT dept FROM emp GROUP BY dept HAVING NOT (count(*) = 1);
+-- name: agg_expr_unary
+SELECT dept, count(*) + 1 FROM emp GROUP BY dept;
+-- name: all_sub
+SELECT x FROM t WHERE x >= ALL (SELECT x FROM s);
+-- name: or_exists
+SELECT d, name FROM dept WHERE name = 30 OR EXISTS (SELECT 1 FROM emp WHERE emp.dept = dept.d);
+-- name: scalar_subquery_value
+SELECT d, name, (SELECT id FROM emp WHERE emp.id = dept.d + 100) FROM dept;
+-- name: rank_asc_nulls
+SELECT id, dept, sal, rank() OVER (ORDER BY sal) FROM emp;
+-- name: win_running_sum
+SELECT id, dept, sal, sum(sal) OVER (PARTITION BY dept ORDER BY id) FROM emp;
+-- name: win_count_all
+SELECT id, dept, sal, count(*) OVER () FROM emp;
+-- name: ntile_two
+SELECT id, dept, sal, ntile(2) OVER (ORDER BY id) FROM emp;

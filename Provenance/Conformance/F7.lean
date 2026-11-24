@@ -244,4 +244,60 @@ theorem lag_two_ok : ∀ i,
       = rel (lag_two i) := by
   decide
 
+set_option maxRecDepth 100000 in
+/-- `rank()` in ascending order, where the nulls come last.
+```sql
+SELECT id, dept, sal, rank() OVER (ORDER BY sal) FROM emp;
+```
+-/
+theorem rank_asc_nulls_ok : ∀ i,
+    run i (AggQueryIn.rank cnt (fun k : Fin 0 => k.elim0) ![2] ![OrderCol.ASC] Emp (winReadsReg_allReg _ _ _))
+      = rel (rank_asc_nulls i) := by
+  intro i
+  have h := AggQueryIn.evaluatePlain_rank cnt (fun k : Fin 0 => k.elim0) ![2] ![OrderCol.ASC] Emp
+    (winReadsReg_allReg _ _ _) (db i)
+  simp only [run]
+  rw [h]
+  clear h
+  revert i
+  decide
+
+set_option maxRecDepth 100000 in
+/-- A running sum within a partition, over an order that is a key.
+```sql
+SELECT id, dept, sal, sum(sal) OVER (PARTITION BY dept ORDER BY id) FROM emp;
+```
+-/
+theorem win_running_sum_ok : ∀ i,
+    run i (AggQueryIn.Win (hsql := sql_frame%) (lab := 0) (rd := fun _ => false) ![1] ![0]
+        ![OrderCol.ASC] (ValueFrame.rangeUpTo ![OrderCol.ASC]) (TermIn.index 2)
+        sumAgg Emp (winReadsReg_allReg _ _ _))
+      = rel (win_running_sum i) := by
+  decide
+
+set_option maxRecDepth 100000 in
+/-- `OVER ()`: one partition, the whole table.
+```sql
+SELECT id, dept, sal, count(*) OVER () FROM emp;
+```
+-/
+theorem win_count_all_ok : ∀ i,
+    run i (AggQueryIn.Win (hsql := sql_frame%) (lab := 0) (rd := fun _ => false) (fun k : Fin 0 => k.elim0)
+        (fun k : Fin 0 => k.elim0) OrderSpec.unordered ValueFrame.whole (TermIn.const (val 1))
+        cnt Emp (winReadsReg_allReg _ _ _))
+      = rel (win_count_all i) := by
+  decide
+
+set_option maxRecDepth 100000 in
+/-- `ntile(2)` over a key: the first half, rounded up, is bucket 1.
+```sql
+SELECT id, dept, sal, ntile(2) OVER (ORDER BY id) FROM emp;
+```
+-/
+theorem ntile_two_ok : ∀ i,
+    run i (AggQueryIn.ntile cnt (fun N r => val (if natOf r ≤ (natOf N + 1) / 2 then 1 else 2))
+        (fun k : Fin 0 => k.elim0) ![0] ![OrderCol.ASC] Emp)
+      = rel (ntile_two i) := by
+  decide
+
 end Conformance

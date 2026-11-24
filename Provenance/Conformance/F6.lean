@@ -129,4 +129,66 @@ theorem scalar_subquery_count_ok : ∀ i,
       = rel (scalar_subquery_count i) := by
   decide
 
+set_option maxRecDepth 100000 in
+/-- An expression over an aggregate value.
+```sql
+SELECT dept, count(*) + 1 FROM emp GROUP BY dept;
+```
+-/
+theorem agg_expr_unary_ok : ∀ i,
+    run i (AggQueryIn.Proj ![ProjColIn.term (TermGIn.index 0 rfl),
+          ProjColIn.aggTerm 1 rfl (fun v => v + val 1)]
+        (AggQueryIn.Gamma (lab := 0) (rd := fun _ => false) ![1] ![TermIn.const (val 1)] ![cnt] Emp))
+      = rel (agg_expr_unary i) := by
+  decide
+
+set_option maxRecDepth 100000 in
+/-- `>= ALL` is the antijoin on the null-aware negation: true over an empty subquery, never true once the subquery holds a null.
+```sql
+SELECT x FROM t WHERE x >= ALL (SELECT x FROM s);
+```
+-/
+theorem all_sub_ok : ∀ i,
+    run i (AggQueryIn.antijoin cnt 0
+        (GenPredIn.or (GenPredIn.cmp CompOp.lt (TermGIn.outer 0) (TermGIn.index 0 rfl))
+          (GenPredIn.or (isNull (TermGIn.index 0 rfl)) (isNull (TermGIn.outer 0))))
+        T (AggQueryIn.Rel 1 "s"))
+      = rel (all_sub i) := by
+  decide
+
+set_option maxRecDepth 100000 in
+/-- An `EXISTS` under a disjunction is an atom on the count of matches, combined with the other condition.
+```sql
+SELECT d, name FROM dept WHERE name = 30 OR EXISTS (SELECT 1 FROM emp WHERE emp.dept = dept.d);
+```
+-/
+theorem or_exists_ok : ∀ i,
+    run i (AggQueryIn.Proj (AggQueryIn.dropCount 2)
+        (AggQueryIn.Sel
+          (GenPredIn.or (GenPredIn.cmp CompOp.eq (TermGIn.index 1 rfl) (lit 30))
+            (GenPredIn.aggCmp (AggQueryIn.countCol 2) (AggQueryIn.countKinds_countCol 2)
+              CompOp.ne (lit 0)))
+          (AggQueryIn.matchCount cnt 0 sameDept Dept (AggQueryIn.Rel 3 "emp"))))
+      = rel (or_exists i) := by
+  decide
+
+set_option maxRecDepth 100000 in
+/-- A scalar subquery with no aggregate: the one value where there is one row, the null where there is none.
+```sql
+SELECT d, name, (SELECT id FROM emp WHERE emp.id = dept.d + 100) FROM dept;
+```
+-/
+theorem scalar_subquery_value_ok : ∀ i,
+    run i (AggQueryIn.Proj ![ProjColIn.term (TermGIn.index 0 rfl), ProjColIn.term (TermGIn.index 1 rfl),
+          ProjColIn.token 3 rfl]
+        (AggQueryIn.Sel (GenPredIn.aggCmp 2 rfl CompOp.le (lit 1))
+          (AggQueryIn.Apply Dept
+            (AggQueryIn.GammaScalar (lab := 0) (rd := fun _ => true)
+              ![TermIn.const (val 1), TermIn.index 0] ![cnt, SeqAggFunc.sqlPickFirst]
+              (AggQueryIn.Sel (GenPredIn.cmp CompOp.eq (TermGIn.index 0 rfl)
+                  (TermGIn.add (TermGIn.outer 0) (lit 100)))
+                (AggQueryIn.Rel 3 "emp"))))))
+      = rel (scalar_subquery_value i) := by
+  decide
+
 end Conformance

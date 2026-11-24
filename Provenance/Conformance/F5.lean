@@ -54,4 +54,60 @@ theorem where_on_agg_ok : ∀ i,
       = rel (where_on_agg i) := by
   decide
 
+set_option maxRecDepth 100000 in
+/-- A conjunction of two conditions on two aggregates of one group.
+```sql
+SELECT dept FROM emp GROUP BY dept HAVING count(*) >= 2 AND sum(sal) > 100;
+```
+-/
+theorem having_and_ok : ∀ i,
+    run i (AggQueryIn.Proj ![ProjColIn.term (TermGIn.index 0 rfl)]
+        (AggQueryIn.Sel (GenPredIn.and (GenPredIn.aggCmp 1 rfl CompOp.ge (lit 2))
+            (GenPredIn.aggCmp 2 rfl CompOp.gt (lit 100)))
+          (AggQueryIn.Gamma (lab := 0) (rd := fun _ => false) ![1]
+          ![TermIn.const (val 1), TermIn.index 2] ![cnt, sumAgg] Emp)))
+      = rel (having_and i) := by
+  decide
+
+set_option maxRecDepth 100000 in
+/-- A disjunction of two such conditions: true when one is, the other being unknown on a null sum.
+```sql
+SELECT dept FROM emp GROUP BY dept HAVING count(*) >= 3 OR sum(sal) < 60;
+```
+-/
+theorem having_or_ok : ∀ i,
+    run i (AggQueryIn.Proj ![ProjColIn.term (TermGIn.index 0 rfl)]
+        (AggQueryIn.Sel (GenPredIn.or (GenPredIn.aggCmp 1 rfl CompOp.ge (lit 3))
+            (GenPredIn.aggCmp 2 rfl CompOp.lt (lit 60)))
+          (AggQueryIn.Gamma (lab := 0) (rd := fun _ => false) ![1]
+          ![TermIn.const (val 1), TermIn.index 2] ![cnt, sumAgg] Emp)))
+      = rel (having_or i) := by
+  decide
+
+set_option maxRecDepth 100000 in
+/-- `BETWEEN` on a count, as one range atom.
+```sql
+SELECT dept FROM emp GROUP BY dept HAVING count(*) BETWEEN 2 AND 3;
+```
+-/
+theorem having_range_ok : ∀ i,
+    run i (AggQueryIn.Proj ![ProjColIn.term (TermGIn.index 0 rfl)]
+        (AggQueryIn.Sel (GenPredIn.aggRange 1 rfl CompOp.ge (lit 2) CompOp.le (lit 3))
+          (AggQueryIn.Gamma (lab := 0) (rd := fun _ => false) ![1] ![TermIn.const (val 1)] ![cnt] Emp)))
+      = rel (having_range i) := by
+  decide
+
+set_option maxRecDepth 100000 in
+/-- The negation of a condition on a count.
+```sql
+SELECT dept FROM emp GROUP BY dept HAVING NOT (count(*) = 1);
+```
+-/
+theorem having_not_ok : ∀ i,
+    run i (AggQueryIn.Proj ![ProjColIn.term (TermGIn.index 0 rfl)]
+        (AggQueryIn.Sel (GenPredIn.not (GenPredIn.aggCmp 1 rfl CompOp.eq (lit 1)))
+          (AggQueryIn.Gamma (lab := 0) (rd := fun _ => false) ![1] ![TermIn.const (val 1)] ![cnt] Emp)))
+      = rel (having_not i) := by
+  decide
+
 end Conformance

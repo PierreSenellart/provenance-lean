@@ -126,4 +126,84 @@ theorem group_no_agg_ok : ∀ i,
 theorem group_no_agg_level : AggQueryIn.InLevel1 group_no_agg_q.toAgg ∧ ¬ group_no_agg_q.level0 :=
   ⟨⟨group_no_agg_q, by simp [FragQueryIn.level1], rfl⟩, by simp [FragQueryIn.level0]⟩
 
+/-- `UNION` is the sum, deduplicated.
+```sql
+SELECT x FROM t UNION SELECT x FROM s;
+```
+-/
+abbrev union_set_q : FragQuery V 1 :=
+  .Dedup (.Sum fT fS)
+
+set_option maxRecDepth 100000 in
+theorem union_set_ok : ∀ i,
+    run i union_set_q.toAgg = rel (union_set i) := by
+  intro i
+  simp only [run]
+  rw [FragQueryIn.toAgg_evaluatePlain]
+  revert i
+  decide
+
+theorem union_set_level : AggQueryIn.InLevel1 union_set_q.toAgg ∧ ¬ union_set_q.level0 :=
+  ⟨⟨union_set_q, by simp [FragQueryIn.level1], rfl⟩, by simp [FragQueryIn.level0]⟩
+
+/-- `DISTINCT` on two columns: tuples are compared whole, nulls equal.
+```sql
+SELECT DISTINCT dept, sal FROM emp;
+```
+-/
+abbrev distinct_pair_q : FragQuery V 2 :=
+  .Dedup (.Proj ![col 1, col 2] (.Rel 3 "emp"))
+
+set_option maxRecDepth 100000 in
+theorem distinct_pair_ok : ∀ i,
+    run i distinct_pair_q.toAgg = rel (distinct_pair i) := by
+  intro i
+  simp only [run]
+  rw [FragQueryIn.toAgg_evaluatePlain]
+  revert i
+  decide
+
+theorem distinct_pair_level : AggQueryIn.InLevel1 distinct_pair_q.toAgg ∧ ¬ distinct_pair_q.level0 :=
+  ⟨⟨distinct_pair_q, by simp [FragQueryIn.level1], rfl⟩, by simp [FragQueryIn.level0]⟩
+
+/-- `IN` over a subquery holding a null: the null is in nothing, the other values as usual.
+```sql
+SELECT x FROM t WHERE x IN (SELECT x FROM s);
+```
+-/
+abbrev in_null_sub_q : FragQuery V 1 :=
+  .Semijoin cntCol cntCol_counts (.cmp .eq (col 0) (TermGIn.outer 0)) fT (.Rel 1 "s")
+
+set_option maxRecDepth 100000 in
+theorem in_null_sub_ok : ∀ i,
+    run i in_null_sub_q.toAgg = rel (in_null_sub i) := by
+  intro i
+  simp only [run]
+  rw [FragQueryIn.toAgg_evaluatePlain]
+  revert i
+  decide
+
+theorem in_null_sub_level : AggQueryIn.InLevel1 in_null_sub_q.toAgg ∧ ¬ in_null_sub_q.level0 :=
+  ⟨⟨in_null_sub_q, by simp [FragQueryIn.level1], rfl⟩, by simp [FragQueryIn.level0]⟩
+
+/-- An uncorrelated `EXISTS` keeps every row or none.
+```sql
+SELECT x FROM t WHERE EXISTS (SELECT 1 FROM u);
+```
+-/
+abbrev exists_uncorrelated_q : FragQuery V 1 :=
+  .Semijoin cntCol cntCol_counts (.cmp .syneq (lit 0) (lit 0)) fT (.Rel 1 "u")
+
+set_option maxRecDepth 100000 in
+theorem exists_uncorrelated_ok : ∀ i,
+    run i exists_uncorrelated_q.toAgg = rel (exists_uncorrelated i) := by
+  intro i
+  simp only [run]
+  rw [FragQueryIn.toAgg_evaluatePlain]
+  revert i
+  decide
+
+theorem exists_uncorrelated_level : AggQueryIn.InLevel1 exists_uncorrelated_q.toAgg ∧ ¬ exists_uncorrelated_q.level0 :=
+  ⟨⟨exists_uncorrelated_q, by simp [FragQueryIn.level1], rfl⟩, by simp [FragQueryIn.level0]⟩
+
 end Conformance

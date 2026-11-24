@@ -86,4 +86,64 @@ theorem not_exists_anti_ok : ∀ i,
 theorem not_exists_anti_level : AggQueryIn.InLevel2 not_exists_anti_q.toAgg ∧ ¬ not_exists_anti_q.level1 :=
   ⟨⟨not_exists_anti_q, rfl⟩, by simp [FragQueryIn.level1]⟩
 
+/-- `EXCEPT` the other way round.
+```sql
+SELECT x FROM s EXCEPT SELECT x FROM t;
+```
+-/
+abbrev except_rev_q : FragQuery V 1 :=
+  .Dedup (.Diff fS fT)
+
+set_option maxRecDepth 100000 in
+theorem except_rev_ok : ∀ i,
+    run i except_rev_q.toAgg = rel (except_rev i) := by
+  intro i
+  simp only [run]
+  rw [FragQueryIn.toAgg_evaluatePlain]
+  revert i
+  decide
+
+theorem except_rev_level : AggQueryIn.InLevel2 except_rev_q.toAgg ∧ ¬ except_rev_q.level1 :=
+  ⟨⟨except_rev_q, rfl⟩, by simp [FragQueryIn.level1]⟩
+
+/-- An uncorrelated `NOT EXISTS` keeps every row or none.
+```sql
+SELECT x FROM t WHERE NOT EXISTS (SELECT 1 FROM u);
+```
+-/
+abbrev not_exists_uncorrelated_q : FragQuery V 1 :=
+  .Antijoin cntCol cntCol_counts (.cmp .syneq (lit 0) (lit 0)) fT (.Rel 1 "u")
+
+set_option maxRecDepth 100000 in
+theorem not_exists_uncorrelated_ok : ∀ i,
+    run i not_exists_uncorrelated_q.toAgg = rel (not_exists_uncorrelated i) := by
+  intro i
+  simp only [run]
+  rw [FragQueryIn.toAgg_evaluatePlain]
+  revert i
+  decide
+
+theorem not_exists_uncorrelated_level : AggQueryIn.InLevel2 not_exists_uncorrelated_q.toAgg ∧ ¬ not_exists_uncorrelated_q.level1 :=
+  ⟨⟨not_exists_uncorrelated_q, rfl⟩, by simp [FragQueryIn.level1]⟩
+
+/-- `NOT EXISTS` on an equality keeps the nulls, on which the comparison is unknown.
+```sql
+SELECT x FROM t WHERE NOT EXISTS (SELECT 1 FROM s WHERE s.x = t.x);
+```
+-/
+abbrev not_exists_self_q : FragQuery V 1 :=
+  .Antijoin cntCol cntCol_counts (.cmp .eq (col 0) (TermGIn.outer 0)) fT (.Rel 1 "s")
+
+set_option maxRecDepth 100000 in
+theorem not_exists_self_ok : ∀ i,
+    run i not_exists_self_q.toAgg = rel (not_exists_self i) := by
+  intro i
+  simp only [run]
+  rw [FragQueryIn.toAgg_evaluatePlain]
+  revert i
+  decide
+
+theorem not_exists_self_level : AggQueryIn.InLevel2 not_exists_self_q.toAgg ∧ ¬ not_exists_self_q.level1 :=
+  ⟨⟨not_exists_self_q, rfl⟩, by simp [FragQueryIn.level1]⟩
+
 end Conformance

@@ -181,4 +181,164 @@ theorem values_rows_ok : ∀ i,
   revert i
   decide
 
+/-- A self-join multiplies the duplicates and matches no null.
+```sql
+SELECT a.x, b.x FROM t a, t b WHERE a.x = b.x;
+```
+-/
+abbrev self_join_dups_q : FragQuery V 2 :=
+  .Sel (.cmp .eq (col 0) (col 1)) (.Prod fT fT)
+
+set_option maxRecDepth 100000 in
+theorem self_join_dups_ok : ∀ i,
+    run i self_join_dups_q.toAgg = rel (self_join_dups i) := by
+  intro i
+  simp only [run]
+  rw [FragQueryIn.toAgg_evaluatePlain]
+  revert i
+  decide
+
+theorem self_join_dups_level : AggQueryIn.InLevel0 self_join_dups_q.toAgg :=
+  ⟨self_join_dups_q, by simp [FragQueryIn.level0], rfl⟩
+
+/-- A disjunction is true when one side is, the other being unknown.
+```sql
+SELECT x FROM t WHERE x = 1 OR x IS NULL;
+```
+-/
+abbrev sel_or_null_q : FragQuery V 1 :=
+  .Sel (.or (.cmp .eq (col 0) (lit 1)) (isNull (col 0))) fT
+
+set_option maxRecDepth 100000 in
+theorem sel_or_null_ok : ∀ i,
+    run i sel_or_null_q.toAgg = rel (sel_or_null i) := by
+  intro i
+  simp only [run]
+  rw [FragQueryIn.toAgg_evaluatePlain]
+  revert i
+  decide
+
+theorem sel_or_null_level : AggQueryIn.InLevel0 sel_or_null_q.toAgg :=
+  ⟨sel_or_null_q, by simp [FragQueryIn.level0], rfl⟩
+
+/-- A conjunction of two comparisons.
+```sql
+SELECT x FROM t WHERE x > 1 AND x < 3;
+```
+-/
+abbrev sel_and_range_q : FragQuery V 1 :=
+  .Sel (.and (.cmp .gt (col 0) (lit 1)) (.cmp .lt (col 0) (lit 3))) fT
+
+set_option maxRecDepth 100000 in
+theorem sel_and_range_ok : ∀ i,
+    run i sel_and_range_q.toAgg = rel (sel_and_range i) := by
+  intro i
+  simp only [run]
+  rw [FragQueryIn.toAgg_evaluatePlain]
+  revert i
+  decide
+
+theorem sel_and_range_level : AggQueryIn.InLevel0 sel_and_range_q.toAgg :=
+  ⟨sel_and_range_q, by simp [FragQueryIn.level0], rfl⟩
+
+/-- `<>` is unknown on a null, like `=`.
+```sql
+SELECT x FROM t WHERE x <> 1;
+```
+-/
+abbrev sel_ne_q : FragQuery V 1 :=
+  .Sel (.cmp .ne (col 0) (lit 1)) fT
+
+set_option maxRecDepth 100000 in
+theorem sel_ne_ok : ∀ i,
+    run i sel_ne_q.toAgg = rel (sel_ne i) := by
+  intro i
+  simp only [run]
+  rw [FragQueryIn.toAgg_evaluatePlain]
+  revert i
+  decide
+
+theorem sel_ne_level : AggQueryIn.InLevel0 sel_ne_q.toAgg :=
+  ⟨sel_ne_q, by simp [FragQueryIn.level0], rfl⟩
+
+/-- `IS NOT NULL` is the negation of a test that is never unknown.
+```sql
+SELECT x FROM t WHERE x IS NOT NULL;
+```
+-/
+abbrev sel_is_not_null_q : FragQuery V 1 :=
+  .Sel (.not (isNull (col 0))) fT
+
+set_option maxRecDepth 100000 in
+theorem sel_is_not_null_ok : ∀ i,
+    run i sel_is_not_null_q.toAgg = rel (sel_is_not_null i) := by
+  intro i
+  simp only [run]
+  rw [FragQueryIn.toAgg_evaluatePlain]
+  revert i
+  decide
+
+theorem sel_is_not_null_level : AggQueryIn.InLevel0 sel_is_not_null_q.toAgg :=
+  ⟨sel_is_not_null_q, by simp [FragQueryIn.level0], rfl⟩
+
+/-- A constant column beside a column.
+```sql
+SELECT 5, x FROM t;
+```
+-/
+abbrev proj_const_q : FragQuery V 2 :=
+  .Proj ![lit 5, col 0] fT
+
+set_option maxRecDepth 100000 in
+theorem proj_const_ok : ∀ i,
+    run i proj_const_q.toAgg = rel (proj_const i) := by
+  intro i
+  simp only [run]
+  rw [FragQueryIn.toAgg_evaluatePlain]
+  revert i
+  decide
+
+theorem proj_const_level : AggQueryIn.InLevel0 proj_const_q.toAgg :=
+  ⟨proj_const_q, by simp [FragQueryIn.level0], rfl⟩
+
+/-- A `SELECT` with no `FROM` is one row, on every instance.
+```sql
+SELECT 1, 2;
+```
+-/
+abbrev select_no_from_q : FragQuery V 2 :=
+  .Proj ![lit 1, lit 2] .Unit
+
+set_option maxRecDepth 100000 in
+theorem select_no_from_ok : ∀ i,
+    run i select_no_from_q.toAgg = rel (select_no_from i) := by
+  intro i
+  simp only [run]
+  rw [FragQueryIn.toAgg_evaluatePlain]
+  revert i
+  decide
+
+theorem select_no_from_level : AggQueryIn.InLevel0 select_no_from_q.toAgg :=
+  ⟨select_no_from_q, by simp [FragQueryIn.level0], rfl⟩
+
+/-- A product pairs every row with every row, nulls included.
+```sql
+SELECT s.x, u.x FROM s, u;
+```
+-/
+abbrev cross_product_q : FragQuery V 2 :=
+  .Prod fS fU
+
+set_option maxRecDepth 100000 in
+theorem cross_product_ok : ∀ i,
+    run i cross_product_q.toAgg = rel (cross_product i) := by
+  intro i
+  simp only [run]
+  rw [FragQueryIn.toAgg_evaluatePlain]
+  revert i
+  decide
+
+theorem cross_product_level : AggQueryIn.InLevel0 cross_product_q.toAgg :=
+  ⟨cross_product_q, by simp [FragQueryIn.level0], rfl⟩
+
 end Conformance

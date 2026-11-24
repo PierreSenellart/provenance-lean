@@ -79,4 +79,39 @@ theorem scalar_agg_distinct_ok : ∀ i,
       = rel (scalar_agg_distinct i) := by
   decide
 
+set_option maxRecDepth 100000 in
+/-- Grouping on two columns, nulls in either.
+```sql
+SELECT dept, sal, count(*) FROM emp GROUP BY dept, sal;
+```
+-/
+theorem group_two_keys_ok : ∀ i,
+    run i (AggQueryIn.Gamma (lab := 0) (rd := fun _ => false) ![1, 2] ![TermIn.const (val 1)] ![cnt] Emp)
+      = rel (group_two_keys i) := by
+  decide
+
+set_option maxRecDepth 100000 in
+/-- `min`, `max` and `count(sal)` over the whole table: null, null and `0` over no non-null salary.
+```sql
+SELECT min(sal), max(sal), count(sal) FROM emp;
+```
+-/
+theorem scalar_min_max_ok : ∀ i,
+    run i (AggQueryIn.GammaScalar (lab := 0) (rd := fun _ => false)
+        ![TermIn.index 2, TermIn.index 2, TermIn.index 2] ![minAgg, maxAgg, cntCol] Emp)
+      = rel (scalar_min_max i) := by
+  decide
+
+set_option maxRecDepth 100000 in
+/-- An aggregate over a term: the term is null on a null, and the sum skips it.
+```sql
+SELECT dept, sum(sal + 1) FROM emp GROUP BY dept;
+```
+-/
+theorem group_sum_expr_ok : ∀ i,
+    run i (AggQueryIn.Gamma (lab := 0) (rd := fun _ => false) ![1]
+        ![TermIn.add (TermIn.index 2) (TermIn.const (val 1))] ![sumAgg] Emp)
+      = rel (group_sum_expr i) := by
+  decide
+
 end Conformance
