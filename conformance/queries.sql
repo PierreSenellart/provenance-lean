@@ -158,3 +158,7 @@ SELECT id, dept, sal, sum(sal) OVER (PARTITION BY dept ORDER BY id) FROM emp;
 SELECT id, dept, sal, count(*) OVER () FROM emp;
 -- name: ntile_two
 SELECT id, dept, sal, ntile(2) OVER (ORDER BY id) FROM emp;
+-- name: grouping_sets
+SELECT dept, sal, count(*) FROM emp GROUP BY GROUPING SETS ((dept), (sal));
+-- name: grouping_sets_total
+SELECT dept, count(*) FROM emp GROUP BY GROUPING SETS ((dept), ());

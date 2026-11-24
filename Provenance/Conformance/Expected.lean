@@ -1711,4 +1711,55 @@ abbrev ntile_two : Inst → List (Tuple V 4) :=
     ![val 205, val 5, val 70, val 2]]
     : List (Tuple V 4))]
 
+/-- PostgreSQL's answers to
+```sql
+SELECT dept, sal, count(*) FROM emp GROUP BY GROUPING SETS ((dept), (sal));
+```
+-/
+abbrev grouping_sets : Inst → List (Tuple V 3) :=
+  ![([![nil, nil, val 1],
+    ![val 2, nil, val 2],
+    ![val 1, nil, val 3],
+    ![nil, nil, val 2],
+    ![nil, val 90, val 1],
+    ![nil, val 50, val 1],
+    ![nil, val 100, val 2]]
+    : List (Tuple V 3)),
+   ([] : List (Tuple V 3)),
+   ([![val 2, nil, val 3],
+    ![val 1, nil, val 2],
+    ![nil, val 5, val 1],
+    ![nil, val 10, val 1],
+    ![nil, val 20, val 3]]
+    : List (Tuple V 3)),
+   ([![nil, nil, val 1],
+    ![val 3, nil, val 2],
+    ![val 5, nil, val 2],
+    ![nil, nil, val 2],
+    ![nil, val 70, val 3]]
+    : List (Tuple V 3))]
+
+/-- PostgreSQL's answers to
+```sql
+SELECT dept, count(*) FROM emp GROUP BY GROUPING SETS ((dept), ());
+```
+-/
+abbrev grouping_sets_total : Inst → List (Tuple V 2) :=
+  ![([![nil, val 6],
+    ![nil, val 1],
+    ![val 2, val 2],
+    ![val 1, val 3]]
+    : List (Tuple V 2)),
+   ([![nil, val 0]]
+    : List (Tuple V 2)),
+   ([![nil, val 5],
+    ![val 2, val 3],
+    ![val 1, val 2]]
+    : List (Tuple V 2)),
+   ([![nil, val 5],
+    ![nil, val 1],
+    ![val 3, val 2],
+    ![val 5, val 2]]
+    : List (Tuple V 2))]
+
 end Conformance
