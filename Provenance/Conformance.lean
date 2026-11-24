@@ -37,7 +37,8 @@ The value domain is the naturals with a null, so what needs another domain
 is left out: `avg`, `percent_rank` and `cume_dist`, whose values are not
 integers; `ARRAY` subqueries and `array_agg`, whose values are arrays; and
 the functions on strings and dates. Set-returning functions are left out
-too. Grouping sets are written as the union of padded aggregations they
-are defined to be, the grand total being the aggregation with no grouping,
-which has its row over no input.
+too. Grouping sets over several sets are written as the union of padded
+aggregations they are defined to be, the derived operator choosing its key
+columns in a way the kernel does not compute; the grand total alone goes
+through the derived operator.
 -/

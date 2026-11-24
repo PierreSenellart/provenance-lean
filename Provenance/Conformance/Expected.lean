@@ -1913,4 +1913,19 @@ abbrev sum_of_counts : Inst → List (Tuple V 2) :=
     ![val 5, val 2]]
     : List (Tuple V 2))]
 
+/-- PostgreSQL's answers to
+```sql
+SELECT count(*), sum(sal) FROM emp GROUP BY GROUPING SETS (());
+```
+-/
+abbrev grand_total_set : Inst → List (Tuple V 2) :=
+  ![([![val 6, val 340]]
+    : List (Tuple V 2)),
+   ([![val 0, nil]]
+    : List (Tuple V 2)),
+   ([![val 5, val 75]]
+    : List (Tuple V 2)),
+   ([![val 5, val 210]]
+    : List (Tuple V 2))]
+
 end Conformance

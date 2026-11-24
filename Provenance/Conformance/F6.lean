@@ -233,4 +233,23 @@ theorem grouping_sets_total_ok : ∀ i,
   revert i
   decide
 
+set_option maxRecDepth 100000 in
+/-- The grouping set `()` alone, through the derived operator: the grand total has its row over an empty table.
+```sql
+SELECT count(*), sum(sal) FROM emp GROUP BY GROUPING SETS (());
+```
+-/
+theorem grand_total_set_ok : ∀ i,
+    run i (AggQueryIn.gammaSet (fun k : Fin 0 => k.elim0)
+        ![TermIn.const (val 1), TermIn.index 2] ![cnt, sumAgg] ∅ Emp)
+      = rel (grand_total_set i) := by
+  intro i
+  have h := AggQueryIn.evaluatePlain_gammaSet_empty (lab := 0) (rd := fun _ => false) (fun k : Fin 0 => k.elim0)
+    ![TermIn.const (val 1), TermIn.index 2] ![cnt, sumAgg] Emp (db i) (γ := fun _ => 0)
+  simp only [run]
+  rw [h]
+  clear h
+  revert i
+  decide
+
 end Conformance

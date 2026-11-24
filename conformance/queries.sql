@@ -172,3 +172,5 @@ SELECT DISTINCT c FROM (SELECT dept, count(*) AS c FROM emp GROUP BY dept) g;
 SELECT c, count(*) FROM (SELECT dept, count(*) AS c FROM emp GROUP BY dept) g GROUP BY c;
 -- name: sum_of_counts
 SELECT dept, sum(c) FROM (SELECT dept, sal, count(*) AS c FROM emp GROUP BY dept, sal) g GROUP BY dept;
+-- name: grand_total_set
+SELECT count(*), sum(sal) FROM emp GROUP BY GROUPING SETS (());
