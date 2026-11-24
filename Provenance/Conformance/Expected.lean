@@ -1070,4 +1070,85 @@ abbrev distinct_on : Inst → List (Tuple V 3) :=
     ![val 203, nil, val 70]]
     : List (Tuple V 3))]
 
+/-- PostgreSQL's answers to
+```sql
+SELECT id, dept, sal, lag(sal) OVER (PARTITION BY dept ORDER BY id) FROM emp;
+```
+-/
+abbrev lag_part : Inst → List (Tuple V 4) :=
+  ![([![val 101, val 1, val 100, nil],
+    ![val 102, val 1, val 100, val 100],
+    ![val 103, val 1, val 90, val 100],
+    ![val 105, val 2, val 50, nil],
+    ![val 106, val 2, nil, val 50],
+    ![val 104, nil, nil, nil]]
+    : List (Tuple V 4)),
+   ([] : List (Tuple V 4)),
+   ([![val 301, val 1, val 10, nil],
+    ![val 302, val 1, val 20, val 10],
+    ![val 303, val 2, val 20, nil],
+    ![val 304, val 2, val 20, val 20],
+    ![val 305, val 2, val 5, val 20]]
+    : List (Tuple V 4)),
+   ([![val 201, val 3, nil, nil],
+    ![val 202, val 3, nil, nil],
+    ![val 204, val 5, val 70, nil],
+    ![val 205, val 5, val 70, val 70],
+    ![val 203, nil, val 70, nil]]
+    : List (Tuple V 4))]
+
+/-- PostgreSQL's answers to
+```sql
+SELECT id, dept, sal, last_value(sal) OVER (PARTITION BY dept ORDER BY id RANGE BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) FROM emp;
+```
+-/
+abbrev last_value_part : Inst → List (Tuple V 4) :=
+  ![([![val 101, val 1, val 100, val 90],
+    ![val 102, val 1, val 100, val 90],
+    ![val 103, val 1, val 90, val 90],
+    ![val 105, val 2, val 50, nil],
+    ![val 106, val 2, nil, nil],
+    ![val 104, nil, nil, nil]]
+    : List (Tuple V 4)),
+   ([] : List (Tuple V 4)),
+   ([![val 301, val 1, val 10, val 20],
+    ![val 302, val 1, val 20, val 20],
+    ![val 303, val 2, val 20, val 5],
+    ![val 304, val 2, val 20, val 5],
+    ![val 305, val 2, val 5, val 5]]
+    : List (Tuple V 4)),
+   ([![val 201, val 3, nil, nil],
+    ![val 202, val 3, nil, nil],
+    ![val 204, val 5, val 70, val 70],
+    ![val 205, val 5, val 70, val 70],
+    ![val 203, nil, val 70, val 70]]
+    : List (Tuple V 4))]
+
+/-- PostgreSQL's answers to
+```sql
+SELECT id, dept, sal, lag(sal, 2) OVER (ORDER BY id) FROM emp;
+```
+-/
+abbrev lag_two : Inst → List (Tuple V 4) :=
+  ![([![val 101, val 1, val 100, nil],
+    ![val 102, val 1, val 100, nil],
+    ![val 103, val 1, val 90, val 100],
+    ![val 104, nil, nil, val 100],
+    ![val 105, val 2, val 50, val 90],
+    ![val 106, val 2, nil, nil]]
+    : List (Tuple V 4)),
+   ([] : List (Tuple V 4)),
+   ([![val 301, val 1, val 10, nil],
+    ![val 302, val 1, val 20, nil],
+    ![val 303, val 2, val 20, val 10],
+    ![val 304, val 2, val 20, val 20],
+    ![val 305, val 2, val 5, val 20]]
+    : List (Tuple V 4)),
+   ([![val 201, val 3, nil, nil],
+    ![val 202, val 3, nil, nil],
+    ![val 203, nil, val 70, nil],
+    ![val 204, val 5, val 70, nil],
+    ![val 205, val 5, val 70, val 70]]
+    : List (Tuple V 4))]
+
 end Conformance

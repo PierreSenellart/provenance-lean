@@ -123,29 +123,23 @@ theorem fetch_with_ties_ok : ∀ i,
 
 set_option maxRecDepth 100000 in
 /-- `lag` over an order that is a key: the value on the previous row, null on the first.
-It is the window of `choose` over the rows strictly before, read backwards.
 ```sql
 SELECT id, dept, sal, lag(sal) OVER (ORDER BY id) FROM emp;
 ```
 -/
 theorem lag_key_ok : ∀ i,
-    run i (AggQueryIn.Win (hsql := sql_frame%) (lab := 0) (rd := fun _ => false) (fun k : Fin 0 => k.elim0) ![0]
-        (OrderSpec.reverse ![OrderCol.ASC]) (ValueFrame.rangeBefore ![OrderCol.ASC])
-        (TermIn.index 2) chooseAgg Emp (winReadsReg_allReg _ _ _))
+    run i (AggQueryIn.lag (fun k : Fin 0 => k.elim0) ![0] ![OrderCol.ASC] (TermIn.index 2) Emp)
       = rel (lag_key i) := by
   decide
 
 set_option maxRecDepth 100000 in
 /-- `lead`: the value on the next row, null on the last.
-It is the window of `choose` over the rows strictly after.
 ```sql
 SELECT id, dept, sal, lead(sal) OVER (ORDER BY id) FROM emp;
 ```
 -/
 theorem lead_key_ok : ∀ i,
-    run i (AggQueryIn.Win (hsql := sql_frame%) (lab := 0) (rd := fun _ => false) (fun k : Fin 0 => k.elim0) ![0]
-        ![OrderCol.ASC] (ValueFrame.rangeAfter ![OrderCol.ASC])
-        (TermIn.index 2) chooseAgg Emp (winReadsReg_allReg _ _ _))
+    run i (AggQueryIn.lead (fun k : Fin 0 => k.elim0) ![0] ![OrderCol.ASC] (TermIn.index 2) Emp)
       = rel (lead_key i) := by
   decide
 
@@ -217,16 +211,37 @@ theorem distinct_on_ok : ∀ i,
   decide
 
 set_option maxRecDepth 100000 in
-/-- **A divergence the suite found.** The library's derived `lag` reads its
-frame through `SeqAggFunc.pickFirst`, whose value over no row is the zero of
-the value type: on the first row it gives `0` where SQL gives the null. -/
-theorem lag_library_zero_on_first_row :
-    run 2 (AggQueryIn.lag (fun k : Fin 0 => k.elim0) ![0] ![OrderCol.ASC] (TermIn.index 2) Emp)
-      = rel [![val 301, val 1, val 10, val 0], ![val 302, val 1, val 20, val 10],
-          ![val 303, val 2, val 20, val 20], ![val 304, val 2, val 20, val 20],
-          ![val 305, val 2, val 5, val 20]]
-      ∧ run 2 (AggQueryIn.lag (fun k : Fin 0 => k.elim0) ![0] ![OrderCol.ASC] (TermIn.index 2) Emp)
-        ≠ rel (lag_key 2) := by
+/-- `lag` within a partition: null on the first row of each, a null salary read as a value.
+```sql
+SELECT id, dept, sal, lag(sal) OVER (PARTITION BY dept ORDER BY id) FROM emp;
+```
+-/
+theorem lag_part_ok : ∀ i,
+    run i (AggQueryIn.lag ![1] ![0] ![OrderCol.ASC] (TermIn.index 2) Emp)
+      = rel (lag_part i) := by
+  decide
+
+set_option maxRecDepth 100000 in
+/-- `last_value` over the whole partition, in the order of the clause.
+```sql
+SELECT id, dept, sal, last_value(sal) OVER (PARTITION BY dept ORDER BY id RANGE BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) FROM emp;
+```
+-/
+theorem last_value_part_ok : ∀ i,
+    run i (AggQueryIn.lastValue (hsql := sql_frame%) ![1] ![0] ![OrderCol.ASC]
+        ValueFrame.whole (TermIn.index 2) Emp)
+      = rel (last_value_part i) := by
+  decide
+
+set_option maxRecDepth 100000 in
+/-- `lag(sal, 2)` over a key: null on the first two rows.
+```sql
+SELECT id, dept, sal, lag(sal, 2) OVER (ORDER BY id) FROM emp;
+```
+-/
+theorem lag_two_ok : ∀ i,
+    run i (AggQueryIn.lagAt (fun k : Fin 0 => k.elim0) ![0] ![OrderCol.ASC] 1 (TermIn.index 2) Emp)
+      = rel (lag_two i) := by
   decide
 
 end Conformance

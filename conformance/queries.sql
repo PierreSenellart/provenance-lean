@@ -92,3 +92,9 @@ SELECT id, dept, sal, row_number() OVER (PARTITION BY dept ORDER BY id) FROM emp
 SELECT id, dept, sal FROM emp ORDER BY id LIMIT 2 OFFSET 1;
 -- name: distinct_on
 SELECT DISTINCT ON (dept) id, dept, sal FROM emp ORDER BY dept, id;
+-- name: lag_part
+SELECT id, dept, sal, lag(sal) OVER (PARTITION BY dept ORDER BY id) FROM emp;
+-- name: last_value_part
+SELECT id, dept, sal, last_value(sal) OVER (PARTITION BY dept ORDER BY id RANGE BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) FROM emp;
+-- name: lag_two
+SELECT id, dept, sal, lag(sal, 2) OVER (ORDER BY id) FROM emp;
