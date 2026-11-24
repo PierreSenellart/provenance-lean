@@ -1130,7 +1130,9 @@ aggregation on the indices that set keeps, padded back onto the columns
 of the whole key: a key column a set drops is the null there. Each arm
 therefore has the same columns – the whole key, then the aggregates –
 and the union is a union of the algebra. It is what SQL's `GROUPING
-SETS`, `ROLLUP` and `CUBE` name. -/
+SETS`, `ROLLUP` and `CUBE` name. The empty set, the grand total, is the
+aggregation with no grouping: its row is there over an empty input, as
+SQL has it. -/
 
 section GroupingSets
 
@@ -1166,17 +1168,42 @@ theorem gsCol_kind (S : Finset (Fin m)) (na : ℕ) (j : Fin (m + na)) :
   · rw [gsCol, Fin.addCases_right, Fin.append_right]
     rfl
 
+/-- The projection that pads the grand total onto the columns of the whole
+key: every key column is the null, and the aggregate columns follow. -/
+def gsTotalCol (m na : ℕ) (j : Fin (m + na)) :
+    ProjColIn T c (fun _ : Fin na => ColKind.agg) :=
+  Fin.addCases
+    (fun _ : Fin m => .term (TermGIn.const ValueTypeNull.null))
+    (fun l : Fin na => .token l rfl)
+    j
+
+theorem gsTotalCol_kind (m na : ℕ) (j : Fin (m + na)) :
+    (gsTotalCol (T := T) (c := c) m na j).kind
+      = Fin.append (fun _ : Fin m => ColKind.reg)
+          (fun _ : Fin na => ColKind.agg) j := by
+  refine Fin.addCases (fun a => ?_) (fun l => ?_) j
+  · rw [gsTotalCol, Fin.addCases_left, Fin.append_left]
+    rfl
+  · rw [gsTotalCol, Fin.addCases_right, Fin.append_right]
+    rfl
+
 /-- **One grouping set**: the aggregation on the indices the set keeps,
-padded back onto the columns of the whole key. -/
+padded back onto the columns of the whole key. The empty set is the grand
+total, SQL's `()`: the aggregation with no grouping, which has its row
+over no input, and not a grouping with no key, which has none there. -/
 def gammaSet (is : Tuple (Fin k) m) (ts : Tuple (TermIn T c k) na)
     (fs : Tuple (SeqAggFunc T) na) (S : Finset (Fin m))
     (q : AggQueryIn T c k (ColKind.allReg k)) :
     AggQueryIn T c (m + na)
       (Fin.append (fun _ : Fin m => ColKind.reg)
         (fun _ : Fin na => ColKind.agg)) :=
-  (Proj (gsCol S na) (Gamma (lab := 0) (rd := fun _ => false) (fun a => is ((S.orderIsoOfFin rfl)
-      a)) ts fs q)).castKind
-    (funext (gsCol_kind S na))
+  if S = ∅ then
+    (Proj (gsTotalCol m na) (GammaScalar (lab := 0) (rd := fun _ => false) ts fs q)).castKind
+      (funext (gsTotalCol_kind m na))
+  else
+    (Proj (gsCol S na) (Gamma (lab := 0) (rd := fun _ => false)
+        (fun a => is ((S.orderIsoOfFin rfl) a)) ts fs q)).castKind
+      (funext (gsCol_kind S na))
 
 /-- **Grouping sets**: the union of the aggregations over each set of the
 family, all padded onto the same columns. -/
@@ -1198,22 +1225,42 @@ def gsRow (S : Finset (Fin m)) (na : ℕ) (v : Tuple T (S.card + na)) :
       else ValueTypeNull.null)
     (fun l : Fin na => v (Fin.natAdd S.card l))
 
-/-- **What one grouping set computes over plain relations**: the rows of
-the aggregation on the indices it keeps, padded. -/
+/-- **What a non-empty grouping set computes over plain relations**: the
+rows of the aggregation on the indices it keeps, padded. -/
 private theorem evaluatePlain_gammaSet {lab : ℕ} {rd} (is : Tuple (Fin k) m)
     (ts : Tuple (TermIn T c k) na) (fs : Tuple (SeqAggFunc T) na)
-    (S : Finset (Fin m)) (q : AggQueryIn T c k (ColKind.allReg k))
+    (S : Finset (Fin m)) (hS : S ≠ ∅) (q : AggQueryIn T c k (ColKind.allReg k))
     (D : Database T) {γ : Fin c → T} :
     (gammaSet is ts fs S q).evaluatePlain D γ
       = ((Gamma (lab := lab) (rd := rd) (fun a => is ((S.orderIsoOfFin rfl) a)) ts fs
           q).evaluatePlain D γ).map (gsRow S na) := by
-  rw [gammaSet, AggQueryIn.evaluatePlain_castKind, AggQueryIn.evaluatePlain]
+  rw [gammaSet, ite_eq_right hS, AggQueryIn.evaluatePlain_castKind, AggQueryIn.evaluatePlain]
   refine Multiset.map_congr rfl (fun v _ => funext fun j => ?_)
   show (gsCol S na j).evalPlain v γ = gsRow S na v j
   refine Fin.addCases (fun a => ?_) (fun l => ?_) j
   · rw [gsCol, Fin.addCases_left, gsRow, Fin.addCases_left]
     split <;> rfl
   · rw [gsCol, Fin.addCases_right, gsRow, Fin.addCases_right]
+    rfl
+
+/-- **What the empty grouping set computes over plain relations**: the one
+row of the aggregation with no grouping, behind a null on every key
+column. It is there over an empty input. -/
+private theorem evaluatePlain_gammaSet_empty {lab : ℕ} {rd} (is : Tuple (Fin k) m)
+    (ts : Tuple (TermIn T c k) na) (fs : Tuple (SeqAggFunc T) na)
+    (q : AggQueryIn T c k (ColKind.allReg k))
+    (D : Database T) {γ : Fin c → T} :
+    (gammaSet is ts fs ∅ q).evaluatePlain D γ
+      = ((GammaScalar (lab := lab) (rd := rd) ts fs q).evaluatePlain D γ).map
+          (fun v : Tuple T na =>
+            (Fin.append (fun _ : Fin m => ValueTypeNull.null) v : Tuple T (m + na))) := by
+  rw [gammaSet, ite_eq_left rfl, AggQueryIn.evaluatePlain_castKind, AggQueryIn.evaluatePlain]
+  refine Multiset.map_congr rfl (fun v _ => funext fun j => ?_)
+  show (gsTotalCol m na j).evalPlain v γ = _
+  refine Fin.addCases (fun a => ?_) (fun l => ?_) j
+  · rw [gsTotalCol, Fin.addCases_left, Fin.append_left]
+    rfl
+  · rw [gsTotalCol, Fin.addCases_right, Fin.append_right]
     rfl
 
 /-- **What grouping sets compute over plain relations**: the union of

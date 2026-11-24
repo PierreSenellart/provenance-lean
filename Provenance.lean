@@ -850,7 +850,9 @@ proven engine several general results reuse internally.
   `gammaSets` is SQL's `GROUPING SETS`: the union of one
   aggregation per set of the family, each padded back onto the columns
   of the whole key, so that a key column a set drops reads as the null
-  (`gsRow` says which row each arm contributes). `filterTerm` is SQL's
+  (`gsRow` says which row each arm contributes); the empty set is the
+  grand total, the aggregation with no grouping, which has its row over
+  an empty input. `filterTerm` is SQL's
   `FILTER` clause: the aggregated term read through a `CASE`, which the
   null-skipping and counting input policies then drop, so that
   `gammaFilter` and `winFilter` read exactly the occurrences the clause
