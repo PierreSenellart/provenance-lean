@@ -9,6 +9,7 @@ public import Provenance.Conformance.F1
 public import Provenance.Conformance.F2
 public import Provenance.Conformance.F3
 public import Provenance.Conformance.F4
+public import Provenance.Conformance.F5
 public import Provenance.Conformance.F6
 public import Provenance.Conformance.F7
 

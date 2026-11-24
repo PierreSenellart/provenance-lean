@@ -52,3 +52,43 @@ SELECT id, dept, sal, count(*) OVER (PARTITION BY dept ORDER BY sal DESC) FROM e
 SELECT id, dept, sal FROM emp ORDER BY id LIMIT 2;
 -- name: fetch_with_ties
 SELECT id, dept, sal FROM emp ORDER BY sal DESC NULLS LAST FETCH FIRST 1 ROWS WITH TIES;
+-- name: values_rows
+SELECT * FROM (VALUES (1,2),(1,2),(3,NULL::int)) v;
+-- name: lateral_apply
+SELECT d.d, d.name, e.id FROM dept d, LATERAL (SELECT id FROM emp WHERE emp.dept = d.d) e;
+-- name: group_no_agg
+SELECT dept FROM emp GROUP BY dept;
+-- name: proj_case
+SELECT CASE WHEN x = 1 THEN 10 ELSE 20 END FROM t;
+-- name: proj_coalesce
+SELECT COALESCE(x, 7) FROM t;
+-- name: proj_mul_add
+SELECT x * 2 + x FROM t;
+-- name: agg_filter
+SELECT dept, count(*) FILTER (WHERE sal >= 90) FROM emp GROUP BY dept;
+-- name: agg_distinct
+SELECT dept, count(DISTINCT sal) FROM emp GROUP BY dept;
+-- name: scalar_agg_distinct
+SELECT sum(DISTINCT sal) FROM emp;
+-- name: having_count
+SELECT dept FROM emp GROUP BY dept HAVING count(*) >= 2;
+-- name: having_sum
+SELECT dept FROM emp GROUP BY dept HAVING sum(sal) > 100;
+-- name: where_on_agg
+SELECT dept, c FROM (SELECT dept, count(*) AS c FROM emp GROUP BY dept) g WHERE c = 2;
+-- name: scalar_subquery_max
+SELECT d, name, (SELECT max(sal) FROM emp WHERE emp.dept = dept.d) FROM dept;
+-- name: scalar_subquery_count
+SELECT d, name, (SELECT count(*) FROM emp WHERE emp.dept = dept.d) FROM dept;
+-- name: lag_key
+SELECT id, dept, sal, lag(sal) OVER (ORDER BY id) FROM emp;
+-- name: lead_key
+SELECT id, dept, sal, lead(sal) OVER (ORDER BY id) FROM emp;
+-- name: first_value_part
+SELECT id, dept, sal, first_value(sal) OVER (PARTITION BY dept ORDER BY id) FROM emp;
+-- name: row_number_key
+SELECT id, dept, sal, row_number() OVER (PARTITION BY dept ORDER BY id) FROM emp;
+-- name: limit_offset
+SELECT id, dept, sal FROM emp ORDER BY id LIMIT 2 OFFSET 1;
+-- name: distinct_on
+SELECT DISTINCT ON (dept) id, dept, sal FROM emp ORDER BY dept, id;

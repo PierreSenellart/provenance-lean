@@ -101,4 +101,32 @@ theorem full_join_null_keys_ok : ∀ i,
   revert i
   decide
 
+set_option maxRecDepth 100000 in
+/-- A correlated scalar subquery with an aggregate has its row for every outer row: null over no match.
+```sql
+SELECT d, name, (SELECT max(sal) FROM emp WHERE emp.dept = dept.d) FROM dept;
+```
+-/
+theorem scalar_subquery_max_ok : ∀ i,
+    run i (AggQueryIn.Apply Dept
+        (AggQueryIn.GammaScalar (lab := 0)
+          (rd := (AggQueryIn.Sel sameDept (AggQueryIn.Rel 3 "emp")).readsOuter)
+          ![TermIn.index 2] ![maxAgg] (AggQueryIn.Sel sameDept (AggQueryIn.Rel 3 "emp"))))
+      = rel (scalar_subquery_max i) := by
+  decide
+
+set_option maxRecDepth 100000 in
+/-- The same with a count, which is `0` over no match.
+```sql
+SELECT d, name, (SELECT count(*) FROM emp WHERE emp.dept = dept.d) FROM dept;
+```
+-/
+theorem scalar_subquery_count_ok : ∀ i,
+    run i (AggQueryIn.Apply Dept
+        (AggQueryIn.GammaScalar (lab := 0)
+          (rd := (AggQueryIn.Sel sameDept (AggQueryIn.Rel 3 "emp")).readsOuter)
+          ![TermIn.const (val 1)] ![cnt] (AggQueryIn.Sel sameDept (AggQueryIn.Rel 3 "emp"))))
+      = rel (scalar_subquery_count i) := by
+  decide
+
 end Conformance

@@ -106,4 +106,24 @@ theorem intersect_set_ok : ∀ i,
 theorem intersect_set_level : AggQueryIn.InLevel1 intersect_set_q.toAgg ∧ ¬ intersect_set_q.level0 :=
   ⟨⟨intersect_set_q, by simp [FragQueryIn.level1], rfl⟩, by simp [FragQueryIn.level0]⟩
 
+/-- A `GROUP BY` with no aggregate is a `DISTINCT`: the null key is one group.
+```sql
+SELECT dept FROM emp GROUP BY dept;
+```
+-/
+abbrev group_no_agg_q : FragQuery V 1 :=
+  .Dedup (.Proj ![col 1] (.Rel 3 "emp"))
+
+set_option maxRecDepth 100000 in
+theorem group_no_agg_ok : ∀ i,
+    run i group_no_agg_q.toAgg = rel (group_no_agg i) := by
+  intro i
+  simp only [run]
+  rw [FragQueryIn.toAgg_evaluatePlain]
+  revert i
+  decide
+
+theorem group_no_agg_level : AggQueryIn.InLevel1 group_no_agg_q.toAgg ∧ ¬ group_no_agg_q.level0 :=
+  ⟨⟨group_no_agg_q, by simp [FragQueryIn.level1], rfl⟩, by simp [FragQueryIn.level0]⟩
+
 end Conformance

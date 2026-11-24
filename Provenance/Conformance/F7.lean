@@ -121,4 +121,112 @@ theorem fetch_with_ties_ok : ∀ i,
   revert i
   decide
 
+set_option maxRecDepth 100000 in
+/-- `lag` over an order that is a key: the value on the previous row, null on the first.
+It is the window of `choose` over the rows strictly before, read backwards.
+```sql
+SELECT id, dept, sal, lag(sal) OVER (ORDER BY id) FROM emp;
+```
+-/
+theorem lag_key_ok : ∀ i,
+    run i (AggQueryIn.Win (hsql := sql_frame%) (lab := 0) (rd := fun _ => false) (fun k : Fin 0 => k.elim0) ![0]
+        (OrderSpec.reverse ![OrderCol.ASC]) (ValueFrame.rangeBefore ![OrderCol.ASC])
+        (TermIn.index 2) chooseAgg Emp (winReadsReg_allReg _ _ _))
+      = rel (lag_key i) := by
+  decide
+
+set_option maxRecDepth 100000 in
+/-- `lead`: the value on the next row, null on the last.
+It is the window of `choose` over the rows strictly after.
+```sql
+SELECT id, dept, sal, lead(sal) OVER (ORDER BY id) FROM emp;
+```
+-/
+theorem lead_key_ok : ∀ i,
+    run i (AggQueryIn.Win (hsql := sql_frame%) (lab := 0) (rd := fun _ => false) (fun k : Fin 0 => k.elim0) ![0]
+        ![OrderCol.ASC] (ValueFrame.rangeAfter ![OrderCol.ASC])
+        (TermIn.index 2) chooseAgg Emp (winReadsReg_allReg _ _ _))
+      = rel (lead_key i) := by
+  decide
+
+set_option maxRecDepth 100000 in
+/-- `first_value` reads a null as a value.
+```sql
+SELECT id, dept, sal, first_value(sal) OVER (PARTITION BY dept ORDER BY id) FROM emp;
+```
+-/
+theorem first_value_part_ok : ∀ i,
+    run i (AggQueryIn.firstValue (hsql := sql_frame%) ![1] ![0] ![OrderCol.ASC]
+        (ValueFrame.rangeUpTo ![OrderCol.ASC]) (TermIn.index 2) Emp)
+      = rel (first_value_part i) := by
+  decide
+
+set_option maxRecDepth 100000 in
+/-- `row_number()` over an order that is a key is the rank.
+```sql
+SELECT id, dept, sal, row_number() OVER (PARTITION BY dept ORDER BY id) FROM emp;
+```
+-/
+theorem row_number_key_ok : ∀ i,
+    run i (AggQueryIn.rank cnt ![1] ![0] ![OrderCol.ASC] Emp (winReadsReg_allReg _ _ _))
+      = rel (row_number_key i) := by
+  intro i
+  have h := AggQueryIn.evaluatePlain_rank cnt ![1] ![0] ![OrderCol.ASC] Emp
+    (winReadsReg_allReg _ _ _) (db i)
+  simp only [run]
+  rw [h]
+  clear h
+  revert i
+  decide
+
+set_option maxRecDepth 100000 in
+/-- `LIMIT 2 OFFSET 1` over a key: the rows of rank 2 and 3.
+```sql
+SELECT id, dept, sal FROM emp ORDER BY id LIMIT 2 OFFSET 1;
+```
+-/
+theorem limit_offset_ok : ∀ i,
+    run i (AggQueryIn.truncate cnt (fun k : Fin 0 => k.elim0) ![0] ![OrderCol.ASC]
+        (val 1) (val 3) Emp (winReadsReg_allReg _ _ _))
+      = rel (limit_offset i) := by
+  intro i
+  have h := AggQueryIn.evaluatePlain_truncate cnt (fun k : Fin 0 => k.elim0) ![0]
+    ![OrderCol.ASC] (val 1) (val 3) Emp (winReadsReg_allReg _ _ _) (db i)
+  simp only [run]
+  rw [h]
+  clear h
+  revert i
+  decide
+
+set_option maxRecDepth 100000 in
+/-- `DISTINCT ON (dept) … ORDER BY dept, id`: the first row of each department, the null one included.
+```sql
+SELECT DISTINCT ON (dept) id, dept, sal FROM emp ORDER BY dept, id;
+```
+-/
+theorem distinct_on_ok : ∀ i,
+    run i (AggQueryIn.distinctOn cnt ![1] ![0] ![OrderCol.ASC] Emp (winReadsReg_allReg _ _ _))
+      = rel (distinct_on i) := by
+  intro i
+  have h := AggQueryIn.evaluatePlain_truncate cnt ![1] ![0]
+    ![OrderCol.ASC] (0 : V) (1 : V) Emp (winReadsReg_allReg _ _ _) (db i)
+  simp only [run, AggQueryIn.distinctOn]
+  rw [h]
+  clear h
+  revert i
+  decide
+
+set_option maxRecDepth 100000 in
+/-- **A divergence the suite found.** The library's derived `lag` reads its
+frame through `SeqAggFunc.pickFirst`, whose value over no row is the zero of
+the value type: on the first row it gives `0` where SQL gives the null. -/
+theorem lag_library_zero_on_first_row :
+    run 2 (AggQueryIn.lag (fun k : Fin 0 => k.elim0) ![0] ![OrderCol.ASC] (TermIn.index 2) Emp)
+      = rel [![val 301, val 1, val 10, val 0], ![val 302, val 1, val 20, val 10],
+          ![val 303, val 2, val 20, val 20], ![val 304, val 2, val 20, val 20],
+          ![val 305, val 2, val 5, val 20]]
+      ∧ run 2 (AggQueryIn.lag (fun k : Fin 0 => k.elim0) ![0] ![OrderCol.ASC] (TermIn.index 2) Emp)
+        ≠ rel (lag_key 2) := by
+  decide
+
 end Conformance

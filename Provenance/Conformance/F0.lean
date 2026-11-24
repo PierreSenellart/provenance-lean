@@ -10,6 +10,7 @@ import all Provenance.Database
 import all Provenance.Query
 import all Provenance.AggQuery
 import all Provenance.FragQuery
+import all Provenance.Derived
 
 /-!
 # Conformance with PostgreSQL at `F0`: joins and multiset union
@@ -144,5 +145,40 @@ theorem join_eq_ok : ∀ i,
 
 theorem join_eq_level : AggQueryIn.InLevel0 join_eq_q.toAgg :=
   ⟨join_eq_q, by simp [FragQueryIn.level0], rfl⟩
+
+/-- A `LATERAL` subquery is read once per row of the left side, and a row with no match is dropped.
+```sql
+SELECT d.d, d.name, e.id FROM dept d, LATERAL (SELECT id FROM emp WHERE emp.dept = d.d) e;
+```
+-/
+abbrev lateral_apply_q : FragQuery V 3 :=
+  .Proj ![col 0, col 1, col 2] (.Apply fDept (.Proj ![col 0] (.Sel sameDept (.Rel 3 "emp"))))
+
+set_option maxRecDepth 100000 in
+theorem lateral_apply_ok : ∀ i,
+    run i lateral_apply_q.toAgg = rel (lateral_apply i) := by
+  intro i
+  simp only [run]
+  rw [FragQueryIn.toAgg_evaluatePlain]
+  revert i
+  decide
+
+theorem lateral_apply_level : AggQueryIn.InLevel0 lateral_apply_q.toAgg :=
+  ⟨lateral_apply_q, by simp [FragQueryIn.level0], rfl⟩
+
+set_option maxRecDepth 100000 in
+/-- `VALUES` is a constant relation, duplicates kept.
+```sql
+SELECT * FROM (VALUES (1,2),(1,2),(3,NULL::int)) v;
+```
+-/
+theorem values_rows_ok : ∀ i,
+    run i (AggQueryIn.values [![val 1, val 2], ![val 1, val 2], ![val 3, nil]] (by simp))
+      = rel (values_rows i) := by
+  intro i
+  simp only [run]
+  rw [AggQueryIn.evaluatePlain_values]
+  revert i
+  decide
 
 end Conformance

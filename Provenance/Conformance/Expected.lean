@@ -656,4 +656,418 @@ abbrev fetch_with_ties : Inst → List (Tuple V 3) :=
     ![val 205, val 5, val 70]]
     : List (Tuple V 3))]
 
+/-- PostgreSQL's answers to
+```sql
+SELECT * FROM (VALUES (1,2),(1,2),(3,NULL::int)) v;
+```
+-/
+abbrev values_rows : Inst → List (Tuple V 2) :=
+  ![([![val 1, val 2],
+    ![val 1, val 2],
+    ![val 3, nil]]
+    : List (Tuple V 2)),
+   ([![val 1, val 2],
+    ![val 1, val 2],
+    ![val 3, nil]]
+    : List (Tuple V 2)),
+   ([![val 1, val 2],
+    ![val 1, val 2],
+    ![val 3, nil]]
+    : List (Tuple V 2)),
+   ([![val 1, val 2],
+    ![val 1, val 2],
+    ![val 3, nil]]
+    : List (Tuple V 2))]
+
+/-- PostgreSQL's answers to
+```sql
+SELECT d.d, d.name, e.id FROM dept d, LATERAL (SELECT id FROM emp WHERE emp.dept = d.d) e;
+```
+-/
+abbrev lateral_apply : Inst → List (Tuple V 3) :=
+  ![([![val 1, val 10, val 101],
+    ![val 1, val 10, val 102],
+    ![val 1, val 10, val 103],
+    ![val 2, val 20, val 105],
+    ![val 2, val 20, val 106]]
+    : List (Tuple V 3)),
+   ([] : List (Tuple V 3)),
+   ([![val 1, val 10, val 301],
+    ![val 1, val 10, val 302],
+    ![val 2, val 20, val 303],
+    ![val 2, val 20, val 304],
+    ![val 2, val 20, val 305]]
+    : List (Tuple V 3)),
+   ([![val 3, val 30, val 201],
+    ![val 3, val 30, val 202]]
+    : List (Tuple V 3))]
+
+/-- PostgreSQL's answers to
+```sql
+SELECT dept FROM emp GROUP BY dept;
+```
+-/
+abbrev group_no_agg : Inst → List (Tuple V 1) :=
+  ![([![nil],
+    ![val 2],
+    ![val 1]]
+    : List (Tuple V 1)),
+   ([] : List (Tuple V 1)),
+   ([![val 2],
+    ![val 1]]
+    : List (Tuple V 1)),
+   ([![nil],
+    ![val 3],
+    ![val 5]]
+    : List (Tuple V 1))]
+
+/-- PostgreSQL's answers to
+```sql
+SELECT CASE WHEN x = 1 THEN 10 ELSE 20 END FROM t;
+```
+-/
+abbrev proj_case : Inst → List (Tuple V 1) :=
+  ![([![val 10],
+    ![val 10],
+    ![val 20],
+    ![val 20],
+    ![val 20]]
+    : List (Tuple V 1)),
+   ([] : List (Tuple V 1)),
+   ([![val 10],
+    ![val 20],
+    ![val 20],
+    ![val 20]]
+    : List (Tuple V 1)),
+   ([![val 20]]
+    : List (Tuple V 1))]
+
+/-- PostgreSQL's answers to
+```sql
+SELECT COALESCE(x, 7) FROM t;
+```
+-/
+abbrev proj_coalesce : Inst → List (Tuple V 1) :=
+  ![([![val 1],
+    ![val 1],
+    ![val 2],
+    ![val 7],
+    ![val 7]]
+    : List (Tuple V 1)),
+   ([] : List (Tuple V 1)),
+   ([![val 1],
+    ![val 2],
+    ![val 2],
+    ![val 3]]
+    : List (Tuple V 1)),
+   ([![val 7]]
+    : List (Tuple V 1))]
+
+/-- PostgreSQL's answers to
+```sql
+SELECT x * 2 + x FROM t;
+```
+-/
+abbrev proj_mul_add : Inst → List (Tuple V 1) :=
+  ![([![val 3],
+    ![val 3],
+    ![val 6],
+    ![nil],
+    ![nil]]
+    : List (Tuple V 1)),
+   ([] : List (Tuple V 1)),
+   ([![val 3],
+    ![val 6],
+    ![val 6],
+    ![val 9]]
+    : List (Tuple V 1)),
+   ([![nil]]
+    : List (Tuple V 1))]
+
+/-- PostgreSQL's answers to
+```sql
+SELECT dept, count(*) FILTER (WHERE sal >= 90) FROM emp GROUP BY dept;
+```
+-/
+abbrev agg_filter : Inst → List (Tuple V 2) :=
+  ![([![nil, val 0],
+    ![val 2, val 0],
+    ![val 1, val 3]]
+    : List (Tuple V 2)),
+   ([] : List (Tuple V 2)),
+   ([![val 2, val 0],
+    ![val 1, val 0]]
+    : List (Tuple V 2)),
+   ([![nil, val 0],
+    ![val 3, val 0],
+    ![val 5, val 0]]
+    : List (Tuple V 2))]
+
+/-- PostgreSQL's answers to
+```sql
+SELECT dept, count(DISTINCT sal) FROM emp GROUP BY dept;
+```
+-/
+abbrev agg_distinct : Inst → List (Tuple V 2) :=
+  ![([![val 1, val 2],
+    ![val 2, val 1],
+    ![nil, val 0]]
+    : List (Tuple V 2)),
+   ([] : List (Tuple V 2)),
+   ([![val 1, val 2],
+    ![val 2, val 2]]
+    : List (Tuple V 2)),
+   ([![val 3, val 0],
+    ![val 5, val 1],
+    ![nil, val 1]]
+    : List (Tuple V 2))]
+
+/-- PostgreSQL's answers to
+```sql
+SELECT sum(DISTINCT sal) FROM emp;
+```
+-/
+abbrev scalar_agg_distinct : Inst → List (Tuple V 1) :=
+  ![([![val 240]]
+    : List (Tuple V 1)),
+   ([![nil]]
+    : List (Tuple V 1)),
+   ([![val 35]]
+    : List (Tuple V 1)),
+   ([![val 70]]
+    : List (Tuple V 1))]
+
+/-- PostgreSQL's answers to
+```sql
+SELECT dept FROM emp GROUP BY dept HAVING count(*) >= 2;
+```
+-/
+abbrev having_count : Inst → List (Tuple V 1) :=
+  ![([![val 2],
+    ![val 1]]
+    : List (Tuple V 1)),
+   ([] : List (Tuple V 1)),
+   ([![val 2],
+    ![val 1]]
+    : List (Tuple V 1)),
+   ([![val 3],
+    ![val 5]]
+    : List (Tuple V 1))]
+
+/-- PostgreSQL's answers to
+```sql
+SELECT dept FROM emp GROUP BY dept HAVING sum(sal) > 100;
+```
+-/
+abbrev having_sum : Inst → List (Tuple V 1) :=
+  ![([![val 1]]
+    : List (Tuple V 1)),
+   ([] : List (Tuple V 1)),
+   ([] : List (Tuple V 1)),
+   ([![val 5]]
+    : List (Tuple V 1))]
+
+/-- PostgreSQL's answers to
+```sql
+SELECT dept, c FROM (SELECT dept, count(*) AS c FROM emp GROUP BY dept) g WHERE c = 2;
+```
+-/
+abbrev where_on_agg : Inst → List (Tuple V 2) :=
+  ![([![val 2, val 2]]
+    : List (Tuple V 2)),
+   ([] : List (Tuple V 2)),
+   ([![val 1, val 2]]
+    : List (Tuple V 2)),
+   ([![val 3, val 2],
+    ![val 5, val 2]]
+    : List (Tuple V 2))]
+
+/-- PostgreSQL's answers to
+```sql
+SELECT d, name, (SELECT max(sal) FROM emp WHERE emp.dept = dept.d) FROM dept;
+```
+-/
+abbrev scalar_subquery_max : Inst → List (Tuple V 3) :=
+  ![([![val 1, val 10, val 100],
+    ![val 2, val 20, val 50],
+    ![nil, val 30, nil]]
+    : List (Tuple V 3)),
+   ([] : List (Tuple V 3)),
+   ([![val 1, val 10, val 20],
+    ![val 2, val 20, val 20],
+    ![val 3, val 30, nil]]
+    : List (Tuple V 3)),
+   ([![val 1, val 10, nil],
+    ![val 1, val 10, nil],
+    ![val 3, val 30, nil],
+    ![nil, val 40, nil],
+    ![nil, val 40, nil]]
+    : List (Tuple V 3))]
+
+/-- PostgreSQL's answers to
+```sql
+SELECT d, name, (SELECT count(*) FROM emp WHERE emp.dept = dept.d) FROM dept;
+```
+-/
+abbrev scalar_subquery_count : Inst → List (Tuple V 3) :=
+  ![([![val 1, val 10, val 3],
+    ![val 2, val 20, val 2],
+    ![nil, val 30, val 0]]
+    : List (Tuple V 3)),
+   ([] : List (Tuple V 3)),
+   ([![val 1, val 10, val 2],
+    ![val 2, val 20, val 3],
+    ![val 3, val 30, val 0]]
+    : List (Tuple V 3)),
+   ([![val 1, val 10, val 0],
+    ![val 1, val 10, val 0],
+    ![val 3, val 30, val 2],
+    ![nil, val 40, val 0],
+    ![nil, val 40, val 0]]
+    : List (Tuple V 3))]
+
+/-- PostgreSQL's answers to
+```sql
+SELECT id, dept, sal, lag(sal) OVER (ORDER BY id) FROM emp;
+```
+-/
+abbrev lag_key : Inst → List (Tuple V 4) :=
+  ![([![val 101, val 1, val 100, nil],
+    ![val 102, val 1, val 100, val 100],
+    ![val 103, val 1, val 90, val 100],
+    ![val 104, nil, nil, val 90],
+    ![val 105, val 2, val 50, nil],
+    ![val 106, val 2, nil, val 50]]
+    : List (Tuple V 4)),
+   ([] : List (Tuple V 4)),
+   ([![val 301, val 1, val 10, nil],
+    ![val 302, val 1, val 20, val 10],
+    ![val 303, val 2, val 20, val 20],
+    ![val 304, val 2, val 20, val 20],
+    ![val 305, val 2, val 5, val 20]]
+    : List (Tuple V 4)),
+   ([![val 201, val 3, nil, nil],
+    ![val 202, val 3, nil, nil],
+    ![val 203, nil, val 70, nil],
+    ![val 204, val 5, val 70, val 70],
+    ![val 205, val 5, val 70, val 70]]
+    : List (Tuple V 4))]
+
+/-- PostgreSQL's answers to
+```sql
+SELECT id, dept, sal, lead(sal) OVER (ORDER BY id) FROM emp;
+```
+-/
+abbrev lead_key : Inst → List (Tuple V 4) :=
+  ![([![val 101, val 1, val 100, val 100],
+    ![val 102, val 1, val 100, val 90],
+    ![val 103, val 1, val 90, nil],
+    ![val 104, nil, nil, val 50],
+    ![val 105, val 2, val 50, nil],
+    ![val 106, val 2, nil, nil]]
+    : List (Tuple V 4)),
+   ([] : List (Tuple V 4)),
+   ([![val 301, val 1, val 10, val 20],
+    ![val 302, val 1, val 20, val 20],
+    ![val 303, val 2, val 20, val 20],
+    ![val 304, val 2, val 20, val 5],
+    ![val 305, val 2, val 5, nil]]
+    : List (Tuple V 4)),
+   ([![val 201, val 3, nil, nil],
+    ![val 202, val 3, nil, val 70],
+    ![val 203, nil, val 70, val 70],
+    ![val 204, val 5, val 70, val 70],
+    ![val 205, val 5, val 70, nil]]
+    : List (Tuple V 4))]
+
+/-- PostgreSQL's answers to
+```sql
+SELECT id, dept, sal, first_value(sal) OVER (PARTITION BY dept ORDER BY id) FROM emp;
+```
+-/
+abbrev first_value_part : Inst → List (Tuple V 4) :=
+  ![([![val 101, val 1, val 100, val 100],
+    ![val 102, val 1, val 100, val 100],
+    ![val 103, val 1, val 90, val 100],
+    ![val 105, val 2, val 50, val 50],
+    ![val 106, val 2, nil, val 50],
+    ![val 104, nil, nil, nil]]
+    : List (Tuple V 4)),
+   ([] : List (Tuple V 4)),
+   ([![val 301, val 1, val 10, val 10],
+    ![val 302, val 1, val 20, val 10],
+    ![val 303, val 2, val 20, val 20],
+    ![val 304, val 2, val 20, val 20],
+    ![val 305, val 2, val 5, val 20]]
+    : List (Tuple V 4)),
+   ([![val 201, val 3, nil, nil],
+    ![val 202, val 3, nil, nil],
+    ![val 204, val 5, val 70, val 70],
+    ![val 205, val 5, val 70, val 70],
+    ![val 203, nil, val 70, val 70]]
+    : List (Tuple V 4))]
+
+/-- PostgreSQL's answers to
+```sql
+SELECT id, dept, sal, row_number() OVER (PARTITION BY dept ORDER BY id) FROM emp;
+```
+-/
+abbrev row_number_key : Inst → List (Tuple V 4) :=
+  ![([![val 101, val 1, val 100, val 1],
+    ![val 102, val 1, val 100, val 2],
+    ![val 103, val 1, val 90, val 3],
+    ![val 105, val 2, val 50, val 1],
+    ![val 106, val 2, nil, val 2],
+    ![val 104, nil, nil, val 1]]
+    : List (Tuple V 4)),
+   ([] : List (Tuple V 4)),
+   ([![val 301, val 1, val 10, val 1],
+    ![val 302, val 1, val 20, val 2],
+    ![val 303, val 2, val 20, val 1],
+    ![val 304, val 2, val 20, val 2],
+    ![val 305, val 2, val 5, val 3]]
+    : List (Tuple V 4)),
+   ([![val 201, val 3, nil, val 1],
+    ![val 202, val 3, nil, val 2],
+    ![val 204, val 5, val 70, val 1],
+    ![val 205, val 5, val 70, val 2],
+    ![val 203, nil, val 70, val 1]]
+    : List (Tuple V 4))]
+
+/-- PostgreSQL's answers to
+```sql
+SELECT id, dept, sal FROM emp ORDER BY id LIMIT 2 OFFSET 1;
+```
+-/
+abbrev limit_offset : Inst → List (Tuple V 3) :=
+  ![([![val 102, val 1, val 100],
+    ![val 103, val 1, val 90]]
+    : List (Tuple V 3)),
+   ([] : List (Tuple V 3)),
+   ([![val 302, val 1, val 20],
+    ![val 303, val 2, val 20]]
+    : List (Tuple V 3)),
+   ([![val 202, val 3, nil],
+    ![val 203, nil, val 70]]
+    : List (Tuple V 3))]
+
+/-- PostgreSQL's answers to
+```sql
+SELECT DISTINCT ON (dept) id, dept, sal FROM emp ORDER BY dept, id;
+```
+-/
+abbrev distinct_on : Inst → List (Tuple V 3) :=
+  ![([![val 101, val 1, val 100],
+    ![val 105, val 2, val 50],
+    ![val 104, nil, nil]]
+    : List (Tuple V 3)),
+   ([] : List (Tuple V 3)),
+   ([![val 301, val 1, val 10],
+    ![val 303, val 2, val 20]]
+    : List (Tuple V 3)),
+   ([![val 201, val 3, nil],
+    ![val 204, val 5, val 70],
+    ![val 203, nil, val 70]]
+    : List (Tuple V 3))]
+
 end Conformance

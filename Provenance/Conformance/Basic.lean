@@ -77,6 +77,12 @@ abbrev maxAgg : SeqAggFunc V := SeqAggFunc.sqlOf (fun l => val ((l.map natOf).ma
 abbrev sameDept : GenPredIn V 2 (ColKind.allReg 3) :=
   GenPredIn.cmp CompOp.eq (TermGIn.index 1 rfl) (TermGIn.outer 0)
 
+/-- `choose`: the first value of the sequence, a null read as a value, and
+null over no row. It is what `lag`, `lead` and `first_value` read a frame
+through. The library's `SeqAggFunc.pickFirst` gives the zero of the value
+type over no row, which here is `0` and not the null. -/
+abbrev chooseAgg : SeqAggFunc V := fun l => l.headD nil
+
 /-! ### The same in the fragment syntax of the first levels -/
 
 abbrev fT : FragQuery V 1 := .Rel 1 "t"
