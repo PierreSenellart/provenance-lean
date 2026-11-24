@@ -1280,6 +1280,57 @@ private theorem evaluatePlain_gammaSet_singleton {lab : ℕ} {rd} (is : Tuple (F
       rfl
   rw [hkey, hrow]
 
+/-- The row a grouping set's padding builds, the set being given by the
+position `pos` of each key column in it: the group's key where the column
+is in the set, the null where it is not, then the aggregates. -/
+def gsRowPos {r : ℕ} (pos : Fin m → Option (Fin r)) (na : ℕ) (v : Tuple T (r + na)) :
+    Tuple T (m + na) :=
+  Fin.addCases
+    (fun a : Fin m => match pos a with
+      | some x => v (Fin.castAdd na x)
+      | none => ValueTypeNull.null)
+    (fun l : Fin na => v (Fin.natAdd r l))
+
+/-- **What a grouping set computes over plain relations, the set being
+given by its increasing enumeration**: the rows of the aggregation on the
+columns `e` lists, padded. `e` lists the set in increasing order and `pos`
+inverts it, which is what `evaluatePlain_gammaSet` reaches through the
+enumeration of the set, and that one does not compute. For a set written
+out, as in `ROLLUP` and `CUBE`, the four conditions are decided. -/
+private theorem evaluatePlain_gammaSet_enum {lab : ℕ} {rd} (is : Tuple (Fin k) m)
+    (ts : Tuple (TermIn T c k) na) (fs : Tuple (SeqAggFunc T) na)
+    (S : Finset (Fin m)) (hS : S ≠ ∅)
+    (e : Fin S.card → Fin m) (he : StrictMono e) (hmem : ∀ x, e x ∈ S)
+    (pos : Fin m → Option (Fin S.card)) (hpos : ∀ x, pos (e x) = some x)
+    (hout : ∀ a, a ∉ S → pos a = none)
+    (q : AggQueryIn T c k (ColKind.allReg k))
+    (D : Database T) {γ : Fin c → T} :
+    (gammaSet is ts fs S q).evaluatePlain D γ
+      = ((Gamma (lab := lab) (rd := rd) (fun x => is (e x)) ts fs
+          q).evaluatePlain D γ).map (gsRowPos pos na) := by
+  rw [evaluatePlain_gammaSet (lab := lab) (rd := rd) is ts fs S hS]
+  have he' : e = S.orderEmbOfFin rfl := Finset.orderEmbOfFin_unique rfl hmem he
+  have hiso : ∀ x, ((S.orderIsoOfFin rfl) x : Fin m) = e x := fun x => by
+    rw [he']; rfl
+  have hkey : (fun x => is ((S.orderIsoOfFin rfl) x)) = fun x => is (e x) :=
+    funext fun x => congrArg is (hiso x)
+  have hrow : gsRow (T := T) S na = gsRowPos pos na := by
+    funext v j
+    refine Fin.addCases (fun a => ?_) (fun l => ?_) j
+    · rw [gsRow, Fin.addCases_left, gsRowPos, Fin.addCases_left]
+      by_cases ha : a ∈ S
+      · have hea : e (gsPos S a ha) = a := by
+          rw [← hiso]
+          show ((S.orderIsoOfFin rfl) ((S.orderIsoOfFin rfl).symm ⟨a, ha⟩) : Fin m) = a
+          rw [OrderIso.apply_symm_apply]
+        have hp : pos a = some (gsPos S a ha) := by
+          have := hpos (gsPos S a ha)
+          rwa [hea] at this
+        simp only [ha, ↓reduceDIte, hp]
+      · simp only [ha, ↓reduceDIte, hout a ha]
+    · rw [gsRow, Fin.addCases_right, gsRowPos, Fin.addCases_right]
+  rw [hkey, hrow]
+
 /-- **What the empty grouping set computes over plain relations**: the one
 row of the aggregation with no grouping, behind a null on every key
 column. It is there over an empty input. -/
