@@ -92,6 +92,77 @@ theorem collapse_ofValues {p : ℕ} (a : Fin (p + 1) → AggValue T K)
     simp [reads, ofValues]
   rw [leafSeq, Finset.univ_inter, hreads, Having.seqOf_univ, occs_map_leaf_ofValues a g ha j]
 
+/-- Two lists with the same image select the same image, the positions
+being carried to each along its length. -/
+private theorem seqOf_map_eq {α β γ : Type} {L₁ : List α} {L₂ : List β} (f : α → γ)
+    (g' : β → γ) (h : L₁.map f = L₂.map g') {N : ℕ} (h₁ : N = L₁.length)
+    (h₂ : N = L₂.length) (S : Finset (Fin N)) :
+    (Having.seqOf L₁ (S.map (finCongr h₁).toEmbedding)).map f
+      = (Having.seqOf L₂ (S.map (finCongr h₂).toEmbedding)).map g' := by
+  subst h₁
+  have e₁ : L₁.length = (L₁.map f).length := by simp
+  have e₂ : L₂.length = (L₂.map g').length := by simp
+  rw [← AggValue.seqOf_map f L₁ e₁, ← AggValue.seqOf_map g' L₂ e₂, Having.seqOf_congr_list h]
+  refine congrArg _ ?_
+  ext x
+  simp only [Finset.mem_map_equiv, finCongr_symm, finCongr_apply]
+  rfl
+
+/-- The lengths of aligned values agree. -/
+theorem _root_.AggValue.Aligned.length_eq {p : ℕ} {a : Fin (p + 1) → AggValue T K}
+    (ha : AggValue.Aligned a) (j : Fin (p + 1)) :
+    (a 0).occs.length = (a j).occs.length := by
+  have := congrArg List.length (ha j)
+  simpa using this.symm
+
+/-- **The value of the expression in a world is the term of the values of
+its leaves in that world**: every aggregate is read in the same one. -/
+theorem valOn_ofValues {p : ℕ} (a : Fin (p + 1) → AggValue T K)
+    (g : (Fin (p + 1) → T) → T) (ha : AggValue.Aligned a)
+    (W : Finset (Fin (a 0).occs.length)) :
+    (ofValues a g).valOn (W.map (finCongr (length_occs_ofValues a g).symm).toEmbedding)
+      = g (fun j => (a j).valOn (W.map (finCongr (ha.length_eq j)).toEmbedding)) := by
+  unfold valOn
+  refine congrArg g (funext fun j => ?_)
+  show (a j).agg ((ofValues a g).leafSeq j _) = (a j).agg _
+  refine congrArg (a j).agg ?_
+  have hreads : (ofValues a g).reads j = Finset.univ := by
+    ext i
+    simp [reads, ofValues]
+  rw [leafSeq, hreads, Finset.inter_univ]
+  exact seqOf_map_eq (L₁ := (ofValues a g).occs) (L₂ := (a j).occs) (fun o => o.fst j) Prod.fst
+    (occs_map_leaf_ofValues a g ha j) _ _ W
+
+/-- **The worlds of the expression** are the non-empty subfamilies, and
+the empty one too when every leaf is scalar. -/
+theorem isWorld_ofValues {p : ℕ} (a : Fin (p + 1) → AggValue T K)
+    (g : (Fin (p + 1) → T) → T) (W : Finset (Fin (ofValues a g).occs.length)) :
+    (ofValues a g).IsWorld W ↔ ((∀ j, (a j).scalar = true) ∨ W.Nonempty) := by
+  have hframe : ∀ j, (ofValues a g).inFrame j = Finset.univ := fun j => by
+    ext i
+    simp [inFrame, ofValues]
+  unfold IsWorld
+  simp only [hframe, Finset.inter_univ]
+  constructor
+  · intro h
+    by_cases hs : ∀ j, (a j).scalar = true
+    · exact Or.inl hs
+    · obtain ⟨j, hj⟩ := not_forall.mp hs
+      have hj' : (a j).scalar = false := by simpa using hj
+      exact Or.inr (h j hj')
+  · rintro (hs | hW) j hj
+    · have hj' : (a j).scalar = false := hj
+      rw [hs j] at hj'
+      exact absurd hj' (by decide)
+    · exact hW
+
+/-- The annotations of the expression's occurrences are those of the first
+value's. -/
+theorem anns_ofValues {p : ℕ} (a : Fin (p + 1) → AggValue T K)
+    (g : (Fin (p + 1) → T) → T) (i : Fin (a 0).occs.length) :
+    (ofValues a g).anns (finCongr (length_occs_ofValues a g).symm i) = (a 0).anns i := by
+  simp [anns, ofValues, AggValue.anns]
+
 /-- **Mapping the annotations commutes with the construction**: the
 expression over the mapped values is the mapped expression. It is what a
 homomorphism of semirings does to both, and it asks nothing of the map. -/
