@@ -493,6 +493,32 @@ def pickNth (i : ℕ) : SeqAggFunc T := fun L => L.getD i 0
 @[simp] private theorem pickNth_zero : (pickNth 0 : SeqAggFunc T) = pickFirst := by
   funext L; cases L <;> rfl
 
+/-- **`choose`**, the null-keeping reading of `PICKFIRST` on a domain with a
+null: the first value of the sequence, a null read as the value it is, and
+the null over no row. It is the aggregate SQL's `first_value`, `last_value`,
+`lag` and `lead` read a frame through, and a scalar subquery its rows:
+each gives `NULL` where there is no row to read. `pickFirst` gives the zero
+of the domain there, which on a domain with a null is another value. -/
+def choose {V : Type} [ValueTypeNull V] : SeqAggFunc V := fun L => L.headD ValueTypeNull.null
+
+/-- **`choose` at an offset**: the value at offset `i` of the sequence,
+counting from `0`, and the null where the sequence is shorter. It is what
+`nth_value`, `lag(t, k)` and `lead(t, k)` read a frame through. -/
+def chooseNth {V : Type} [ValueTypeNull V] (i : ℕ) : SeqAggFunc V :=
+  fun L => L.getD i ValueTypeNull.null
+
+@[simp] private theorem chooseNth_zero {V : Type} [ValueTypeNull V] :
+    (chooseNth 0 : SeqAggFunc V) = choose := by
+  funext L; cases L <;> rfl
+
+/-- Over no row `choose` is the null. -/
+@[simp] private theorem choose_nil {V : Type} [ValueTypeNull V] :
+    (choose : SeqAggFunc V) [] = ValueTypeNull.null := rfl
+
+/-- Over a row `choose` is its value, null or not. -/
+@[simp] private theorem choose_cons {V : Type} [ValueTypeNull V] (a : V) (L : List V) :
+    (choose : SeqAggFunc V) (a :: L) = a := rfl
+
 /-- **SQL's reading of an aggregate on a domain with a null**: skip the
 nulls, and give `NULL` when nothing is left. `SUM`, `MIN` and `MAX` are read
 this way. `COUNT` is not: it gives `0` over no row, which is what the

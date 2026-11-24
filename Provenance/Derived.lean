@@ -594,18 +594,19 @@ end Semijoin
 
 `first_value` and `last_value` read one end of a frame; `lag` and `lead`
 read the frames of the rows strictly before and strictly after. All four
-are the window operator with `PICKFIRST`, the aggregate that takes the
-first value of the sequence it is given, so what tells them apart is the
-frame and the order the frame is read in – the two jobs the clause does,
+are the window operator with `choose`, the aggregate that takes the
+first value of the sequence it is given and the null over no row, so what
+tells them apart is the frame and the order the frame is read in – the two
+jobs the clause does,
 which the window operator keeps separate because the frame is an
 argument of its own. A value at an offset other than one needs an
-aggregate that reads a position other than the end, `SeqAggFunc.pickNth`,
+aggregate that reads a position other than the end, `SeqAggFunc.chooseNth`,
 and `nthValue`, `lagAt` and `leadAt` are the same three queries over
 it. -/
 
 section Offset
 
-variable [ValueType T] {n m p : ℕ}
+variable [ValueTypeNull T] {n m p : ℕ}
 
 /-- `first_value(t)` over the frame `w`: the value of `t` on the first row
 of the frame in the clause's order. -/
@@ -613,7 +614,7 @@ def firstValue (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
     (w : ValueFrame T p) {hsql : w.IsSQL o} (t : Term T n)
     (q : AggQuery T n (ColKind.allReg n)) :
     AggQuery T (n + 1) (Fin.snoc (ColKind.allReg n) ColKind.agg) :=
-  Win (hsql := sql_frame%) (lab := 0) (rd := fun _ => false) P O o w t SeqAggFunc.pickFirst q
+  Win (hsql := sql_frame%) (lab := 0) (rd := fun _ => false) P O o w t SeqAggFunc.choose q
     (winReadsReg_allReg P O t)
 
 /-- `last_value(t)`: the same frame, read backwards. Only the reading
@@ -624,7 +625,7 @@ def lastValue (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
     (q : AggQuery T n (ColKind.allReg n)) :
     AggQuery T (n + 1) (Fin.snoc (ColKind.allReg n) ColKind.agg) :=
   Win (hsql := sql_frame%) (lab := 0) (rd := fun _ =>
-      false) P O o.reverse w t SeqAggFunc.pickFirst q (winReadsReg_allReg P O t)
+      false) P O o.reverse w t SeqAggFunc.choose q (winReadsReg_allReg P O t)
 
 /-- `lag(t)`: `last_value` over the rows strictly before the current
 row's peers. This is SQL's `lag` when the order has no peers within a
@@ -652,7 +653,7 @@ def nthValue (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
     (w : ValueFrame T p) {hsql : w.IsSQL o} (i : ℕ) (t : Term T n)
     (q : AggQuery T n (ColKind.allReg n)) :
     AggQuery T (n + 1) (Fin.snoc (ColKind.allReg n) ColKind.agg) :=
-  Win (hsql := sql_frame%) (lab := 0) (rd := fun _ => false) P O o w t (SeqAggFunc.pickNth i) q
+  Win (hsql := sql_frame%) (lab := 0) (rd := fun _ => false) P O o w t (SeqAggFunc.chooseNth i) q
     (winReadsReg_allReg P O
       t)
 
@@ -675,14 +676,14 @@ private theorem lagAt_zero (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
     (q : AggQuery T n (ColKind.allReg n)) :
     lagAt P O o 0 t q = lag P O o t q := by
   unfold lagAt nthValue lag lastValue
-  rw [SeqAggFunc.pickNth_zero]
+  rw [SeqAggFunc.chooseNth_zero]
 
 private theorem leadAt_zero (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
     (o : OrderSpec p) (t : Term T n)
     (q : AggQuery T n (ColKind.allReg n)) :
     leadAt P O o 0 t q = lead P O o t q := by
   unfold leadAt nthValue lead firstValue
-  rw [SeqAggFunc.pickNth_zero]
+  rw [SeqAggFunc.chooseNth_zero]
 
 end Offset
 

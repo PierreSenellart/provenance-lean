@@ -821,10 +821,11 @@ proven engine several general results reuse internally.
   so that a row with no match still has its row, with count `𝟘`;
   comparing that count against `𝟘` is what tells the two apart.
   `firstValue`, `lastValue`, `lag` and `lead` are the window operator
-  with `PICKFIRST`: what tells them apart is the frame and the order it
+  with `choose` (`SeqAggFunc.choose`), the first value of a sequence and
+  the null over no row: what tells them apart is the frame and the order it
   is read in, which the operator keeps separate because the frame is an
   argument of its own; `nthValue`, `lagAt` and `leadAt` are the same
-  three over `SeqAggFunc.pickNth`, which reads a position of the frame
+  three over `SeqAggFunc.chooseNth`, which reads a position of the frame
   other than its end – so `lastValue` reverses the reading clause and
   leaves a clause-bounded frame bounded as it stands. `rank` is one plus
   the count over the rows the clause sorts strictly before the current
