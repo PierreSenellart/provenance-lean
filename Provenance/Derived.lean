@@ -1243,6 +1243,43 @@ private theorem evaluatePlain_gammaSet {lab : ℕ} {rd} (is : Tuple (Fin k) m)
   · rw [gsCol, Fin.addCases_right, gsRow, Fin.addCases_right]
     rfl
 
+/-- The row a one-column grouping set's padding builds: the group's key on
+that column, the null on the others, then the aggregates. -/
+def gsRowSingle (a : Fin m) (na : ℕ) (v : Tuple T (1 + na)) : Tuple T (m + na) :=
+  Fin.addCases
+    (fun b : Fin m => if b = a then v (Fin.castAdd na 0) else ValueTypeNull.null)
+    (fun l : Fin na => v (Fin.natAdd 1 l))
+
+/-- **What a grouping set of one column computes over plain relations**:
+the rows of the aggregation on that column, padded. The statement names the
+column, where `evaluatePlain_gammaSet` reaches it through the enumeration of
+the set, which does not compute. -/
+private theorem evaluatePlain_gammaSet_singleton {lab : ℕ} {rd} (is : Tuple (Fin k) m)
+    (ts : Tuple (TermIn T c k) na) (fs : Tuple (SeqAggFunc T) na)
+    (a : Fin m) (q : AggQueryIn T c k (ColKind.allReg k))
+    (D : Database T) {γ : Fin c → T} :
+    (gammaSet is ts fs {a} q).evaluatePlain D γ
+      = ((Gamma (lab := lab) (rd := rd) (fun _ : Fin 1 => is a) ts fs
+          q).evaluatePlain D γ).map (gsRowSingle a na) := by
+  rw [evaluatePlain_gammaSet (lab := lab) (rd := rd) is ts fs {a}
+    (Finset.singleton_ne_empty a)]
+  have hkey : (fun x : Fin ({a} : Finset (Fin m)).card =>
+      is ((({a} : Finset (Fin m)).orderIsoOfFin rfl) x)) = fun _ : Fin 1 => is a := by
+    funext x
+    exact congrArg is (Finset.mem_singleton.mp
+      ((({a} : Finset (Fin m)).orderIsoOfFin rfl) x).2)
+  have hrow : gsRow (T := T) ({a} : Finset (Fin m)) na = gsRowSingle a na := by
+    funext v j
+    refine Fin.addCases (fun b => ?_) (fun l => ?_) j
+    · rw [gsRow, Fin.addCases_left, gsRowSingle, Fin.addCases_left]
+      by_cases hb : b = a
+      · rw [dite_eq_left (Finset.mem_singleton.mpr hb), ite_eq_left hb]
+        exact congrArg v (congrArg (Fin.castAdd na) (Subsingleton.elim (α := Fin 1) _ _))
+      · rw [dite_eq_right (fun h => hb (Finset.mem_singleton.mp h)), ite_eq_right hb]
+    · rw [gsRow, Fin.addCases_right, gsRowSingle, Fin.addCases_right]
+      rfl
+  rw [hkey, hrow]
+
 /-- **What the empty grouping set computes over plain relations**: the one
 row of the aggregation with no grouping, behind a null on every key
 column. It is there over an empty input. -/
