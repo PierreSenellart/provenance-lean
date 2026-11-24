@@ -2483,6 +2483,7 @@ structure HomUniv (𝒰₀ : AggTok T K → Prop) (𝒰₀' : AggTok T K' → Pr
   t : ∀ x, 𝒰₀ x → x.fam.terms' = []
   t' : ∀ x, 𝒰₀' x → x.fam.terms' = []
   m : ∀ x, 𝒰₀ x → x.fam.IsBase
+  m' : ∀ x, 𝒰₀' x → x.fam.IsBase
   fn : FamFun (TermCl 𝒰₀)
   fn' : FamFun (TermCl 𝒰₀')
   key : FamKeyed (TermCl 𝒰₀)
@@ -2706,13 +2707,14 @@ private theorem classPres_row {h : SemiringWithMonusHom K K'} {𝒰₀ : AggTok 
         ∃ b b', x = .nest b ∧ x' = .nest b' ∧ NestRelU h 𝒰₀ 𝒰₀' b' b))
     (j₀ : Fin w) {x₀ : AggTok T K} (hx₀ : r.fst (col j₀) = Sum.inr x₀) :
     ClassPres h 𝒰₀ 𝒰₀' x₀ := by
-  -- every pair of the class is a term over one of the row's pairs
-  have hcls : ∀ q, GPair 𝒰₀ 𝒰₀' q → q.2.classKey = x₀.classKey →
+  -- a pair of the universes whose two roots are built values is a term over one of the
+  -- row's pairs
+  have hbase : ∀ q : AggTok T K' × AggTok T K, q.1.fam = q.2.fam → q.2.classKey = x₀.classKey →
+      ∀ y₀ y₀', 𝒰₀ y₀ → y₀.fam = q.2.fam.root → q.2 = y₀.postcompTerms q.2.fam.terms' →
+        𝒰₀' y₀' → y₀'.fam = q.1.fam.root → q.1 = y₀'.postcompTerms q.1.fam.terms' →
       ∃ j z' z, r'.fst (col j) = Sum.inr z' ∧ r.fst (col j) = Sum.inr z ∧
         q = (z'.postcompTerms q.2.fam.terms', z.postcompTerms q.2.fam.terms') := by
-    intro q ⟨hq1, hq2, hqf⟩ hk
-    obtain ⟨y₀, hy₀, hry, hey⟩ := hq2.root hU.t
-    obtain ⟨y₀', hy₀', hry', hey'⟩ := hq1.root hU.t'
+    intro q hqf hk y₀ y₀' hy₀ hry hey hy₀' hry' hey'
     obtain ⟨z₀, hz₀, -, hz₀f⟩ := hz j₀
     rw [hx₀, Sum.inr.injEq] at hz₀
     subst hz₀
@@ -2735,20 +2737,69 @@ private theorem classPres_row {h : SemiringWithMonusHom K K'} {𝒰₀ : AggTok 
     · exact hey'.trans (by rw [hyz', hqf])
     · exact hey.trans (by rw [hyz])
   rcases hD with ⟨D, hD⟩ | hN
-  · refine Or.inl ⟨D, fun q hq hk => ?_⟩
-    obtain ⟨j, z', z, h1, h2, he⟩ := hcls q hq hk
-    rw [he]
-    exact (hD j z' z h1 h2).postcompTerms _
+  · refine Or.inl ⟨D, ?_⟩
+    -- every pair of the class is a member of the listing, by induction on its identifier:
+    -- a term over one of the row's pairs, or a term over two pairs of the class
+    have key : ∀ N, ∀ q, GPair 𝒰₀ 𝒰₀' q → q.2.classKey = x₀.classKey → sizeOf q.2.fam < N →
+        D.Member q.1 q.2 := by
+      intro N
+      induction N with
+      | zero => intro q _ _ h; exact absurd h (Nat.not_lt_zero _)
+      | succ N ih =>
+        intro q hq hk hN
+        obtain ⟨hq1, hq2, hqf⟩ := hq
+        rcases hq2.root hU.t with ⟨y₀, hy₀, hry, hey⟩ | ⟨u, a, b, ha, hb, hna, hnb, hkab, hrx, hex⟩
+        · rcases hq1.root hU.t' with ⟨y₀', hy₀', hry', hey'⟩ | ⟨u', a', b', -, -, -, -, -, hrx', -⟩
+          · obtain ⟨j, z', z, h1, h2, he⟩ := hbase q hqf hk y₀ y₀' hy₀ hry hey hy₀' hry' hey'
+            rw [he]
+            exact (hD j z' z h1 h2).postcompTerms _
+          · obtain ⟨l, k, p, c, hmk⟩ := hU.m y₀ hy₀
+            rw [hry, ← hqf, hrx'] at hmk
+            cases hmk
+        · rcases hq1.root hU.t' with ⟨y₀', hy₀', hry', -⟩ |
+            ⟨u', a', b', ha', hb', -, -, -, hrx', hex'⟩
+          · obtain ⟨l, k, p, c, hmk⟩ := hU.m' y₀' hy₀'
+            rw [hry', hqf, hrx] at hmk
+            cases hmk
+          · have hroot : FamId.pair u' a'.fam b'.fam [] = FamId.pair u a.fam b.fam [] := by
+              rw [← hrx', ← hrx, hqf]
+            obtain ⟨hu, hfa, hfb, -⟩ := FamId.pair.inj hroot
+            have hsz := FamId.sizeOf_root_le q.2.fam
+            rw [hrx, FamId.pair.sizeOf_spec] at hsz
+            have hka : a.classKey = x₀.classKey := by
+              rw [← hk, hex, AggTok.classKey_postcompTerms,
+                AggTok.classKey_pairTerm u hna hnb hkab]
+            have hma : D.Member a' a := ih (a', a) ⟨ha', ha, hfa⟩ hka (by
+              show sizeOf a.fam < N; omega)
+            have hmb : D.Member b' b := ih (b', b) ⟨hb', hb, hfb⟩ (hkab ▸ hka) (by
+              show sizeOf b.fam < N; omega)
+            have hq : q = ((a'.pairTerm u' b').postcompTerms q.1.fam.terms',
+                (a.pairTerm u b).postcompTerms q.2.fam.terms') := Prod.ext hex' hex
+            rw [hq, hu, hqf]
+            exact (hma.pairTerm u hmb).postcompTerms _
+    exact fun q hq hk => key _ q hq hk (Nat.lt_succ_self _)
   · refine Or.inr (fun q hq hk => ?_)
-    obtain ⟨j, z', z, h1, h2, he⟩ := hcls q hq hk
-    obtain ⟨b, b', rfl, rfl, hr⟩ := hN j z' z h1 h2
-    obtain ⟨x, hx, hx𝒰, -⟩ := hz j
-    obtain ⟨x', hx', hx𝒰'⟩ := hz' j
-    rw [hx, Sum.inr.injEq] at h2
-    rw [hx', Sum.inr.injEq] at h1
-    subst h1 h2
-    rw [he]
-    exact NestRelU.postcompTerms _ hr ⟨TermCl.base hx𝒰', TermCl.base hx𝒰, heq j _ _ hx' hx⟩
+    obtain ⟨hq1, hq2, hqf⟩ := hq
+    rcases hq2.root hU.t with ⟨y₀, hy₀, hry, hey⟩ | ⟨u, a, b, -, -, hna, hnb, hkab, -, hex⟩
+    · rcases hq1.root hU.t' with ⟨y₀', hy₀', hry', hey'⟩ | ⟨u', a', b', -, -, -, -, -, hrx', -⟩
+      · obtain ⟨j, z', z, h1, h2, he⟩ := hbase q hqf hk y₀ y₀' hy₀ hry hey hy₀' hry' hey'
+        obtain ⟨b, b', rfl, rfl, hr⟩ := hN j z' z h1 h2
+        obtain ⟨x, hx, hx𝒰, -⟩ := hz j
+        obtain ⟨x', hx', hx𝒰'⟩ := hz' j
+        rw [hx, Sum.inr.injEq] at h2
+        rw [hx', Sum.inr.injEq] at h1
+        subst h1 h2
+        rw [he]
+        exact NestRelU.postcompTerms _ hr ⟨TermCl.base hx𝒰', TermCl.base hx𝒰, heq j _ _ hx' hx⟩
+      · obtain ⟨l, k, p, c, hmk⟩ := hU.m y₀ hy₀
+        rw [hry, ← hqf, hrx'] at hmk
+        cases hmk
+    · -- a term over two values is not nested, and the class is
+      obtain ⟨x', hx', -⟩ := hz' j₀
+      obtain ⟨b₀, b₀', rfl, -, -⟩ := hN j₀ x' x₀ hx' hx₀
+      have h3 := congrArg (fun k => k.2.2) hk
+      rw [hex, AggTok.classKey_postcompTerms] at h3
+      simp [AggTok.classKey, AggTok.pairTerm] at h3
 
 omit [DecidableEq K] [DecidableEq K'] [HasAltLinearOrder K] [HasAltLinearOrder K'] in
 /-- **A presented flat class presents every member of it.** -/
@@ -4330,7 +4381,8 @@ private theorem AggQueryIn.homUniv_of (h : SemiringWithMonusHom K K') {c n : ℕ
     rw [← AggQueryIn.labels_eq_map_labWidths]; exact hld
   refine ⟨fun x hx => (q.builds_spec d γ {} x hx).1.terms',
     fun x hx => (q.builds_spec _ γ {} x hx).1.terms',
-    fun x hx => (q.builds_spec d γ {} x hx).1, hF, hF', hK, hK', fun x hx w hw => ?_⟩
+    fun x hx => (q.builds_spec d γ {} x hx).1, fun x hx => (q.builds_spec _ γ {} x hx).1,
+    hF, hF', hK, hK', fun x hx w hw => ?_⟩
   obtain ⟨w₀, hw₀, hc⟩ := q.builds_col d γ {} x hx
   rw [List.snd_eq_of_mem_of_nodup_map hW hw hw₀]
   exact hc

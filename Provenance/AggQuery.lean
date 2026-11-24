@@ -894,6 +894,18 @@ column are two different parameters. -/
 def AggTok.postcompTerm (t : TermIn T 1 0) (x : AggTok T K) : AggTok T K :=
   (x.postcomp t.unary).setFam (x.fam.addTerm t)
 
+/-- **The function a term over two variables computes.** -/
+def TermIn.binary (t : TermIn T 2 0) : T → T → T :=
+  fun a b => t.eval (fun j => j.elim0) ![a, b]
+
+/-- **A term applied to two aggregate values of one family**: the
+expression pairing them (`AggExpr.pair`), its identity recording the term
+and the identities of the two values (`FamId.pair`). It is meant for two
+values that are not nested and list the same occurrences; on others it
+builds an expression nothing reads. -/
+def AggTok.pairTerm (t : TermIn T 2 0) (x y : AggTok T K) : AggTok T K :=
+  .expr { AggExpr.pair x.flatExpr y.flatExpr t.binary with fam := .pair t x.fam y.fam [] }
+
 /-- Evaluation of a projection column on a lifted tuple. -/
 def ProjColIn.eval {c : ℕ} {κ : Fin n → ColKind} (p : ProjColIn T c κ)
     (u : Tuple (GenValue T K) n) (γ : Fin c → T := fun _ => 0) :

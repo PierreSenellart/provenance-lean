@@ -182,11 +182,15 @@ end Builds
 
 /-! ## Values derived by terms -/
 
-/-- **The values derived from `S` by terms**: `S` and every term over
-one of them. -/
-inductive TermCl {K₀ : Type} [ValueType T] (S : AggTok T K₀ → Prop) : AggTok T K₀ → Prop
+/-- **The values derived from `S` by terms**: `S`, every term over one of
+them, and every term over two of them of one class. -/
+inductive TermCl {K₀ : Type} [ValueType T] [CommSemiringWithMonus K₀] (S : AggTok T K₀ → Prop) :
+    AggTok T K₀ → Prop
   | base {x} : S x → TermCl S x
   | step {x} (t : TermIn T 1 0) : TermCl S x → TermCl S (x.postcompTerm t)
+  /-- A term over two of them that are of one class and not nested. -/
+  | pair {x y} (t : TermIn T 2 0) : TermCl S x → TermCl S y → x.isNested = false →
+      y.isNested = false → x.classKey = y.classKey → TermCl S (x.pairTerm t y)
 
 /-- **One family identifier, one value.** -/
 def FamFun {K₀ : Type} (S : AggTok T K₀ → Prop) : Prop :=
@@ -240,13 +244,21 @@ private theorem AggTok.postcompTerms_append {K₀ : Type} (x : AggTok T K₀) (t
   | nil => rfl
   | cons s ts ih => exact ih _
 
-omit [DecidableEq K] [HasAltLinearOrder K] [CommSemiringWithMonus K] in
-/-- **A value derived by terms is its root's, the terms applied.** -/
+omit [DecidableEq K] [HasAltLinearOrder K] in
+/-- **A value derived by terms is its root's, the terms applied**, the
+root being a value of `S`, or a term over two derived values of one
+class. -/
 private theorem TermCl.root {S : AggTok T K → Prop} (hS : ∀ x, S x → x.fam.terms' = []) {x : AggTok T K}
-    (hx : TermCl S x) : ∃ x₀, S x₀ ∧ x₀.fam = x.fam.root ∧ x = x₀.postcompTerms x.fam.terms' := by
+    (hx : TermCl S x) :
+    (∃ x₀, S x₀ ∧ x₀.fam = x.fam.root ∧ x = x₀.postcompTerms x.fam.terms')
+    ∨ ∃ u a b, TermCl S a ∧ TermCl S b ∧ a.isNested = false ∧ b.isNested = false
+        ∧ a.classKey = b.classKey ∧ x.fam.root = .pair u a.fam b.fam []
+        ∧ x = (a.pairTerm u b).postcompTerms x.fam.terms' := by
   induction hx with
+  | @pair x y t hx hy hnx hny hk _ _ =>
+    exact Or.inr ⟨t, x, y, hx, hy, hnx, hny, hk, rfl, rfl⟩
   | @base x h =>
-    refine ⟨x, h, ?_, ?_⟩
+    refine Or.inl ⟨x, h, ?_, ?_⟩
     · have := hS x h
       cases hf : x.fam with
       | mk l k p c ts =>
@@ -261,28 +273,18 @@ private theorem TermCl.root {S : AggTok T K → Prop} (hS : ∀ x, S x → x.fam
         rfl
     · rw [hS x h]; rfl
   | @step x t _ ih =>
-    obtain ⟨x₀, h₀, hr, he⟩ := ih
-    refine ⟨x₀, h₀, ?_, ?_⟩
-    · rw [hr, AggTok.postcompTerm, AggTok.fam_setFam, FamId.root_addTerm]
-    · rw [AggTok.postcompTerm, AggTok.fam_setFam, FamId.terms'_addTerm,
-        AggTok.postcompTerms_append, ← he]
-      rfl
-omit [DecidableEq K] [HasAltLinearOrder K] [CommSemiringWithMonus K] in
-omit [DecidableEq K] [HasAltLinearOrder K] in
-/-- **Terms keep one identifier to one value**, over values recording
-no term. -/
-private theorem FamFun.termCl {S : AggTok T K → Prop} (hS : ∀ x, S x → x.fam.terms' = [])
-    (hF : FamFun S) : FamFun (TermCl S) := by
-  intro x y hx hy hxy
-  obtain ⟨x₀, hx₀, hrx, hex⟩ := hx.root hS
-  obtain ⟨y₀, hy₀, hry, hey⟩ := hy.root hS
-  have h₀ : x₀ = y₀ := hF x₀ y₀ hx₀ hy₀ (by rw [hrx, hry, hxy])
-  rw [hex, hey, h₀, hxy]
-
-end TermCl
-
-/-! ## What is built: the operator's label, no term -/
-
+    rcases ih with ⟨x₀, h₀, hr, he⟩ | ⟨u, a, b, ha, hb, hna, hnb, hk, hr, he⟩
+    · refine Or.inl ⟨x₀, h₀, ?_, ?_⟩
+      · rw [hr, AggTok.postcompTerm, AggTok.fam_setFam, FamId.root_addTerm]
+      · rw [AggTok.postcompTerm, AggTok.fam_setFam, FamId.terms'_addTerm,
+          AggTok.postcompTerms_append, ← he]
+        rfl
+    · refine Or.inr ⟨u, a, b, ha, hb, hna, hnb, hk, ?_, ?_⟩
+      · rw [AggTok.postcompTerm, AggTok.fam_setFam, FamId.root_addTerm]
+        exact hr
+      · rw [AggTok.postcompTerm, AggTok.fam_setFam, FamId.terms'_addTerm,
+          AggTok.postcompTerms_append, ← he]
+        rfl
 /-- **The identifier of a built value**: an operator's stamp, with no term
 recorded, and not that of a term over two values. -/
 def FamId.IsBase (φ : FamId T) : Prop := ∃ l k p c, φ = FamId.mk l k p c []
@@ -291,6 +293,61 @@ omit [ValueType T] in
 theorem FamId.IsBase.terms' {φ : FamId T} (h : φ.IsBase) : φ.terms' = [] := by
   obtain ⟨l, k, p, c, rfl⟩ := h
   rfl
+
+omit [ValueType T] in
+/-- Forgetting the recorded terms does not enlarge an identifier. -/
+private theorem FamId.sizeOf_root_le (φ : FamId T) : sizeOf φ.root ≤ sizeOf φ := by
+  cases φ with
+  | mk l k p c ts =>
+    have h1 : 1 ≤ sizeOf ts := by cases ts <;> simp; omega
+    simp only [FamId.root, FamId.mk.sizeOf_spec, List.nil.sizeOf_spec]
+    omega
+  | pair u φ ψ ts =>
+    have h1 : 1 ≤ sizeOf ts := by cases ts <;> simp; omega
+    simp only [FamId.root, FamId.pair.sizeOf_spec, List.nil.sizeOf_spec]
+    omega
+
+omit [DecidableEq K] [HasAltLinearOrder K] in
+/-- **Terms keep one identifier to one value**, over values whose
+identifiers are operators' stamps. The identifier of a derived value is a
+tree: a stamp, or a term over two derived values with theirs. Two derived
+values with one identifier have the same root; if it is a stamp they are
+terms over one value of `S`, and if it is a term over two values, those
+have smaller identifiers and are equal by induction. -/
+private theorem FamFun.termCl {S : AggTok T K → Prop} (hS : ∀ x, S x → x.fam.IsBase)
+    (hF : FamFun S) : FamFun (TermCl S) := by
+  have hSt : ∀ x, S x → x.fam.terms' = [] := fun x hx => (hS x hx).terms'
+  have key : ∀ n, ∀ x y, TermCl S x → TermCl S y → x.fam = y.fam → sizeOf x.fam < n → x = y := by
+    intro n
+    induction n with
+    | zero => intro x y _ _ _ h; exact absurd h (Nat.not_lt_zero _)
+    | succ n ih =>
+      intro x y hx hy hxy hn
+      rcases hx.root hSt with ⟨x₀, hx₀, hrx, hex⟩ | ⟨u, a, b, ha, hb, -, -, -, hrx, hex⟩
+      · rcases hy.root hSt with ⟨y₀, hy₀, hry, hey⟩ | ⟨u', a', b', -, -, -, -, -, hry, hey⟩
+        · have h₀ : x₀ = y₀ := hF x₀ y₀ hx₀ hy₀ (by rw [hrx, hry, hxy])
+          rw [hex, hey, h₀, hxy]
+        · obtain ⟨l, k, p, c, hmk⟩ := hS x₀ hx₀
+          rw [hrx, hxy, hry] at hmk
+          cases hmk
+      · rcases hy.root hSt with ⟨y₀, hy₀, hry, hey⟩ | ⟨u', a', b', ha', hb', -, -, -, hry, hey⟩
+        · obtain ⟨l, k, p, c, hmk⟩ := hS y₀ hy₀
+          rw [hry, ← hxy, hrx] at hmk
+          cases hmk
+        · have hroot : FamId.pair u a.fam b.fam [] = FamId.pair u' a'.fam b'.fam [] := by
+            rw [← hrx, ← hry, hxy]
+          obtain ⟨hu, hfa, hfb, -⟩ := FamId.pair.inj hroot
+          have hsz := FamId.sizeOf_root_le x.fam
+          rw [hrx, FamId.pair.sizeOf_spec] at hsz
+          have e₁ : a = a' := ih a a' ha ha' hfa (by omega)
+          have e₂ : b = b' := ih b b' hb hb' hfb (by omega)
+          rw [hex, hey, hu, e₁, e₂, hxy]
+  intro x y hx hy hxy
+  exact key _ x y hx hy hxy (Nat.lt_succ_self _)
+
+end TermCl
+
+/-! ## What is built: the operator's label, no term -/
 
 omit [DecidableEq K] [HasAltLinearOrder K] [ValueType T] [CommSemiringWithMonus K] in
 private theorem AggTok.stamp_spec {x y : AggTok T K} {lab : ℕ} {key : List T}
@@ -574,19 +631,21 @@ end Widths
 
 section RowToks
 
-omit [DecidableEq K] [HasAltLinearOrder K] [CommSemiringWithMonus K] in
+omit [DecidableEq K] [HasAltLinearOrder K] in
 private theorem TermCl.mono {S S' : AggTok T K → Prop} (h : ∀ x, S x → S' x) {x : AggTok T K}
     (hx : TermCl S x) : TermCl S' x := by
   induction hx with
   | base hs => exact TermCl.base (h _ hs)
   | step t _ ih => exact TermCl.step t ih
+  | pair t _ _ hnx hny hk ih₁ ih₂ => exact TermCl.pair t ih₁ ih₂ hnx hny hk
 
-omit [DecidableEq K] [HasAltLinearOrder K] [CommSemiringWithMonus K] in
+omit [DecidableEq K] [HasAltLinearOrder K] in
 private theorem TermCl.idem {S : AggTok T K → Prop} {x : AggTok T K} (hx : TermCl (TermCl S) x) :
     TermCl S x := by
   induction hx with
   | base hs => exact hs
   | step t _ ih => exact TermCl.step t ih
+  | pair t _ _ hnx hny hk ih₁ ih₂ => exact TermCl.pair t ih₁ ih₂ hnx hny hk
 
 /-- **The values an environment provides** to a query reading the
 rounds `l`: its context's, and those of the rounds bound to the names in
@@ -2075,7 +2134,7 @@ equal inputs (`AggQueryIn.coh_node`). -/
 theorem AggQueryIn.builds_coherent {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)}
     (q : AggQueryIn T c n κ l) (hld : q.labelsDistinct) (hrr : q.readsRecorded)
     (hsc : q.sourceCols) (hfc : q.allFramesContainSelf) (d : AnnotatedDatabase T K)
-    (R₀ : AggTok T K → Prop) (hR₀t : ∀ y, R₀ y → y.fam.terms' = []) (hR₀ : FamFun R₀)
+    (R₀ : AggTok T K → Prop) (hR₀t : ∀ y, R₀ y → y.fam.IsBase) (hR₀ : FamFun R₀)
     (hR₀k : FamKeyed R₀) (hR₀l : ∀ y, R₀ y → y.lab ∉ q.labels)
     {γ₁ γ₂ : Fin c → T} {E₁ E₂ : EvalEnv T K} (hs₁ : E₁.SitOK γ₁) (hs₂ : E₂.SitOK γ₂)
     (ht₁ : ∀ x, E₁.Toks γ₁ l x → TermCl R₀ x) (ht₂ : ∀ x, E₂.Toks γ₂ l x → TermCl R₀ x) :
@@ -2083,11 +2142,12 @@ theorem AggQueryIn.builds_coherent {c n : ℕ} {κ : Fin n → ColKind} {l : Lis
       ∧ FamKeyed (TermCl (fun x => q.Builds d γ₁ E₁ x ∨ q.Builds d γ₂ E₂ x ∨ R₀ x)) := by
   set S : AggTok T K → Prop := fun x => q.Builds d γ₁ E₁ x ∨ q.Builds d γ₂ E₂ x ∨ R₀ x
     with hSdef
-  have hSt : ∀ x, S x → x.fam.terms' = [] := by
+  have hSb : ∀ x, S x → x.fam.IsBase := by
     rintro x (h | h | h)
-    · exact (q.builds_spec d γ₁ E₁ x h).1.terms'
-    · exact (q.builds_spec d γ₂ E₂ x h).1.terms'
+    · exact (q.builds_spec d γ₁ E₁ x h).1
+    · exact (q.builds_spec d γ₂ E₂ x h).1
     · exact hR₀t x h
+  have hSt : ∀ x, S x → x.fam.terms' = [] := fun x hx => (hSb x hx).terms'
   have hcl : ∀ x, TermCl (TermCl S) x → TermCl S x := fun x h => h.idem
   have hR : ∀ x, TermCl R₀ x → TermCl S x := fun x h => h.mono (fun z hz => Or.inr (Or.inr hz))
   have hb₁ : ∀ x, q.Builds d γ₁ E₁ x → TermCl S x := fun x h => TermCl.base (Or.inl h)
@@ -2130,33 +2190,72 @@ theorem AggQueryIn.builds_coherent {c n : ℕ} {κ : Fin n → ColKind} {l : Lis
     | zero => intro x y _ _ _ h; exact absurd h (Nat.not_lt_zero _)
     | succ M ihM =>
       intro x y hx hy hxy hM
-      obtain ⟨x₀, hx₀, hrx, hex⟩ := hx.root hSt
-      obtain ⟨y₀, hy₀, hry, hey⟩ := hy.root hSt
-      by_cases ht : x.fam.terms' = []
-      · have hx₀' : x₀ = x := by rw [hex, ht]; rfl
-        have hy₀' : y₀ = y := by rw [hey, ← hxy, ht]; rfl
-        subst hx₀' hy₀'
-        have hM' : sizeOf x₀.fam ≤ M := Nat.lt_succ_iff.mp hM
-        rcases hbase M ihM x₀ y₀ hx₀ hy₀ (congrArg FamId.family hxy)
-            (fun φ hφ => lt_of_lt_of_le (FamId.sizeOf_param_lt' hφ) hM') with h | ⟨h₁, h₂⟩
-        · exact h.1 hxy
-        · exact hR₀ _ _ h₁ h₂ hxy
-      · have h₀ : x₀ = y₀ := ihM x₀ y₀ (TermCl.base hx₀) (TermCl.base hy₀)
-          (by rw [hrx, hry, hxy])
-          (by rw [hrx]; exact lt_of_lt_of_le (FamId.sizeOf_root_lt ht) (Nat.lt_succ_iff.mp hM))
-        rw [hex, hey, h₀, hxy]
+      rcases hx.root hSt with ⟨x₀, hx₀, hrx, hex⟩ | ⟨u, a, b, ha, hb, -, -, -, hrx, hex⟩
+      · rcases hy.root hSt with ⟨y₀, hy₀, hry, hey⟩ | ⟨u', a', b', -, -, -, -, -, hry, hey⟩
+        · by_cases ht : x.fam.terms' = []
+          · have hx₀' : x₀ = x := by rw [hex, ht]; rfl
+            have hy₀' : y₀ = y := by rw [hey, ← hxy, ht]; rfl
+            subst hx₀' hy₀'
+            have hM' : sizeOf x₀.fam ≤ M := Nat.lt_succ_iff.mp hM
+            rcases hbase M ihM x₀ y₀ hx₀ hy₀ (congrArg FamId.family hxy)
+                (fun φ hφ => lt_of_lt_of_le (FamId.sizeOf_param_lt' hφ) hM') with h | ⟨h₁, h₂⟩
+            · exact h.1 hxy
+            · exact hR₀ _ _ h₁ h₂ hxy
+          · have h₀ : x₀ = y₀ := ihM x₀ y₀ (TermCl.base hx₀) (TermCl.base hy₀)
+              (by rw [hrx, hry, hxy])
+              (by rw [hrx]; exact lt_of_lt_of_le (FamId.sizeOf_root_lt ht) (Nat.lt_succ_iff.mp hM))
+            rw [hex, hey, h₀, hxy]
+        · -- a stamp is not the identifier of a term over two values
+          obtain ⟨l, k, p, c, hmk⟩ := hSb x₀ hx₀
+          rw [hrx, hxy, hry] at hmk
+          cases hmk
+      · rcases hy.root hSt with ⟨y₀, hy₀, hry, hey⟩ | ⟨u', a', b', ha', hb', -, -, -, hry, hey⟩
+        · obtain ⟨l, k, p, c, hmk⟩ := hSb y₀ hy₀
+          rw [hry, ← hxy, hrx] at hmk
+          cases hmk
+        · -- two terms over two values: the same term over values with smaller identifiers
+          have hroot : FamId.pair u a.fam b.fam [] = FamId.pair u' a'.fam b'.fam [] := by
+            rw [← hrx, ← hry, hxy]
+          obtain ⟨hu, hfa, hfb, -⟩ := FamId.pair.inj hroot
+          have hsz := FamId.sizeOf_root_le x.fam
+          rw [hrx, FamId.pair.sizeOf_spec] at hsz
+          have e₁ : a = a' := ihM a a' ha ha' hfa (by omega)
+          have e₂ : b = b' := ihM b b' hb hb' hfb (by omega)
+          rw [hex, hey, hu, e₁, e₂, hxy]
   have hF : FamFun (TermCl S) := fun x y hx hy hxy => key _ x y hx hy hxy (Nat.lt_succ_self _)
   refine ⟨hF, ?_⟩
+  -- one family, one class: a term over two values is of the class of its first, whose
+  -- identifier is smaller
+  have keyK : ∀ N, ∀ x y, TermCl S x → TermCl S y → x.fam.family = y.fam.family →
+      sizeOf x.fam + sizeOf y.fam < N → x.classKey = y.classKey := by
+    intro N
+    induction N with
+    | zero => intro x y _ _ _ h; exact absurd h (Nat.not_lt_zero _)
+    | succ N ihN =>
+      intro x y hx hy hxy hN
+      rcases hx.root hSt with ⟨x₀, hx₀, hrx, hex⟩ | ⟨u, a, b, ha, hb, hna, hnb, hk, hrx, hex⟩
+      · rcases hy.root hSt with ⟨y₀, hy₀, hry, hey⟩ | ⟨u', a', b', ha', hb', hna', hnb', hk', hry, hey⟩
+        · have hf₀ : x₀.fam.family = y₀.fam.family := by
+            rw [hrx, hry, FamId.family_root, FamId.family_root, hxy]
+          rw [hex, hey, AggTok.classKey_postcompTerms, AggTok.classKey_postcompTerms]
+          rcases hbase (sizeOf x₀.fam) (fun x y hx hy hxy _ => hF x y hx hy hxy) x₀ y₀ hx₀ hy₀ hf₀
+              (fun φ hφ => FamId.sizeOf_param_lt' hφ) with h | ⟨h₁, h₂⟩
+          · exact h.2
+          · exact hR₀k _ _ h₁ h₂ hf₀
+        · have hsz := FamId.sizeOf_root_le y.fam
+          rw [hry, FamId.pair.sizeOf_spec] at hsz
+          have hfy : y.fam.family = a'.fam.family := by
+            rw [← FamId.family_root, hry]; rfl
+          rw [hey, AggTok.classKey_postcompTerms, AggTok.classKey_pairTerm u' hna' hnb' hk']
+          exact ihN x a' hx ha' (hxy.trans hfy) (by omega)
+      · have hsz := FamId.sizeOf_root_le x.fam
+        rw [hrx, FamId.pair.sizeOf_spec] at hsz
+        have hfx : x.fam.family = a.fam.family := by
+          rw [← FamId.family_root, hrx]; rfl
+        rw [hex, AggTok.classKey_postcompTerms, AggTok.classKey_pairTerm u hna hnb hk]
+        exact ihN a y ha hy (hfx.symm.trans hxy) (by omega)
   intro x y hx hy hxy
-  obtain ⟨x₀, hx₀, hrx, hex⟩ := hx.root hSt
-  obtain ⟨y₀, hy₀, hry, hey⟩ := hy.root hSt
-  have hf₀ : x₀.fam.family = y₀.fam.family := by
-    rw [hrx, hry, FamId.family_root, FamId.family_root, hxy]
-  rw [hex, hey, AggTok.classKey_postcompTerms, AggTok.classKey_postcompTerms]
-  rcases hbase (sizeOf x₀.fam) (fun x y hx hy hxy _ => hF x y hx hy hxy) x₀ y₀ hx₀ hy₀ hf₀
-      (fun φ hφ => FamId.sizeOf_param_lt' hφ) with h | ⟨h₁, h₂⟩
-  · exact h.2
-  · exact hR₀k _ _ h₁ h₂ hf₀
+  exact keyK _ x y hx hy hxy (Nat.lt_succ_self _)
 
 /-- **A query evaluated from scratch**: what it builds has one value per
 identifier and one class per family, terms included. -/

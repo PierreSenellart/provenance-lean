@@ -736,6 +736,52 @@ private theorem AggTok.classKey_postcompTerm (t : TermIn T 1 0) (x : AggTok T K)
   cases x <;> simp [AggTok.postcompTerm, AggTok.classKey, AggTok.postcomp, AggTok.setFam,
     AggTok.annList, AggTok.fam, NestedValue.postcomp, AggExpr.annList, AggExpr.postcomp]
 
+omit [CommSemiringWithMonus K] [CommSemiringWithMonus K'] in
+/-- The identity of a term over two values records the term and theirs. -/
+@[simp] theorem AggTok.fam_pairTerm (t : TermIn T 2 0) (x y : AggTok T K) :
+    (x.pairTerm t y).fam = .pair t x.fam y.fam [] := rfl
+
+omit [CommSemiringWithMonus K] [CommSemiringWithMonus K'] in
+/-- A term over two values is an expression, not a nested value. -/
+@[simp] theorem AggTok.isNested_pairTerm (t : TermIn T 2 0) (x y : AggTok T K) :
+    (x.pairTerm t y).isNested = false := rfl
+
+omit [ValueType T] [CommSemiringWithMonus K'] in
+/-- The annotations a flat value lists are those of its expression. -/
+theorem AggTok.annList_flatExpr {x : AggTok T K} (hx : x.isNested = false) :
+    x.flatExpr.annList = x.annList := by
+  cases x with
+  | nest a => simp [AggTok.isNested] at hx
+  | tok a => simp [AggTok.flatExpr, AggExpr.ofValue, AggExpr.annList, AggTok.annList]
+  | expr e => rfl
+
+omit [CommSemiringWithMonus K'] in
+/-- **A term over two values of one class is of that class**: it keeps
+the family of the first and lists the same annotations. -/
+theorem AggTok.classKey_pairTerm (t : TermIn T 2 0) {x y : AggTok T K}
+    (hx : x.isNested = false) (hy : y.isNested = false) (hk : x.classKey = y.classKey) :
+    (x.pairTerm t y).classKey = x.classKey := by
+  have hann : y.flatExpr.annList = x.flatExpr.annList := by
+    rw [AggTok.annList_flatExpr hx, AggTok.annList_flatExpr hy]
+    exact (congrArg (fun k => k.2.1) hk).symm
+  have hlen : x.flatExpr.occs.length = y.flatExpr.occs.length := by
+    have := congrArg List.length hann
+    simpa [AggExpr.annList] using this.symm
+  have hpair : (AggExpr.pair x.flatExpr y.flatExpr t.binary).annList = x.annList := by
+    rw [← AggTok.annList_flatExpr hx]
+    unfold AggExpr.annList AggExpr.pair
+    apply List.ext_getElem
+    · simp [hlen]
+    · intro i h₁ h₂
+      simp
+  have hann' : (x.pairTerm t y).annList = x.annList := hpair
+  unfold AggTok.classKey
+  rw [show (x.pairTerm t y).fam.family = x.fam.family from rfl, hann']
+  cases x with
+  | nest a => simp [AggTok.isNested] at hx
+  | tok a => rfl
+  | expr e => rfl
+
 omit [ValueType T] [CommSemiringWithMonus K'] in
 private theorem AggTok.classKey_postcomp (gf : T → T) (x : AggTok T K) :
     (x.postcomp gf).classKey = x.classKey := by
@@ -814,6 +860,19 @@ theorem AggExpr.PresBy.pair {ρ β : Type} {e₁ e₂ : AggExpr T K} {L : List �
       map_finCongr_map hl₁ hsf.length_eq, hw₂]
   · rw [← map_finCongr_map hl₁ hlen, AggExpr.valOn_pair e₁ e₂ g₂ hsf, hv₁,
       map_finCongr_map hl₁ hsf.length_eq, hv₂]
+
+/-- **A term over two members of a listing is a member of it**: on both
+sides the two values are read off one listing, so the term over them is,
+through the same readings. -/
+theorem ListingRel.Member.pairTerm {f : K →+* K'} {D : ListingRel f T} {x' y' : AggTok T K'}
+    {x y : AggTok T K} (t : TermIn T 2 0) (hx : D.Member x' x) (hy : D.Member y' y) :
+    D.Member (x'.pairTerm t y') (x.pairTerm t y) := by
+  obtain ⟨-, -, ok₁, val₁, hP, hP'⟩ := hx
+  obtain ⟨-, -, ok₂, val₂, hQ, hQ'⟩ := hy
+  obtain ⟨h, ha, hw, hv⟩ := hP.pair hQ t.binary
+  obtain ⟨h', ha', hw', hv'⟩ := hP'.pair hQ' t.binary
+  exact ⟨rfl, rfl, fun s => ok₁ s ∧ ok₂ s, fun s => t.binary (val₁ s) (val₂ s),
+    ⟨h, ha, hw, hv⟩, ⟨h', ha', hw', hv'⟩⟩
 
 /-- **The closure of a set of corresponding values under terms**, taken
 on both sides alike. -/
