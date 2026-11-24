@@ -191,12 +191,6 @@ theorem scalar_subquery_value_ok : ∀ i,
       = rel (scalar_subquery_value i) := by
   decide
 
-/-- The kinds of a grouping-set row with two key columns and a count. -/
-abbrev gs3 : Fin 3 → ColKind := ![ColKind.reg, ColKind.reg, ColKind.agg]
-
-/-- The same with one key column. -/
-abbrev gs2 : Fin 2 → ColKind := ![ColKind.reg, ColKind.agg]
-
 set_option maxRecDepth 100000 in
 /-- Grouping sets are the union of the aggregations on each set, each padded with nulls on the columns it does not group on.
 ```sql
@@ -204,32 +198,31 @@ SELECT dept, sal, count(*) FROM emp GROUP BY GROUPING SETS ((dept), (sal));
 ```
 -/
 theorem grouping_sets_ok : ∀ i,
-    run i (AggQueryIn.Sum
-        ((AggQueryIn.Proj ![ProjColIn.term (TermGIn.index 0 rfl), ProjColIn.term (TermGIn.const nil), ProjColIn.token 1 rfl]
-          (AggQueryIn.Gamma (lab := 0) (rd := fun _ => false) ![1] ![TermIn.const (val 1)] ![cnt] Emp)).castKind (κ' := gs3) (funext fun j => by revert j; decide))
-        ((AggQueryIn.Proj ![ProjColIn.term (TermGIn.const nil), ProjColIn.term (TermGIn.index 0 rfl), ProjColIn.token 1 rfl]
-          (AggQueryIn.Gamma (lab := 0) (rd := fun _ => false) ![2] ![TermIn.const (val 1)] ![cnt] Emp)).castKind (κ' := gs3) (funext fun j => by revert j; decide)))
+    run i (AggQueryIn.gammaSets ![1, 2] ![TermIn.const (val 1)] ![cnt]
+        {0} [{1}] Emp)
       = rel (grouping_sets i) := by
   intro i
-  simp only [run, AggQueryIn.evaluatePlain, AggQueryIn.evaluatePlain_castKind]
+  simp only [run]
+  rw [AggQueryIn.evaluatePlain_gammaSets]
+  simp only [List.foldr, AggQueryIn.evaluatePlain_gammaSet_singleton (lab := 0) (rd := fun _ => false)]
   revert i
   decide
 
 set_option maxRecDepth 100000 in
-/-- The empty grouping set is the grand total, which has its row over no input: it is the aggregation with no grouping.
+/-- The empty grouping set is the grand total, which has its row over no input.
 ```sql
 SELECT dept, count(*) FROM emp GROUP BY GROUPING SETS ((dept), ());
 ```
 -/
 theorem grouping_sets_total_ok : ∀ i,
-    run i (AggQueryIn.Sum
-        ((AggQueryIn.Proj ![ProjColIn.term (TermGIn.index 0 rfl), ProjColIn.token 1 rfl]
-          (AggQueryIn.Gamma (lab := 0) (rd := fun _ => false) ![1] ![TermIn.const (val 1)] ![cnt] Emp)).castKind (κ' := gs2) (funext fun j => by revert j; decide))
-        ((AggQueryIn.Proj ![ProjColIn.term (TermGIn.const nil), ProjColIn.token 0 rfl]
-          (AggQueryIn.GammaScalar (lab := 0) (rd := fun _ => false) ![TermIn.const (val 1)] ![cnt] Emp)).castKind (κ' := gs2) (funext fun j => by revert j; decide)))
+    run i (AggQueryIn.gammaSets ![1] ![TermIn.const (val 1)] ![cnt]
+        {0} [∅] Emp)
       = rel (grouping_sets_total i) := by
   intro i
-  simp only [run, AggQueryIn.evaluatePlain, AggQueryIn.evaluatePlain_castKind]
+  simp only [run]
+  rw [AggQueryIn.evaluatePlain_gammaSets]
+  simp only [List.foldr, AggQueryIn.evaluatePlain_gammaSet_singleton (lab := 0) (rd := fun _ => false),
+    AggQueryIn.evaluatePlain_gammaSet_empty (lab := 0) (rd := fun _ => false)]
   revert i
   decide
 
