@@ -223,6 +223,7 @@ public import Provenance.ProvsqlExample
 public import Provenance.DistributionExample
 public import Provenance.NestedExample
 public import Provenance.Example
+public import Provenance.Conformance
 import Mathlib.Analysis.SpecialFunctions.Pow.NNReal
 
 /-!
