@@ -226,3 +226,7 @@ SELECT dept, max(m) FROM (SELECT dept, sal, max(id) AS m FROM emp GROUP BY dept,
 SELECT dept, sum(v) FROM (SELECT dept, sal, sum(sal) AS v FROM emp GROUP BY dept, sal) g GROUP BY dept;
 -- name: count_of_counts
 SELECT dept, count(c) FROM (SELECT dept, sal, count(*) AS c FROM emp GROUP BY dept, sal) g GROUP BY dept;
+-- name: rollup_two
+SELECT dept, sal, count(*) FROM emp GROUP BY ROLLUP (dept, sal);
+-- name: cube_two
+SELECT dept, sal, count(*) FROM emp GROUP BY CUBE (dept, sal);

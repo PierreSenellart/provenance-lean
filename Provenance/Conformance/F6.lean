@@ -259,4 +259,54 @@ theorem exists_value_ok : ∀ i,
       = rel (exists_value i) := by
   decide
 
+set_option maxRecDepth 100000 in
+/-- `ROLLUP (dept, sal)`: the grouping on both columns, on the first, and the grand total.
+```sql
+SELECT dept, sal, count(*) FROM emp GROUP BY ROLLUP (dept, sal);
+```
+-/
+theorem rollup_two_ok : ∀ i,
+    run i (AggQueryIn.gammaSets ![1, 2] ![TermIn.const (val 1)] ![cnt]
+        {0, 1} [{0}, ∅] Emp)
+      = rel (rollup_two i) := by
+  intro i
+  have hboth := AggQueryIn.evaluatePlain_gammaSet_enum (lab := 0) (rd := fun _ => false)
+    ![1, 2] ![TermIn.const (val 1)] ![cnt] ({0, 1} : Finset (Fin 2)) (by decide)
+    (e := (![0, 1] : Fin 2 → Fin 2)) (by intro a b; revert a b; decide) (by decide)
+    (pos := (![some 0, some 1] : Fin 2 → Option (Fin 2))) (by decide) (by decide)
+    Emp (db i) (γ := fun _ => 0)
+  simp only [run]
+  rw [AggQueryIn.evaluatePlain_gammaSets]
+  simp only [List.foldr, AggQueryIn.evaluatePlain_gammaSet_singleton (lab := 0) (rd := fun _ => false),
+    AggQueryIn.evaluatePlain_gammaSet_empty (lab := 0) (rd := fun _ => false)]
+  rw [hboth]
+  clear hboth
+  revert i
+  decide
+
+set_option maxRecDepth 100000 in
+/-- `CUBE (dept, sal)`: the grouping on every subset of the two columns.
+```sql
+SELECT dept, sal, count(*) FROM emp GROUP BY CUBE (dept, sal);
+```
+-/
+theorem cube_two_ok : ∀ i,
+    run i (AggQueryIn.gammaSets ![1, 2] ![TermIn.const (val 1)] ![cnt]
+        {0, 1} [{0}, {1}, ∅] Emp)
+      = rel (cube_two i) := by
+  intro i
+  have hboth := AggQueryIn.evaluatePlain_gammaSet_enum (lab := 0) (rd := fun _ => false)
+    ![1, 2] ![TermIn.const (val 1)] ![cnt] ({0, 1} : Finset (Fin 2)) (by decide)
+    (e := (![0, 1] : Fin 2 → Fin 2)) (by intro a b; revert a b; decide) (by decide)
+    (pos := (![some 0, some 1] : Fin 2 → Option (Fin 2))) (by decide) (by decide)
+    Emp (db i) (γ := fun _ => 0)
+  simp only [run]
+  rw [AggQueryIn.evaluatePlain_gammaSets]
+  simp only [List.foldr, AggQueryIn.evaluatePlain_gammaSet_singleton (lab := 0) (rd := fun _ => false),
+    AggQueryIn.evaluatePlain_gammaSet_empty (lab := 0) (rd := fun _ => false)]
+  rw [hboth]
+  clear hboth
+  revert i
+  decide
+
 end Conformance

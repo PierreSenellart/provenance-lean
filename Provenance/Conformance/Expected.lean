@@ -2406,4 +2406,83 @@ abbrev count_of_counts : Inst → List (Tuple V 2) :=
     ![val 5, val 1]]
     : List (Tuple V 2))]
 
+/-- PostgreSQL's answers to
+```sql
+SELECT dept, sal, count(*) FROM emp GROUP BY ROLLUP (dept, sal);
+```
+-/
+abbrev rollup_two : Inst → List (Tuple V 3) :=
+  ![([![nil, nil, val 6],
+    ![nil, nil, val 1],
+    ![val 1, val 100, val 2],
+    ![val 1, val 90, val 1],
+    ![val 2, nil, val 1],
+    ![val 2, val 50, val 1],
+    ![nil, nil, val 1],
+    ![val 2, nil, val 2],
+    ![val 1, nil, val 3]]
+    : List (Tuple V 3)),
+   ([![nil, nil, val 0]]
+    : List (Tuple V 3)),
+   ([![nil, nil, val 5],
+    ![val 1, val 10, val 1],
+    ![val 1, val 20, val 1],
+    ![val 2, val 20, val 2],
+    ![val 2, val 5, val 1],
+    ![val 2, nil, val 3],
+    ![val 1, nil, val 2]]
+    : List (Tuple V 3)),
+   ([![nil, nil, val 5],
+    ![nil, val 70, val 1],
+    ![val 3, nil, val 2],
+    ![val 5, val 70, val 2],
+    ![nil, nil, val 1],
+    ![val 3, nil, val 2],
+    ![val 5, nil, val 2]]
+    : List (Tuple V 3))]
+
+/-- PostgreSQL's answers to
+```sql
+SELECT dept, sal, count(*) FROM emp GROUP BY CUBE (dept, sal);
+```
+-/
+abbrev cube_two : Inst → List (Tuple V 3) :=
+  ![([![nil, nil, val 6],
+    ![nil, nil, val 1],
+    ![val 1, val 100, val 2],
+    ![val 1, val 90, val 1],
+    ![val 2, nil, val 1],
+    ![val 2, val 50, val 1],
+    ![nil, nil, val 1],
+    ![val 2, nil, val 2],
+    ![val 1, nil, val 3],
+    ![nil, nil, val 2],
+    ![nil, val 90, val 1],
+    ![nil, val 50, val 1],
+    ![nil, val 100, val 2]]
+    : List (Tuple V 3)),
+   ([![nil, nil, val 0]]
+    : List (Tuple V 3)),
+   ([![nil, nil, val 5],
+    ![val 1, val 10, val 1],
+    ![val 1, val 20, val 1],
+    ![val 2, val 20, val 2],
+    ![val 2, val 5, val 1],
+    ![val 2, nil, val 3],
+    ![val 1, nil, val 2],
+    ![nil, val 5, val 1],
+    ![nil, val 10, val 1],
+    ![nil, val 20, val 3]]
+    : List (Tuple V 3)),
+   ([![nil, nil, val 5],
+    ![nil, val 70, val 1],
+    ![val 3, nil, val 2],
+    ![val 5, val 70, val 2],
+    ![nil, nil, val 1],
+    ![val 3, nil, val 2],
+    ![val 5, nil, val 2],
+    ![nil, nil, val 2],
+    ![nil, val 70, val 3]]
+    : List (Tuple V 3))]
+
 end Conformance
