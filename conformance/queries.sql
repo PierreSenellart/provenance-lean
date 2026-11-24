@@ -162,3 +162,13 @@ SELECT id, dept, sal, ntile(2) OVER (ORDER BY id) FROM emp;
 SELECT dept, sal, count(*) FROM emp GROUP BY GROUPING SETS ((dept), (sal));
 -- name: grouping_sets_total
 SELECT dept, count(*) FROM emp GROUP BY GROUPING SETS ((dept), ());
+-- name: rec_union_all
+WITH RECURSIVE r(x, y) AS (SELECT src, dst FROM edge UNION ALL SELECT r.x, e.dst FROM r, edge e WHERE r.y = e.src) SELECT x, y FROM r;
+-- name: rec_union
+WITH RECURSIVE r(x, y) AS (SELECT src, dst FROM cyc UNION SELECT r.x, e.dst FROM r, cyc e WHERE r.y = e.src) SELECT x, y FROM r;
+-- name: distinct_count
+SELECT DISTINCT c FROM (SELECT dept, count(*) AS c FROM emp GROUP BY dept) g;
+-- name: group_on_count
+SELECT c, count(*) FROM (SELECT dept, count(*) AS c FROM emp GROUP BY dept) g GROUP BY c;
+-- name: sum_of_counts
+SELECT dept, sum(c) FROM (SELECT dept, sal, count(*) AS c FROM emp GROUP BY dept, sal) g GROUP BY dept;

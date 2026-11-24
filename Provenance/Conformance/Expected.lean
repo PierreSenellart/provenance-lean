@@ -112,9 +112,42 @@ abbrev uRows : Inst → List (Tuple V 1) :=
     ![nil]]
     : List (Tuple V 1))]
 
+/-- The table `edge(src int, dst int)`, instance by instance. -/
+abbrev edgeRows : Inst → List (Tuple V 2) :=
+  ![([![val 1, val 2],
+    ![val 2, val 3],
+    ![val 1, val 3]]
+    : List (Tuple V 2)),
+   ([] : List (Tuple V 2)),
+   ([![val 1, val 2],
+    ![val 2, val 3],
+    ![val 3, val 4]]
+    : List (Tuple V 2)),
+   ([![val 1, val 2],
+    ![val 1, val 2],
+    ![val 2, val 3],
+    ![nil, val 1],
+    ![val 3, nil]]
+    : List (Tuple V 2))]
+
+/-- The table `cyc(src int, dst int)`, instance by instance. -/
+abbrev cycRows : Inst → List (Tuple V 2) :=
+  ![([![val 1, val 2],
+    ![val 2, val 1]]
+    : List (Tuple V 2)),
+   ([] : List (Tuple V 2)),
+   ([![val 1, val 2],
+    ![val 2, val 3],
+    ![val 3, val 1]]
+    : List (Tuple V 2)),
+   ([![val 1, val 1],
+    ![val 1, val 1],
+    ![val 2, nil]]
+    : List (Tuple V 2))]
+
 /-- The instances. -/
 abbrev db (i : Inst) : Database V :=
-  [("dept", ⟨2, (deptRows i : Multiset (Tuple V 2))⟩), ("emp", ⟨3, (empRows i : Multiset (Tuple V 3))⟩), ("t", ⟨1, (tRows i : Multiset (Tuple V 1))⟩), ("s", ⟨1, (sRows i : Multiset (Tuple V 1))⟩), ("u", ⟨1, (uRows i : Multiset (Tuple V 1))⟩)]
+  [("dept", ⟨2, (deptRows i : Multiset (Tuple V 2))⟩), ("emp", ⟨3, (empRows i : Multiset (Tuple V 3))⟩), ("t", ⟨1, (tRows i : Multiset (Tuple V 1))⟩), ("s", ⟨1, (sRows i : Multiset (Tuple V 1))⟩), ("u", ⟨1, (uRows i : Multiset (Tuple V 1))⟩), ("edge", ⟨2, (edgeRows i : Multiset (Tuple V 2))⟩), ("cyc", ⟨2, (cycRows i : Multiset (Tuple V 2))⟩)]
 
 /-- PostgreSQL's answers to
 ```sql
@@ -1758,6 +1791,124 @@ abbrev grouping_sets_total : Inst → List (Tuple V 2) :=
     : List (Tuple V 2)),
    ([![nil, val 5],
     ![nil, val 1],
+    ![val 3, val 2],
+    ![val 5, val 2]]
+    : List (Tuple V 2))]
+
+/-- PostgreSQL's answers to
+```sql
+WITH RECURSIVE r(x, y) AS (SELECT src, dst FROM edge UNION ALL SELECT r.x, e.dst FROM r, edge e WHERE r.y = e.src) SELECT x, y FROM r;
+```
+-/
+abbrev rec_union_all : Inst → List (Tuple V 2) :=
+  ![([![val 1, val 2],
+    ![val 2, val 3],
+    ![val 1, val 3],
+    ![val 1, val 3]]
+    : List (Tuple V 2)),
+   ([] : List (Tuple V 2)),
+   ([![val 1, val 2],
+    ![val 2, val 3],
+    ![val 3, val 4],
+    ![val 1, val 3],
+    ![val 2, val 4],
+    ![val 1, val 4]]
+    : List (Tuple V 2)),
+   ([![val 1, val 2],
+    ![val 1, val 2],
+    ![val 2, val 3],
+    ![nil, val 1],
+    ![val 3, nil],
+    ![nil, val 2],
+    ![nil, val 2],
+    ![val 1, val 3],
+    ![val 1, val 3],
+    ![val 2, nil],
+    ![nil, val 3],
+    ![nil, val 3],
+    ![val 1, nil],
+    ![val 1, nil],
+    ![nil, nil],
+    ![nil, nil]]
+    : List (Tuple V 2))]
+
+/-- PostgreSQL's answers to
+```sql
+WITH RECURSIVE r(x, y) AS (SELECT src, dst FROM cyc UNION SELECT r.x, e.dst FROM r, cyc e WHERE r.y = e.src) SELECT x, y FROM r;
+```
+-/
+abbrev rec_union : Inst → List (Tuple V 2) :=
+  ![([![val 1, val 2],
+    ![val 2, val 1],
+    ![val 2, val 2],
+    ![val 1, val 1]]
+    : List (Tuple V 2)),
+   ([] : List (Tuple V 2)),
+   ([![val 1, val 2],
+    ![val 2, val 3],
+    ![val 3, val 1],
+    ![val 3, val 2],
+    ![val 1, val 3],
+    ![val 2, val 1],
+    ![val 2, val 2],
+    ![val 3, val 3],
+    ![val 1, val 1]]
+    : List (Tuple V 2)),
+   ([![val 1, val 1],
+    ![val 2, nil]]
+    : List (Tuple V 2))]
+
+/-- PostgreSQL's answers to
+```sql
+SELECT DISTINCT c FROM (SELECT dept, count(*) AS c FROM emp GROUP BY dept) g;
+```
+-/
+abbrev distinct_count : Inst → List (Tuple V 1) :=
+  ![([![val 3],
+    ![val 2],
+    ![val 1]]
+    : List (Tuple V 1)),
+   ([] : List (Tuple V 1)),
+   ([![val 3],
+    ![val 2]]
+    : List (Tuple V 1)),
+   ([![val 2],
+    ![val 1]]
+    : List (Tuple V 1))]
+
+/-- PostgreSQL's answers to
+```sql
+SELECT c, count(*) FROM (SELECT dept, count(*) AS c FROM emp GROUP BY dept) g GROUP BY c;
+```
+-/
+abbrev group_on_count : Inst → List (Tuple V 2) :=
+  ![([![val 3, val 1],
+    ![val 2, val 1],
+    ![val 1, val 1]]
+    : List (Tuple V 2)),
+   ([] : List (Tuple V 2)),
+   ([![val 3, val 1],
+    ![val 2, val 1]]
+    : List (Tuple V 2)),
+   ([![val 2, val 2],
+    ![val 1, val 1]]
+    : List (Tuple V 2))]
+
+/-- PostgreSQL's answers to
+```sql
+SELECT dept, sum(c) FROM (SELECT dept, sal, count(*) AS c FROM emp GROUP BY dept, sal) g GROUP BY dept;
+```
+-/
+abbrev sum_of_counts : Inst → List (Tuple V 2) :=
+  ![([![nil, val 1],
+    ![val 2, val 2],
+    ![val 1, val 3]]
+    : List (Tuple V 2)),
+   ([] : List (Tuple V 2)),
+   ([![val 2, val 3],
+    ![val 1, val 2]]
+    : List (Tuple V 2)),
+   ([![nil, val 1],
     ![val 3, val 2],
     ![val 5, val 2]]
     : List (Tuple V 2))]

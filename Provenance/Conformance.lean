@@ -12,6 +12,8 @@ public import Provenance.Conformance.F4
 public import Provenance.Conformance.F5
 public import Provenance.Conformance.F6
 public import Provenance.Conformance.F7
+public import Provenance.Conformance.F8
+public import Provenance.Conformance.F9
 
 /-!
 # Conformance of the plain semantics with PostgreSQL
@@ -30,4 +32,12 @@ membership in the level is stated with it.
 What the suite tests is the evaluator and the translation of each query as
 a person wrote it down: the SQL and its term are paired by name, with the
 SQL text in the docstring, and nothing derives one from the other.
+
+The value domain is the naturals with a null, so what needs another domain
+is left out: `avg`, `percent_rank` and `cume_dist`, whose values are not
+integers; `ARRAY` subqueries and `array_agg`, whose values are arrays; and
+the functions on strings and dates. Set-returning functions are left out
+too. Grouping sets are written as the union of padded aggregations they
+are defined to be, the grand total being the aggregation with no grouping,
+which has its row over no input.
 -/
