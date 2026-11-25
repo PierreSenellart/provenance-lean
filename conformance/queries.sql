@@ -138,6 +138,12 @@ SELECT dept, sum(sal + 1) FROM emp GROUP BY dept;
 SELECT dept, sum(sal) + count(*) FROM emp GROUP BY dept;
 -- name: agg_expr_having
 SELECT dept, sum(sal) - count(sal) FROM emp GROUP BY dept HAVING count(*) >= 2;
+-- name: agg_expr_scalar
+SELECT sum(sal) + count(*) FROM emp;
+-- name: agg_expr_three
+SELECT dept, sum(sal) + count(*) - min(sal) FROM emp GROUP BY dept;
+-- name: agg_expr_coalesce
+SELECT dept, coalesce(sum(sal), 0) + count(*) FROM emp GROUP BY dept;
 -- name: having_and
 SELECT dept FROM emp GROUP BY dept HAVING count(*) >= 2 AND sum(sal) > 100;
 -- name: having_or

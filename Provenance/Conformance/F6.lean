@@ -200,6 +200,52 @@ theorem agg_expr_having_ok : ∀ i,
   decide
 
 set_option maxRecDepth 100000 in
+/-- Without grouping: one row whatever the table, null on the empty one, where the sum is.
+```sql
+SELECT sum(sal) + count(*) FROM emp;
+```
+-/
+theorem agg_expr_scalar_ok : ∀ i,
+    run i (AggQueryIn.Proj
+          ![ProjColIn.aggPairOf 0 1 rfl rfl (TermIn.add (TermIn.outer 0) (TermIn.outer 1))]
+        (AggQueryIn.GammaScalar (lab := 0) (rd := fun _ => false)
+          ![TermIn.index 2, TermIn.const (val 1)] ![sumAgg, cnt] Emp))
+      = rel (agg_expr_scalar i) := by
+  decide
+
+set_option maxRecDepth 100000 in
+/-- Three aggregates: a term over two columns, one of them such a term already.
+```sql
+SELECT dept, sum(sal) + count(*) - min(sal) FROM emp GROUP BY dept;
+```
+-/
+theorem agg_expr_three_ok : ∀ i,
+    run i (AggQueryIn.Proj ![ProjColIn.term (TermGIn.index 0 rfl),
+          ProjColIn.aggPairOf 1 2 rfl rfl (TermIn.sub (TermIn.outer 0) (TermIn.outer 1))]
+        (AggQueryIn.Proj ![ProjColIn.term (TermGIn.index 0 rfl),
+            ProjColIn.aggPairOf 1 2 rfl rfl (TermIn.add (TermIn.outer 0) (TermIn.outer 1)),
+            ProjColIn.token 3 rfl]
+          (AggQueryIn.Gamma (lab := 0) (rd := fun _ => false) ![1]
+            ![TermIn.index 2, TermIn.const (val 1), TermIn.index 2] ![sumAgg, cnt, minAgg] Emp)))
+      = rel (agg_expr_three i) := by
+  decide
+
+set_option maxRecDepth 100000 in
+/-- A `coalesce` inside the term: the null sum of a group reads as `0`.
+```sql
+SELECT dept, coalesce(sum(sal), 0) + count(*) FROM emp GROUP BY dept;
+```
+-/
+theorem agg_expr_coalesce_ok : ∀ i,
+    run i (AggQueryIn.Proj ![ProjColIn.term (TermGIn.index 0 rfl),
+          ProjColIn.aggPairOf 1 2 rfl rfl
+            (TermIn.add (TermIn.coalesce (TermIn.outer 0) (TermIn.const (val 0))) (TermIn.outer 1))]
+        (AggQueryIn.Gamma (lab := 0) (rd := fun _ => false) ![1]
+          ![TermIn.index 2, TermIn.const (val 1)] ![sumAgg, cnt] Emp))
+      = rel (agg_expr_coalesce i) := by
+  decide
+
+set_option maxRecDepth 100000 in
 /-- `>= ALL` is the antijoin on the null-aware negation: true over an empty subquery, never true once the subquery holds a null.
 ```sql
 SELECT x FROM t WHERE x >= ALL (SELECT x FROM s);

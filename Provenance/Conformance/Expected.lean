@@ -1541,6 +1541,59 @@ abbrev agg_expr_having : Inst → List (Tuple V 2) :=
 
 /-- PostgreSQL's answers to
 ```sql
+SELECT sum(sal) + count(*) FROM emp;
+```
+-/
+abbrev agg_expr_scalar : Inst → List (Tuple V 1) :=
+  ![([![val 346]]
+    : List (Tuple V 1)),
+   ([![nil]]
+    : List (Tuple V 1)),
+   ([![val 80]]
+    : List (Tuple V 1)),
+   ([![val 215]]
+    : List (Tuple V 1))]
+
+/-- PostgreSQL's answers to
+```sql
+SELECT dept, sum(sal) + count(*) - min(sal) FROM emp GROUP BY dept;
+```
+-/
+abbrev agg_expr_three : Inst → List (Tuple V 2) :=
+  ![([![nil, nil],
+    ![val 2, val 2],
+    ![val 1, val 203]]
+    : List (Tuple V 2)),
+   ([] : List (Tuple V 2)),
+   ([![val 2, val 43],
+    ![val 1, val 22]]
+    : List (Tuple V 2)),
+   ([![nil, val 1],
+    ![val 3, nil],
+    ![val 5, val 72]]
+    : List (Tuple V 2))]
+
+/-- PostgreSQL's answers to
+```sql
+SELECT dept, coalesce(sum(sal), 0) + count(*) FROM emp GROUP BY dept;
+```
+-/
+abbrev agg_expr_coalesce : Inst → List (Tuple V 2) :=
+  ![([![nil, val 1],
+    ![val 2, val 52],
+    ![val 1, val 293]]
+    : List (Tuple V 2)),
+   ([] : List (Tuple V 2)),
+   ([![val 2, val 48],
+    ![val 1, val 32]]
+    : List (Tuple V 2)),
+   ([![nil, val 71],
+    ![val 3, val 2],
+    ![val 5, val 142]]
+    : List (Tuple V 2))]
+
+/-- PostgreSQL's answers to
+```sql
 SELECT dept FROM emp GROUP BY dept HAVING count(*) >= 2 AND sum(sal) > 100;
 ```
 -/
