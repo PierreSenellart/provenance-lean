@@ -431,6 +431,35 @@ private theorem AggTok.annsIn_postcomp (gf : T → T) {x : AggTok T K} (h : x.An
   | nest a => exact h
   | expr e => exact h
 
+omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
+/-- A flat value's expression carries the value's annotations. -/
+private theorem AggTok.annsIn_flatExpr {x : AggTok T K} (hn : x.isNested = false)
+    (h : x.AnnsIn Q) : x.flatExpr.AnnsIn Q := by
+  cases x with
+  | tok a =>
+    intro p hp
+    simp only [AggTok.flatExpr, AggExpr.ofValue, List.mem_map] at hp
+    obtain ⟨q, hq, rfl⟩ := hp
+    exact h q hq
+  | expr e => exact h
+  | nest a => exact absurd hn (by simp [AggTok.isNested])
+
+omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
+/-- **A term over two columns carries the annotations of the first**, or
+none. -/
+private theorem AggTok.annsIn_pairCol (t : TermIn T 2 0) {x : AggTok T K} (y : AggTok T K)
+    (h : x.AnnsIn Q) : (x.pairCol t y).AnnsIn Q := by
+  unfold AggTok.pairCol
+  split
+  · rename_i hj
+    intro p hp
+    have hp' : p ∈ (AggExpr.pair x.flatExpr y.flatExpr t.binary).occs := hp
+    obtain ⟨i, hi, rfl⟩ := List.getElem_of_mem hp'
+    simp only [AggExpr.pair, List.getElem_zipWith]
+    exact AggTok.annsIn_flatExpr hj.1 h _ (List.getElem_mem _)
+  · intro p hp
+    exact absurd hp (by simp)
+
 /-! ### The predicate provenance -/
 
 omit [HasAltLinearOrder K] in
@@ -671,6 +700,17 @@ private theorem ProjColIn.annsIn_eval {c n : ℕ} {κ : Fin n → ColKind} (p : 
       rw [← h']
       rw [AggTok.postcompTerm, AggTok.AnnsIn_setFam]
       exact AggTok.annsIn_postcomp _ (hu k a₀ hv)
+  | aggPairOf k₁ k₂ h₁ h₂ t =>
+    have h' := h
+    simp only [ProjColIn.eval] at h'
+    rcases hv₁ : u k₁ with v | x
+    · rw [hv₁] at h'; simp at h'
+    · rcases hv₂ : u k₂ with v | y
+      · rw [hv₁, hv₂] at h'; simp at h'
+      · rw [hv₁, hv₂] at h'
+        simp only [Sum.inr.injEq] at h'
+        rw [← h']
+        exact AggTok.annsIn_pairCol t y (hu k₁ x hv₁)
 
 omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 /-- An occurrence of a frame is the row's own or one of the relation's. -/

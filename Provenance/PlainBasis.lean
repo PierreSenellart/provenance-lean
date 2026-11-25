@@ -652,6 +652,7 @@ def ProjColIn.noFun {c k : ℕ} {κ : Fin k → ColKind} :
   | .token _ _ => true
   | .aggTerm _ _ _ => false
   | .aggTermOf _ _ t => t.noFun
+  | .aggPairOf _ _ _ _ t => t.noFun
   | .provTerm t => t.noFun
 
 /-- **The query is in the signature `𝒜(Ω, Θ)`**, for `Ω` read as
@@ -1477,6 +1478,7 @@ def ProjColIn.constsIn {c k : ℕ} {κ : Fin k → ColKind} (V : Finset T) :
   | .token _ _ => True
   | .aggTerm _ _ _ => True
   | .aggTermOf _ _ t => t.constsIn V
+  | .aggPairOf _ _ _ _ t => t.constsIn V
   | .provTerm t => t.constsIn V
 
 /-- **A term of the minimal signature reads a value it was given.** -/
@@ -1528,6 +1530,15 @@ private theorem ProjColIn.evalPlain_mem_of_noFun {c k : ℕ} {κ : Fin k → Col
     rw [TermIn.unary]
     exact t.eval_mem_of_noFun h hc (fun i => i.elim0) (fun i => i.elim0)
       (fun _ => u j) (fun _ => hu j)
+  | aggPairOf j₁ j₂ h₁ h₂ t =>
+    show t.binary (u j₁) (u j₂) ∈ V
+    rw [TermIn.binary]
+    refine t.eval_mem_of_noFun h hc (fun i => i.elim0) (fun i => i.elim0) _ (fun i => ?_)
+    refine Fin.cases ?_ (fun i' => ?_) i
+    · exact hu j₁
+    · have : i' = 0 := Fin.fin_one_eq_zero i'
+      subst this
+      exact hu j₂
   | provTerm t => exact t.evalPlain_mem_of_noFun h hc u hu γ hγ
 
 /-- **The constants the query may put in its result lie in `V`.** Only a
@@ -1596,6 +1607,7 @@ def ProjColIn.consts {c k : ℕ} {κ : Fin k → ColKind} :
   | .token _ _ => ∅
   | .aggTerm _ _ _ => ∅
   | .aggTermOf _ _ t => t.consts
+  | .aggPairOf _ _ _ _ t => t.consts
   | .provTerm t => t.consts
 
 /-- A term's constants lie in any set holding `consts`. -/
@@ -1664,6 +1676,7 @@ private theorem ProjColIn.constsIn_of_subset {c k : ℕ} {κ : Fin k → ColKind
   | .token _ _, _ => trivial
   | .aggTerm _ _ _, _ => trivial
   | .aggTermOf _ _ t, h => t.constsIn_of_subset h
+  | .aggPairOf _ _ _ _ t, h => t.constsIn_of_subset h
   | .provTerm t, h => t.constsIn_of_subset h
 
 /-- **The constants a query names in its projections**, as a set: what

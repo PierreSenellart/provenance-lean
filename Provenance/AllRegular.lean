@@ -179,6 +179,7 @@ def ProjColIn.toReg {c n : ℕ} {κ : Fin n → ColKind} :
   | .token k _ => .term (.index k rfl)
   | .aggTerm _ _ _ => .term (.const 0)
   | .aggTermOf k _ t => .term (t.atCol k rfl)
+  | .aggPairOf k₁ k₂ _ _ t => .term (t.atCols ![k₁, k₂] (fun _ => rfl))
   | .provTerm t => .term t.toReg
 
 /-- Every column it builds is regular. -/
@@ -196,6 +197,7 @@ private theorem ProjColIn.evalPlain_toReg {c n : ℕ} {κ : Fin n → ColKind}
   | token k h => rfl
   | aggTerm k h gf => exact absurd hp (by simp [ProjColIn.sourceCol])
   | aggTermOf k h t => exact TermIn.evalPlain_atCol k rfl u γ t
+  | aggPairOf k₁ k₂ h₁ h₂ t => exact TermIn.evalPlain_atCols_pair k₁ k₂ _ u γ t
   | provTerm t => exact TermGIn.evalPlain_toReg t u γ
 
 /-! ## Reading a query's own columns as values

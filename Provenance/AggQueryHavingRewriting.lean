@@ -95,6 +95,10 @@ noncomputable def ProjColIn.evalRew {c n : ℕ} {κ : Fin n → ColKind}
   | .token k _ => u k
   | .aggTerm k _ gf => Sum.map gf (AggTok.postcomp gf) (u k)
   | .aggTermOf k _ t => Sum.map t.unary (AggTok.postcompTerm t) (u k)
+  | .aggPairOf k₁ k₂ _ _ t =>
+    match u k₁, u k₂ with
+    | Sum.inr x, Sum.inr y => Sum.inr (x.pairCol t y)
+    | a, b => Sum.inl (t.binary a.collapse b.collapse)
   | .provTerm t => Sum.inl (t.evalRew u γ)
 
 /-- Three-valued evaluation of a predicate in the rewritten world (compared
@@ -408,6 +412,7 @@ private theorem ProjColIn.evalRew_inl {c n : ℕ} {κ : Fin n → ColKind}
   | token k h => rfl
   | aggTerm k h gf => rfl
   | aggTermOf k h gf => rfl
+  | aggPairOf k₁ k₂ h₁ h₂ t => rfl
   | provTerm t => exact congrArg Sum.inl (t.evalRew_inl hp u)
 
 /-- Gate-free predicates on `inl`-embedded rows hold as their plain

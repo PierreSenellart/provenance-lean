@@ -225,6 +225,9 @@ def ProjColIn.lift {c k : ℕ} {κ : Fin k → ColKind} :
       .aggTerm (Fin.natAdd c i) ((ColKind.liftKinds_col c κ i).trans h) gf
   | .aggTermOf i h gf =>
       .aggTermOf (Fin.natAdd c i) ((ColKind.liftKinds_col c κ i).trans h) gf
+  | .aggPairOf i₁ i₂ h₁ h₂ t =>
+      .aggPairOf (Fin.natAdd c i₁) (Fin.natAdd c i₂) ((ColKind.liftKinds_col c κ i₁).trans h₁)
+        ((ColKind.liftKinds_col c κ i₂).trans h₂) t
   | .provTerm t => .provTerm t.lift
 
 omit [ValueType T] in
@@ -257,6 +260,10 @@ private theorem ProjColIn.evalPlain_lift {c k : ℕ} {κ : Fin k → ColKind}
     show gf.unary ((Fin.append v w : Tuple T (c + k)) (Fin.natAdd c i))
       = gf.unary (w i)
     rw [Fin.append_right]
+  | aggPairOf i₁ i₂ h₁ h₂ t =>
+    show t.binary ((Fin.append v w : Tuple T (c + k)) (Fin.natAdd c i₁))
+        ((Fin.append v w : Tuple T (c + k)) (Fin.natAdd c i₂)) = t.binary (w i₁) (w i₂)
+    rw [Fin.append_right, Fin.append_right]
   | provTerm t => exact TermGIn.evalPlain_lift t v w
 
 /-! ## Slices: what a decorrelated query computes

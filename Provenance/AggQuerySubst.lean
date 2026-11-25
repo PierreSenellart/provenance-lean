@@ -328,6 +328,7 @@ def ProjColIn.substMap {c d n : ℕ} {κ : Fin n → ColKind}
   | .token k h => .token k h
   | .aggTerm k h gf => .aggTerm k h gf
   | .aggTermOf k h gf => .aggTermOf k h gf
+  | .aggPairOf k₁ k₂ h₁ h₂ t => .aggPairOf k₁ k₂ h₁ h₂ t
   | .provTerm t => .provTerm (t.substMap θ)
 
 omit [ValueType T] in
@@ -356,6 +357,7 @@ private theorem ProjColIn.eval_substMap {c d n : ℕ} {κ : Fin n → ColKind}
   | token k h => rfl
   | aggTerm k h gf => rfl
   | aggTermOf k h gf => rfl
+  | aggPairOf k₁ k₂ h₁ h₂ t => rfl
   | provTerm t => exact congrArg Sum.inl (TermGIn.eval_substMap θ t u γ)
 
 private theorem ProjColIn.evalPlain_substMap {c d n : ℕ} {κ : Fin n → ColKind}
@@ -367,6 +369,7 @@ private theorem ProjColIn.evalPlain_substMap {c d n : ℕ} {κ : Fin n → ColKi
   | token k h => rfl
   | aggTerm k h gf => rfl
   | aggTermOf k h gf => rfl
+  | aggPairOf k₁ k₂ h₁ h₂ t => rfl
   | provTerm t => exact TermGIn.evalPlain_substMap θ t u γ
 
 /-! ## Substitution on queries -/
@@ -1044,6 +1047,7 @@ private theorem ProjColIn.readsOuter_substMap {c d n : ℕ} {κ : Fin n → ColK
   | .token _ _ => by simp [ProjColIn.substMap, ProjColIn.readsOuter]
   | .aggTerm _ _ _ => by simp [ProjColIn.substMap, ProjColIn.readsOuter]
   | .aggTermOf _ _ _ => by simp [ProjColIn.substMap, ProjColIn.readsOuter]
+  | .aggPairOf _ _ _ _ _ => by simp [ProjColIn.substMap, ProjColIn.readsOuter]
 
 omit [ValueType T] in
 @[simp] private theorem AggQueryIn.readsOuter_castKind {c n : ℕ} {κ κ' : Fin n → ColKind}
@@ -1622,6 +1626,7 @@ private theorem ProjColIn.outerOk_substMap {c d n : ℕ} {κ : Fin n → ColKind
   | .token _ _, _ => trivial
   | .aggTerm _ _ _, _ => trivial
   | .aggTermOf _ _ _, _ => trivial
+  | .aggPairOf _ _ _ _ _, _ => trivial
   | .provTerm t, h => TermGIn.outerOk_substMap θ hθ t h
 
 omit [ValueType T] in

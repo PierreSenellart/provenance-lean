@@ -213,6 +213,7 @@ def ProjColIn.castComposite {c n : ℕ} {κ : Fin n → ColKind}
   | .token _ _, hp => ColKind.noConfusion hp
   | .aggTerm _ _ _, hp => ColKind.noConfusion hp
   | .aggTermOf _ _ _, hp => ColKind.noConfusion hp
+  | .aggPairOf _ _ _ _ _, hp => ColKind.noConfusion hp
   | .provTerm _, hp => ColKind.noConfusion hp
 
 omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
@@ -265,6 +266,7 @@ private theorem ProjColIn.castComposite_chiFree {c n : ℕ} {κ : Fin n → ColK
   | .token _ _, hp => ColKind.noConfusion hp
   | .aggTerm _ _ _, hp => ColKind.noConfusion hp
   | .aggTermOf _ _ _, hp => ColKind.noConfusion hp
+  | .aggPairOf _ _ _ _ _, hp => ColKind.noConfusion hp
   | .provTerm _, hp => ColKind.noConfusion hp
 
 omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
@@ -278,6 +280,7 @@ theorem ProjColIn.castComposite_kind {c n : ℕ} {κ : Fin n → ColKind}
   | token k hk => exact ColKind.noConfusion hp
   | aggTerm k hk gf => exact ColKind.noConfusion hp
   | aggTermOf k hk gf => exact ColKind.noConfusion hp
+  | aggPairOf k₁ k₂ h₁ h₂ t => exact ColKind.noConfusion hp
   | provTerm t => exact ColKind.noConfusion hp
 
 /-! ## The rewriting -/

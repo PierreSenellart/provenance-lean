@@ -756,17 +756,12 @@ theorem AggTok.annList_flatExpr {x : AggTok T K} (hx : x.isNested = false) :
   | expr e => rfl
 
 omit [CommSemiringWithMonus K'] in
-/-- **A term over two values of one class is of that class**: it keeps
-the family of the first and lists the same annotations. -/
+/-- **A term over two values read in one world is of the class of the
+first**: it keeps its family and lists the same annotations. -/
 theorem AggTok.classKey_pairTerm (t : TermIn T 2 0) {x y : AggTok T K}
-    (hx : x.isNested = false) (hy : y.isNested = false) (hk : x.classKey = y.classKey) :
-    (x.pairTerm t y).classKey = x.classKey := by
-  have hann : y.flatExpr.annList = x.flatExpr.annList := by
-    rw [AggTok.annList_flatExpr hx, AggTok.annList_flatExpr hy]
-    exact (congrArg (fun k => k.2.1) hk).symm
-  have hlen : x.flatExpr.occs.length = y.flatExpr.occs.length := by
-    have := congrArg List.length hann
-    simpa [AggExpr.annList] using this.symm
+    (hj : AggTok.Joint x y) : (x.pairTerm t y).classKey = x.classKey := by
+  have hx := hj.1
+  have hlen := hj.2.2.2.1
   have hpair : (AggExpr.pair x.flatExpr y.flatExpr t.binary).annList = x.annList := by
     rw [← AggTok.annList_flatExpr hx]
     unfold AggExpr.annList AggExpr.pair
@@ -1178,5 +1173,40 @@ private theorem AggExpr.worldStats_mapAnn (f : K →+* K') (e : AggExpr T K) :
     rfl
   · refine decide_eq_decide.mpr ?_
     simp only [AggExpr.okSeq, List.mem_map, exists_exists_and_eq_and]
+
+open Classical in
+/-- **The world statistics of a presented expression, read off its
+listing.** -/
+theorem AggExpr.PresBy.worldStats {ρ β : Type} {e : AggExpr T K} {L : List β} {ann : β → K}
+    {str : β → ρ} {ok : List ρ → Prop} {val : List ρ → T} (hP : e.PresBy L ann str ok val) :
+    e.worldStats = (subWorlds ann L).map
+      (fun w => (w.1, w.2.1, val (w.2.2.map str), decide (ok (w.2.2.map str)))) := by
+  obtain ⟨h₀, hann, hw, hv⟩ := hP
+  unfold AggExpr.worldStats
+  rw [univ_val_reindex h₀, Multiset.map_map, ← univ_map_eq_subWorlds ann L, Multiset.map_map]
+  refine Multiset.map_congr rfl (fun W _ => ?_)
+  simp only [Function.comp]
+  refine Prod.ext ?_ (Prod.ext ?_ (Prod.ext (hv W) (decide_eq_decide.mpr (hw W))))
+  · rw [Finset.prod_map]
+    exact Finset.prod_congr rfl (fun i _ => hann i)
+  · rw [compl_map_finCongr, Finset.sum_map]
+    exact Finset.sum_congr rfl (fun i _ => hann i)
+
+open Classical in
+/-- **Two expressions presented by related listings have the same world
+statistics**, the annotations pushed through the homomorphism: the second
+listing is the first's, occurrences swapped only where their rows read
+alike. -/
+theorem ListingRel.worldStats_of_presBy {f : K →+* K'} (D : ListingRel f T)
+    {e : AggExpr T K} {e' : AggExpr T K'} {ok : List D.ρ → Prop} {val : List D.ρ → T}
+    (hP : e.PresBy D.L D.ann D.str ok val) (hP' : e'.PresBy D.L' D.ann' D.str' ok val) :
+    e'.worldStats = (e.mapAnn f).worldStats := by
+  rw [AggExpr.worldStats_mapAnn, hP.worldStats, hP'.worldStats]
+  have h1 := subWorlds_tiePerm D.ann' D.str' D.heqv D.hperm
+  rw [subWorlds_map f D.ann D.ann' D.e D.hann] at h1
+  have h2 := congrArg (Multiset.map (fun w : K' × K' × List D.ρ =>
+    (w.1, w.2.1, val w.2.2, decide (ok w.2.2)))) h1
+  simp only [Multiset.map_map, Function.comp_def, List.map_map, D.hstr] at h2
+  simpa only [Multiset.map_map, Function.comp_def] using h2
 
 end WorldStats

@@ -116,6 +116,7 @@ private theorem ProjColIn.evalPlain_readTuple {c k : ℕ} {κ : Fin k → ColKin
   | token _ _ => exact absurd rfl hk
   | aggTerm _ _ _ => exact absurd rfl hk
   | aggTermOf _ _ _ => exact absurd rfl hk
+  | aggPairOf _ _ _ _ _ => exact absurd rfl hk
   | provTerm t => exact TermGIn.evalPlain_readTuple t hp u γ
 
 /-- The regular reading of a projected row is a function of the regular

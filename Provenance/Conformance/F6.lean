@@ -5,6 +5,7 @@
 module
 
 public import Provenance.Conformance.Basic
+public import Provenance.Coherence
 import all Provenance.Database
 import all Provenance.AggQuery
 import all Provenance.Derived
@@ -140,6 +141,51 @@ theorem agg_expr_unary_ok : ∀ i,
           ProjColIn.aggTerm 1 rfl (fun v => v + val 1)]
         (AggQueryIn.Gamma (lab := 0) (rd := fun _ => false) ![1] ![TermIn.const (val 1)] ![cnt] Emp))
       = rel (agg_expr_unary i) := by
+  decide
+
+/-- `SELECT dept, sum(sal) + count(*) FROM emp GROUP BY dept`, the term
+over the two aggregate columns of the grouping. -/
+abbrev aggExprQ :=
+  AggQueryIn.Proj (T := V) ![ProjColIn.term (TermGIn.index 0 rfl),
+      ProjColIn.aggPairOf 1 2 rfl rfl (TermIn.add (TermIn.outer 0) (TermIn.outer 1))]
+    (AggQueryIn.Gamma (lab := 0) (rd := fun _ => false) ![1]
+      ![TermIn.index 2, TermIn.const (val 1)] ![sumAgg, cnt] Emp)
+
+set_option maxRecDepth 100000 in
+/-- An expression over two aggregates of one grouping: null as soon as one of them is.
+```sql
+SELECT dept, sum(sal) + count(*) FROM emp GROUP BY dept;
+```
+-/
+theorem agg_expr_ok : ∀ i, run i aggExprQ = rel (agg_expr i) := by
+  decide
+
+/-- The query names two columns of one grouping, which is what the
+homomorphism theorem asks of a term over two aggregate columns
+(`AggQueryIn.sourceCols`). -/
+theorem aggExprQ_sourceCols : aggExprQ.sourceCols := by
+  refine ⟨fun j => ?_, trivial⟩
+  refine Fin.cases ?_ (fun j' => ?_) j
+  · exact ⟨Or.inl rfl, fun _ _ _ _ _ h => by cases h⟩
+  · have h0 : j' = 0 := Fin.fin_one_eq_zero j'
+    subst h0
+    refine ⟨Or.inr rfl, fun k₁ k₂ h₁ h₂ t h => ?_⟩
+    cases h
+    exact ⟨0, 1, rfl, rfl⟩
+
+set_option maxRecDepth 100000 in
+/-- The same under a `HAVING`: the selection sits between the grouping and the term.
+```sql
+SELECT dept, sum(sal) - count(sal) FROM emp GROUP BY dept HAVING count(*) >= 2;
+```
+-/
+theorem agg_expr_having_ok : ∀ i,
+    run i (AggQueryIn.Proj ![ProjColIn.term (TermGIn.index 0 rfl),
+          ProjColIn.aggPairOf 1 2 rfl rfl (TermIn.sub (TermIn.outer 0) (TermIn.outer 1))]
+        (AggQueryIn.Sel (GenPredIn.aggCmp 3 rfl CompOp.ge (lit 2))
+          (AggQueryIn.Gamma (lab := 0) (rd := fun _ => false) ![1]
+            ![TermIn.index 2, TermIn.index 2, TermIn.const (val 1)] ![sumAgg, cntCol, cnt] Emp)))
+      = rel (agg_expr_having i) := by
   decide
 
 set_option maxRecDepth 100000 in

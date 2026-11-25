@@ -186,6 +186,12 @@ private theorem TermIn.noFun_atCol {c k : ℕ} {κ : Fin k → ColKind} (i : Fin
     {t : TermIn T 1 0} (ht : t.noFun = true) : (t.atCol (c := c) i h).noFun = true := by
   cases t <;> first | rfl | exact Bool.noConfusion ht | exact Fin.elim0 ‹Fin 0›
 
+omit [ValueType T] in
+private theorem TermIn.noFun_atCols {c k m : ℕ} {κ : Fin k → ColKind} (f : Fin m → Fin k)
+    (h : ∀ j, κ (f j) = ColKind.reg) {t : TermIn T m 0} (ht : t.noFun = true) :
+    (t.atCols (c := c) f h).noFun = true := by
+  cases t <;> first | rfl | exact Bool.noConfusion ht | exact Fin.elim0 ‹Fin 0›
+
 private theorem ProjColIn.noFun_toReg {c n : ℕ} {κ : Fin n → ColKind} {p : ProjColIn T c κ}
     (hs : p.sourceCol = true) (hn : p.noFun = true) : (p.toReg).noFun = true := by
   cases p with
@@ -193,6 +199,7 @@ private theorem ProjColIn.noFun_toReg {c n : ℕ} {κ : Fin n → ColKind} {p : 
   | token k h => rfl
   | aggTerm k h gf => exact Bool.noConfusion hs
   | aggTermOf k h t => exact TermIn.noFun_atCol k rfl hn
+  | aggPairOf k₁ k₂ h₁ h₂ t => exact TermIn.noFun_atCols _ _ hn
   | provTerm t => exact TermGIn.noFun_toReg hn
 
 omit [ValueType T] in

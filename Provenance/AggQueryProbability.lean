@@ -1829,6 +1829,21 @@ private lemma mul_mul_eval_drop (x y z : BoolFunc X) (v : X → Bool)
   exact ⟨h'.1.1, h'.2⟩
 
 omit [Fintype X] [DecidableEq X] in
+/-- **A term over two realized values is realized**: read together, the
+two have the same annotations, so the valuation keeps the same occurrences
+of both; otherwise the column is a constant, which has no group. -/
+private theorem AggTok.realized_pairCol (t : TermIn T 2 0) {x y : AggTok T (BoolFunc X)}
+    (v : X → Bool) (hx : x.Realized v) (hy : y.Realized v) : (x.pairCol t y).Realized v := by
+  unfold AggTok.pairCol
+  split
+  · rename_i hj
+    have hsf : AggExpr.SameFamily x.flatExpr y.flatExpr := hj.2.2.2.2.symm
+    exact (AggExpr.isWorld_realized_pair _ _ t.binary hsf _).mpr
+      ⟨(AggTok.realized_iff_flatExpr hj.1 v).mp hx, (AggTok.realized_iff_flatExpr hj.2.1 v).mp hy⟩
+  · intro j
+    exact j.elim0
+
+omit [Fintype X] [DecidableEq X] in
 /-- **The column a projection reads is realized where the row is**: a
 term reads no token at all, and the two token cases read a column of the
 row itself – through a function in the second, which
@@ -1867,6 +1882,19 @@ private theorem ProjColIn.realized_eval {c n : ℕ} {κ : Fin n → ColKind}
         exact (Sum.inr.inj this).symm
       rw [hax, AggTok.postcompTerm, AggTok.Realized_setFam, AggTok.Realized_postcomp]
       exact hrow k x hu
+  | aggPairOf k₁ k₂ h₁ h₂ t =>
+    cases hu₁ : u k₁ with
+    | inl w => exact absurd ha (by simp [ProjColIn.eval, hu₁])
+    | inr x =>
+      cases hu₂ : u k₂ with
+      | inl w => exact absurd ha (by simp [ProjColIn.eval, hu₁, hu₂])
+      | inr y =>
+        have hax : a = x.pairCol t y := by
+          have := ha
+          simp only [ProjColIn.eval, hu₁, hu₂] at this
+          exact (Sum.inr.inj this).symm
+        rw [hax]
+        exact AggTok.realized_pairCol t v (hrow k₁ x hu₁) (hrow k₂ y hu₂)
 
 omit [ValueType T] [Fintype X] [DecidableEq X] in
 /-- **A reading that reads nothing returns its value**, whatever the
@@ -1922,10 +1950,11 @@ reading and not the world one – and `GenRow.NoNested` rules it out. -/
 private theorem ProjColIn.specialize_innerValue {c n : ℕ} {κ : Fin n → ColKind}
     (p : ProjColIn T c κ) (u : Tuple (GenValue T (BoolFunc X)) n)
     {γ : Fin c → T} (hconf : ∀ k, GenValue.kindOf (u k) = (κ k).base)
-    (hnn : GenRow.NoNested u) (v : X → Bool) :
+    (hnn : GenRow.NoNested u) (v : X → Bool) (hpair : p.isPair = false) :
     (GenValue.innerValue (p.eval u γ)).specialize (fun α => α v)
       = p.evalPlain (GenRow.specializeTuple v u) γ := by
   cases p with
+  | aggPairOf _ _ _ _ _ => exact absurd hpair (by simp [ProjColIn.isPair])
   | term t =>
     show (NestedValue.constInner (t.eval u γ)).specialize _ = _
     rw [NestedValue.specialize_constInner]
@@ -2336,6 +2365,21 @@ private theorem AggQueryIn.evaluate_guarded :
           -- reading through a function moves neither the family nor the
           -- conventions, so the worlds are the expression's own
           exact ih d E r₀ hr₀ v hE hfin₀ k (AggTok.expr a₀) hu
+    | aggPairOf k₁ k₂ h₁ h₂ t =>
+      rw [hp] at ha'
+      cases hu₁ : r₀.fst k₁ with
+      | inl w => exact absurd ha' (by simp [ProjColIn.eval, hu₁])
+      | inr x =>
+        cases hu₂ : r₀.fst k₂ with
+        | inl w => exact absurd ha' (by simp [ProjColIn.eval, hu₁, hu₂])
+        | inr y =>
+          have hax : a = x.pairCol t y := by
+            have := ha'
+            simp only [ProjColIn.eval, hu₁, hu₂] at this
+            exact (Sum.inr.inj this).symm
+          rw [hax]
+          exact AggTok.realized_pairCol t v (ih d E r₀ hr₀ v hE hfin₀ k₁ x hu₁)
+            (ih d E r₀ hr₀ v hE hfin₀ k₂ y hu₂)
   | Sel φ q _ ih =>
     intro d γ E r hr v hE hfin k a ha
     simp only [AggQueryIn.evaluate] at hr
@@ -2766,10 +2810,11 @@ specialized tuple. -/
 private lemma ProjColIn.specializeAt_eval {c n : ℕ} {κ : Fin n → ColKind}
     (pc : ProjColIn T c κ) (u : Tuple (GenValue T (BoolFunc X)) n)
     (hconf : ∀ k, GenValue.kindOf (u k) = (κ k).base) (v : X → Bool)
-    {γ : Fin c → T} :
+    {γ : Fin c → T} (hpair : pc.isPair = false) :
     GenValue.specializeAt v (pc.eval u γ)
       = pc.evalPlain (GenRow.specializeTuple v u) γ := by
   cases pc with
+  | aggPairOf _ _ _ _ _ => exact absurd hpair (by simp [ProjColIn.isPair])
   | term t =>
     show GenValue.specializeAt v (Sum.inl (t.eval u γ)) = _
     exact TermGIn.eval_specialize t u hconf v
@@ -3873,7 +3918,7 @@ theorem AggQueryIn.genRandomWorld_evaluate_env :
           (r.snd.pending ∩ tokenLists (fun j => (ps j).eval r.fst γ))
           Multiset.inter_le_left)))]
     rw [Multiset.map_congr rfl (fun r hr => ?_), ← Multiset.map_map,
-      ← ih hq hh hwk.2 d v E D N hE hG hD hN hH hr]
+      ← ih hq.2 hh hwk.2 d v E D N hE hG hD hN hH hr]
     · rfl
     · -- pointwise: the specialized projected tuple is the plain projection
       -- of the specialized tuple
@@ -3884,7 +3929,7 @@ theorem AggQueryIn.genRandomWorld_evaluate_env :
             (GenRow.specializeTuple v (E.ctxAt _ γ))
       funext j
       rw [← ProjColIn.evalPlain_congr_outerOk (hE.ctx_ok v) _ (ps j) (hwk.1 j)]
-      exact ProjColIn.specializeAt_eval (ps j) r.fst hconf v
+      exact ProjColIn.specializeAt_eval (ps j) r.fst hconf v (hq.1 j)
   | Sel φ q _ ih =>
     intro hq hh ρc HK hwk d v γ E D N hE hG hD hN hH hr
     simp only [AggQueryIn.evaluate, AggQueryIn.evaluatePlain]
@@ -4183,7 +4228,7 @@ theorem AggQueryIn.genRandomWorld_evaluate_env :
     have hpγ : ∀ u, p.evalPlain u (GenRow.specializeTuple v (E.ctxAt _ γ)) = p.evalPlain u γ :=
       fun u => (ProjColIn.evalPlain_congr_outerOk (hE.ctx_ok v) u p hwk.1).symm
     simp only [hpγ]
-    rw [← ih hq hh hwk.2 d v E D N hE hG hD hN hH hr]
+    rw [← ih hq.2 hh hwk.2 d v E D N hE hG hD hN hH hr]
     -- the rows, the key read off their values, and what a row contributes
     set rows := q.evaluate d γ E with hrows
     set key : GenRow T (BoolFunc X) m → Tuple T n₁ :=
@@ -4286,7 +4331,7 @@ theorem AggQueryIn.genRandomWorld_evaluate_env :
           exact ⟨hfin, (hkeyspec row hrow).symm.trans hspec⟩
       · -- and the occurrence reads what the realized row reads
         have hrow' : row ∈ rows := (Multiset.mem_filter.mp hrow).1
-        exact ProjColIn.specializeAt_eval p row.fst (hconf row hrow') v
+        exact ProjColIn.specializeAt_eval p row.fst (hconf row hrow') v hq.1
   | @Gamma cI m n₁ n₂ _lab _rd is ts fs q keep ord ih =>
     intro hq hh ρc HK hwk d v γ E D N hE hG hD hN hH hr
     simp only [AggQueryIn.evaluate, AggQueryIn.evaluatePlain]

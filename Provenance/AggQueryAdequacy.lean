@@ -103,6 +103,16 @@ theorem ProjColIn.collapseSum_eval {c n : ℕ} {κ : Fin n → ColKind}
     cases h : u k with
     | inl v => rfl
     | inr x => cases x <;> rfl
+  | aggPairOf k₁ k₂ h₁ h₂ t =>
+    show AggValue.collapseSum (ProjColIn.eval (.aggPairOf k₁ k₂ h₁ h₂ t) u γ)
+      = t.binary (AggValue.collapseSum (u k₁)) (AggValue.collapseSum (u k₂))
+    simp only [ProjColIn.eval]
+    cases e₁ : u k₁ with
+    | inl v => cases e₂ : u k₂ <;> rfl
+    | inr x =>
+      cases e₂ : u k₂ with
+      | inl v => rfl
+      | inr y => exact AggTok.collapse_pairCol t x y
   | provTerm t =>
     show AggValue.collapseSum (Sum.inl (t.eval u γ)) = _
     rw [ProjColIn.evalPlain, ← TermGIn.eval_eq_evalPlain]

@@ -198,6 +198,11 @@ def ProjColIn.castRew {n : ℕ} {κ : Fin n → ColKind} :
   | .aggTermOf k h t =>
       .aggTerm (Fin.castAdd 1 k) ((ColKind.rewKindsOf_castAdd κ k).trans h)
         (Sum.map t.unary id)
+  -- a term over two aggregate columns has no counterpart in the rewritten
+  -- world, whose columns apply a function to one; the rewriting does not
+  -- take it (`AggQueryIn.RewritesTo.proj`), and the cast keeps the kind
+  | .aggPairOf k₁ _ h₁ _ _ =>
+      .token (Fin.castAdd 1 k₁) ((ColKind.rewKindsOf_castAdd κ k₁).trans h₁)
   | .provTerm t => .provTerm t.castRew
 
 omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
@@ -271,10 +276,11 @@ private theorem GenPredIn.castRew_holdsRew {n : ℕ} {κ : Fin n → ColKind}
   rw [GenPredIn.castRew_evalRew3 φ r]
 
 private theorem ProjColIn.castRew_evalRew {n : ℕ} {κ : Fin n → ColKind}
-    (p : ProjCol T κ) (r : GenRow T K n) :
+    (p : ProjCol T κ) (r : GenRow T K n) (hpair : p.isPair = false) :
     p.castRew.evalRew r.toCompositeRow
       = GenValue.toComposite (p.eval r.fst) := by
   cases p with
+  | aggPairOf _ _ _ _ _ => exact absurd hpair (by simp [ProjColIn.isPair])
   | term t => exact congrArg Sum.inl (t.castRew_evalRew r)
   | token k h => exact GenRow.toCompositeRow_castAdd r k
   | aggTerm k h gf =>
@@ -2076,7 +2082,7 @@ inductive AggQueryIn.RewritesTo :
       RewritesTo (AggQueryIn.Sel φ q) (AggQueryIn.selAggRew φ q')
   | proj {n m : ℕ} {κ : Fin n → ColKind} {q : AggQuery T n κ}
       {q' : AggQuery (T ⊕ K) (n + 1) (ColKind.rewKindsOf κ)}
-      (ps : Tuple (ProjCol T κ) m) :
+      (ps : Tuple (ProjCol T κ) m) (hps : ∀ j, (ps j).isPair = false) :
       RewritesTo q q' →
       RewritesTo (AggQueryIn.Proj ps q)
         (AggQueryIn.Retag
@@ -2147,7 +2153,7 @@ theorem AggQueryIn.rewritesTo_gamma_gamma {lab1 lab2 : ℕ} {m m₂ n₁ n₂ p�
           (AggQueryIn.Proj (fun j => ProjColIn.term (os j))
             (AggQueryIn.Gamma (lab := lab2) (rd := (fun _ => false)) is ts fs qg))) q' :=
   ⟨_, .gammaOf is' ts' fs' (fun _ => none)
-    (.proj (fun j => ProjColIn.term (os j)) (.gamma is ts fs qg hq))⟩
+    (.proj (fun j => ProjColIn.term (os j)) (fun _ => rfl) (.gamma is ts fs qg hq))⟩
 
 omit [DecidableEq K] in
 /-- **A `HAVING` over a grouping of a grouping is in the closure.** Two
@@ -2174,7 +2180,7 @@ theorem AggQueryIn.rewritesTo_having_over_gamma {lab1 lab2 : ℕ} {m m₂ n₁ n
               (AggQueryIn.Gamma (lab := lab2) (rd := (fun _ => false)) is ts fs qg)))) q' :=
   ⟨_, .selAgg φ hφ hrf (AggQueryIn.noGammaNest_of_classical qg hq)
     (.gammaOf is' ts' fs' (fun _ => none)
-      (.proj (fun j => ProjColIn.term (os j)) (.gamma is ts fs qg hq)))⟩
+      (.proj (fun j => ProjColIn.term (os j)) (fun _ => rfl) (.gamma is ts fs qg hq)))⟩
 
 /-- **Whole-query correctness of the compositional rewriting**: along the
 closure, the general evaluator's rows, embedded token-aware into the
@@ -2217,7 +2223,7 @@ theorem AggQueryIn.rewritesTo_valid {n : ℕ} {κ : Fin n → ColKind}
     rw [ite_eq_right (by simp [hφ]), ← ih, Multiset.filter_map]
     exact congrArg _ (Multiset.filter_congr (fun r _ =>
       (φ.castRew_holdsRew r).symm))
-  | @proj n m κ q q' ps h ih =>
+  | @proj n m κ q q' ps hps h ih =>
     show _ = AggQueryIn.evaluateRew (AggQueryIn.Retag _ _) _
     simp only [AggQueryIn.evaluateRew]
     rw [← ih]
@@ -2229,7 +2235,7 @@ theorem AggQueryIn.rewritesTo_valid {n : ℕ} {κ : Fin n → ColKind}
     rw [GenRow.toCompositeRow_coord]
     by_cases hj : (j : ℕ) < m
     · rw [dite_eq_left hj, dite_eq_left hj]
-      exact ((ps ⟨(j : ℕ), hj⟩).castRew_evalRew r).symm
+      exact ((ps ⟨(j : ℕ), hj⟩).castRew_evalRew r (hps _)).symm
     · rw [dite_eq_right hj, dite_eq_right hj]
       refine Eq.trans (congrArg (fun v => (Sum.inl (Sum.inr v)
           : GenValue (T ⊕ K) K))

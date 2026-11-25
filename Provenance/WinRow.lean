@@ -573,6 +573,7 @@ def ProjColIn.polyOf {c k : ℕ} {κ : Fin k → ColKind} (p : ProjColIn ℕ c �
   | .token j _ => row j
   | .aggTerm _ _ _ => 0
   | .aggTermOf j _ t => TermIn.polyOf t (fun i => i.elim0) (fun _ => row j)
+  | .aggPairOf j₁ j₂ _ _ t => TermIn.polyOf t (fun i => i.elim0) ![row j₁, row j₂]
   | .provTerm t => TermGIn.polyOf t row cγ
 
 private theorem ProjColIn.evalPlain_polyOf {c k : ℕ} {κ : Fin k → ColKind} (p : ProjColIn ℕ c κ)
@@ -589,6 +590,19 @@ private theorem ProjColIn.evalPlain_polyOf {c k : ℕ} {κ : Fin k → ColKind} 
       funext (fun i => i.elim0)
     rw [he]
     exact TermIn.eval_polyOf t hp ⟨0, fun i : Fin 0 => i.elim0⟩ (fun _ => s.row j) n
+  | aggPairOf j₁ j₂ _ _ t =>
+    show t.binary (s.rowAt n j₁) (s.rowAt n j₂) = _
+    rw [TermIn.binary]
+    have he : (fun i : Fin 0 => i.elim0) = (⟨0, fun i : Fin 0 => i.elim0⟩ : Shape 0).rowAt n :=
+      funext (fun i => i.elim0)
+    have hc : (![s.rowAt n j₁, s.rowAt n j₂] : Fin 2 → ℕ) = ctxAt ![s.row j₁, s.row j₂] n := by
+      funext i
+      refine Fin.cases rfl (fun i' => ?_) i
+      have h0 : i' = 0 := Fin.fin_one_eq_zero i'
+      subst h0
+      rfl
+    rw [he, hc]
+    exact TermIn.eval_polyOf t hp ⟨0, fun i : Fin 0 => i.elim0⟩ ![s.row j₁, s.row j₂] n
   | provTerm t => exact TermGIn.evalPlain_polyOf t hp s cγ n
 
 private theorem ProjColIn.polyOf_mem {c k : ℕ} {κ : Fin k → ColKind} (p : ProjColIn ℕ c κ)
@@ -604,6 +618,16 @@ private theorem ProjColIn.polyOf_mem {c k : ℕ} {κ : Fin k → ColKind} (p : P
     · exact Or.inl (Or.inl h)
     · exact i.elim0
     · exact Or.inl (Or.inr ⟨j, h⟩)
+  | aggPairOf j₁ j₂ _ _ t =>
+    rcases TermIn.polyOf_mem t hp (fun i => i.elim0) ![row j₁, row j₂] with
+      (h | ⟨i, _⟩) | ⟨i, h⟩
+    · exact Or.inl (Or.inl h)
+    · exact i.elim0
+    · revert h
+      refine Fin.cases (fun h => Or.inl (Or.inr ⟨j₁, h⟩)) (fun i' h => ?_) i
+      have h0 : i' = 0 := Fin.fin_one_eq_zero i'
+      subst h0
+      exact Or.inl (Or.inr ⟨j₂, h⟩)
   | provTerm t => exact TermGIn.polyOf_mem t hp row cγ
 
 /-- **The shift from the threshold to `n`** on decided polynomials: the

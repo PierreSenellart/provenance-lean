@@ -1008,6 +1008,40 @@ private theorem GenValue.Equiv.of_expr_tiePerm {q : ℕ} {φ₁ φ₂ : FamId T}
   obtain ⟨hcol, hsc', hvals, hprov⟩ := AggExpr.readings_congr (φ₁ := φ₁) (φ₂ := φ₂) aggs sc₁ g h
   exact ⟨hcol, hsc', hvals, hprov, AggExpr.worldStats_congr (φ₁ := φ₁) (φ₂ := φ₂) aggs sc₁ g h⟩
 
+/-- The provenance of a test is read off the world statistics. -/
+private theorem AggExpr.predProvWith_eq_worldStats (e : AggExpr T K) (P : T → Kleene) :
+    e.predProvWith P = ((e.worldStats.filter (fun z => z.2.2.2 = true)).map
+      (fun z => z.1 * (1 - z.2.1) * Having.chiOf P z.2.2.1)).sum := by
+  unfold AggExpr.predProvWith AggExpr.worldStats
+  rw [Finset.sum_eq_multiset_sum, Finset.filter_val, Multiset.filter_map, Multiset.map_map]
+  refine congrArg Multiset.sum ?_
+  rw [Multiset.filter_congr (q := (fun z : K × K × T × Bool => z.2.2.2 = true) ∘
+    (fun S => (∏ j ∈ S, e.anns j, ∑ j ∈ Sᶜ, e.anns j, e.valOn S, decide (e.IsWorld S))))
+    (fun W _ => by simp)]
+  rfl
+
+omit [DecidableEq K] in
+/-- So are the values the expression takes over its worlds. -/
+private theorem AggExpr.vals_eq_worldStats (e : AggExpr T K) :
+    e.vals = ((e.worldStats.filter (fun z => z.2.2.2 = true)).map (fun z => z.2.2.1)).toFinset := by
+  unfold AggExpr.vals AggExpr.worldStats
+  rw [Multiset.filter_map, Multiset.map_map]
+  rw [Multiset.filter_congr (p := (fun z : K × K × T × Bool => z.2.2.2 = true) ∘
+    (fun S => (∏ j ∈ S, e.anns j, ∑ j ∈ Sᶜ, e.anns j, e.valOn S, decide (e.IsWorld S))))
+    (q := fun W => e.IsWorld W) (fun W _ => by simp)]
+  rfl
+
+/-- **Two expression columns with the same world statistics are
+equivalent**, their deterministic readings and conventions agreeing: the
+other readings `GenValue.Equiv` asks are read off the statistics. -/
+private theorem GenValue.Equiv.of_worldStats {e' e : AggExpr T K}
+    (hc : e'.collapse = e.collapse) (hs : e'.isScalar = e.isScalar)
+    (hw : e'.worldStats = e.worldStats) :
+    GenValue.Equiv (Sum.inr (AggTok.expr e') : GenValue T K) (Sum.inr (AggTok.expr e)) :=
+  ⟨hc, hs, by rw [AggExpr.vals_eq_worldStats, AggExpr.vals_eq_worldStats, hw],
+    fun P => by rw [AggExpr.predProvWith_eq_worldStats, AggExpr.predProvWith_eq_worldStats, hw],
+    hw⟩
+
 /-- **Reading an aggregate column through a function preserves the
 equivalence**: a term over one aggregate column moves `g` and leaves
 the family, the convention and the worlds alone. -/
@@ -1928,15 +1962,19 @@ omit [DecidableEq K] [HasAltLinearOrder K] [HasAltLinearOrder K'] in
 /-- **A projection column reads simulated rows alike**: a term reads the
 regular values the simulation keeps, a token column is carried as it is,
 and a term over an aggregate column moves the function and leaves the
-family (`GenValue.Equiv.postcomp`). -/
+family (`GenValue.Equiv.postcomp`). A term over two aggregate columns is
+left to the caller, who knows the two are presented together. -/
 private theorem ProjColIn.equiv_eval_of_sim (h : SemiringWithMonusHom K K')
     {cI mI : ℕ} {κ : Fin mI → ColKind} (pc : ProjColIn T cI κ)
     {γ : Fin cI → T} {r' : GenRow T K' mI} {r : GenRow T K mI}
     (hcol : ∀ k, GenValue.Equiv (r'.fst k)
-      (AggValue.mapAnnSum ⇑h.toRingHom (r.fst k))) :
+      (AggValue.mapAnnSum ⇑h.toRingHom (r.fst k)))
+    (hpair : pc.isPair = true → GenValue.Equiv (pc.eval r'.fst γ)
+      (AggValue.mapAnnSum ⇑h.toRingHom (pc.eval r.fst γ))) :
     GenValue.Equiv (pc.eval r'.fst γ)
       (AggValue.mapAnnSum ⇑h.toRingHom (pc.eval r.fst γ)) := by
   cases pc with
+  | aggPairOf k₁ k₂ h₁ h₂ t => exact hpair rfl
   | term t =>
     simp only [ProjColIn.eval]
     show t.eval r'.fst γ = t.eval r.fst γ
@@ -2748,8 +2786,8 @@ private theorem classPres_row {h : SemiringWithMonusHom K K'} {𝒰₀ : AggTok 
       | succ N ih =>
         intro q hq hk hN
         obtain ⟨hq1, hq2, hqf⟩ := hq
-        rcases hq2.root hU.t with ⟨y₀, hy₀, hry, hey⟩ | ⟨u, a, b, ha, hb, hna, hnb, hkab, hrx, hex⟩
-        · rcases hq1.root hU.t' with ⟨y₀', hy₀', hry', hey'⟩ | ⟨u', a', b', -, -, -, -, -, hrx', -⟩
+        rcases hq2.root hU.t with ⟨y₀, hy₀, hry, hey⟩ | ⟨u, a, b, ha, hb, hj, hrx, hex⟩
+        · rcases hq1.root hU.t' with ⟨y₀', hy₀', hry', hey'⟩ | ⟨u', a', b', -, -, -, hrx', -⟩
           · obtain ⟨j, z', z, h1, h2, he⟩ := hbase q hqf hk y₀ y₀' hy₀ hry hey hy₀' hry' hey'
             rw [he]
             exact (hD j z' z h1 h2).postcompTerms _
@@ -2757,7 +2795,7 @@ private theorem classPres_row {h : SemiringWithMonusHom K K'} {𝒰₀ : AggTok 
             rw [hry, ← hqf, hrx'] at hmk
             cases hmk
         · rcases hq1.root hU.t' with ⟨y₀', hy₀', hry', -⟩ |
-            ⟨u', a', b', ha', hb', -, -, -, hrx', hex'⟩
+            ⟨u', a', b', ha', hb', -, hrx', hex'⟩
           · obtain ⟨l, k, p, c, hmk⟩ := hU.m' y₀' hy₀'
             rw [hry', hqf, hrx] at hmk
             cases hmk
@@ -2767,8 +2805,8 @@ private theorem classPres_row {h : SemiringWithMonusHom K K'} {𝒰₀ : AggTok 
             have hsz := FamId.sizeOf_root_le q.2.fam
             rw [hrx, FamId.pair.sizeOf_spec] at hsz
             have hka : a.classKey = x₀.classKey := by
-              rw [← hk, hex, AggTok.classKey_postcompTerms,
-                AggTok.classKey_pairTerm u hna hnb hkab]
+              rw [← hk, hex, AggTok.classKey_postcompTerms, AggTok.classKey_pairTerm u hj]
+            have hkab : a.classKey = b.classKey := hU.key a b ha hb hj.2.2.1
             have hma : D.Member a' a := ih (a', a) ⟨ha', ha, hfa⟩ hka (by
               show sizeOf a.fam < N; omega)
             have hmb : D.Member b' b := ih (b', b) ⟨hb', hb, hfb⟩ (hkab ▸ hka) (by
@@ -2780,8 +2818,8 @@ private theorem classPres_row {h : SemiringWithMonusHom K K'} {𝒰₀ : AggTok 
     exact fun q hq hk => key _ q hq hk (Nat.lt_succ_self _)
   · refine Or.inr (fun q hq hk => ?_)
     obtain ⟨hq1, hq2, hqf⟩ := hq
-    rcases hq2.root hU.t with ⟨y₀, hy₀, hry, hey⟩ | ⟨u, a, b, -, -, hna, hnb, hkab, -, hex⟩
-    · rcases hq1.root hU.t' with ⟨y₀', hy₀', hry', hey'⟩ | ⟨u', a', b', -, -, -, -, -, hrx', -⟩
+    rcases hq2.root hU.t with ⟨y₀, hy₀, hry, hey⟩ | ⟨u, a, b, -, -, hj, -, hex⟩
+    · rcases hq1.root hU.t' with ⟨y₀', hy₀', hry', hey'⟩ | ⟨u', a', b', -, -, -, hrx', -⟩
       · obtain ⟨j, z', z, h1, h2, he⟩ := hbase q hqf hk y₀ y₀' hy₀ hry hey hy₀' hry' hey'
         obtain ⟨b, b', rfl, rfl, hr⟩ := hN j z' z h1 h2
         obtain ⟨x, hx, hx𝒰, -⟩ := hz j
@@ -2917,18 +2955,81 @@ private theorem pairG_postcompTerm {h : SemiringWithMonusHom K K'} {𝒰₀ : Ag
   ⟨by simp [AggTok.postcompTerm, hp.1],
     hp.2.congr (AggTok.classKey_postcompTerm t x).symm⟩
 
+omit [ValueType T] [DecidableEq K] [HasAltLinearOrder K] [HasAltLinearOrder K'] [DecidableEq K'] in
+/-- A flat value's expression is read in the value's convention. -/
+private theorem AggTok.isScalar_flatExpr {K₀ : Type} {x : AggTok T K₀} (hx : x.isNested = false) :
+    x.flatExpr.isScalar = x.scalar := by
+  cases x with
+  | tok a => exact AggExpr.isScalar_ofValue a
+  | expr e => rfl
+  | nest a => exact absurd hx (by simp [AggTok.isNested])
+
+omit [DecidableEq K] [HasAltLinearOrder K] [HasAltLinearOrder K'] in
+/-- **A term over two columns that one world reads together, on the two
+sides of a homomorphism.** The two values are of one class, presented on
+both sides by one listing; so is the pair, and its readings are read off
+that listing (`ListingRel.worldStats_of_presBy`). -/
+private theorem pairCol_hom {h : SemiringWithMonusHom K K'} {𝒰₀ : AggTok T K → Prop}
+    {𝒰₀' : AggTok T K' → Prop} {W : List (ℕ × ℕ)} (hU : HomUniv 𝒰₀ 𝒰₀' W)
+    {x' y' : AggTok T K'} {x y : AggTok T K} (t : TermIn T 2 0)
+    (hj : AggTok.Joint x y) (hj' : AggTok.Joint x' y')
+    (gx : GPair 𝒰₀ 𝒰₀' (x', x)) (gy : GPair 𝒰₀ 𝒰₀' (y', y))
+    (cx : ClassPres h 𝒰₀ 𝒰₀' x)
+    (ex : GenValue.Equiv (Sum.inr x') (AggValue.mapAnnSum ⇑h.toRingHom (Sum.inr x)))
+    (ey : GenValue.Equiv (Sum.inr y') (AggValue.mapAnnSum ⇑h.toRingHom (Sum.inr y))) :
+    GenValue.Equiv (Sum.inr (x'.pairCol t y'))
+        (AggValue.mapAnnSum ⇑h.toRingHom (Sum.inr (x.pairCol t y)))
+      ∧ (x'.pairCol t y').fam = (x.pairCol t y).fam
+      ∧ ClassPres h 𝒰₀ 𝒰₀' (x.pairCol t y) := by
+  have hcx : x'.collapse = x.collapse := by
+    have := ex.collapseSum_eq
+    rwa [AggValue.collapseSum_mapAnnSum] at this
+  have hcy : y'.collapse = y.collapse := by
+    have := ey.collapseSum_eq
+    rwa [AggValue.collapseSum_mapAnnSum] at this
+  have hc : (x'.pairCol t y').collapse = (x.pairCol t y).collapse := by
+    rw [AggTok.collapse_pairCol, AggTok.collapse_pairCol, hcx, hcy]
+  have hsx : x'.scalar = x.scalar := by
+    have := GenValue.Equiv.scalar_eq ex
+    rwa [AggTok.scalar_mapAnn] at this
+  have hsy : y'.scalar = y.scalar := by
+    have := GenValue.Equiv.scalar_eq ey
+    rwa [AggTok.scalar_mapAnn] at this
+  have e₁ : x.pairCol t y = x.pairTerm t y := ite_eq_left hj
+  have e₂ : x'.pairCol t y' = x'.pairTerm t y' := ite_eq_left hj'
+  rw [e₁, e₂] at hc ⊢
+  refine ⟨?_, by rw [AggTok.fam_pairTerm, AggTok.fam_pairTerm, gx.2.2, gy.2.2],
+    cx.congr (AggTok.classKey_pairTerm t hj).symm⟩
+  rcases cx with ⟨D, hD⟩ | hN
+  · have mx := hD (x', x) gx rfl
+    have hk : y.classKey = x.classKey := (hU.key x y gx.2.1 gy.2.1 hj.2.2.1).symm
+    have my := hD (y', y) gy hk
+    obtain ⟨-, -, ok, val, hP, hP'⟩ := mx.pairTerm t my
+    have hw := D.worldStats_of_presBy hP hP'
+    refine GenValue.Equiv.of_worldStats (K := K') ((AggExpr.collapse_mapAnn _ _).symm ▸ hc) ?_ hw
+    show (AggExpr.pair x'.flatExpr y'.flatExpr t.binary).isScalar
+      = (AggExpr.pair x.flatExpr y.flatExpr t.binary).isScalar
+    rw [AggExpr.isScalar_pair, AggExpr.isScalar_pair, AggTok.isScalar_flatExpr hj.1,
+      AggTok.isScalar_flatExpr hj.2.1, AggTok.isScalar_flatExpr hj'.1,
+      AggTok.isScalar_flatExpr hj'.2.1, hsx, hsy]
+  · obtain ⟨b, b', hb, -, -⟩ := hN (x', x) gx rfl
+    have := hj.1
+    rw [show x = .nest b from hb] at this
+    simp [AggTok.isNested] at this
+
 omit [DecidableEq K] [DecidableEq K'] [HasAltLinearOrder K] [HasAltLinearOrder K']
   [CommSemiringWithMonus K] [CommSemiringWithMonus K'] in
 /-- **A projection column of the source language holds one of its row's
 values, or a term over one**, on both sides alike. -/
 private theorem ProjColIn.pair_eval {cI mI : ℕ} {κ : Fin mI → ColKind} (pc : ProjColIn T cI κ)
-    (hpc : pc.sourceCol = true) (P : AggTok T K' × AggTok T K → Prop)
+    (hpc : pc.sourceCol = true ∨ pc.isPair = true) (P : AggTok T K' × AggTok T K → Prop)
     (hP : ∀ x' x t, P (x', x) → P (x'.postcompTerm t, x.postcompTerm t))
     {γ : Fin cI → T} {u' : Tuple (GenValue T K') mI} {u : Tuple (GenValue T K) mI}
     (hrow : ∀ p, rowPairs u' u p → P p)
     {y' : AggTok T K'} {y : AggTok T K} (h1 : pc.eval u' γ = Sum.inr y')
-    (h2 : pc.eval u γ = Sum.inr y) : P (y', y) := by
+    (h2 : pc.eval u γ = Sum.inr y) (hpair : pc.isPair = true → P (y', y)) : P (y', y) := by
   cases pc with
+  | aggPairOf k₁ k₂ h₁ h₂ t => exact hpair rfl
   | term t => exact absurd h2 (by simp [ProjColIn.eval])
   | provTerm t => exact absurd h2 (by simp [ProjColIn.eval])
   | token k hk => exact hrow _ ⟨k, h1, h2⟩
@@ -3340,13 +3441,67 @@ theorem AggQueryIn.evaluate_hom_univ (h : SemiringWithMonusHom K K') {𝒰₀ : 
   | Proj ps q ih =>
     intro d γ E' E hE hJ hb hb' hW hw hsc hrec
     simp only [AggQueryIn.evaluate]
-    refine rel_map_of_rel (ih d γ E' E hE hJ hb hb' hW hw hsc.2 hrec)
-      (fun r' r hs => ⟨⟨fun j => (ps j).equiv_eval_of_sim h hs.1.1, ?_⟩, ?_⟩)
+    have hfull := ih d γ E' E hE hJ hb hb' hW hw hsc.2 hrec
+    -- a term over two columns: the two are read off as joint, so they are of one class,
+    -- presented on both sides by one listing (`pairCol_hom`)
+    have hpr : ∀ r' ∈ q.evaluate (h.mapAnnotatedDatabase d) γ E', ∀ r ∈ q.evaluate d γ E,
+        GenRow.Sim h r' r ∧ RowG h 𝒰₀ 𝒰₀' r' r → ∀ j, (ps j).isPair = true →
+        GenValue.Equiv ((ps j).eval r'.fst γ)
+            (AggValue.mapAnnSum ⇑h.toRingHom ((ps j).eval r.fst γ))
+          ∧ ∀ z' z, (ps j).eval r'.fst γ = Sum.inr z' → (ps j).eval r.fst γ = Sum.inr z →
+              z'.fam = z.fam ∧ ClassPres h 𝒰₀ 𝒰₀' z := by
+      intro r' hr' r hr hs j hp
+      have hjc := (hsc.1 j).2
+      revert hp hjc
+      cases ps j with
+      | term _ => intro hp; exact absurd hp (by simp [ProjColIn.isPair])
+      | provTerm _ => intro hp; exact absurd hp (by simp [ProjColIn.isPair])
+      | token _ _ => intro hp; exact absurd hp (by simp [ProjColIn.isPair])
+      | aggTerm _ _ _ => intro hp; exact absurd hp (by simp [ProjColIn.isPair])
+      | aggTermOf _ _ _ => intro hp; exact absurd hp (by simp [ProjColIn.isPair])
+      | aggPairOf k₁ k₂ h₁ h₂ t =>
+        intro _ hjc
+        have hjq := hjc k₁ k₂ h₁ h₂ t rfl
+        obtain ⟨x, y, hx, hy, hj⟩ := q.jointCols_spec k₁ k₂ hjq d E r hr
+        obtain ⟨x', y', hx', hy', hj'⟩ :=
+          q.jointCols_spec k₁ k₂ hjq (h.mapAnnotatedDatabase d) E' r' hr'
+        have gx : GPair 𝒰₀ 𝒰₀' (x', x) :=
+          ⟨AggQueryIn.rowToks_in q hsc.2 _ γ E' 𝒰₀' hb' hJ.toks' r' hr' k₁ _ hx',
+            AggQueryIn.rowToks_in q hsc.2 d γ E 𝒰₀ hb hJ.toks r hr k₁ _ hx,
+            (hs.2 (x', x) ⟨k₁, hx', hx⟩).1⟩
+        have gy : GPair 𝒰₀ 𝒰₀' (y', y) :=
+          ⟨AggQueryIn.rowToks_in q hsc.2 _ γ E' 𝒰₀' hb' hJ.toks' r' hr' k₂ _ hy',
+            AggQueryIn.rowToks_in q hsc.2 d γ E 𝒰₀ hb hJ.toks r hr k₂ _ hy,
+            (hs.2 (y', y) ⟨k₂, hy', hy⟩).1⟩
+        have ex : GenValue.Equiv (Sum.inr x')
+            (AggValue.mapAnnSum ⇑h.toRingHom (Sum.inr x)) := by
+          have := hs.1.1 k₁
+          rwa [hx', hx] at this
+        have ey : GenValue.Equiv (Sum.inr y')
+            (AggValue.mapAnnSum ⇑h.toRingHom (Sum.inr y)) := by
+          have := hs.1.1 k₂
+          rwa [hy', hy] at this
+        have key := pairCol_hom hU t hj hj' gx gy (hs.2 (x', x) ⟨k₁, hx', hx⟩).2 ex ey
+        have e' : (ProjColIn.aggPairOf k₁ k₂ h₁ h₂ t : ProjColIn T _ _).eval r'.fst γ
+            = Sum.inr (x'.pairCol t y') := by simp only [ProjColIn.eval, hx', hy']
+        have e : (ProjColIn.aggPairOf k₁ k₂ h₁ h₂ t : ProjColIn T _ _).eval r.fst γ
+            = Sum.inr (x.pairCol t y) := by simp only [ProjColIn.eval, hx, hy]
+        rw [e', e]
+        refine ⟨key.1, fun z' z hz' hz => ?_⟩
+        rw [← Sum.inr.inj hz', ← Sum.inr.inj hz]
+        exact key.2
+    refine rel_map_of_rel
+      (hfull.mono (fun r' hr' r hr hs => (⟨hs, hr', hr⟩ :
+        (GenRow.Sim h r' r ∧ RowG h 𝒰₀ 𝒰₀' r' r)
+          ∧ r' ∈ q.evaluate (h.mapAnnotatedDatabase d) γ E' ∧ r ∈ q.evaluate d γ E)))
+      (fun r' r hs => ⟨⟨fun j => (ps j).equiv_eval_of_sim h hs.1.1.1
+        (fun hp => (hpr r' hs.2.1 r hs.2.2 hs.1 j hp).1), ?_⟩, ?_⟩)
     · rw [GenAnn.finalize_cash _ _ _ Multiset.inter_le_left,
         GenAnn.finalize_cash _ _ _ Multiset.inter_le_left]
-      exact hs.1.2
-    · exact fun p ⟨j, h1, h2⟩ => (ps j).pair_eval (hsc.1 j) _
-        (fun x' x t hp => pairG_postcompTerm t hp) hs.2 h1 h2
+      exact hs.1.1.2
+    · exact fun p ⟨j, h1, h2⟩ => (ps j).pair_eval (hsc.1 j).1 _
+        (fun x' x t hp => pairG_postcompTerm t hp) hs.1.2 h1 h2
+        (fun hp => (hpr r' hs.2.1 r hs.2.2 hs.1 j hp).2 _ _ h1 h2)
   | Sel φ q hφ ih =>
     intro d γ E' E hE hJ hb hb' hW hw hsc hrec
     simp only [AggQueryIn.evaluate]
@@ -4065,14 +4220,17 @@ theorem AggQueryIn.evaluate_hom_univ (h : SemiringWithMonusHom K K') {𝒰₀ : 
             ∧ ColPair h 𝒰₀ 𝒰₀' (p.eval r'.fst γ) (p.eval r.fst γ))
           (q.evaluate (h.mapAnnotatedDatabase d) γ E') (q.evaluate d γ E) := by
         refine hfull.mono (fun r' hr' r hr hs => ⟨hs.1,
-          p.equiv_eval_of_sim h hs.1.1, fun y' y h1 h2 => ?_⟩)
-        refine p.pair_eval hsc.1 (fun pr => GPair 𝒰₀ 𝒰₀' pr ∧ ClassPres h 𝒰₀ 𝒰₀' pr.2)
+          p.equiv_eval_of_sim h hs.1.1
+            (fun hp => absurd hp (by rw [ProjColIn.isPair_of_sourceCol hsc.1]; simp)),
+          fun y' y h1 h2 => ?_⟩)
+        refine p.pair_eval (Or.inl hsc.1) (fun pr => GPair 𝒰₀ 𝒰₀' pr ∧ ClassPres h 𝒰₀ 𝒰₀' pr.2)
           (fun x' x t hp => ⟨⟨TermCl.step t hp.1.1, TermCl.step t hp.1.2.1,
             (pairG_postcompTerm t ⟨hp.1.2.2, hp.2⟩).1⟩, (pairG_postcompTerm t ⟨hp.1.2.2, hp.2⟩).2⟩)
           (fun pr ⟨k, hk1, hk2⟩ => ⟨⟨AggQueryIn.rowToks_in q hsc.2 _ γ E' 𝒰₀'
               (fun x h => hb' x (Or.inr h)) hJ.toks' r' hr' k _ hk1,
             AggQueryIn.rowToks_in q hsc.2 d γ E 𝒰₀ (fun x h => hb x (Or.inr h)) hJ.toks r hr k _
               hk2, (hs.2 pr ⟨k, hk1, hk2⟩).1⟩, (hs.2 pr ⟨k, hk1, hk2⟩).2⟩) h1 h2
+          (fun hp => absurd hp (by rw [ProjColIn.isPair_of_sourceCol hsc.1]; simp))
       have hkey : ∀ (r' : GenRow T K' mI) (r : GenRow T K mI),
           GenRow.Sim h r' r →
           (fun k => AggValue.collapseSum (r'.fst (is k)) : Tuple T nI₁)
@@ -4427,8 +4585,9 @@ What is asked of the *query*:
 * that no two operators building aggregate values share a label
   (`AggQueryIn.labelsDistinct`), that every operator record the parameters
   its subtree reads (`AggQueryIn.readsRecorded`), and that no projection
-  column apply an arbitrary function to an aggregate value
-  (`AggQueryIn.sourceCols`). A selection reads the values of one family in
+  column apply an arbitrary function to an aggregate value, a term over
+  two aggregate columns naming two columns of one grouping
+  (`AggQueryIn.sourceCols`, `AggQueryIn.jointCols`). A selection reads the values of one family in
   one world of that family, and the two sides list the family's
   occurrences each in its own order; what makes the reading commute is
   that every value of a family is built from *one* listing on each side,

@@ -519,6 +519,7 @@ theorem AggQueryIn.exists_hit (y : K) {S : Set OpKind} (hS : OpKind.apply ∉ S)
     | token k' _ => exact h k'
     | aggTerm k' _ gf => exact (h k').map_postcomp gf
     | aggTermOf k' _ t => exact (h k').map_postcompTerm t
+    | aggPairOf k₁ k₂ _ _ t => exact absurd (hu.1.2 k) (by simp [hp, ProjColIn.sourceCol])
     | provTerm t => exact GenValue.tokHit_inl _ _ _
   | Sel φ q hφ ih =>
     intro hu hsig hex ρc HK hwk hF

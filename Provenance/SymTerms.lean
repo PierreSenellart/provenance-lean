@@ -168,6 +168,11 @@ def projCS {κ : Fin n → ColKind} : ProjColIn T (k + c) κ → CS T k c n
     | .const a => .const a
     | .outer _ => .col i
     | _ => .const 0
+  | .aggPairOf i₁ i₂ _ _ t =>
+    match t with
+    | .const a => .const a
+    | .outer j => .col (![i₁, i₂] j)
+    | _ => .const 0
   | .provTerm t => termCS t
 
 private theorem projCS_val {κ : Fin n → ColKind} (p : ProjColIn T (k + c) κ) (hp : p.noFun = true)
@@ -185,6 +190,17 @@ private theorem projCS_val {κ : Fin n → ColKind} (p : ProjColIn T (k + c) κ)
       rfl
     | index j => exact j.elim0
     | _ => simp [ProjColIn.noFun, TermIn.noFun] at hp
+  | aggPairOf i₁ i₂ _ _ t =>
+    cases t with
+    | const a => rfl
+    | outer j =>
+      show v (![i₁, i₂] j) = (TermIn.outer j : TermIn T 2 0).eval (fun j => j.elim0) ![v i₁, v i₂]
+      refine Fin.cases rfl (fun j' => ?_) j
+      have h0 : j' = 0 := Fin.fin_one_eq_zero j'
+      subst h0
+      rfl
+    | index j => exact j.elim0
+    | _ => simp [ProjColIn.noFun, TermIn.noFun] at hp
   | provTerm t => exact termCS_val t hp par γ v
 
 private theorem projCS_const {κ : Fin n → ColKind} (p : ProjColIn T (k + c) κ) (hp : p.noFun = true)
@@ -194,6 +210,12 @@ private theorem projCS_const {κ : Fin n → ColKind} (p : ProjColIn T (k + c) �
   | token i _ => cases h
   | aggTerm _ _ _ => simp [ProjColIn.noFun] at hp
   | aggTermOf i _ t =>
+    cases t with
+    | const b => cases h; exact Finset.mem_singleton_self _
+    | outer j => cases h
+    | index j => exact j.elim0
+    | _ => simp [ProjColIn.noFun, TermIn.noFun] at hp
+  | aggPairOf i₁ i₂ _ _ t =>
     cases t with
     | const b => cases h; exact Finset.mem_singleton_self _
     | outer j => cases h

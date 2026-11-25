@@ -395,6 +395,22 @@ private theorem projCol_eval_inl_cases {c n : ℕ} {κ : Fin n → ColKind} (p :
       simp [GenValue.kindOf, ColKind.base] at hk'
     · rw [hv] at h'
       simp at h'
+  | aggPairOf k₁ k₂ h₁ h₂ t =>
+    exfalso
+    have e₁ := hu k₁
+    rw [h₁] at e₁
+    have e₂ := hu k₂
+    rw [h₂] at e₂
+    have h' := h
+    simp only [ProjColIn.eval] at h'
+    rcases hv₁ : u k₁ with a | a
+    · rw [hv₁] at e₁
+      simp [GenValue.kindOf, ColKind.base] at e₁
+    · rcases hv₂ : u k₂ with b | b
+      · rw [hv₂] at e₂
+        simp [GenValue.kindOf, ColKind.base] at e₂
+      · rw [hv₁, hv₂] at h'
+        simp at h'
   | provTerm t => exact hterm t hp hok (Sum.inl.inj h)
 
 /-- The holes of an environment bound to rows within the bound. -/

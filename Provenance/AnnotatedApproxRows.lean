@@ -113,7 +113,7 @@ private theorem AggQueryIn.settlesAt_randomWorld_env :
   | Empty => intros; trivial
   | Proj ps q ih =>
     intro hq hh ρc HK hwk d v γ E D N hE hG hD hN hH hr
-    exact ih hq hh hwk.2 d v E D N hE hG hD hN hH hr
+    exact ih hq.2 hh hwk.2 d v E D N hE hG hD hN hH hr
   | Sel φ q _ ih =>
     intro hq hh ρc HK hwk d v γ E D N hE hG hD hN hH hr
     exact ih hq hh hwk.2 d v E D N hE hG hD hN hH hr
@@ -313,7 +313,7 @@ private theorem AggQueryIn.settlesAt_randomWorld_env :
         hr
   | GammaNest is his p f q ih =>
     intro hq hh ρc HK hwk d v γ E D N hE hG hD hN hH hr
-    exact ih hq hh hwk.2 d v E D N hE hG hD hN hH hr
+    exact ih hq.2 hh hwk.2 d v E D N hE hG hD hN hH hr
   | ProvSum is his t q ih => intro hq; exact hq.elim
   | GammaTok is his ts fs a q keep ih => intro hq; exact hq.elim
   | Win P O o w t f q hrr dist keep ih =>
@@ -411,7 +411,12 @@ private theorem AggQueryIn.noProvSum_of_usesOnly {S : Set OpKind} :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l),
       q.usesOnly S → q.noProvSum := by
   intro c n κ l q
-  induction q <;> simp_all [AggQueryIn.usesOnly, AggQueryIn.noProvSum]
+  induction q with
+  | Proj ps q ih =>
+    exact fun h => ⟨fun j => ProjColIn.isPair_of_sourceCol (h.1.2 j), ih h.2⟩
+  | GammaNest is his p f q ih =>
+    exact fun h => ⟨ProjColIn.isPair_of_sourceCol h.1.2, ih h.2⟩
+  | _ => simp_all [AggQueryIn.usesOnly, AggQueryIn.noProvSum]
 
 omit [ValueType T] in
 private theorem AnnotatedDatabase.randomWorld_liftOne {X : Type} (D : Database T) (v : X → Bool) :

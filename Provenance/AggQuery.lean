@@ -839,6 +839,21 @@ def TermIn.atCol {c k : ℕ} {κ : Fin k → ColKind} (i : Fin k)
       .caseWhen op (t₁.atCol i h) (t₂.atCol i h) (t₃.atCol i h) (t₄.atCol i h)
   | .coalesce t₁ t₂ => .coalesce (t₁.atCol i h) (t₂.atCol i h)
 
+/-- **A term of several variables reading columns**: the same term with
+the column `f j` in place of its variable `j`. `TermIn.atCol` is the case
+of one variable; this is how a term over two aggregate columns re-types. -/
+def TermIn.atCols {c k m : ℕ} {κ : Fin k → ColKind} (f : Fin m → Fin k)
+    (h : ∀ j, κ (f j) = ColKind.reg) : TermIn T m 0 → TermGIn T c κ
+  | .const a => .const a
+  | .outer j => .index (f j) (h j)
+  | .index j => j.elim0
+  | .add t₁ t₂ => .add (t₁.atCols f h) (t₂.atCols f h)
+  | .sub t₁ t₂ => .sub (t₁.atCols f h) (t₂.atCols f h)
+  | .mul t₁ t₂ => .mul (t₁.atCols f h) (t₂.atCols f h)
+  | .caseWhen op t₁ t₂ t₃ t₄ =>
+      .caseWhen op (t₁.atCols f h) (t₂.atCols f h) (t₃.atCols f h) (t₄.atCols f h)
+  | .coalesce t₁ t₂ => .coalesce (t₁.atCols f h) (t₂.atCols f h)
+
 /-- One output column of a generalized projection: a regular term over
 the regular input columns, or a verbatim copy of a token column (no
 arithmetic over tokens: the normal form). -/
@@ -861,6 +876,13 @@ inductive ProjColIn (T : Type) (c : ℕ) {n : ℕ} (κ : Fin n → ColKind) wher
   -/
   | aggTermOf : (k : Fin n) → κ k = ColKind.agg → TermIn T 1 0 →
       ProjColIn T c κ
+  /-- **A term over two aggregate columns** of one family: `sum(x) +
+  count(*)` over the two aggregates of a grouping. It builds the aggregate
+  expression `t(a₁, a₂)` over the family the two share
+  (`AggTok.pairTerm`), read in one world of that family. A term over more
+  columns is a term over two, one of them such a column already. -/
+  | aggPairOf : (k₁ k₂ : Fin n) → κ k₁ = ColKind.agg → κ k₂ = ColKind.agg → TermIn T 2 0 →
+      ProjColIn T c κ
   | provTerm : TermGIn T c κ → ProjColIn T c κ
 
 /-- **Whether a column is one the source language writes.** Every column
@@ -868,14 +890,31 @@ is, except the one carrying an arbitrary function of an aggregate column:
 that one belongs to the rewritten world, where the cast of a column has
 to act on the data arm of a composite value and leave the annotation arm
 alone. `AggQueryIn.usesOnly` asks for it, as it asks a query to be free
-of the other operators of that world. -/
+of the other operators of that world.
+
+A term over two aggregate columns (`ProjColIn.aggPairOf`) is not counted
+either, though the source language writes it: the results stated over a
+set of operators are not stated for it. The homomorphism theorem admits
+it by name (`AggQueryIn.sourceCols`). -/
 def ProjColIn.sourceCol {c : ℕ} {κ : Fin n → ColKind} :
     ProjColIn T c κ → Bool
   | .term _ => true
   | .token _ _ => true
   | .aggTerm _ _ _ => false
   | .aggTermOf _ _ _ => true
+  | .aggPairOf _ _ _ _ _ => false
   | .provTerm _ => true
+
+/-- Whether the column is a term over two aggregate columns, the one
+projection column that builds an expression and not an ordinary value. -/
+@[simp] def ProjColIn.isPair {c : ℕ} {κ : Fin n → ColKind} : ProjColIn T c κ → Bool
+  | .aggPairOf _ _ _ _ _ => true
+  | _ => false
+
+omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] in
+theorem ProjColIn.isPair_of_sourceCol {c : ℕ} {κ : Fin n → ColKind} {p : ProjColIn T c κ}
+    (h : p.sourceCol = true) : p.isPair = false := by
+  cases p <;> first | rfl | exact absurd h (by simp [ProjColIn.sourceCol])
 
 /-- A projection column of a closed query. -/
 abbrev ProjCol (T : Type) {n : ℕ} (κ : Fin n → ColKind) := ProjColIn T 0 κ
@@ -886,6 +925,7 @@ def ProjColIn.kind {c : ℕ} {κ : Fin n → ColKind} : ProjColIn T c κ → Col
   | token _ _ => ColKind.agg
   | aggTerm _ _ _ => ColKind.agg
   | aggTermOf _ _ _ => ColKind.agg
+  | aggPairOf _ _ _ _ _ => ColKind.agg
   | provTerm _ => ColKind.prov
 
 /-- **A term applied to an aggregate value**: the value post-composed, its
@@ -906,8 +946,64 @@ builds an expression nothing reads. -/
 def AggTok.pairTerm (t : TermIn T 2 0) (x y : AggTok T K) : AggTok T K :=
   .expr { AggExpr.pair x.flatExpr y.flatExpr t.binary with fam := .pair t x.fam y.fam [] }
 
+/-- A value with no occurrence that reads as `v` in every world. -/
+def AggTok.constTok (v : T) (φ : FamId T) : AggTok T K :=
+  .expr { arity := 0, occs := [], aggs := fun j => j.elim0, scalar := fun j => j.elim0,
+          g := fun _ => v, fam := φ }
+
+/-- **Two values a term can read in one world**: flat, of one family,
+with the same occurrence annotations in the same order. Two aggregates of
+one grouping are. -/
+def AggTok.Joint (x y : AggTok T K) : Prop :=
+  x.isNested = false ∧ y.isNested = false ∧ x.fam.family = y.fam.family ∧
+    x.flatExpr.occs.length = y.flatExpr.occs.length ∧ x.flatExpr.annList = y.flatExpr.annList
+
+/-- The test is not computed: the annotated evaluator is a specification. -/
+noncomputable instance (x y : AggTok T K) : Decidable (AggTok.Joint x y) := Classical.dec _
+
+/-- **What a term over two aggregate columns builds.** Two values that
+can be read in one world (`AggTok.Joint`) are put side by side
+(`AggTok.pairTerm`); that is the case of two aggregates of one grouping,
+and the only one the annotated reading is stated for. Otherwise – a
+nested value, or values of two families, which no world reads together –
+the column holds the term of the two deterministic readings as a constant, so
+that the deterministic reading is the term's in every case
+(`AggTok.collapse_pairCol`). -/
+noncomputable def AggTok.pairCol (t : TermIn T 2 0) (x y : AggTok T K) : AggTok T K :=
+  if AggTok.Joint x y then x.pairTerm t y
+  else .constTok (t.binary x.collapse y.collapse) (.pair t x.fam y.fam [])
+
+omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
+/-- A flat value reads deterministically as its expression does. -/
+theorem AggTok.collapse_flatExpr {x : AggTok T K} (hx : x.isNested = false) :
+    x.flatExpr.collapse = x.collapse := by
+  cases x with
+  | tok a => exact AggExpr.collapse_ofValue a
+  | expr e => rfl
+  | nest a => exact absurd hx (by simp [AggTok.isNested])
+
+omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
+/-- **The deterministic reading of a term over two columns** is the term
+of the two readings. -/
+theorem AggTok.collapse_pairCol (t : TermIn T 2 0) (x y : AggTok T K) :
+    (x.pairCol t y).collapse = t.binary x.collapse y.collapse := by
+  unfold AggTok.pairCol
+  split
+  · rename_i h
+    rw [← AggTok.collapse_flatExpr h.1, ← AggTok.collapse_flatExpr h.2.1,
+      ← AggExpr.collapse_pair _ _ t.binary h.2.2.2.1]
+    rfl
+  · rfl
+
+omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
+/-- It is never a nested value. -/
+@[simp] theorem AggTok.isNested_pairCol (t : TermIn T 2 0) (x y : AggTok T K) :
+    (x.pairCol t y).isNested = false := by
+  unfold AggTok.pairCol
+  split <;> rfl
+
 /-- Evaluation of a projection column on a lifted tuple. -/
-def ProjColIn.eval {c : ℕ} {κ : Fin n → ColKind} (p : ProjColIn T c κ)
+noncomputable def ProjColIn.eval {c : ℕ} {κ : Fin n → ColKind} (p : ProjColIn T c κ)
     (u : Tuple (GenValue T K) n) (γ : Fin c → T := fun _ => 0) :
     GenValue T K :=
   match p with
@@ -915,6 +1011,10 @@ def ProjColIn.eval {c : ℕ} {κ : Fin n → ColKind} (p : ProjColIn T c κ)
   | token k _ => u k
   | aggTerm k _ gf => Sum.map gf (AggTok.postcomp gf) (u k)
   | aggTermOf k _ t => Sum.map t.unary (AggTok.postcompTerm t) (u k)
+  | aggPairOf k₁ k₂ _ _ t =>
+    match u k₁, u k₂ with
+    | Sum.inr x, Sum.inr y => Sum.inr (x.pairCol t y)
+    | a, b => Sum.inl (t.binary a.collapse b.collapse)
   | provTerm t => Sum.inl (t.eval u γ)
 
 /-! ## An `ORDER BY` inside an aggregation
@@ -1805,6 +1905,43 @@ private theorem TermIn.evalPlain_atCol {c k : ℕ} {κ : Fin k → ColKind} (i :
     rw [evalPlain_atCol i h u γ t₁, evalPlain_atCol i h u γ t₂]
     rfl
 
+theorem TermIn.evalPlain_atCols {c k m : ℕ} {κ : Fin k → ColKind} (f : Fin m → Fin k)
+    (h : ∀ j, κ (f j) = ColKind.reg) (u : Tuple T k) (γ : Fin c → T) :
+    ∀ t : TermIn T m 0,
+      (t.atCols f h).evalPlain u γ = t.eval (fun j => j.elim0) (fun j => u (f j))
+  | .const a => rfl
+  | .outer _ => rfl
+  | .index j => j.elim0
+  | .add t₁ t₂ => congrArg₂ (fun a b : T => a + b)
+      (evalPlain_atCols f h u γ t₁) (evalPlain_atCols f h u γ t₂)
+  | .sub t₁ t₂ => congrArg₂ (fun a b : T => a - b)
+      (evalPlain_atCols f h u γ t₁) (evalPlain_atCols f h u γ t₂)
+  | .mul t₁ t₂ => congrArg₂ (fun a b : T => a * b)
+      (evalPlain_atCols f h u γ t₁) (evalPlain_atCols f h u γ t₂)
+  | .caseWhen op t₁ t₂ t₃ t₄ => by
+    show (if (op.eval3 _ _) = Kleene.true then _ else _) = _
+    rw [evalPlain_atCols f h u γ t₁, evalPlain_atCols f h u γ t₂,
+      evalPlain_atCols f h u γ t₃, evalPlain_atCols f h u γ t₄]
+    rfl
+  | .coalesce t₁ t₂ => by
+    show (if ValueType.isNull _ then _ else _) = _
+    rw [evalPlain_atCols f h u γ t₁, evalPlain_atCols f h u γ t₂]
+    rfl
+
+/-- A term over two columns, re-typed on them, computes the term on their
+two values. -/
+theorem TermIn.evalPlain_atCols_pair {c k : ℕ} {κ : Fin k → ColKind} (k₁ k₂ : Fin k)
+    (h : ∀ j, κ (![k₁, k₂] j) = ColKind.reg) (u : Tuple T k) (γ : Fin c → T)
+    (t : TermIn T 2 0) :
+    (t.atCols ![k₁, k₂] h).evalPlain u γ = t.binary (u k₁) (u k₂) := by
+  rw [TermIn.evalPlain_atCols, TermIn.binary]
+  congr 1
+  funext j
+  refine Fin.cases rfl (fun j' => ?_) j
+  have : j' = 0 := Fin.fin_one_eq_zero j'
+  subst this
+  rfl
+
 /-- **A term over regular columns read as a general term**: the same term,
 the kind index witnessing that every column it reads is regular. It is
 what a projection needs to carry a term of the aggregation grammar, whose
@@ -1891,7 +2028,7 @@ def GenPredIn.chiFree {T' : Type} {c : ℕ} {κ : Fin n → ColKind} :
 def ProjColIn.chiFree {T' : Type} {c : ℕ} {κ : Fin n → ColKind} :
     ProjColIn T' c κ → Prop
   | .term t | .provTerm t => t.chiFree
-  | .token _ _ | .aggTerm _ _ _ | .aggTermOf _ _ _ => True
+  | .token _ _ | .aggTerm _ _ _ | .aggTermOf _ _ _ | .aggPairOf _ _ _ _ _ => True
 
 /-! ## The rounds of a recursion
 
@@ -2459,6 +2596,7 @@ def ProjColIn.readsOuter {c n : ℕ} {κ : Fin n → ColKind} (k : Fin c) : Proj
   | .token _ _ => false
   | .aggTerm _ _ _ => false
   | .aggTermOf _ _ _ => false
+  | .aggPairOf _ _ _ _ _ => false
   | .provTerm t => t.readsOuter k
 
 /-- **Does the query read the outer column `k`?** An apply's right side
@@ -2533,7 +2671,7 @@ def nestOfVals (f : Multiset T → T) (φ : FamId T) (V : Multiset (GenValue T K
 /-- **The nested value a second-level aggregation builds over a group**:
 one occurrence per row, carrying what the column reads there, and the
 row's annotation. -/
-def nestOfGroup {c m : ℕ} {κ : Fin m → ColKind} (p : ProjColIn T c κ) (γ : Fin c → T)
+noncomputable def nestOfGroup {c m : ℕ} {κ : Fin m → ColKind} (p : ProjColIn T c κ) (γ : Fin c → T)
     (f : Multiset T → T) (φ : FamId T) (grp : Multiset (GenRow T K m)) : NestedValue T K :=
   nestOfVals f φ (grp.map (fun row => (p.eval row.fst γ, row.snd.finalize)))
 
@@ -3023,6 +3161,7 @@ def ProjColIn.evalPlain {c : ℕ} {κ : Fin n → ColKind} (p : ProjColIn T c κ
   | .token k _ => u k
   | .aggTerm k _ gf => gf (u k)
   | .aggTermOf k _ t => t.unary (u k)
+  | .aggPairOf k₁ k₂ _ _ t => t.binary (u k₁) (u k₂)
   | .provTerm t => t.evalPlain u γ
 
 /-- The value a window's added column takes on a row of a plain relation:
@@ -3442,14 +3581,20 @@ def AggQueryIn.stripAgg : {c n : ℕ} → {κ : Fin n → ColKind} → {l : List
 metatheorems (random-world commutation, PQE) are about source queries;
 `ProvSum` is a rewriting-target operator whose deterministic group sum
 is not world-faithful – exactly as the classical `Agg` was excluded from
-the annotated evaluators. -/
+the annotated evaluators.
+
+A term over two aggregate columns (`ProjColIn.aggPairOf`) is excluded
+with it: those metatheorems are not stated for it. Its reading in a world
+is the term of the two readings when the two columns are read together
+(`AggExpr.specialize_pair`), which a query has to guarantee
+(`AggQueryIn.jointCols`). -/
 def AggQueryIn.noProvSum : {c n : ℕ} → {κ : Fin n → ColKind} → {l : List (String × ℕ)} →
     AggQueryIn T c n κ l → Prop
   | _, _, _, _, .Rel _ _ => True
   | _, _, _, _, .Hole _ _ _ => True
   | _, _, _, _, .Param _ _ => True
   | _, _, _, _, .Empty => True
-  | _, _, _, _, .Proj _ q => q.noProvSum
+  | _, _, _, _, .Proj ps q => (∀ j, (ps j).isPair = false) ∧ q.noProvSum
   | _, _, _, _, .Sel _ q _ => q.noProvSum
   | _, _, _, _, .Prod q₁ q₂ => q₁.noProvSum ∧ q₂.noProvSum
   | _, _, _, _, .Apply q₁ q₂ => q₁.noProvSum ∧ q₂.noProvSum
@@ -3461,7 +3606,7 @@ def AggQueryIn.noProvSum : {c n : ℕ} → {κ : Fin n → ColKind} → {l : Lis
   | _, _, _, _, .MuSet _ q₀ q₁ => q₀.noProvSum ∧ q₁.noProvSum
   | _, _, _, _, .Gamma _ _ _ q _ _ => q.noProvSum
   | _, _, _, _, .GammaScalar _ _ q _ => q.noProvSum
-  | _, _, _, _, .GammaNest _ _ _ _ q => q.noProvSum
+  | _, _, _, _, .GammaNest _ _ p _ q => p.isPair = false ∧ q.noProvSum
   | _, _, _, _, .ProvSum _ _ _ _ => False
   | _, _, _, _, .Retag _ q => q.noProvSum
   | _, _, _, _, .GammaTok _ _ _ _ _ _ _ => False
@@ -3509,6 +3654,7 @@ def ProjColIn.outerOk {c n : ℕ} {κ : Fin n → ColKind} (ok : Fin c → Prop)
   | .token _ _ => True
   | .aggTerm _ _ _ => True
   | .aggTermOf _ _ _ => True
+  | .aggPairOf _ _ _ _ _ => True
   | .provTerm t => t.outerOk ok
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
@@ -3566,6 +3712,7 @@ private theorem ProjColIn.evalPlain_congr_outerOk {c n : ℕ} {κ : Fin n → Co
   | .token _ _, _ => rfl
   | .aggTerm _ _ _, _ => rfl
   | .aggTermOf _ _ _, _ => rfl
+  | .aggPairOf _ _ _ _ _, _ => rfl
   | .provTerm t, h => TermGIn.evalPlain_congr_outerOk hγ u t h
 
 omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
@@ -4169,7 +4316,7 @@ def AggQueryIn.noWinExpr : {c n : ℕ} → {κ : Fin n → ColKind} → {l : Lis
   | _, _, _, _, .Hole _ _ _ => True
   | _, _, _, _, .Param _ _ => True
   | _, _, _, _, .Empty => True
-  | _, _, _, _, .Proj _ q => q.noWinExpr
+  | _, _, _, _, .Proj ps q => (∀ j, (ps j).isPair = false) ∧ q.noWinExpr
   | _, _, _, _, .Sel _ q _ => q.noWinExpr
   | _, _, _, _, .Prod q₁ q₂ => q₁.noWinExpr ∧ q₂.noWinExpr
   | _, _, _, _, .Apply q₁ q₂ => q₁.noWinExpr ∧ q₂.noWinExpr
@@ -4238,7 +4385,7 @@ private theorem AggQueryIn.framesContainSelf_of_noWinExpr :
   | Hole n s => exact fun _ => trivial
   | Param pv ρ => exact fun _ => trivial
   | Empty => exact fun _ => trivial
-  | Proj ps q ih => exact ih
+  | Proj ps q ih => exact fun hw => ih hw.2
   | Sel φ q _ ih => exact ih
   | Prod q₁ q₂ ih₁ ih₂ => exact fun hw => ⟨ih₁ hw.1, ih₂ hw.2⟩
   | Apply q₁ q₂ ih₁ ih₂ => exact fun hw => ⟨ih₁ hw.1, ih₂ hw.2⟩
@@ -4306,7 +4453,7 @@ theorem AggQueryIn.evaluate_ordinaryTokens :
     | term t => exact absurd ha (by simp [ProjColIn.eval, hp])
     | provTerm t => exact absurd ha (by simp [ProjColIn.eval, hp])
     | token k hk =>
-      refine ih hq hn hfl d E hE r₀ hr₀ k a ?_
+      refine ih hq.2 hn hfl d E hE r₀ hr₀ k a ?_
       show r₀.fst k = Sum.inr a
       rw [← ha]
       simp [ProjColIn.eval, hp]
@@ -4319,7 +4466,7 @@ theorem AggQueryIn.evaluate_ordinaryTokens :
           simp only [ProjColIn.eval, hp, hu, Sum.map_inr] at this
           exact (Sum.inr.inj this).symm
         rw [hax, AggTok.isTok_postcomp]
-        exact ih hq hn hfl d E hE r₀ hr₀ k x hu
+        exact ih hq.2 hn hfl d E hE r₀ hr₀ k x hu
     | aggTermOf k hk gf =>
       cases hu : r₀.fst k with
       | inl w => exact absurd ha (by simp [ProjColIn.eval, hp, hu])
@@ -4329,7 +4476,10 @@ theorem AggQueryIn.evaluate_ordinaryTokens :
           simp only [ProjColIn.eval, hp, hu, Sum.map_inr] at this
           exact (Sum.inr.inj this).symm
         rw [hax, AggTok.postcompTerm, AggTok.isTok_setFam, AggTok.isTok_postcomp]
-        exact ih hq hn hfl d E hE r₀ hr₀ k x hu
+        exact ih hq.2 hn hfl d E hE r₀ hr₀ k x hu
+    | aggPairOf k₁ k₂ h₁ h₂ t =>
+      -- a term over two columns builds an expression, which `noWinExpr` excludes
+      exact absurd (hq.1 j) (by simp [hp, ProjColIn.isPair])
   | Sel φ q _ ih =>
     intro hq hn hfl d γ E hE r hr k a ha
     simp only [AggQueryIn.evaluate] at hr
@@ -4563,6 +4713,19 @@ private theorem AggQueryIn.evaluate_noNestedOn :
           exact (Sum.inr.inj this).symm
         rw [hax, AggTok.postcompTerm, AggTok.isNested_setFam, AggTok.isNested_postcomp]
         exact ih hn d E R (fun k h => hR k (by simp [AggQueryIn.readsOuter, h])) hC hH r₀ hr₀ k x hu
+    | aggPairOf k₁ k₂ h₁ h₂ t =>
+      cases hu₁ : r₀.fst k₁ with
+      | inl w => exact absurd ha (by simp [ProjColIn.eval, hp, hu₁])
+      | inr x =>
+        cases hu₂ : r₀.fst k₂ with
+        | inl w => exact absurd ha (by simp [ProjColIn.eval, hp, hu₁, hu₂])
+        | inr y =>
+          have hax : a = x.pairCol t y := by
+            have := ha
+            simp only [ProjColIn.eval, hp, hu₁, hu₂] at this
+            exact (Sum.inr.inj this).symm
+          rw [hax]
+          exact AggTok.isNested_pairCol t x y
   | Sel φ q _ ih =>
     intro hn d γ E R hR hC hH r hr k a ha
     simp only [AggQueryIn.evaluate] at hr
@@ -4814,6 +4977,22 @@ theorem AggQueryIn.evaluate_conform :
         rw [hu] at this
         exact absurd this (by simp [GenValue.kindOf, ColKind.base])
       | inr a => rfl
+    | aggPairOf k₁ k₂ h₁ h₂ t =>
+      have e₁ := ih d r₀ hr₀ k₁
+      rw [h₁] at e₁
+      have e₂ := ih d r₀ hr₀ k₂
+      rw [h₂] at e₂
+      simp only [ProjColIn.eval, hp, ProjColIn.kind]
+      cases hu₁ : r₀.fst k₁ with
+      | inl v =>
+        rw [hu₁] at e₁
+        exact absurd e₁ (by simp [GenValue.kindOf, ColKind.base])
+      | inr x =>
+        cases hu₂ : r₀.fst k₂ with
+        | inl v =>
+          rw [hu₂] at e₂
+          exact absurd e₂ (by simp [GenValue.kindOf, ColKind.base])
+        | inr y => rfl
   | Sel φ q _ ih =>
     intro d γ E r hr k
     simp only [AggQueryIn.evaluate] at hr

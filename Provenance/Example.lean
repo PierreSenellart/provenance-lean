@@ -273,10 +273,10 @@ example : ∃ q' : AggQuery (String ⊕ ℕ) 2
       ∧ (qgSmallCities.evaluate d_count).map GenRow.toCompositeRow
           = q'.evaluateRew d_count.toComposite :=
   let h := AggQueryIn.RewritesTo.diff
-    (AggQueryIn.RewritesTo.proj cityCols
+    (AggQueryIn.RewritesTo.proj cityCols (by decide)
       (AggQueryIn.RewritesTo.gamma ![3] ![TermIn.const "1"] ![SeqAggFunc.sum]
         qgPersonnel trivial))
-    (AggQueryIn.RewritesTo.proj cityCols
+    (AggQueryIn.RewritesTo.proj cityCols (by decide)
       (AggQueryIn.RewritesTo.havingPred ![3] ![TermIn.const "1"]
         ![SeqAggFunc.sum] φatLeastThree rfl rfl qgPersonnel trivial))
   ⟨_, h, AggQueryIn.rewritesTo_valid h d_count⟩

@@ -353,6 +353,104 @@ theorem valOn_pair (e₁ e₂ : AggExpr T K) (g₂ : T → T → T) (h : SameFam
     ext x; simp
   rw [this]
 
+/-- **The world a valuation realizes in the pair** is the one it realizes
+in the first expression: the pair carries its annotations. -/
+theorem realizedWorld_pair (e₁ e₂ : AggExpr T K) (g₂ : T → T → T) (h : SameFamily e₁ e₂)
+    (ν : K → Bool) :
+    (pair e₁ e₂ g₂).realizedWorld ν
+      = (e₁.realizedWorld ν).map (finCongr (length_occs_pair e₁ e₂ g₂ h)).toEmbedding := by
+  ext i
+  simp only [realizedWorld, Finset.mem_filter, Finset.mem_univ, true_and, Finset.mem_map_equiv,
+    finCongr_symm, anns, List.get_eq_getElem, finCongr_apply, Fin.val_cast]
+  simp only [pair, List.getElem_zipWith]
+
+/-- And in the second, whose annotations are the same. -/
+theorem realizedWorld_right {e₁ e₂ : AggExpr T K} (h : SameFamily e₁ e₂) (ν : K → Bool) :
+    e₂.realizedWorld ν = (e₁.realizedWorld ν).map (finCongr h.length_eq).toEmbedding := by
+  ext i
+  simp only [realizedWorld, Finset.mem_filter, Finset.mem_univ, true_and, Finset.mem_map_equiv,
+    finCongr_symm, anns, List.get_eq_getElem, finCongr_apply, Fin.val_cast]
+  have hi : i.val < e₁.occs.length := by rw [h.length_eq]; exact i.isLt
+  have := congrArg (fun l => l[i.val]?) h
+  simp only [List.getElem?_map, List.getElem?_eq_getElem i.isLt, List.getElem?_eq_getElem hi,
+    Option.map_some, Option.some.injEq] at this
+  rw [this]
+
+/-- **The realized world is a world of the pair** when it is one of each
+side. -/
+theorem isWorld_realized_pair (e₁ e₂ : AggExpr T K) (g₂ : T → T → T) (h : SameFamily e₁ e₂)
+    (ν : K → Bool) :
+    (pair e₁ e₂ g₂).IsWorld ((pair e₁ e₂ g₂).realizedWorld ν)
+      ↔ e₁.IsWorld (e₁.realizedWorld ν) ∧ e₂.IsWorld (e₂.realizedWorld ν) := by
+  rw [realizedWorld_pair e₁ e₂ g₂ h, isWorld_pair e₁ e₂ g₂ h, realizedWorld_right h]
+
+/-- **The pair, in the world a valuation realizes**, is the function of
+the two sides there. -/
+theorem specialize_pair (e₁ e₂ : AggExpr T K) (g₂ : T → T → T) (h : SameFamily e₁ e₂)
+    (ν : K → Bool) :
+    (pair e₁ e₂ g₂).specialize ν = g₂ (e₁.specialize ν) (e₂.specialize ν) := by
+  unfold specialize
+  rw [realizedWorld_pair e₁ e₂ g₂ h, valOn_pair e₁ e₂ g₂ h, realizedWorld_right h]
+
+/-- The pair is read in the scalar convention when both sides are. -/
+theorem isScalar_pair (e₁ e₂ : AggExpr T K) (g₂ : T → T → T) :
+    (pair e₁ e₂ g₂).isScalar = (e₁.isScalar && e₂.isScalar) := by
+  rw [Bool.eq_iff_iff]
+  simp only [isScalar, List.all_eq_true, Bool.and_eq_true]
+  constructor
+  · intro hall
+    refine ⟨fun j _ => ?_, fun j _ => ?_⟩
+    · have := hall (Fin.castAdd e₂.arity j) (List.mem_finRange _)
+      simpa [pair, Fin.append_left] using this
+    · have := hall (Fin.natAdd e₁.arity j) (List.mem_finRange _)
+      simpa [pair, Fin.append_right] using this
+  · rintro ⟨h1, h2⟩ j _
+    refine Fin.addCases (fun i => ?_) (fun i => ?_) j
+    · have := h1 i (List.mem_finRange _)
+      simpa [pair, Fin.append_left] using this
+    · have := h2 i (List.mem_finRange _)
+      simpa [pair, Fin.append_right] using this
+
+/-- The value on a sequence does not look at the annotations. -/
+theorem valSeq_congr_strip (e : AggExpr T K) {K₂ : Type}
+    {s : List (Occ T K e.arity)} {s' : List (Occ T K₂ e.arity)}
+    (h : s.map (fun z => (z.1, z.2.2)) = s'.map (fun z => (z.1, z.2.2))) :
+    e.g (fun j => e.aggs j ((s.filter (fun z => z.2.2.1 j && z.2.2.2 j)).map (fun z => z.1 j)))
+      = e.g (fun j => e.aggs j
+          ((s'.filter (fun z => z.2.2.1 j && z.2.2.2 j)).map (fun z => z.1 j))) := by
+  refine congrArg e.g (funext fun j => congrArg (e.aggs j) ?_)
+  have key : ∀ {K₀ : Type} (l : List (Occ T K₀ e.arity)),
+      (l.filter (fun z => z.2.2.1 j && z.2.2.2 j)).map (fun z => z.1 j)
+        = ((l.map (fun z => (z.1, z.2.2))).filter (fun w => w.2.1 j && w.2.2 j)).map
+            (fun w => w.1 j) := by
+    intro K₀ l
+    rw [List.filter_map, List.map_map]
+    rfl
+  rw [key s, key s', h]
+
+/-- **The deterministic reading of a pair** of expressions with as many
+occurrences is the function of the two readings. The annotations play no
+part, so the two need not be of one family. -/
+theorem collapse_pair (e₁ e₂ : AggExpr T K) (g₂ : T → T → T)
+    (h : e₁.occs.length = e₂.occs.length) :
+    (pair e₁ e₂ g₂).collapse = g₂ e₁.collapse e₂.collapse := by
+  unfold collapse
+  rw [valOn_eq_valSeq, valOn_eq_valSeq, valOn_eq_valSeq, Having.seqOf_univ, Having.seqOf_univ,
+    Having.seqOf_univ, valSeq_pair]
+  have hl : (pair e₁ e₂ g₂).occs.map occLeft = e₁.occs := by
+    apply List.ext_getElem
+    · simp [pair, h]
+    · intro i h₁ h₂
+      simp only [pair, List.getElem_map, List.getElem_zipWith, occLeft, Fin.append_left]
+  have hr : ((pair e₁ e₂ g₂).occs.map occRight).map (fun z => (z.1, z.2.2))
+      = e₂.occs.map (fun z => (z.1, z.2.2)) := by
+    apply List.ext_getElem
+    · simp [pair, h]
+    · intro i h₁ h₂
+      simp only [pair, List.getElem_map, List.getElem_zipWith, occRight, Fin.append_right]
+  rw [hl]
+  exact congrArg (g₂ _) (valSeq_congr_strip e₂ hr)
+
 end AggExpr
 
 /-! ## An instance

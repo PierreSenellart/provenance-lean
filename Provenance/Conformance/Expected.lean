@@ -1505,6 +1505,42 @@ abbrev group_sum_expr : Inst → List (Tuple V 2) :=
 
 /-- PostgreSQL's answers to
 ```sql
+SELECT dept, sum(sal) + count(*) FROM emp GROUP BY dept;
+```
+-/
+abbrev agg_expr : Inst → List (Tuple V 2) :=
+  ![([![nil, nil],
+    ![val 2, val 52],
+    ![val 1, val 293]]
+    : List (Tuple V 2)),
+   ([] : List (Tuple V 2)),
+   ([![val 2, val 48],
+    ![val 1, val 32]]
+    : List (Tuple V 2)),
+   ([![nil, val 71],
+    ![val 3, nil],
+    ![val 5, val 142]]
+    : List (Tuple V 2))]
+
+/-- PostgreSQL's answers to
+```sql
+SELECT dept, sum(sal) - count(sal) FROM emp GROUP BY dept HAVING count(*) >= 2;
+```
+-/
+abbrev agg_expr_having : Inst → List (Tuple V 2) :=
+  ![([![val 2, val 49],
+    ![val 1, val 287]]
+    : List (Tuple V 2)),
+   ([] : List (Tuple V 2)),
+   ([![val 2, val 42],
+    ![val 1, val 28]]
+    : List (Tuple V 2)),
+   ([![val 3, nil],
+    ![val 5, val 138]]
+    : List (Tuple V 2))]
+
+/-- PostgreSQL's answers to
+```sql
 SELECT dept FROM emp GROUP BY dept HAVING count(*) >= 2 AND sum(sal) > 100;
 ```
 -/

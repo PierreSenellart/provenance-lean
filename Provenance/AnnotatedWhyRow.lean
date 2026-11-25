@@ -578,6 +578,23 @@ private theorem AggTok.Grade.postcomp {N D : ℕ} (gf : T → T) {x : AggTok T K
   ⟨AggTok.annsIn_postcomp gf h.1, by rw [AggTok.annCount_postcomp]; exact h.2⟩
 
 omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
+/-- A term over two columns has at most the occurrences of the first. -/
+private theorem AggTok.annCount_pairCol_le (t : TermIn T 2 0) (x y : AggTok T K) :
+    (x.pairCol t y).annCount ≤ x.annCount := by
+  unfold AggTok.pairCol
+  split
+  · rename_i hj
+    show (List.zipWith _ x.flatExpr.occs y.flatExpr.occs).length ≤ _
+    rw [List.length_zipWith]
+    refine le_trans (Nat.min_le_left _ _) ?_
+    have hn := hj.1
+    cases x with
+    | tok a => simp [AggTok.flatExpr, AggExpr.ofValue, AggTok.annCount]
+    | expr e => exact le_rfl
+    | nest a => simp [AggTok.isNested] at hn
+  · exact Nat.zero_le _
+
+omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 /-- A projection column reads a token of the row, perhaps through a term. -/
 private theorem ProjColIn.grade_eval {c n N D : ℕ} {κ : Fin n → ColKind} (p : ProjColIn T c κ)
     {u : Tuple (GenValue T K) n} (γ : Fin c → T) (hu : ∀ k a, u k = Sum.inr a → a.Grade G N D)
@@ -604,6 +621,18 @@ private theorem ProjColIn.grade_eval {c n N D : ℕ} {κ : Fin n → ColKind} (p
       have := (hu k a₀ hv).postcomp t.unary
       exact ⟨by rw [AggTok.postcompTerm, AggTok.AnnsIn_setFam]; exact this.1,
         by rw [AggTok.postcompTerm, AggTok.annCount_setFam]; exact this.2⟩
+  | aggPairOf k₁ k₂ h₁ h₂ t =>
+    have h' := h
+    simp only [ProjColIn.eval] at h'
+    rcases hv₁ : u k₁ with v | x
+    · rw [hv₁] at h'; simp at h'
+    · rcases hv₂ : u k₂ with v | y
+      · rw [hv₁, hv₂] at h'; simp at h'
+      · rw [hv₁, hv₂] at h'
+        simp only [Sum.inr.injEq] at h'
+        rw [← h']
+        exact ⟨AggTok.annsIn_pairCol t y (hu k₁ x hv₁).1,
+          le_trans (AggTok.annCount_pairCol_le t x y) (hu k₁ x hv₁).2⟩
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 /-- The inner reading of a column has at most its count of occurrences. -/

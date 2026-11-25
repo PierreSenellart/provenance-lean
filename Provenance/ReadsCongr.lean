@@ -167,6 +167,7 @@ private theorem ProjColIn.eval_congr_reads {c n : ℕ} {κ : Fin n → ColKind} 
   | token _ _ => rfl
   | aggTerm _ _ _ => rfl
   | aggTermOf _ _ _ => rfl
+  | aggPairOf _ _ _ _ _ => rfl
 
 /-! ## The values an operator builds read the parameters only through its terms -/
 

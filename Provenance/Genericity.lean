@@ -282,6 +282,19 @@ private theorem projColIn_evalPlain {c k : ℕ} {κ : Fin k → ColKind} (p : Pr
     congr 1
     funext i
     exact i.elim0
+  | aggPairOf j₁ j₂ _ _ t =>
+    show t.binary (τ (u j₁)) (τ (u j₂)) = τ (t.binary (u j₁) (u j₂))
+    unfold TermIn.binary
+    have := termIn_eval (τ := τ) t hp hc (fun i => i.elim0) ![u j₁, u j₂]
+    rw [← this]
+    congr 1 <;>
+      (funext i
+       first
+        | exact i.elim0
+        | (refine Fin.cases rfl (fun i' => ?_) i
+           have h0 : i' = 0 := Fin.fin_one_eq_zero i'
+           subst h0
+           rfl))
   | provTerm t => exact termGIn_evalPlain t hp hc u γ
 
 /-- A function-free term's value is a value of the row, the context or a
@@ -732,6 +745,14 @@ private theorem ProjColIn.evalPlain_mem {W : Set T} {c k : ℕ} {κ : Fin k → 
     show t.unary (u j) ∈ W
     rw [TermIn.unary]
     exact FaithfulOn.termIn_eval_mem t hp hc (fun i => i.elim0) (fun _ => hu j)
+  | aggPairOf j₁ j₂ _ _ t =>
+    show t.binary (u j₁) (u j₂) ∈ W
+    rw [TermIn.binary]
+    refine FaithfulOn.termIn_eval_mem t hp hc (fun i => i.elim0) (fun i => ?_)
+    refine Fin.cases (hu j₁) (fun i' => ?_) i
+    have h0 : i' = 0 := Fin.fin_one_eq_zero i'
+    subst h0
+    exact hu j₂
   | provTerm t => exact FaithfulOn.termGIn_evalPlain_mem t hp hc hu hγ
 
 /-- **Where every value of a result comes from**: the instance at the

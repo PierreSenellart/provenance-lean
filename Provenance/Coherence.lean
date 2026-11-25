@@ -79,15 +79,86 @@ def AggQueryIn.allFramesContainSelf : {c n : ℕ} → {κ : Fin n → ColKind} �
   | _, _, _, _, .WinExpr _ _ _ ws _ _ _ q _ =>
       (∀ l, (ws l).ContainsSelf) ∧ q.allFramesContainSelf
 
+/-- **Two columns one world reads together**, read off the query: two
+aggregate columns of one grouping, a selection in between or not. This is
+what a term over two aggregate columns asks of the columns it names; it
+is a sufficient condition, and the one `SELECT sum(x) + count(*) … GROUP
+BY … HAVING …` meets. -/
+def AggQueryIn.jointCols : {c n : ℕ} → {κ : Fin n → ColKind} → {l : List (String × ℕ)} →
+    AggQueryIn T c n κ l → Fin n → Fin n → Prop
+  | _, _, _, _, @AggQueryIn.Gamma _ _ _ n₁ _ _ _ _ _ _ _ _ _, k₁, k₂ =>
+      ∃ j₁ j₂, k₁ = Fin.natAdd n₁ j₁ ∧ k₂ = Fin.natAdd n₁ j₂
+  | _, _, _, _, .GammaScalar _ _ _ _, _, _ => True
+  | _, _, _, _, .Sel _ q _, k₁, k₂ => q.jointCols k₁ k₂
+  | _, _, _, _, _, _, _ => False
+
+omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
+/-- A value stamped by an operator reads as the value it was. -/
+private theorem AggTok.length_flatExpr_setFam (φ : FamId T) (ids : Option (List (OccId T)))
+    (x : AggTok T K) :
+    (x.setFam φ ids).flatExpr.occs.length = x.flatExpr.occs.length := by
+  cases x <;> simp [AggTok.setFam, AggTok.flatExpr, AggExpr.ofValue]
+
+/-- **Columns read off as joint hold values one world reads together.** -/
+theorem AggQueryIn.jointCols_spec :
+    ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l)
+      (k₁ k₂ : Fin n), q.jointCols k₁ k₂ →
+      ∀ (d : AnnotatedDatabase T K) {γ : Fin c → T} (E : EvalEnv T K) (r : GenRow T K n),
+      r ∈ q.evaluate d γ E →
+        ∃ x y, r.fst k₁ = Sum.inr x ∧ r.fst k₂ = Sum.inr y ∧ AggTok.Joint x y := by
+  intro c n κ l q
+  induction q with
+  | Gamma is ts fs q keep ord ih =>
+    rintro k₁ k₂ ⟨j₁, j₂, rfl, rfl⟩ d γ E r hr
+    simp only [AggQueryIn.evaluate] at hr
+    obtain ⟨kv, -, rfl⟩ := Multiset.mem_map.mp hr
+    refine ⟨_, _, by dsimp only; rw [Fin.append_right], by dsimp only; rw [Fin.append_right],
+      ?_, ?_, ?_, ?_, ?_⟩
+    · rw [AggTok.isNested_setFam]; cases keep j₁ <;> rfl
+    · rw [AggTok.isNested_setFam]; cases keep j₂ <;> rfl
+    · rw [AggTok.fam_setFam, AggTok.fam_setFam]; rfl
+    · rw [AggTok.length_flatExpr_setFam, AggTok.length_flatExpr_setFam]
+      cases keep j₁ <;> cases keep j₂ <;>
+        simp [AggTok.flatExpr, AggExpr.ofValue, AggValue.ofGroup, AggExpr.occs_ofGroupWhen]
+    · cases keep j₁ <;> cases keep j₂ <;>
+        simp [AggTok.flatExpr, AggTok.setFam, AggExpr.ofValue, AggValue.ofGroup, AggExpr.annList,
+          AggExpr.occs_ofGroupWhen]
+  | GammaScalar ts fs q ord ih =>
+    intro k₁ k₂ _ d γ E r hr
+    simp only [AggQueryIn.evaluate] at hr
+    rw [Multiset.mem_singleton] at hr
+    subst hr
+    refine ⟨_, _, rfl, rfl, ?_, ?_, ?_, ?_, ?_⟩
+    · rw [AggTok.isNested_setFam]; rfl
+    · rw [AggTok.isNested_setFam]; rfl
+    · rw [AggTok.fam_setFam, AggTok.fam_setFam]; rfl
+    · rw [AggTok.length_flatExpr_setFam, AggTok.length_flatExpr_setFam]
+      simp [AggTok.flatExpr, AggExpr.ofValue, AggValue.ofScalarGroup, AggValue.ofGroup]
+    · simp [AggTok.flatExpr, AggTok.setFam, AggExpr.ofValue, AggValue.ofScalarGroup,
+        AggValue.ofGroup, AggExpr.annList]
+  | Sel φ q _ ih =>
+    intro k₁ k₂ h d γ E r hr
+    simp only [AggQueryIn.evaluate] at hr
+    by_cases hφ : φ.hasAggAtom
+    · rw [ite_eq_left hφ] at hr
+      obtain ⟨r₀, hr₀, rfl⟩ := Multiset.mem_map.mp hr
+      exact ih k₁ k₂ h d E r₀ hr₀
+    · rw [ite_eq_right hφ] at hr
+      exact ih k₁ k₂ h d E r (Multiset.mem_of_mem_filter hr)
+  | _ => intro k₁ k₂ h; exact h.elim
+
 /-- **Every projection column is one of the source language's**: none
-applies an arbitrary function to an aggregate value. -/
+applies an arbitrary function to an aggregate value, and a term over two
+aggregate columns names two that one world reads together
+(`AggQueryIn.jointCols`). -/
 def AggQueryIn.sourceCols : {c n : ℕ} → {κ : Fin n → ColKind} →
     {l : List (String × ℕ)} → AggQueryIn T c n κ l → Prop
   | _, _, _, _, .Rel _ _ => True
   | _, _, _, _, .Hole _ _ _ => True
   | _, _, _, _, .Param _ _ => True
   | _, _, _, _, .Empty => True
-  | _, _, _, _, .Proj ps q => (∀ j, (ps j).sourceCol = true) ∧ q.sourceCols
+  | _, _, _, _, .Proj ps q => (∀ j, ((ps j).sourceCol = true ∨ (ps j).isPair = true) ∧
+      ∀ k₁ k₂ h₁ h₂ t, ps j = .aggPairOf k₁ k₂ h₁ h₂ t → q.jointCols k₁ k₂) ∧ q.sourceCols
   | _, _, _, _, .Sel _ q _ => q.sourceCols
   | _, _, _, _, .Prod q₁ q₂ => q₁.sourceCols ∧ q₂.sourceCols
   | _, _, _, _, .Apply q₁ q₂ => q₁.sourceCols ∧ q₂.sourceCols
@@ -188,9 +259,9 @@ inductive TermCl {K₀ : Type} [ValueType T] [CommSemiringWithMonus K₀] (S : A
     AggTok T K₀ → Prop
   | base {x} : S x → TermCl S x
   | step {x} (t : TermIn T 1 0) : TermCl S x → TermCl S (x.postcompTerm t)
-  /-- A term over two of them that are of one class and not nested. -/
-  | pair {x y} (t : TermIn T 2 0) : TermCl S x → TermCl S y → x.isNested = false →
-      y.isNested = false → x.classKey = y.classKey → TermCl S (x.pairTerm t y)
+  /-- A term over two of them that one world reads together. -/
+  | pair {x y} (t : TermIn T 2 0) : TermCl S x → TermCl S y → AggTok.Joint x y →
+      TermCl S (x.pairTerm t y)
 
 /-- **One family identifier, one value.** -/
 def FamFun {K₀ : Type} (S : AggTok T K₀ → Prop) : Prop :=
@@ -251,12 +322,12 @@ class. -/
 private theorem TermCl.root {S : AggTok T K → Prop} (hS : ∀ x, S x → x.fam.terms' = []) {x : AggTok T K}
     (hx : TermCl S x) :
     (∃ x₀, S x₀ ∧ x₀.fam = x.fam.root ∧ x = x₀.postcompTerms x.fam.terms')
-    ∨ ∃ u a b, TermCl S a ∧ TermCl S b ∧ a.isNested = false ∧ b.isNested = false
-        ∧ a.classKey = b.classKey ∧ x.fam.root = .pair u a.fam b.fam []
+    ∨ ∃ u a b, TermCl S a ∧ TermCl S b ∧ AggTok.Joint a b
+        ∧ x.fam.root = .pair u a.fam b.fam []
         ∧ x = (a.pairTerm u b).postcompTerms x.fam.terms' := by
   induction hx with
-  | @pair x y t hx hy hnx hny hk _ _ =>
-    exact Or.inr ⟨t, x, y, hx, hy, hnx, hny, hk, rfl, rfl⟩
+  | @pair x y t hx hy hj _ _ =>
+    exact Or.inr ⟨t, x, y, hx, hy, hj, rfl, rfl⟩
   | @base x h =>
     refine Or.inl ⟨x, h, ?_, ?_⟩
     · have := hS x h
@@ -273,13 +344,13 @@ private theorem TermCl.root {S : AggTok T K → Prop} (hS : ∀ x, S x → x.fam
         rfl
     · rw [hS x h]; rfl
   | @step x t _ ih =>
-    rcases ih with ⟨x₀, h₀, hr, he⟩ | ⟨u, a, b, ha, hb, hna, hnb, hk, hr, he⟩
+    rcases ih with ⟨x₀, h₀, hr, he⟩ | ⟨u, a, b, ha, hb, hj, hr, he⟩
     · refine Or.inl ⟨x₀, h₀, ?_, ?_⟩
       · rw [hr, AggTok.postcompTerm, AggTok.fam_setFam, FamId.root_addTerm]
       · rw [AggTok.postcompTerm, AggTok.fam_setFam, FamId.terms'_addTerm,
           AggTok.postcompTerms_append, ← he]
         rfl
-    · refine Or.inr ⟨u, a, b, ha, hb, hna, hnb, hk, ?_, ?_⟩
+    · refine Or.inr ⟨u, a, b, ha, hb, hj, ?_, ?_⟩
       · rw [AggTok.postcompTerm, AggTok.fam_setFam, FamId.root_addTerm]
         exact hr
       · rw [AggTok.postcompTerm, AggTok.fam_setFam, FamId.terms'_addTerm,
@@ -323,14 +394,14 @@ private theorem FamFun.termCl {S : AggTok T K → Prop} (hS : ∀ x, S x → x.f
     | zero => intro x y _ _ _ h; exact absurd h (Nat.not_lt_zero _)
     | succ n ih =>
       intro x y hx hy hxy hn
-      rcases hx.root hSt with ⟨x₀, hx₀, hrx, hex⟩ | ⟨u, a, b, ha, hb, -, -, -, hrx, hex⟩
-      · rcases hy.root hSt with ⟨y₀, hy₀, hry, hey⟩ | ⟨u', a', b', -, -, -, -, -, hry, hey⟩
+      rcases hx.root hSt with ⟨x₀, hx₀, hrx, hex⟩ | ⟨u, a, b, ha, hb, -, hrx, hex⟩
+      · rcases hy.root hSt with ⟨y₀, hy₀, hry, hey⟩ | ⟨u', a', b', -, -, -, hry, hey⟩
         · have h₀ : x₀ = y₀ := hF x₀ y₀ hx₀ hy₀ (by rw [hrx, hry, hxy])
           rw [hex, hey, h₀, hxy]
         · obtain ⟨l, k, p, c, hmk⟩ := hS x₀ hx₀
           rw [hrx, hxy, hry] at hmk
           cases hmk
-      · rcases hy.root hSt with ⟨y₀, hy₀, hry, hey⟩ | ⟨u', a', b', ha', hb', -, -, -, hry, hey⟩
+      · rcases hy.root hSt with ⟨y₀, hy₀, hry, hey⟩ | ⟨u', a', b', ha', hb', -, hry, hey⟩
         · obtain ⟨l, k, p, c, hmk⟩ := hS y₀ hy₀
           rw [hry, ← hxy, hrx] at hmk
           cases hmk
@@ -637,7 +708,7 @@ private theorem TermCl.mono {S S' : AggTok T K → Prop} (h : ∀ x, S x → S' 
   induction hx with
   | base hs => exact TermCl.base (h _ hs)
   | step t _ ih => exact TermCl.step t ih
-  | pair t _ _ hnx hny hk ih₁ ih₂ => exact TermCl.pair t ih₁ ih₂ hnx hny hk
+  | pair t _ _ hj ih₁ ih₂ => exact TermCl.pair t ih₁ ih₂ hj
 
 omit [DecidableEq K] [HasAltLinearOrder K] in
 private theorem TermCl.idem {S : AggTok T K → Prop} {x : AggTok T K} (hx : TermCl (TermCl S) x) :
@@ -645,7 +716,7 @@ private theorem TermCl.idem {S : AggTok T K → Prop} {x : AggTok T K} (hx : Ter
   induction hx with
   | base hs => exact hs
   | step t _ ih => exact TermCl.step t ih
-  | pair t _ _ hnx hny hk ih₁ ih₂ => exact TermCl.pair t ih₁ ih₂ hnx hny hk
+  | pair t _ _ hj ih₁ ih₂ => exact TermCl.pair t ih₁ ih₂ hj
 
 /-- **The values an environment provides** to a query reading the
 rounds `l`: its context's, and those of the rounds bound to the names in
@@ -729,7 +800,7 @@ theorem AggQueryIn.rowToks :
     | term t => intro hk; exact absurd hk (by simp [ProjColIn.eval])
     | provTerm t => intro hk; exact absurd hk (by simp [ProjColIn.eval])
     | token k' hk' => intro hk _; exact (hih k' x hk).mono (fun z hz => hz)
-    | aggTerm k' hk' gf => intro _ hcol; exact absurd hcol (by simp [ProjColIn.sourceCol])
+    | aggTerm k' hk' gf => intro _ hcol; exact absurd hcol.1 (by simp [ProjColIn.sourceCol])
     | aggTermOf k' hk' t =>
       intro hk _
       simp only [ProjColIn.eval] at hk
@@ -740,6 +811,14 @@ theorem AggQueryIn.rowToks :
         simp only [Sum.map_inr, Sum.inr.injEq] at hk
         subst hk
         exact (TermCl.step t (hih k' y hr₀k)).mono (fun z hz => hz)
+    | aggPairOf k₁ k₂ h₁ h₂ t =>
+      -- the two columns are read off as joint, so the column pairs their values
+      intro hk hcol
+      obtain ⟨a, b, ha, hb, hj⟩ :=
+        q.jointCols_spec k₁ k₂ (hcol.2 k₁ k₂ h₁ h₂ t rfl) d E r₀ hr₀
+      simp only [ProjColIn.eval, ha, hb, AggTok.pairCol, ite_eq_left hj, Sum.inr.injEq] at hk
+      subst hk
+      exact TermCl.pair t (hih k₁ a ha) (hih k₂ b hb) hj
   | Sel φ q hφ ih =>
     intro hsc d γ E r hr k x hk
     dsimp only [AggQueryIn.evaluate] at hr
@@ -2190,8 +2269,8 @@ theorem AggQueryIn.builds_coherent {c n : ℕ} {κ : Fin n → ColKind} {l : Lis
     | zero => intro x y _ _ _ h; exact absurd h (Nat.not_lt_zero _)
     | succ M ihM =>
       intro x y hx hy hxy hM
-      rcases hx.root hSt with ⟨x₀, hx₀, hrx, hex⟩ | ⟨u, a, b, ha, hb, -, -, -, hrx, hex⟩
-      · rcases hy.root hSt with ⟨y₀, hy₀, hry, hey⟩ | ⟨u', a', b', -, -, -, -, -, hry, hey⟩
+      rcases hx.root hSt with ⟨x₀, hx₀, hrx, hex⟩ | ⟨u, a, b, ha, hb, -, hrx, hex⟩
+      · rcases hy.root hSt with ⟨y₀, hy₀, hry, hey⟩ | ⟨u', a', b', -, -, -, hry, hey⟩
         · by_cases ht : x.fam.terms' = []
           · have hx₀' : x₀ = x := by rw [hex, ht]; rfl
             have hy₀' : y₀ = y := by rw [hey, ← hxy, ht]; rfl
@@ -2209,7 +2288,7 @@ theorem AggQueryIn.builds_coherent {c n : ℕ} {κ : Fin n → ColKind} {l : Lis
           obtain ⟨l, k, p, c, hmk⟩ := hSb x₀ hx₀
           rw [hrx, hxy, hry] at hmk
           cases hmk
-      · rcases hy.root hSt with ⟨y₀, hy₀, hry, hey⟩ | ⟨u', a', b', ha', hb', -, -, -, hry, hey⟩
+      · rcases hy.root hSt with ⟨y₀, hy₀, hry, hey⟩ | ⟨u', a', b', ha', hb', -, hry, hey⟩
         · obtain ⟨l, k, p, c, hmk⟩ := hSb y₀ hy₀
           rw [hry, ← hxy, hrx] at hmk
           cases hmk
@@ -2233,8 +2312,8 @@ theorem AggQueryIn.builds_coherent {c n : ℕ} {κ : Fin n → ColKind} {l : Lis
     | zero => intro x y _ _ _ h; exact absurd h (Nat.not_lt_zero _)
     | succ N ihN =>
       intro x y hx hy hxy hN
-      rcases hx.root hSt with ⟨x₀, hx₀, hrx, hex⟩ | ⟨u, a, b, ha, hb, hna, hnb, hk, hrx, hex⟩
-      · rcases hy.root hSt with ⟨y₀, hy₀, hry, hey⟩ | ⟨u', a', b', ha', hb', hna', hnb', hk', hry, hey⟩
+      rcases hx.root hSt with ⟨x₀, hx₀, hrx, hex⟩ | ⟨u, a, b, ha, hb, hj, hrx, hex⟩
+      · rcases hy.root hSt with ⟨y₀, hy₀, hry, hey⟩ | ⟨u', a', b', ha', hb', hj', hry, hey⟩
         · have hf₀ : x₀.fam.family = y₀.fam.family := by
             rw [hrx, hry, FamId.family_root, FamId.family_root, hxy]
           rw [hex, hey, AggTok.classKey_postcompTerms, AggTok.classKey_postcompTerms]
@@ -2246,13 +2325,13 @@ theorem AggQueryIn.builds_coherent {c n : ℕ} {κ : Fin n → ColKind} {l : Lis
           rw [hry, FamId.pair.sizeOf_spec] at hsz
           have hfy : y.fam.family = a'.fam.family := by
             rw [← FamId.family_root, hry]; rfl
-          rw [hey, AggTok.classKey_postcompTerms, AggTok.classKey_pairTerm u' hna' hnb' hk']
+          rw [hey, AggTok.classKey_postcompTerms, AggTok.classKey_pairTerm u' hj']
           exact ihN x a' hx ha' (hxy.trans hfy) (by omega)
       · have hsz := FamId.sizeOf_root_le x.fam
         rw [hrx, FamId.pair.sizeOf_spec] at hsz
         have hfx : x.fam.family = a.fam.family := by
           rw [← FamId.family_root, hrx]; rfl
-        rw [hex, AggTok.classKey_postcompTerms, AggTok.classKey_pairTerm u hna hnb hk]
+        rw [hex, AggTok.classKey_postcompTerms, AggTok.classKey_pairTerm u hj]
         exact ihN a y ha hy (hfx.symm.trans hxy) (by omega)
   intro x y hx hy hxy
   exact keyK _ x y hx hy hxy (Nat.lt_succ_self _)

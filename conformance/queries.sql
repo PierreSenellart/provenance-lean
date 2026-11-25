@@ -134,6 +134,10 @@ SELECT dept, sal, count(*) FROM emp GROUP BY dept, sal;
 SELECT min(sal), max(sal), count(sal) FROM emp;
 -- name: group_sum_expr
 SELECT dept, sum(sal + 1) FROM emp GROUP BY dept;
+-- name: agg_expr
+SELECT dept, sum(sal) + count(*) FROM emp GROUP BY dept;
+-- name: agg_expr_having
+SELECT dept, sum(sal) - count(sal) FROM emp GROUP BY dept HAVING count(*) >= 2;
 -- name: having_and
 SELECT dept FROM emp GROUP BY dept HAVING count(*) >= 2 AND sum(sal) > 100;
 -- name: having_or
