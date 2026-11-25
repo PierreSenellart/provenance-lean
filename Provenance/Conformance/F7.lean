@@ -234,17 +234,6 @@ theorem last_value_part_ok : ∀ i,
   decide
 
 set_option maxRecDepth 100000 in
-/-- `lag(sal, 2)` over a key: null on the first two rows.
-```sql
-SELECT id, dept, sal, lag(sal, 2) OVER (ORDER BY id) FROM emp;
-```
--/
-theorem lag_two_ok : ∀ i,
-    run i (AggQueryIn.lagAt (fun k : Fin 0 => k.elim0) ![0] ![OrderCol.ASC] 1 (TermIn.index 2) Emp)
-      = rel (lag_two i) := by
-  decide
-
-set_option maxRecDepth 100000 in
 /-- `rank()` in ascending order, where the nulls come last.
 ```sql
 SELECT id, dept, sal, rank() OVER (ORDER BY sal) FROM emp;

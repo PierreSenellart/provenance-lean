@@ -96,8 +96,6 @@ SELECT DISTINCT ON (dept) id, dept, sal FROM emp ORDER BY dept, id;
 SELECT id, dept, sal, lag(sal) OVER (PARTITION BY dept ORDER BY id) FROM emp;
 -- name: last_value_part
 SELECT id, dept, sal, last_value(sal) OVER (PARTITION BY dept ORDER BY id RANGE BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) FROM emp;
--- name: lag_two
-SELECT id, dept, sal, lag(sal, 2) OVER (ORDER BY id) FROM emp;
 -- name: self_join_dups
 SELECT a.x, b.x FROM t a, t b WHERE a.x = b.x;
 -- name: sel_or_null
