@@ -136,4 +136,44 @@ theorem having_min_ok : ∀ i,
       = rel (having_min i) := by
   decide
 
+set_option maxRecDepth 100000 in
+/-- `IS NULL` on an aggregate: the group whose salaries are all null.
+```sql
+SELECT dept FROM emp GROUP BY dept HAVING sum(sal) IS NULL;
+```
+-/
+theorem having_sum_is_null_ok : ∀ i,
+    run i (AggQueryIn.Proj ![ProjColIn.term (TermGIn.index 0 rfl)]
+        (AggQueryIn.Sel (GenPredIn.aggCmp 1 rfl CompOp.syneq (TermGIn.const nil))
+          (AggQueryIn.Gamma (lab := 0) (rd := fun _ => false) ![1] ![TermIn.index 2] ![sumAgg] Emp)))
+      = rel (having_sum_is_null i) := by
+  decide
+
+set_option maxRecDepth 100000 in
+/-- `IS NOT NULL` on an aggregate: the groups with a salary, a null one beside it or not.
+```sql
+SELECT dept FROM emp GROUP BY dept HAVING sum(sal) IS NOT NULL;
+```
+-/
+theorem having_sum_is_not_null_ok : ∀ i,
+    run i (AggQueryIn.Proj ![ProjColIn.term (TermGIn.index 0 rfl)]
+        (AggQueryIn.Sel (GenPredIn.aggCmp 1 rfl CompOp.synne (TermGIn.const nil))
+          (AggQueryIn.Gamma (lab := 0) (rd := fun _ => false) ![1] ![TermIn.index 2] ![sumAgg] Emp)))
+      = rel (having_sum_is_not_null i) := by
+  decide
+
+set_option maxRecDepth 100000 in
+/-- `IS NULL` on a scalar aggregate: its one row, over no row at all, is null.
+```sql
+SELECT count(*) FROM emp HAVING max(sal) IS NULL;
+```
+-/
+theorem having_scalar_max_is_null_ok : ∀ i,
+    run i (AggQueryIn.Proj ![ProjColIn.token 0 rfl]
+        (AggQueryIn.Sel (GenPredIn.aggCmp 1 rfl CompOp.syneq (TermGIn.const nil))
+          (AggQueryIn.GammaScalar (lab := 0) (rd := fun _ => false)
+            ![TermIn.const (val 1), TermIn.index 2] ![cnt, maxAgg] Emp)))
+      = rel (having_scalar_max_is_null i) := by
+  decide
+
 end Conformance

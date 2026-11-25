@@ -212,6 +212,12 @@ SELECT dept, (array_agg(sal ORDER BY id DESC))[1] FROM emp GROUP BY dept;
 SELECT dept FROM emp GROUP BY dept HAVING max(sal) >= 100;
 -- name: having_min
 SELECT dept FROM emp GROUP BY dept HAVING min(sal) < 60;
+-- name: having_sum_is_null
+SELECT dept FROM emp GROUP BY dept HAVING sum(sal) IS NULL;
+-- name: having_sum_is_not_null
+SELECT dept FROM emp GROUP BY dept HAVING sum(sal) IS NOT NULL;
+-- name: having_scalar_max_is_null
+SELECT count(*) FROM emp HAVING max(sal) IS NULL;
 -- name: exists_value
 SELECT d, name, CASE WHEN EXISTS (SELECT 1 FROM emp WHERE emp.dept = dept.d) THEN 1 ELSE 0 END FROM dept;
 -- name: setop_limit
