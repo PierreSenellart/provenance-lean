@@ -192,6 +192,7 @@ def boolean_evaluable(cur, u):
         cur.execute(f"SELECT provsql.sr_boolean(%s::uuid, '{TRK}.worlds_map')", (u,))
     except psycopg.Error:
         cur.execute("ROLLBACK TO SAVEPOINT b")
+        cur.execute("RELEASE SAVEPOINT b")
         return False
     cur.execute("RELEASE SAVEPOINT b")
     return True
@@ -240,6 +241,7 @@ def run_tracked(conn, cur, name, sql):
         cur.execute(f"CREATE TABLE {TRK}.res_{name} ({names}) AS {body}")
     except psycopg.Error as e:
         cur.execute("ROLLBACK TO SAVEPOINT q")
+        cur.execute("RELEASE SAVEPOINT q")
         return None, f"{e.diag.message_primary}", warnings
     finally:
         conn.remove_notice_handler(on_notice)
@@ -288,6 +290,7 @@ def plain_answer(cur, sql):
         out = Counter(tuple(norm(v) for v in r) for r in cur.fetchall())
     except psycopg.Error as e:
         cur.execute("ROLLBACK TO SAVEPOINT p")
+        cur.execute("RELEASE SAVEPOINT p")
         return None, e.diag.message_primary
     cur.execute("RELEASE SAVEPOINT p")
     return out, None
