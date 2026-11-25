@@ -3577,24 +3577,93 @@ def AggQueryIn.stripAgg : {c n : ℕ} → {κ : Fin n → ColKind} → {l : List
   | _, _, _, _, WinExpr (lab := lab) (rd := rd) P O o ws ts fs g q keeps =>
       WinExpr (hsql := sql_frame%) (lab := lab) (rd := rd) P O o ws ts fs g q.stripAgg keeps
 
+/-- **Two columns one world reads together**, read off the query: two
+aggregate columns of one grouping, a selection in between or not. This is
+what a term over two aggregate columns asks of the columns it names; it
+is a sufficient condition, and the one `SELECT sum(x) + count(*) … GROUP
+BY … HAVING …` meets. -/
+def AggQueryIn.jointCols : {c n : ℕ} → {κ : Fin n → ColKind} → {l : List (String × ℕ)} →
+    AggQueryIn T c n κ l → Fin n → Fin n → Prop
+  | _, _, _, _, @AggQueryIn.Gamma _ _ _ n₁ _ _ _ _ _ _ _ _ _, k₁, k₂ =>
+      ∃ j₁ j₂, k₁ = Fin.natAdd n₁ j₁ ∧ k₂ = Fin.natAdd n₁ j₂
+  | _, _, _, _, .GammaScalar _ _ _ _, _, _ => True
+  | _, _, _, _, .Sel _ q _, k₁, k₂ => q.jointCols k₁ k₂
+  | _, _, _, _, _, _, _ => False
+
+omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
+/-- A value stamped by an operator reads as the value it was. -/
+private theorem AggTok.length_flatExpr_setFam (φ : FamId T) (ids : Option (List (OccId T)))
+    (x : AggTok T K) :
+    (x.setFam φ ids).flatExpr.occs.length = x.flatExpr.occs.length := by
+  cases x <;> simp [AggTok.setFam, AggTok.flatExpr, AggExpr.ofValue]
+
+/-- **Columns read off as joint hold values one world reads together.** -/
+theorem AggQueryIn.jointCols_spec :
+    ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l)
+      (k₁ k₂ : Fin n), q.jointCols k₁ k₂ →
+      ∀ (d : AnnotatedDatabase T K) {γ : Fin c → T} (E : EvalEnv T K) (r : GenRow T K n),
+      r ∈ q.evaluate d γ E →
+        ∃ x y, r.fst k₁ = Sum.inr x ∧ r.fst k₂ = Sum.inr y ∧ AggTok.Joint x y := by
+  intro c n κ l q
+  induction q with
+  | Gamma is ts fs q keep ord ih =>
+    rintro k₁ k₂ ⟨j₁, j₂, rfl, rfl⟩ d γ E r hr
+    simp only [AggQueryIn.evaluate] at hr
+    obtain ⟨kv, -, rfl⟩ := Multiset.mem_map.mp hr
+    refine ⟨_, _, by dsimp only; rw [Fin.append_right], by dsimp only; rw [Fin.append_right],
+      ?_, ?_, ?_, ?_, ?_⟩
+    · rw [AggTok.isNested_setFam]; cases keep j₁ <;> rfl
+    · rw [AggTok.isNested_setFam]; cases keep j₂ <;> rfl
+    · rw [AggTok.fam_setFam, AggTok.fam_setFam]; rfl
+    · rw [AggTok.length_flatExpr_setFam, AggTok.length_flatExpr_setFam]
+      cases keep j₁ <;> cases keep j₂ <;>
+        simp [AggTok.flatExpr, AggExpr.ofValue, AggValue.ofGroup, AggExpr.occs_ofGroupWhen]
+    · cases keep j₁ <;> cases keep j₂ <;>
+        simp [AggTok.flatExpr, AggTok.setFam, AggExpr.ofValue, AggValue.ofGroup, AggExpr.annList,
+          AggExpr.occs_ofGroupWhen]
+  | GammaScalar ts fs q ord ih =>
+    intro k₁ k₂ _ d γ E r hr
+    simp only [AggQueryIn.evaluate] at hr
+    rw [Multiset.mem_singleton] at hr
+    subst hr
+    refine ⟨_, _, rfl, rfl, ?_, ?_, ?_, ?_, ?_⟩
+    · rw [AggTok.isNested_setFam]; rfl
+    · rw [AggTok.isNested_setFam]; rfl
+    · rw [AggTok.fam_setFam, AggTok.fam_setFam]; rfl
+    · rw [AggTok.length_flatExpr_setFam, AggTok.length_flatExpr_setFam]
+      simp [AggTok.flatExpr, AggExpr.ofValue, AggValue.ofScalarGroup, AggValue.ofGroup]
+    · simp [AggTok.flatExpr, AggTok.setFam, AggExpr.ofValue, AggValue.ofScalarGroup,
+        AggValue.ofGroup, AggExpr.annList]
+  | Sel φ q _ ih =>
+    intro k₁ k₂ h d γ E r hr
+    simp only [AggQueryIn.evaluate] at hr
+    by_cases hφ : φ.hasAggAtom
+    · rw [ite_eq_left hφ] at hr
+      obtain ⟨r₀, hr₀, rfl⟩ := Multiset.mem_map.mp hr
+      exact ih k₁ k₂ h d E r₀ hr₀
+    · rw [ite_eq_right hφ] at hr
+      exact ih k₁ k₂ h d E r (Multiset.mem_of_mem_filter hr)
+  | _ => intro k₁ k₂ h; exact h.elim
+
 /-- No plan-level provenance aggregation. The possible-world
 metatheorems (random-world commutation, PQE) are about source queries;
 `ProvSum` is a rewriting-target operator whose deterministic group sum
 is not world-faithful – exactly as the classical `Agg` was excluded from
 the annotated evaluators.
 
-A term over two aggregate columns (`ProjColIn.aggPairOf`) is excluded
-with it: those metatheorems are not stated for it. Its reading in a world
-is the term of the two readings when the two columns are read together
-(`AggExpr.specialize_pair`), which a query has to guarantee
-(`AggQueryIn.jointCols`). -/
+A term over two aggregate columns (`ProjColIn.aggPairOf`) has to name
+two columns that one world reads together (`AggQueryIn.jointCols`): its
+reading in a world is then the term of the two readings
+(`AggExpr.specialize_pair`). As the column of a second-level aggregation
+it is excluded. -/
 def AggQueryIn.noProvSum : {c n : ℕ} → {κ : Fin n → ColKind} → {l : List (String × ℕ)} →
     AggQueryIn T c n κ l → Prop
   | _, _, _, _, .Rel _ _ => True
   | _, _, _, _, .Hole _ _ _ => True
   | _, _, _, _, .Param _ _ => True
   | _, _, _, _, .Empty => True
-  | _, _, _, _, .Proj ps q => (∀ j, (ps j).isPair = false) ∧ q.noProvSum
+  | _, _, _, _, .Proj ps q =>
+      (∀ j k₁ k₂ h₁ h₂ t, ps j = .aggPairOf k₁ k₂ h₁ h₂ t → q.jointCols k₁ k₂) ∧ q.noProvSum
   | _, _, _, _, .Sel _ q _ => q.noProvSum
   | _, _, _, _, .Prod q₁ q₂ => q₁.noProvSum ∧ q₂.noProvSum
   | _, _, _, _, .Apply q₁ q₂ => q₁.noProvSum ∧ q₂.noProvSum

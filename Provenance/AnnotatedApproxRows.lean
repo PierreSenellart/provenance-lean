@@ -413,7 +413,8 @@ private theorem AggQueryIn.noProvSum_of_usesOnly {S : Set OpKind} :
   intro c n κ l q
   induction q with
   | Proj ps q ih =>
-    exact fun h => ⟨fun j => ProjColIn.isPair_of_sourceCol (h.1.2 j), ih h.2⟩
+    exact fun h => ⟨fun j _ _ _ _ _ hp =>
+      absurd (h.1.2 j) (by rw [hp]; simp [ProjColIn.sourceCol]), ih h.2⟩
   | GammaNest is his p f q ih =>
     exact fun h => ⟨ProjColIn.isPair_of_sourceCol h.1.2, ih h.2⟩
   | _ => simp_all [AggQueryIn.usesOnly, AggQueryIn.noProvSum]

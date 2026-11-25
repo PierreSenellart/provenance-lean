@@ -173,6 +173,17 @@ theorem aggExprQ_sourceCols : aggExprQ.sourceCols := by
     cases h
     exact ⟨0, 1, rfl, rfl⟩
 
+/-- And what the possible-worlds theorems ask (`AggQueryIn.noProvSum`). -/
+theorem aggExprQ_noProvSum : aggExprQ.noProvSum := by
+  refine ⟨fun j => ?_, trivial⟩
+  refine Fin.cases ?_ (fun j' => ?_) j
+  · exact fun _ _ _ _ _ h => by cases h
+  · have h0 : j' = 0 := Fin.fin_one_eq_zero j'
+    subst h0
+    intro k₁ k₂ h₁ h₂ t h
+    cases h
+    exact ⟨0, 1, rfl, rfl⟩
+
 set_option maxRecDepth 100000 in
 /-- The same under a `HAVING`: the selection sits between the grouping and the term.
 ```sql

@@ -1844,6 +1844,19 @@ private theorem AggTok.realized_pairCol (t : TermIn T 2 0) {x y : AggTok T (Bool
     exact j.elim0
 
 omit [Fintype X] [DecidableEq X] in
+/-- **A term over two values read together, in the world a valuation
+realizes**, is the term of the two values there: the two carry the same
+annotations, so the valuation keeps the same occurrences of both. -/
+private theorem AggTok.specialize_pairCol (t : TermIn T 2 0) {x y : AggTok T (BoolFunc X)}
+    (v : X → Bool) (hj : AggTok.Joint x y) :
+    (x.pairCol t y).specialize (fun α => α v)
+      = t.binary (x.specialize (fun α => α v)) (y.specialize (fun α => α v)) := by
+  have hsf : AggExpr.SameFamily x.flatExpr y.flatExpr := hj.2.2.2.2.symm
+  rw [AggTok.pairCol, ite_eq_left hj, ← AggTok.flatExpr_specialize hj.1 v,
+    ← AggTok.flatExpr_specialize hj.2.1 v, ← AggExpr.specialize_pair _ _ t.binary hsf]
+  rfl
+
+omit [Fintype X] [DecidableEq X] in
 /-- **The column a projection reads is realized where the row is**: a
 term reads no token at all, and the two token cases read a column of the
 row itself – through a function in the second, which
@@ -2806,15 +2819,23 @@ private theorem genRandomWorld_allReg {c n : ℕ} {l : List (String × ℕ)}
 
 omit [Fintype X] [DecidableEq X] [HasAltLinearOrder (BoolFunc X)] in
 /-- A projection column specializes to its plain reading on the
-specialized tuple. -/
+specialized tuple, a term over two aggregate columns where the two are
+read together. -/
 private lemma ProjColIn.specializeAt_eval {c n : ℕ} {κ : Fin n → ColKind}
     (pc : ProjColIn T c κ) (u : Tuple (GenValue T (BoolFunc X)) n)
     (hconf : ∀ k, GenValue.kindOf (u k) = (κ k).base) (v : X → Bool)
-    {γ : Fin c → T} (hpair : pc.isPair = false) :
+    {γ : Fin c → T}
+    (hpair : ∀ k₁ k₂ h₁ h₂ t, pc = .aggPairOf k₁ k₂ h₁ h₂ t →
+      ∃ x y, u k₁ = Sum.inr x ∧ u k₂ = Sum.inr y ∧ AggTok.Joint x y) :
     GenValue.specializeAt v (pc.eval u γ)
       = pc.evalPlain (GenRow.specializeTuple v u) γ := by
   cases pc with
-  | aggPairOf _ _ _ _ _ => exact absurd hpair (by simp [ProjColIn.isPair])
+  | aggPairOf k₁ k₂ h₁ h₂ t =>
+    obtain ⟨x, y, hx, hy, hj⟩ := hpair k₁ k₂ h₁ h₂ t rfl
+    show GenValue.specializeAt v (ProjColIn.eval (.aggPairOf k₁ k₂ h₁ h₂ t) u γ)
+      = t.binary (GenValue.specializeAt v (u k₁)) (GenValue.specializeAt v (u k₂))
+    simp only [ProjColIn.eval, hx, hy]
+    exact AggTok.specialize_pairCol t v hj
   | term t =>
     show GenValue.specializeAt v (Sum.inl (t.eval u γ)) = _
     exact TermGIn.eval_specialize t u hconf v
@@ -3929,7 +3950,9 @@ theorem AggQueryIn.genRandomWorld_evaluate_env :
             (GenRow.specializeTuple v (E.ctxAt _ γ))
       funext j
       rw [← ProjColIn.evalPlain_congr_outerOk (hE.ctx_ok v) _ (ps j) (hwk.1 j)]
-      exact ProjColIn.specializeAt_eval (ps j) r.fst hconf v (hq.1 j)
+      exact ProjColIn.specializeAt_eval (ps j) r.fst hconf v
+        (fun k₁ k₂ h₁ h₂ t hp => q.jointCols_spec k₁ k₂ (hq.1 j k₁ k₂ h₁ h₂ t hp) d E r
+          (Multiset.mem_of_mem_filter hr))
   | Sel φ q _ ih =>
     intro hq hh ρc HK hwk d v γ E D N hE hG hD hN hH hr
     simp only [AggQueryIn.evaluate, AggQueryIn.evaluatePlain]
@@ -4331,7 +4354,8 @@ theorem AggQueryIn.genRandomWorld_evaluate_env :
           exact ⟨hfin, (hkeyspec row hrow).symm.trans hspec⟩
       · -- and the occurrence reads what the realized row reads
         have hrow' : row ∈ rows := (Multiset.mem_filter.mp hrow).1
-        exact ProjColIn.specializeAt_eval p row.fst (hconf row hrow') v hq.1
+        exact ProjColIn.specializeAt_eval p row.fst (hconf row hrow') v
+          (fun _ _ _ _ _ hp => absurd hq.1 (by rw [hp]; simp))
   | @Gamma cI m n₁ n₂ _lab _rd is ts fs q keep ord ih =>
     intro hq hh ρc HK hwk d v γ E D N hE hG hD hN hH hr
     simp only [AggQueryIn.evaluate, AggQueryIn.evaluatePlain]
