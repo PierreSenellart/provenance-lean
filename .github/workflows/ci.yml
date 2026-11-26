@@ -64,3 +64,10 @@ jobs:
       # (Mathlib is in the closure) and `lake build`.
       - name: Build
         uses: leanprover/lean-action@v1
+
+      # The check of the annotated semantics against ProvSQL, a library of its
+      # own outside the default target (see `lakefile.lean`): it evaluates
+      # every conformance query in the kernel, which takes several minutes.
+      # It reuses what the step above built.
+      - name: Annotated conformance
+        run: lake build ConformanceAnn

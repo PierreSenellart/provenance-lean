@@ -32,3 +32,12 @@ require "descriptive-complexity" from git
 @[default_target]
 lean_lib «Provenance» where
   -- add any library configuration options here
+
+-- The check of the annotated semantics against ProvSQL
+-- (`Provenance.Conformance.Ann`), outside the default target: its proofs
+-- evaluate every conformance query in the kernel, up to 4 GB a module. Its
+-- modules import one another in a chain, so that Lake checks them one at a
+-- time, and each elaborates its theorems one at a time (`Elab.async false`),
+-- so that the memory stays that of one proof.
+lean_lib «ConformanceAnn» where
+  roots := #[`Provenance.Conformance.Ann]

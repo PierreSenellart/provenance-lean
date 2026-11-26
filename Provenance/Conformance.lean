@@ -44,4 +44,8 @@ kernel – a cast on its column kinds, or the enumeration of a grouping set –
 the proof first rewrites with the lemma of `Provenance.Derived` that says
 what the operator computes, so that the test is still of the operator the
 library defines.
+
+The annotated semantics is checked against ProvSQL on the same queries, with
+the same terms, in `Provenance.Conformance.Ann`, a library of its own
+(`ConformanceAnn`) outside the default target.
 -/
